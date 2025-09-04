@@ -1,6 +1,8 @@
 import argparse
 import os
 import sys
+import json
+import re
 
 import numpy as np
 import torch
@@ -72,7 +74,12 @@ def load_image(image_path):
 
 def load_model(model_config_path, model_checkpoint_path, cpu_only=False):
     args = SLConfig.fromfile(model_config_path)
-    args.device = "cuda" if not cpu_only else "cpu"
+    if not cpu_only and torch.backends.mps.is_available():
+        args.device = "mps"
+    elif not cpu_only and torch.cuda.is_available():
+        args.device = "cuda"
+    else:
+        args.device = "cpu"
     model = build_model(args)
     checkpoint = torch.load(model_checkpoint_path, map_location="cpu")
     load_res = model.load_state_dict(clean_state_dict(checkpoint["model"]), strict=False)
@@ -87,7 +94,13 @@ def get_grounding_output(model, image, caption, box_threshold, text_threshold=No
     caption = caption.strip()
     if not caption.endswith("."):
         caption = caption + "."
-    device = "cuda" if not cpu_only else "cpu"
+    if not cpu_only and torch.backends.mps.is_available():
+        device = "mps"
+    elif not cpu_only and torch.cuda.is_available():
+        device = "cuda"
+    else:
+        device = "cpu"
+    print("Running on device:", device)
     model = model.to(device)
     image = image.to(device)
     with torch.no_grad():
@@ -212,3 +225,51 @@ if __name__ == "__main__":
     # import ipdb; ipdb.set_trace()
     image_with_box = plot_boxes_to_image(image_pil, pred_dict)[0]
     image_with_box.save(os.path.join(output_dir, "pred.jpg"))
+
+    # --- Write structured analysis alongside the image ---
+    # Build a detection list with parsed labels/scores and both normalized and pixel bboxes
+    W, H = image_pil.size  # width, height
+    detections = []
+    for box, label in zip(boxes_filt, pred_phrases):
+        # `label` often looks like "a cat(0.36)"; parse out score if present
+        m = re.search(r"\((0?\.?\d+(?:\.\d+)?)\)$", label)
+        score = float(m.group(1)) if m else None
+        phrase = re.sub(r"\(0?\.?\d+(?:\.\d+)?\)$", "", label).strip()
+
+        cx, cy, w, h = [float(v) for v in box.tolist()]  # normalized cx,cy,w,h
+        # convert to pixel xyxy
+        x0 = int((cx - w / 2) * W)
+        y0 = int((cy - h / 2) * H)
+        x1 = int((cx + w / 2) * W)
+        y1 = int((cy + h / 2) * H)
+
+        detections.append({
+            "label": phrase,
+            "score": score,
+            "bbox_norm": [cx, cy, w, h],           # normalized cx,cy,w,h (0..1)
+            "bbox_xyxy": [x0, y0, x1, y1]          # pixel coordinates
+        })
+
+    summary = {
+        "image_path": image_path,
+        "text_prompt": text_prompt,
+        "box_threshold": box_threshold,
+        "text_threshold": text_threshold,
+        "size": {"width": W, "height": H},
+        "detections": detections,
+    }
+
+    # Save JSON file
+    json_path = os.path.join(output_dir, "pred.json")
+    with open(json_path, "w") as f:
+        json.dump(summary, f, indent=2)
+
+    # Also save a simple TSV for quick grepping/spreadsheets
+    tsv_path = os.path.join(output_dir, "pred.tsv")
+    with open(tsv_path, "w") as f:
+        f.write("label\tscore\tcx\tcy\tw\th\tx0\ty0\tx1\ty1\n")
+        for d in detections:
+            s = "" if d["score"] is None else f"{d['score']:.4f}"
+            cx, cy, w, h = d["bbox_norm"]
+            x0, y0, x1, y1 = d["bbox_xyxy"]
+            f.write(f"{d['label']}\t{s}\t{cx:.6f}\t{cy:.6f}\t{w:.6f}\t{h:.6f}\t{x0}\t{y0}\t{x1}\t{y1}\n")
