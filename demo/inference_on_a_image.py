@@ -16,6 +16,80 @@ from groundingdino.util.utils import clean_state_dict, get_phrases_from_posmap
 from groundingdino.util.vl_utils import create_positive_map_from_span
 
 
+def extract_chip(image_pil, bbox_xyxy, margin_percent=0.15):
+    """
+    Extract a chip (crop) from the image with a context margin.
+
+    Args:
+        image_pil: PIL Image object
+        bbox_xyxy: [x0, y0, x1, y1] in pixel coordinates
+        margin_percent: Percentage of bbox size to add as margin (0.15 = 15%)
+
+    Returns:
+        chip: Cropped PIL Image
+        chip_bbox: [x0, y0, x1, y1] actual crop coordinates used
+    """
+    W, H = image_pil.size
+    x0, y0, x1, y1 = bbox_xyxy
+
+    # Calculate box dimensions
+    box_width = x1 - x0
+    box_height = y1 - y0
+
+    # Calculate margin in pixels
+    margin_x = int(box_width * margin_percent)
+    margin_y = int(box_height * margin_percent)
+
+    # Expand bbox with margin, but clip to image bounds
+    chip_x0 = max(0, x0 - margin_x)
+    chip_y0 = max(0, y0 - margin_y)
+    chip_x1 = min(W, x1 + margin_x)
+    chip_y1 = min(H, y1 + margin_y)
+
+    # Crop the image
+    chip = image_pil.crop((chip_x0, chip_y0, chip_x1, chip_y1))
+
+    return chip, [chip_x0, chip_y0, chip_x1, chip_y1]
+
+
+def calculate_chip_quality_metrics(chip):
+    """
+    Calculate basic quality metrics for a chip.
+
+    Args:
+        chip: PIL Image
+
+    Returns:
+        dict with quality metrics
+    """
+    # Convert to numpy array
+    chip_np = np.array(chip.convert('L'))  # Convert to grayscale for analysis
+
+    # Sharpness metric (variance of Laplacian)
+    from scipy import ndimage
+    laplacian = ndimage.laplace(chip_np)
+    sharpness = laplacian.var()
+
+    # Exposure metrics
+    mean_intensity = chip_np.mean()
+    std_intensity = chip_np.std()
+
+    # Simple contrast metric
+    contrast = chip_np.max() - chip_np.min()
+
+    # Convert numpy types to Python native types for JSON serialization
+    return {
+        'sharpness': float(sharpness),
+        'mean_intensity': float(mean_intensity),
+        'std_intensity': float(std_intensity),
+        'contrast': int(contrast),
+        'is_blurry': bool(sharpness < 100),  # Convert numpy bool to Python bool
+        'is_overexposed': bool(mean_intensity > 240),
+        'is_underexposed': bool(mean_intensity < 15),
+        'is_low_contrast': bool(contrast < 50)
+    }
+
+
 def plot_boxes_to_image(image_pil, tgt):
     H, W = tgt["size"]
     boxes = tgt["boxes"]
@@ -57,6 +131,48 @@ def plot_boxes_to_image(image_pil, tgt):
     return image_pil, mask
 
 
+def create_thumbnail_with_masks(image_pil, detections, size=384):
+    """
+    Create a thumbnail of the image with detection masks overlaid.
+
+    Args:
+        image_pil: Original PIL Image
+        detections: List of detection dicts with bbox_xyxy
+        size: Target size for thumbnail (will maintain aspect ratio)
+
+    Returns:
+        thumbnail: PIL Image with masks overlaid
+    """
+    # Create a copy and resize
+    thumbnail = image_pil.copy()
+    thumbnail.thumbnail((size, size), Image.Resampling.LANCZOS)
+
+    # Calculate scaling factor
+    scale_x = thumbnail.width / image_pil.width
+    scale_y = thumbnail.height / image_pil.height
+
+    # Draw masks on thumbnail
+    draw = ImageDraw.Draw(thumbnail, 'RGBA')
+
+    for i, det in enumerate(detections):
+        x0, y0, x1, y1 = det['bbox_xyxy']
+        # Scale coordinates
+        x0_scaled = int(x0 * scale_x)
+        y0_scaled = int(y0 * scale_y)
+        x1_scaled = int(x1 * scale_x)
+        y1_scaled = int(y1 * scale_y)
+
+        # Use different colors for each detection
+        color = tuple(np.random.RandomState(i).randint(100, 255, size=3).tolist())
+        # Semi-transparent overlay
+        draw.rectangle([x0_scaled, y0_scaled, x1_scaled, y1_scaled],
+                       outline=color + (255,), width=2)
+        draw.rectangle([x0_scaled, y0_scaled, x1_scaled, y1_scaled],
+                       fill=color + (50,))
+
+    return thumbnail
+
+
 def load_image(image_path):
     # load image
     image_pil = Image.open(image_path).convert("RGB")  # load image
@@ -88,7 +204,8 @@ def load_model(model_config_path, model_checkpoint_path, cpu_only=False):
     return model
 
 
-def get_grounding_output(model, image, caption, box_threshold, text_threshold=None, with_logits=True, cpu_only=False, token_spans=None):
+def get_grounding_output(model, image, caption, box_threshold, text_threshold=None, with_logits=True, cpu_only=False,
+                         token_spans=None):
     assert text_threshold is not None or token_spans is not None, "text_threshould and token_spans should not be None at the same time!"
     caption = caption.lower()
     caption = caption.strip()
@@ -132,9 +249,9 @@ def get_grounding_output(model, image, caption, box_threshold, text_threshold=No
         positive_maps = create_positive_map_from_span(
             model.tokenizer(text_prompt),
             token_span=token_spans
-        ).to(image.device) # n_phrase, 256
+        ).to(image.device)  # n_phrase, 256
 
-        logits_for_phrases = positive_maps @ logits.T # n_phrase, nq
+        logits_for_phrases = positive_maps @ logits.T  # n_phrase, nq
         all_logits = []
         all_phrases = []
         all_boxes = []
@@ -155,7 +272,6 @@ def get_grounding_output(model, image, caption, box_threshold, text_threshold=No
         boxes_filt = torch.cat(all_boxes, dim=0).cpu()
         pred_phrases = all_phrases
 
-
     return boxes_filt, pred_phrases
 
 
@@ -175,13 +291,21 @@ if __name__ == "__main__":
     parser.add_argument("--box_threshold", type=float, default=0.3, help="box threshold")
     parser.add_argument("--text_threshold", type=float, default=0.25, help="text threshold")
     parser.add_argument("--token_spans", type=str, default=None, help=
-                        "The positions of start and end positions of phrases of interest. \
-                        For example, a caption is 'a cat and a dog', \
-                        if you would like to detect 'cat', the token_spans should be '[[[2, 5]], ]', since 'a cat and a dog'[2:5] is 'cat'. \
-                        if you would like to detect 'a cat', the token_spans should be '[[[0, 1], [2, 5]], ]', since 'a cat and a dog'[0:1] is 'a', and 'a cat and a dog'[2:5] is 'cat'. \
-                        ")
+    "The positions of start and end positions of phrases of interest. \
+    For example, a caption is 'a cat and a dog', \
+    if you would like to detect 'cat', the token_spans should be '[[[2, 5]], ]', since 'a cat and a dog'[2:5] is 'cat'. \
+    if you would like to detect 'a cat', the token_spans should be '[[[0, 1], [2, 5]], ]', since 'a cat and a dog'[0:1] is 'a', and 'a cat and a dog'[2:5] is 'cat'. \
+    ")
 
     parser.add_argument("--cpu-only", action="store_true", help="running on cpu only!, default=False")
+
+    # New arguments for chip extraction
+    parser.add_argument("--extract-chips", action="store_true", help="Extract and save detection chips")
+    parser.add_argument("--chip-margin", type=float, default=0.15, help="Context margin for chips (0.15 = 15%)")
+    parser.add_argument("--chip-quality", action="store_true", help="Calculate quality metrics for chips")
+    parser.add_argument("--create-thumbnail", action="store_true", help="Create thumbnail with masks overlay")
+    parser.add_argument("--thumbnail-size", type=int, default=384, help="Size for thumbnail with masks")
+
     args = parser.parse_args()
 
     # cfg
@@ -196,6 +320,12 @@ if __name__ == "__main__":
 
     # make dir
     os.makedirs(output_dir, exist_ok=True)
+
+    # Create chips subdirectory if extracting chips
+    if args.extract_chips:
+        chips_dir = os.path.join(output_dir, "chips")
+        os.makedirs(chips_dir, exist_ok=True)
+
     # load image
     image_pil, image = load_image(image_path)
     # load model
@@ -209,10 +339,10 @@ if __name__ == "__main__":
         text_threshold = None
         print("Using token_spans. Set the text_threshold to None.")
 
-
     # run model
     boxes_filt, pred_phrases = get_grounding_output(
-        model, image, text_prompt, box_threshold, text_threshold, cpu_only=args.cpu_only, token_spans=eval(f"{token_spans}")
+        model, image, text_prompt, box_threshold, text_threshold, cpu_only=args.cpu_only,
+        token_spans=eval(f"{token_spans}")
     )
 
     # visualize pred
@@ -230,7 +360,9 @@ if __name__ == "__main__":
     # Build a detection list with parsed labels/scores and both normalized and pixel bboxes
     W, H = image_pil.size  # width, height
     detections = []
-    for box, label in zip(boxes_filt, pred_phrases):
+    chip_metadata = []
+
+    for idx, (box, label) in enumerate(zip(boxes_filt, pred_phrases)):
         # `label` often looks like "a cat(0.36)"; parse out score if present
         m = re.search(r"\((0?\.?\d+(?:\.\d+)?)\)$", label)
         score = float(m.group(1)) if m else None
@@ -243,12 +375,52 @@ if __name__ == "__main__":
         x1 = int((cx + w / 2) * W)
         y1 = int((cy + h / 2) * H)
 
-        detections.append({
+        detection_dict = {
             "label": phrase,
             "score": score,
-            "bbox_norm": [cx, cy, w, h],           # normalized cx,cy,w,h (0..1)
-            "bbox_xyxy": [x0, y0, x1, y1]          # pixel coordinates
-        })
+            "bbox_norm": [cx, cy, w, h],  # normalized cx,cy,w,h (0..1)
+            "bbox_xyxy": [x0, y0, x1, y1]  # pixel coordinates
+        }
+
+        # Extract chips if requested
+        if args.extract_chips:
+            chip, chip_bbox = extract_chip(image_pil, [x0, y0, x1, y1], args.chip_margin)
+
+            # Save chip
+            chip_filename = f"chip_{idx:03d}_{phrase.replace(' ', '_')}.jpg"
+            chip_path = os.path.join(chips_dir, chip_filename)
+            chip.save(chip_path, quality=95)  # High quality to preserve details
+
+            chip_info = {
+                "detection_idx": idx,
+                "filename": chip_filename,
+                "original_bbox": [x0, y0, x1, y1],
+                "chip_bbox": chip_bbox,
+                "margin_used": args.chip_margin,
+                "chip_size": [chip.width, chip.height]
+            }
+
+            # Calculate quality metrics if requested
+            if args.chip_quality:
+                try:
+                    from scipy import ndimage
+
+                    quality_metrics = calculate_chip_quality_metrics(chip)
+                    chip_info["quality_metrics"] = quality_metrics
+                except ImportError:
+                    print("Warning: scipy not installed, skipping quality metrics")
+
+            chip_metadata.append(chip_info)
+            detection_dict["chip_info"] = chip_info
+
+        detections.append(detection_dict)
+
+    # Create thumbnail with masks if requested
+    if args.create_thumbnail:
+        thumbnail = create_thumbnail_with_masks(image_pil, detections, args.thumbnail_size)
+        thumbnail_path = os.path.join(output_dir, "thumbnail_with_masks.jpg")
+        thumbnail.save(thumbnail_path)
+        print(f"Saved thumbnail with masks to {thumbnail_path}")
 
     summary = {
         "image_path": image_path,
@@ -259,17 +431,56 @@ if __name__ == "__main__":
         "detections": detections,
     }
 
+    # Add chip extraction info if chips were extracted
+    if args.extract_chips:
+        summary["chip_extraction"] = {
+            "enabled": True,
+            "margin_percent": args.chip_margin,
+            "chips_directory": chips_dir,
+            "total_chips": len(chip_metadata),
+            "quality_metrics_enabled": args.chip_quality
+        }
+
     # Save JSON file
     json_path = os.path.join(output_dir, "pred.json")
     with open(json_path, "w") as f:
         json.dump(summary, f, indent=2)
 
+    # Save separate chip metadata file if chips were extracted
+    if args.extract_chips:
+        chip_meta_path = os.path.join(chips_dir, "chip_metadata.json")
+        with open(chip_meta_path, "w") as f:
+            json.dump(chip_metadata, f, indent=2)
+        print(f"Extracted {len(chip_metadata)} chips to {chips_dir}")
+
     # Also save a simple TSV for quick grepping/spreadsheets
     tsv_path = os.path.join(output_dir, "pred.tsv")
     with open(tsv_path, "w") as f:
-        f.write("label\tscore\tcx\tcy\tw\th\tx0\ty0\tx1\ty1\n")
-        for d in detections:
+        f.write("label\tscore\tcx\tcy\tw\th\tx0\ty0\tx1\ty1")
+        if args.extract_chips:
+            f.write("\tchip_file")
+        f.write("\n")
+
+        for i, d in enumerate(detections):
             s = "" if d["score"] is None else f"{d['score']:.4f}"
             cx, cy, w, h = d["bbox_norm"]
             x0, y0, x1, y1 = d["bbox_xyxy"]
-            f.write(f"{d['label']}\t{s}\t{cx:.6f}\t{cy:.6f}\t{w:.6f}\t{h:.6f}\t{x0}\t{y0}\t{x1}\t{y1}\n")
+            f.write(f"{d['label']}\t{s}\t{cx:.6f}\t{cy:.6f}\t{w:.6f}\t{h:.6f}\t{x0}\t{y0}\t{x1}\t{y1}")
+            if args.extract_chips:
+                f.write(f"\t{chip_metadata[i]['filename']}")
+            f.write("\n")
+
+    print(f"Detection results saved to {output_dir}")
+    if args.extract_chips:
+        print(f"Quality filtering suggestions:")
+        if args.chip_quality and chip_metadata:
+            # Analyze quality metrics across all chips
+            blurry_count = sum(1 for c in chip_metadata if c.get('quality_metrics', {}).get('is_blurry', False))
+            overexposed_count = sum(
+                1 for c in chip_metadata if c.get('quality_metrics', {}).get('is_overexposed', False))
+            underexposed_count = sum(
+                1 for c in chip_metadata if c.get('quality_metrics', {}).get('is_underexposed', False))
+
+            print(f"  - Blurry chips: {blurry_count}/{len(chip_metadata)}")
+            print(f"  - Overexposed chips: {overexposed_count}/{len(chip_metadata)}")
+            print(f"  - Underexposed chips: {underexposed_count}/{len(chip_metadata)}")
