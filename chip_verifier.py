@@ -1,16 +1,24 @@
-# Zillow House Investment Analyzer - LLM Vision Analysis
-# Analyzes Zillow listings using LLM with structured JSON output
+#!/usr/bin/env python3
+"""
+GroundingDINO Detection Chip Verifier
+Verifies object detection chips using LM Studio vision models
+Compatible with the verifier cascade strategy
+"""
 
-import fire
+import json
 import base64
 import requests
-import json
-from pathlib import Path
-from typing import Dict, Optional, List
 import time
 import warnings
 import sys
 import os
+from pathlib import Path
+from typing import Dict, List, Optional, Tuple, Any
+from dataclasses import dataclass, asdict
+from collections import defaultdict
+import numpy as np
+from PIL import Image, ImageDraw, ImageFont
+import logging
 
 # Force UTF-8 output for Windows console
 if hasattr(sys.stdout, "reconfigure"):
@@ -20,779 +28,690 @@ warnings.filterwarnings('ignore', message='urllib3 v2 only supports OpenSSL')
 
 # Configuration
 LM_STUDIO_URL = "http://192.168.86.143:1234"  # Adjust to your LM Studio URL
-LISTINGS_JSON = Path("zillow_listings.json")
-IMAGES_DIR = Path("zillow_images")
-ANALYSIS_OUTPUT = Path("zillow_house_analysis_results.json")
+DEFAULT_MODEL = "gemma-3-27b-it"  # Adjust to your vision model
 
-# Debug mode
-DEBUG_MODE = True
+# Logging setup
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
 
-# JSON Schema for House Analysis
-HOUSE_ANALYSIS_SCHEMA = {
-    "type": "json_schema",
-    "json_schema": {
-        "name": "zillow_house_analysis",
-        "strict": True,
-        "schema": {
-            "type": "object",
-            "properties": {
-                "investment_score": {
-                    "type": "integer",
-                    "description": "1-10 overall investment potential"
-                },
-                "property_condition_score": {
-                    "type": "integer",
-                    "description": "1-10 visible property condition rating"
-                },
-                "curb_appeal_score": {
-                    "type": "integer",
-                    "description": "1-10 curb appeal and attractiveness"
-                },
-                "rental_potential_score": {
-                    "type": "integer",
-                    "description": "1-10 potential as rental property"
-                },
-                "neighborhood_quality": {
-                    "type": "string",
-                    "enum": ["Excellent", "Good", "Average", "Below Average", "Poor"]
-                },
-                "property_type_classification": {
-                    "type": "string",
-                    "enum": ["Single Family", "Townhouse", "Condo", "Multi-Family", "Other"]
-                },
-                "renovation_needs": {
-                    "type": "string",
-                    "enum": ["None/Minimal", "Light", "Moderate", "Heavy", "Complete"]
-                },
-                "primary_strengths": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "3-5 main property strengths"
-                },
-                "primary_concerns": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "description": "3-5 main concerns or issues"
-                },
-                "estimated_monthly_rent": {
-                    "type": "object",
-                    "properties": {
-                        "low": {"type": "number"},
-                        "high": {"type": "number"}
-                    },
-                    "required": ["low", "high"]
-                },
-                "price_assessment": {
-                    "type": "string",
-                    "enum": ["Underpriced", "Fair", "Slightly High", "Overpriced"]
-                },
-                "investment_verdict": {
-                    "type": "string",
-                    "enum": ["STRONG BUY", "CONSIDER", "PASS", "AVOID"]
-                },
-                "verdict_reasoning": {
-                    "type": "string",
-                    "description": "2-3 sentence investment recommendation"
-                },
-                "ideal_buyer_profile": {
-                    "type": "string",
-                    "description": "Who would be best suited for this property"
-                },
-                "quick_sale_likelihood": {
-                    "type": "string",
-                    "enum": ["Very High", "High", "Moderate", "Low", "Very Low"]
-                },
-                "suggested_offer_percentage": {
-                    "type": "integer",
-                    "description": "Suggested offer as percentage of asking (e.g., 95 for 95%)"
-                }
-            },
-            "required": [
-                "investment_score",
-                "property_condition_score",
-                "curb_appeal_score",
-                "rental_potential_score",
-                "neighborhood_quality",
-                "property_type_classification",
-                "renovation_needs",
-                "primary_strengths",
-                "primary_concerns",
-                "estimated_monthly_rent",
-                "price_assessment",
-                "investment_verdict",
-                "verdict_reasoning",
-                "ideal_buyer_profile",
-                "quick_sale_likelihood",
-                "suggested_offer_percentage"
-            ]
-        }
-    }
+# Class-specific verification thresholds
+CLASS_THRESHOLDS = {
+    "water_stain": {"confidence": 0.65, "consensus": 0.6},
+    "water stain": {"confidence": 0.65, "consensus": 0.6},
+    "chipped_paint": {"confidence": 0.6, "consensus": 0.5},
+    "chipped paint": {"confidence": 0.6, "consensus": 0.5},
+    "crack": {"confidence": 0.7, "consensus": 0.6},
+    "hole": {"confidence": 0.75, "consensus": 0.7},
+    "mold": {"confidence": 0.7, "consensus": 0.6},
+    "discoloration": {"confidence": 0.6, "consensus": 0.5},
+    "front_door": {"confidence": 0.7, "consensus": 0.6},
+    "front door": {"confidence": 0.7, "consensus": 0.6},
+    "garage_door": {"confidence": 0.7, "consensus": 0.6},
+    "garage door": {"confidence": 0.7, "consensus": 0.6},
+    "window": {"confidence": 0.65, "consensus": 0.5},
+    "roof_line": {"confidence": 0.6, "consensus": 0.5},
+    "roof line": {"confidence": 0.6, "consensus": 0.5},
+    "default": {"confidence": 0.65, "consensus": 0.5}
+}
+
+# Verification prompt templates per class type
+VERIFICATION_PROMPTS = {
+    "defect": """You are a building inspection expert verifying detected defects.
+
+TASK: Verify if the bounding box TIGHTLY contains ONLY a {class_name} and nothing else significant.
+
+CONTEXT:
+- Detection confidence: {confidence:.2f}
+- Location in image: {location_description}
+- Chip taken with {margin_percent}% context margin
+
+VISUAL CHARACTERISTICS OF {class_name}:
+{class_characteristics}
+
+CRITICAL VERIFICATION:
+1. Does the bounding box contain PRIMARILY just the {class_name}?
+2. Is the detection too broad (includes walls, other objects, large areas)?
+3. Does the {class_name} fill at least 50% of the detection area?
+4. Are there other significant objects wrongly included?
+
+RESPOND WITH JSON:
+{{
+  "is_valid": true/false,
+  "confidence": 0.0-1.0,
+  "reasoning": "Brief explanation",
+  "bbox_quality": "tight/acceptable/too_broad/wrong_object",
+  "object_fill_ratio": "estimated percentage the target object fills the bbox",
+  "alternative_explanation": "What else it could be if not {class_name}"
+}}""",
+
+    "structural": """You are a construction expert verifying architectural features.
+
+TASK: Verify if the bounding box SPECIFICALLY outlines ONLY a {class_name}.
+
+DETECTION INFO:
+- Confidence: {confidence:.2f}
+- Location: {location_description}
+- Context margin: {margin_percent}%
+
+EXPECTED CHARACTERISTICS OF {class_name}:
+{class_characteristics}
+
+CRITICAL CHECKS:
+1. Is the bounding box tightly focused on JUST the {class_name}?
+2. Does it include too much surrounding area (walls, ground, sky)?
+3. Would a human draw a similar box around just this {class_name}?
+4. Does the {class_name} occupy most (>60%) of the detection area?
+
+RESPOND WITH JSON:
+{{
+  "is_valid": true/false,
+  "confidence": 0.0-1.0,
+  "reasoning": "Brief explanation",
+  "bbox_quality": "tight/acceptable/too_broad/wrong_object",
+  "contains_target": true/false,
+  "detection_precision": "precise/acceptable/poor"
+}}"""
+}
+
+# Class-specific visual characteristics
+CLASS_CHARACTERISTICS = {
+    "water_stain": """
+- Irregular, organic shape with soft edges
+- Discoloration (yellow, brown, or gray)
+- Often has concentric rings or tide marks
+- May show through paint/drywall
+- Typically on ceilings or upper walls""",
+
+    "chipped_paint": """
+- Sharp, irregular edges
+- Exposed substrate visible (wood, drywall, concrete)
+- Color contrast between paint and substrate
+- May show peeling or flaking edges
+- Often near high-traffic or moisture areas""",
+
+    "crack": """
+- Linear or branching pattern
+- Consistent width or tapering
+- May be straight or jagged
+- Shows depth/shadow
+- Different from surface scratches""",
+
+    "mold": """
+- Dark spots or patches (black, green, gray)
+- Fuzzy or spotty texture
+- Often in clusters
+- Common in damp areas
+- May have irregular spreading pattern""",
+
+    "front_door": """
+- Rectangular shape with proper proportions
+- Door hardware visible (handle, lock, hinges)
+- Frame and threshold visible
+- Usually has panels or solid surface
+- Entry features nearby (porch, steps, lighting)""",
+
+    "garage_door": """
+- Wide rectangular shape (wider than tall)
+- Horizontal panels or sections
+- May show windows
+- Driveway or concrete pad below
+- Larger than regular doors""",
+
+    "window": """
+- Glass panes visible
+- Frame structure (sash, mullions)
+- Transparent or reflective surface
+- Regular geometric shape
+- May show interior/exterior contrast"""
 }
 
 
-def create_house_analysis_prompt(listing: Dict) -> str:
-    """Generate the analysis prompt for a house listing"""
-    # Calculate price per sqft if possible
-    price_per_sqft = "N/A"
-    if listing.get('sqft') and listing['sqft'] != 'N/A':
-        # Extract number from sqft string like "2,859 sqft"
+@dataclass
+class ChipVerification:
+    """Single chip verification result"""
+    chip_path: str
+    detection_idx: int
+    class_name: str
+    original_confidence: float
+    is_valid: bool
+    verification_confidence: float
+    reasoning: str
+    visual_evidence: List[str]
+    alternative_explanation: Optional[str] = None
+    processing_time: float = 0.0
+    error: Optional[str] = None
+
+
+@dataclass
+class DetectionVerification:
+    """Aggregated verification for a detection"""
+    detection_idx: int
+    class_name: str
+    original_confidence: float
+    bbox: List[int]
+    chip_verifications: List[ChipVerification]
+    final_verdict: str  # "VALID", "INVALID", "UNCERTAIN"
+    consensus_confidence: float
+    reasoning: str
+
+
+class ChipVerifier:
+    def __init__(self,
+                 lm_studio_url: str = LM_STUDIO_URL,
+                 model_name: str = DEFAULT_MODEL,
+                 batch_size: int = 3,
+                 debug: bool = False):
+        self.lm_studio_url = lm_studio_url
+        self.model_name = model_name
+        self.batch_size = batch_size
+        self.debug = debug
+
+    def load_grounding_dino_output(self, output_dir: Path) -> Dict:
+        """Load GroundingDINO output files"""
+        output_dir = Path(output_dir)
+
+        # Load main prediction file
+        pred_json = output_dir / "pred.json"
+        if not pred_json.exists():
+            raise FileNotFoundError(f"No pred.json found in {output_dir}")
+
+        with open(pred_json, 'r') as f:
+            pred_data = json.load(f)
+
+        # Load chip metadata if it exists
+        chip_metadata_file = output_dir / "chips" / "chip_metadata.json"
+        chip_metadata = []
+        if chip_metadata_file.exists():
+            with open(chip_metadata_file, 'r') as f:
+                chip_metadata = json.load(f)
+
+        # Load thumbnail if it exists
+        thumbnail_path = output_dir / "thumbnail_with_masks.jpg"
+        thumbnail = None
+        if thumbnail_path.exists():
+            thumbnail = thumbnail_path
+
+        return {
+            "predictions": pred_data,
+            "chip_metadata": chip_metadata,
+            "thumbnail": thumbnail,
+            "chips_dir": output_dir / "chips"
+        }
+
+    def create_control_chip(self, original_image_path: Path,
+                            detections: List[Dict],
+                            target_idx: int) -> Optional[Image.Image]:
+        """Extract a control chip from a clean area near the detection"""
         try:
-            sqft_num = int(listing['sqft'].replace(',', '').replace('sqft', '').strip())
-            price_num = float(listing['price'].replace('$', '').replace(',', ''))
-            price_per_sqft = f"${price_num / sqft_num:.2f}"
-        except:
-            pass
+            img = Image.open(original_image_path)
+            W, H = img.size
 
-    return f"""You are an expert real estate investment analyst evaluating properties in Huntsville, Alabama.
+            target = detections[target_idx]
+            target_bbox = target['bbox_xyxy']
+            tx0, ty0, tx1, ty1 = target_bbox
 
-PROPERTY TO ANALYZE:
-- Address: {listing.get('address', 'N/A')}
-- Asking Price: {listing.get('price', 'N/A')}
-- Bedrooms: {listing.get('beds', 'N/A')}
-- Bathrooms: {listing.get('baths', 'N/A')}
-- Square Feet: {listing.get('sqft', 'N/A')}
-- Price per Sqft: {price_per_sqft}
-- Time on Market: {listing.get('time_posted', 'N/A')}
-- Listing Agent: {listing.get('listing_agent', 'N/A')}
+            # Find a clean area (no other detections)
+            # Try areas around the target
+            margin = int(min(W, H) * 0.1)  # 10% margin
 
-REQUIRED ANALYSIS:
-1. investment_score (1-10): Overall investment potential
-2. property_condition_score (1-10): Visible condition from photos
-3. curb_appeal_score (1-10): Street appeal and attractiveness
-4. rental_potential_score (1-10): Viability as rental property
-5. neighborhood_quality: Based on visible surroundings
-6. property_type_classification: Type of property
-7. renovation_needs: Level of renovation required
-8. primary_strengths: 3-5 main selling points
-9. primary_concerns: 3-5 main issues or red flags
-10. estimated_monthly_rent: {{low: X, high: Y}} for Huntsville market
-11. price_assessment: Is it priced appropriately?
-12. investment_verdict: "STRONG BUY", "CONSIDER", "PASS", or "AVOID"
-13. verdict_reasoning: 2-3 sentences explaining recommendation
-14. ideal_buyer_profile: Best suited buyer type
-15. quick_sale_likelihood: How fast will it sell?
-16. suggested_offer_percentage: What % of asking to offer (e.g., 95)
-
-Consider Huntsville's tech growth, proximity to Research Park, and military presence.
-Base rental estimates on: 0.8-1.2% of purchase price monthly for this market.
-
-You MUST provide ALL fields based on the images and data provided."""
-
-
-def parse_llm_response(response: str) -> Dict:
-    """Parse the LLM response JSON string with validation"""
-    try:
-        parsed = json.loads(response)
-
-        if DEBUG_MODE:
-            # Check for missing fields
-            expected_fields = [
-                'investment_score', 'property_condition_score', 'curb_appeal_score',
-                'rental_potential_score', 'neighborhood_quality', 'property_type_classification',
-                'renovation_needs', 'primary_strengths', 'primary_concerns',
-                'estimated_monthly_rent', 'price_assessment', 'investment_verdict',
-                'verdict_reasoning', 'ideal_buyer_profile', 'quick_sale_likelihood',
-                'suggested_offer_percentage'
+            candidates = [
+                # Left of target
+                [max(0, tx0 - margin - (tx1 - tx0)), ty0,
+                 max(0, tx0 - margin), ty1],
+                # Right of target
+                [min(W, tx1 + margin), ty0,
+                 min(W, tx1 + margin + (tx1 - tx0)), ty1],
+                # Above target
+                [tx0, max(0, ty0 - margin - (ty1 - ty0)),
+                 tx1, max(0, ty0 - margin)],
+                # Below target
+                [tx0, min(H, ty1 + margin),
+                 tx1, min(H, ty1 + margin + (ty1 - ty0))]
             ]
 
-            missing_fields = [f for f in expected_fields if f not in parsed]
-            if missing_fields:
-                print(f"⚠️  DEBUG - Missing fields: {missing_fields}")
-
-        return parsed
-
-    except json.JSONDecodeError as e:
-        print(f"❌ JSON parsing error: {e}")
-        return {
-            "error": "Invalid JSON",
-            "raw_response": response[:500],
-            "investment_verdict": "PASS",
-            "verdict_reasoning": "Analysis failed"
-        }
-
-
-def analyze_house_remote(listing: Dict, image_paths: List[Path], model_name: Optional[str] = None) -> Dict:
-    """Analyze a house via LM Studio REST API with structured output"""
-    # Prepare images - use first 3 images max to save tokens
-    image_data_list = []
-    for img_path in image_paths[:3]:
-        if img_path.exists():
-            with open(img_path, "rb") as img_file:
-                image_data = base64.b64encode(img_file.read()).decode("utf-8")
-                image_data_list.append(image_data)
-
-    if not image_data_list:
-        return {
-            "error": "No images found",
-            "investment_verdict": "PASS",
-            "verdict_reasoning": "No images available for analysis"
-        }
-
-    prompt = create_house_analysis_prompt(listing)
-
-    # Build message content with multiple images
-    content = [{"type": "text", "text": prompt}]
-    for img_data in image_data_list:
-        content.append({
-            "type": "image_url",
-            "image_url": {"url": f"data:image/jpeg;base64,{img_data}"}
-        })
-
-    messages = [
-        {
-            "role": "system",
-            "content": "You are an expert real estate analyst specializing in investment properties. Provide thorough analysis based on visual inspection and market knowledge."
-        },
-        {
-            "role": "user",
-            "content": content
-        }
-    ]
-
-    payload = {
-        "model": model_name or "gemma-3-27b-it",
-        "messages": messages,
-        "response_format": HOUSE_ANALYSIS_SCHEMA,
-        "temperature": 0.3,
-        "max_tokens": 2000,
-        "stream": False
-    }
-
-    try:
-        if DEBUG_MODE:
-            print(f"📡 Sending request to LM Studio...")
-            print(f"   Using {len(image_data_list)} images")
-
-        resp = requests.post(f"{LM_STUDIO_URL}/v1/chat/completions", json=payload, timeout=120)
-
-        if DEBUG_MODE:
-            print(f"📡 Response status: {resp.status_code}")
-
-    except requests.RequestException as e:
-        print(f"❌ Request failed: {e}")
-        return {
-            "error": f"Request failed: {e}",
-            "investment_verdict": "PASS",
-            "verdict_reasoning": "Analysis request failed"
-        }
-
-    if resp.status_code != 200:
-        print(f"❌ HTTP error {resp.status_code}")
-        return {
-            "error": f"HTTP {resp.status_code}",
-            "investment_verdict": "PASS",
-            "verdict_reasoning": "Server error"
-        }
-
-    try:
-        data = resp.json()
-    except ValueError:
-        return {
-            "error": "Invalid JSON from server",
-            "investment_verdict": "PASS",
-            "verdict_reasoning": "Server response error"
-        }
-
-    if "choices" not in data or not data["choices"]:
-        return {
-            "error": "Missing choices in response",
-            "investment_verdict": "PASS",
-            "verdict_reasoning": "Incomplete server response"
-        }
-
-    content = data["choices"][0]["message"].get("content", "")
-
-    if DEBUG_MODE and "usage" in data:
-        usage = data["usage"]
-        print(f"📊 Tokens - Prompt: {usage.get('prompt_tokens', 'N/A')}, "
-              f"Completion: {usage.get('completion_tokens', 'N/A')}")
-
-    return parse_llm_response(content)
-
-
-def get_listing_images(listing_address: str, listing_index: int) -> List[Path]:
-    """Find all images for a listing"""
-    # Clean address for folder name
-    folder_name = listing_address.replace('/', '_').replace(',', '').replace('\\', '_').replace(':', '')
-
-    # Try both naming conventions
-    possible_dirs = [
-        IMAGES_DIR / f"{listing_index}_{folder_name}",
-        IMAGES_DIR / folder_name,
-        IMAGES_DIR / f"listing_{listing_index}"
-    ]
-
-    for listing_dir in possible_dirs:
-        if listing_dir.exists():
-            # Find all image files
-            image_files = []
-            for ext in ['*.jpg', '*.jpeg', '*.png', '*.webp']:
-                image_files.extend(listing_dir.glob(ext))
-
-            # Sort by name to get consistent order
-            image_files.sort()
-            return image_files
-
-    return []
-
-
-def analyze_single_house(listing: Dict, listing_index: int, model_name: Optional[str] = None) -> Dict:
-    """Analyze a single house listing"""
-    address = listing.get('address', 'Unknown')
-
-    print(f"\n{'=' * 60}")
-    print(f"Analyzing: {address}")
-    print(
-        f"Price: {listing.get('price', 'N/A')} | {listing.get('beds', 'N/A')} | {listing.get('baths', 'N/A')} | {listing.get('sqft', 'N/A')}")
-
-    # Find images
-    image_paths = get_listing_images(address, listing_index)
-
-    if not image_paths:
-        print(f"⚠️  No images found for {address}")
-        return {
-            'address': address,
-            'listing_data': listing,
-            'analysis': {
-                'error': 'No images found',
-                'investment_verdict': 'PASS',
-                'verdict_reasoning': 'Cannot analyze without images'
-            },
-            'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
-        }
-
-    print(f"Found {len(image_paths)} images")
-
-    # Analyze with LLM
-    analysis = analyze_house_remote(listing, image_paths, model_name)
-
-    return {
-        'address': address,
-        'listing_data': listing,
-        'images_analyzed': len(image_paths),
-        'analysis': analysis,
-        'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
-    }
-
-
-def load_listings() -> List[Dict]:
-    """Load Zillow listings from JSON file"""
-    if not LISTINGS_JSON.exists():
-        print(f"❌ Listings file not found: {LISTINGS_JSON}")
-        return []
-
-    with open(LISTINGS_JSON, 'r', encoding='utf-8') as f:
-        data = json.load(f)
-
-    # Handle both single listings and arrays
-    if isinstance(data, list):
-        return data
-    elif isinstance(data, dict) and 'listings' in data:
-        return data['listings']
-    else:
-        # Assume it's a single listing
-        return [data]
-
-
-def load_existing_results() -> Dict[str, Dict]:
-    """Load existing analysis results"""
-    if not ANALYSIS_OUTPUT.exists():
-        return {}
-
-    try:
-        with open(ANALYSIS_OUTPUT, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-            return {r['address']: r for r in data.get('results', [])}
-    except Exception as e:
-        print(f"⚠️  Warning: Could not load existing results: {e}")
-        return {}
-
-
-def append_result_to_file(result: Dict, existing_results: Dict[str, Dict]):
-    """Append a single result to the output file"""
-    existing_results[result['address']] = result
-    all_results = list(existing_results.values())
-
-    # Calculate summary stats
-    strong_buy_count = sum(1 for r in all_results
-                           if r.get('analysis', {}).get('investment_verdict') == 'STRONG BUY')
-    consider_count = sum(1 for r in all_results
-                         if r.get('analysis', {}).get('investment_verdict') == 'CONSIDER')
-    pass_count = sum(1 for r in all_results
-                     if r.get('analysis', {}).get('investment_verdict') == 'PASS')
-    avoid_count = sum(1 for r in all_results
-                      if r.get('analysis', {}).get('investment_verdict') == 'AVOID')
-
-    # Calculate averages
-    investment_scores = [r.get('analysis', {}).get('investment_score', 0)
-                         for r in all_results if 'analysis' in r and 'error' not in r['analysis']]
-    avg_investment = sum(investment_scores) / len(investment_scores) if investment_scores else 0
-
-    output_data = {
-        'analysis_date': time.strftime('%Y-%m-%d %H:%M:%S'),
-        'total_analyzed': len(all_results),
-        'summary': {
-            'strong_buy_count': strong_buy_count,
-            'consider_count': consider_count,
-            'pass_count': pass_count,
-            'avoid_count': avoid_count,
-            'average_investment_score': round(avg_investment, 2)
-        },
-        'results': all_results
-    }
-
-    with open(ANALYSIS_OUTPUT, 'w', encoding='utf-8') as f:
-        json.dump(output_data, f, indent=2, ensure_ascii=False)
-
-    print(f"✅ Saved analysis for {result['address']}")
-
-
-def print_house_analysis_summary(result: Dict):
-    """Print formatted analysis summary"""
-    analysis = result.get('analysis', {})
-
-    print("\n📊 ANALYSIS RESULT:")
-    print("-" * 60)
-
-    if 'error' in analysis:
-        print(f"❌ Error: {analysis.get('error')}")
-        return
-
-    # Scores
-    print(f"Investment Score: {analysis.get('investment_score', 'N/A')}/10")
-    print(f"Condition Score: {analysis.get('property_condition_score', 'N/A')}/10")
-    print(f"Curb Appeal: {analysis.get('curb_appeal_score', 'N/A')}/10")
-    print(f"Rental Potential: {analysis.get('rental_potential_score', 'N/A')}/10")
-
-    # Key assessments
-    print(f"\n📍 Verdict: {analysis.get('investment_verdict', 'N/A')}")
-    print(f"   {analysis.get('verdict_reasoning', 'N/A')}")
-
-    print(f"\n💰 Price Assessment: {analysis.get('price_assessment', 'N/A')}")
-    print(f"   Suggested Offer: {analysis.get('suggested_offer_percentage', 'N/A')}% of asking")
-
-    # Rental estimates
-    if analysis.get('estimated_monthly_rent'):
-        rent = analysis['estimated_monthly_rent']
-        listing_price = result['listing_data'].get('price', '$0')
-        try:
-            price_num = float(listing_price.replace('$', '').replace(',', ''))
-            rent_ratio_low = (rent['low'] * 12) / price_num * 100
-            rent_ratio_high = (rent['high'] * 12) / price_num * 100
-            print(f"\n🏠 Est. Monthly Rent: ${rent['low']:.0f} - ${rent['high']:.0f}")
-            print(f"   Annual Return: {rent_ratio_low:.1f}% - {rent_ratio_high:.1f}%")
-        except:
-            print(f"\n🏠 Est. Monthly Rent: ${rent.get('low', 0):.0f} - ${rent.get('high', 0):.0f}")
-
-    # Other details
-    print(f"\n🏘️ Neighborhood: {analysis.get('neighborhood_quality', 'N/A')}")
-    print(f"🔨 Renovation Needs: {analysis.get('renovation_needs', 'N/A')}")
-    print(f"⚡ Quick Sale Likelihood: {analysis.get('quick_sale_likelihood', 'N/A')}")
-
-    # Concerns
-    if analysis.get('primary_concerns'):
-        print(f"\n🚨 Main Concerns:")
-        for concern in analysis['primary_concerns']:
-            print(f"   - {concern}")
-
-    # Strengths
-    if DEBUG_MODE and analysis.get('primary_strengths'):
-        print(f"\n✨ Main Strengths:")
-        for strength in analysis['primary_strengths']:
-            print(f"   - {strength}")
-
-
-def analyze_houses(
-        limit: Optional[int] = None,
-        min_price: float = 0,
-        max_price: float = 10000000,
-        skip_analyzed: bool = True,
-        model_name: Optional[str] = None
-):
-    """Analyze Zillow house listings
-
-    Args:
-        limit: Maximum number of houses to analyze
-        min_price: Minimum price filter
-        max_price: Maximum price filter
-        skip_analyzed: Skip already analyzed houses
-        model_name: Specific LM Studio model to use
-    """
-    print("\n=== Zillow House Investment Analyzer ===\n")
-
-    # Load existing results
-    existing_results = {}
-    if skip_analyzed:
-        existing_results = load_existing_results()
-        print(f"Found {len(existing_results)} previously analyzed houses")
-
-    # Load listings
-    listings = load_listings()
-    if not listings:
-        print("No listings found!")
-        return
-
-    print(f"Loaded {len(listings)} total listings")
-
-    # Filter listings
-    filtered = []
-    for i, listing in enumerate(listings):
-        # Extract price for filtering
-        try:
-            price_str = listing.get('price', '$0')
-            price_num = float(price_str.replace('$', '').replace(',', ''))
-        except:
-            price_num = 0
-
-        address = listing.get('address', f'Unknown_{i}')
-
-        if (not skip_analyzed or address not in existing_results) and \
-                min_price <= price_num <= max_price:
-            filtered.append((i + 1, listing))  # Store index with listing
-
-    # Apply limit
-    to_analyze = filtered[:limit] if limit else filtered
-
-    print(f"Found {len(filtered)} houses matching criteria")
-    print(f"Analyzing {len(to_analyze)} houses...\n")
-
-    if not to_analyze:
-        print("No houses to analyze!")
-        return
-
-    # Analyze each house
-    analyzed_count = 0
-    error_count = 0
-
-    for i, (listing_index, listing) in enumerate(to_analyze, 1):
-        print(f"\n[{i}/{len(to_analyze)}] Processing...")
-
-        try:
-            result = analyze_single_house(listing, listing_index, model_name)
-
-            if 'error' in result.get('analysis', {}):
-                error_count += 1
-            else:
-                analyzed_count += 1
-
-            print_house_analysis_summary(result)
-
-            if skip_analyzed:
-                append_result_to_file(result, existing_results)
+            # Find first candidate that doesn't overlap with any detection
+            for cx0, cy0, cx1, cy1 in candidates:
+                if cx1 <= cx0 or cy1 <= cy0:
+                    continue
+
+                # Check for overlaps
+                overlaps = False
+                for det in detections:
+                    dx0, dy0, dx1, dy1 = det['bbox_xyxy']
+                    if not (cx1 < dx0 or cx0 > dx1 or cy1 < dy0 or cy0 > dy1):
+                        overlaps = True
+                        break
+
+                if not overlaps:
+                    # Valid control area found
+                    control = img.crop((cx0, cy0, cx1, cy1))
+                    return control
+
+            return None
 
         except Exception as e:
-            print(f"❌ Error analyzing house: {e}")
-            error_count += 1
+            logger.error(f"Error creating control chip: {e}")
+            return None
 
-        # Delay between analyses
-        if i < len(to_analyze):
-            time.sleep(2)
+    def encode_image(self, image_path: Path) -> str:
+        """Encode image to base64"""
+        with open(image_path, 'rb') as f:
+            return base64.b64encode(f.read()).decode('utf-8')
 
-    # Summary
-    print("\n" + "=" * 60)
-    print("ANALYSIS COMPLETE!")
-    print(f"✅ Successfully analyzed: {analyzed_count} houses")
-    print(f"❌ Errors: {error_count} houses")
-    if skip_analyzed:
-        print(f"📊 Total in database: {len(existing_results)}")
-    print(f"📁 Results saved to: {ANALYSIS_OUTPUT}")
+    def create_verification_prompt(self,
+                                   class_name: str,
+                                   confidence: float,
+                                   location_description: str,
+                                   margin_percent: float = 15) -> str:
+        """Create class-specific verification prompt"""
+        # Determine prompt type
+        prompt_type = "defect" if class_name.lower() in [
+            "water_stain", "water stain", "chipped_paint", "chipped paint",
+            "crack", "hole", "mold", "discoloration"
+        ] else "structural"
 
+        # Get class characteristics
+        chars_key = class_name.lower().replace("_", " ")
+        characteristics = CLASS_CHARACTERISTICS.get(
+            chars_key,
+            "Standard visual characteristics for this object type"
+        )
 
-def show_investment_opportunities(min_score: float = 7.0):
-    """Show houses marked as investment opportunities"""
-    results = load_existing_results()
+        prompt = VERIFICATION_PROMPTS[prompt_type].format(
+            class_name=class_name,
+            confidence=confidence,
+            location_description=location_description,
+            margin_percent=margin_percent,
+            class_characteristics=characteristics
+        )
 
-    if not results:
-        print("No houses have been analyzed yet.")
-        return
+        return prompt
 
-    # Find opportunities
-    opportunities = []
+    def verify_single_chip(self,
+                           chip_path: Path,
+                           class_name: str,
+                           confidence: float,
+                           thumbnail_path: Optional[Path] = None,
+                           control_chip: Optional[Image.Image] = None) -> ChipVerification:
+        """Verify a single chip using LM Studio"""
+        start_time = time.time()
 
-    for result in results.values():
-        analysis = result.get('analysis', {})
-        if 'error' in analysis:
-            continue
-
-        verdict = analysis.get('investment_verdict', '')
-        score = analysis.get('investment_score', 0)
-
-        if verdict in ['STRONG BUY', 'CONSIDER'] and score >= min_score:
-            opportunities.append(result)
-
-    # Sort by investment score
-    opportunities.sort(key=lambda x: x['analysis']['investment_score'], reverse=True)
-
-    print(f"\n=== Investment Opportunities (score >= {min_score}) ===")
-    print(f"Found {len(opportunities)} opportunities\n")
-
-    for i, opp in enumerate(opportunities, 1):
-        listing = opp['listing_data']
-        analysis = opp['analysis']
-
-        print(f"{i}. {opp['address']}")
-        print(
-            f"   Price: {listing.get('price')} | {listing.get('beds')} | {listing.get('baths')} | {listing.get('sqft')}")
-        print(f"   Investment Score: {analysis['investment_score']}/10")
-        print(f"   Verdict: {analysis['investment_verdict']}")
-        print(f"   Price Assessment: {analysis['price_assessment']}")
-
-        # Calculate potential return
-        if analysis.get('estimated_monthly_rent'):
-            try:
-                price_num = float(listing['price'].replace('$', '').replace(',', ''))
-                monthly_rent_avg = (analysis['estimated_monthly_rent']['low'] +
-                                    analysis['estimated_monthly_rent']['high']) / 2
-                annual_return = (monthly_rent_avg * 12) / price_num * 100
-                print(f"   Est. Annual Return: {annual_return:.1f}%")
-            except:
-                pass
-
-        print(f"   {analysis['verdict_reasoning']}")
-        print()
-
-
-def export_best_deals(output_file: str = "best_zillow_deals.json", top_n: int = 10):
-    """Export the best investment opportunities"""
-    results = load_existing_results()
-
-    if not results:
-        print("No houses have been analyzed yet.")
-        return
-
-    # Score and rank all properties
-    scored_properties = []
-
-    for result in results.values():
-        analysis = result.get('analysis', {})
-        if 'error' in analysis:
-            continue
-
-        # Calculate composite score
-        investment_score = analysis.get('investment_score', 0)
-        rental_score = analysis.get('rental_potential_score', 0)
-        condition_score = analysis.get('property_condition_score', 0)
-
-        # Weight investment score more heavily
-        composite_score = (investment_score * 0.5 +
-                           rental_score * 0.3 +
-                           condition_score * 0.2)
-
-        # Get price metrics
-        listing_price = result['listing_data'].get('price', '$0')
         try:
-            price_num = float(listing_price.replace('$', '').replace(',', ''))
+            # Build message content
+            prompt = self.create_verification_prompt(
+                class_name=class_name,
+                confidence=confidence,
+                location_description="See thumbnail for context",
+                margin_percent=15
+            )
 
-            # Calculate metrics
-            suggested_offer_pct = analysis.get('suggested_offer_percentage', 100)
-            suggested_offer = price_num * (suggested_offer_pct / 100)
+            content = [{"type": "text", "text": prompt}]
 
-            rent_est = analysis.get('estimated_monthly_rent', {})
-            monthly_rent_avg = (rent_est.get('low', 0) + rent_est.get('high', 0)) / 2
-            annual_return = (monthly_rent_avg * 12) / suggested_offer * 100 if suggested_offer > 0 else 0
-
-            scored_properties.append({
-                'address': result['address'],
-                'listing_details': result['listing_data'],
-                'asking_price': price_num,
-                'suggested_offer': suggested_offer,
-                'monthly_rent_estimate': {
-                    'low': rent_est.get('low', 0),
-                    'high': rent_est.get('high', 0),
-                    'average': monthly_rent_avg
-                },
-                'estimated_annual_return': round(annual_return, 2),
-                'scores': {
-                    'composite': round(composite_score, 2),
-                    'investment': investment_score,
-                    'rental_potential': rental_score,
-                    'condition': condition_score,
-                    'curb_appeal': analysis.get('curb_appeal_score', 0)
-                },
-                'verdict': analysis.get('investment_verdict'),
-                'price_assessment': analysis.get('price_assessment'),
-                'renovation_needs': analysis.get('renovation_needs'),
-                'ideal_buyer': analysis.get('ideal_buyer_profile'),
-                'strengths': analysis.get('primary_strengths', []),
-                'concerns': analysis.get('primary_concerns', []),
-                'verdict_reasoning': analysis.get('verdict_reasoning')
+            # Add main chip
+            chip_b64 = self.encode_image(chip_path)
+            content.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/jpeg;base64,{chip_b64}"}
             })
-        except:
-            continue
 
-    # Sort by composite score
-    scored_properties.sort(key=lambda x: x['scores']['composite'], reverse=True)
+            # Add thumbnail if available
+            if thumbnail_path and thumbnail_path.exists():
+                thumb_b64 = self.encode_image(thumbnail_path)
+                content.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{thumb_b64}"}
+                })
 
-    # Get top N
-    best_deals = scored_properties[:top_n]
+            # Add control chip if available
+            if control_chip:
+                import io
+                buffer = io.BytesIO()
+                control_chip.save(buffer, format='JPEG')
+                control_b64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+                content.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{control_b64}"}
+                })
 
-    # Save to file
-    output = {
-        'export_date': time.strftime('%Y-%m-%d %H:%M:%S'),
-        'total_properties': len(best_deals),
-        'selection_criteria': 'Top properties by composite score (50% investment, 30% rental, 20% condition)',
-        'market': 'Huntsville, AL',
-        'best_deals': best_deals
-    }
+            # Prepare API request
+            messages = [
+                {
+                    "role": "system",
+                    "content": "You are an expert at visual verification of detected objects. Always respond with valid JSON."
+                },
+                {
+                    "role": "user",
+                    "content": content
+                }
+            ]
 
-    with open(output_file, 'w', encoding='utf-8') as f:
-        json.dump(output, f, indent=2, ensure_ascii=False)
+            payload = {
+                "model": self.model_name,
+                "messages": messages,
+                "temperature": 0.1,  # Low temperature for consistent verification
+                "max_tokens": 500,
+                "stream": False
+            }
 
-    print(f"\n✅ Exported top {len(best_deals)} investment opportunities to: {output_file}")
+            # Make request
+            response = requests.post(
+                f"{self.lm_studio_url}/v1/chat/completions",
+                json=payload,
+                timeout=30
+            )
 
-    # Show summary
-    if best_deals:
-        print("\n🏆 Top 5 Investment Opportunities:")
-        for i, deal in enumerate(best_deals[:5], 1):
-            print(f"\n{i}. {deal['address']}")
-            print(f"   Asking: ${deal['asking_price']:,.0f} → Offer: ${deal['suggested_offer']:,.0f}")
-            print(f"   Est. Return: {deal['estimated_annual_return']}% annually")
-            print(f"   Composite Score: {deal['scores']['composite']}/10")
-            print(f"   {deal['verdict']}: {deal['verdict_reasoning']}")
+            if response.status_code != 200:
+                raise Exception(f"API error: {response.status_code}")
 
+            # Parse response
+            data = response.json()
+            content = data["choices"][0]["message"]["content"]
 
-def analyze_specific_address(address: str, model_name: Optional[str] = None):
-    """Analyze a specific house by address"""
-    listings = load_listings()
+            # Try to parse JSON from response
+            try:
+                # Handle potential markdown code blocks
+                if "```json" in content:
+                    content = content.split("```json")[1].split("```")[0]
+                elif "```" in content:
+                    content = content.split("```")[1].split("```")[0]
 
-    # Find the listing
-    target_listing = None
-    listing_index = None
+                result = json.loads(content.strip())
 
-    for i, listing in enumerate(listings):
-        if address.lower() in listing.get('address', '').lower():
-            target_listing = listing
-            listing_index = i + 1
-            break
+                return ChipVerification(
+                    chip_path=str(chip_path),
+                    detection_idx=-1,  # Will be set later
+                    class_name=class_name,
+                    original_confidence=confidence,
+                    is_valid=result.get("is_valid", False),
+                    verification_confidence=result.get("confidence", 0.5),
+                    reasoning=result.get("reasoning", "No reasoning provided"),
+                    visual_evidence=result.get("visual_evidence", []),
+                    alternative_explanation=result.get("alternative_explanation"),
+                    processing_time=time.time() - start_time
+                )
 
-    if not target_listing:
-        print(f"❌ No listing found matching address: {address}")
-        return
+            except json.JSONDecodeError:
+                # Fallback: try to extract boolean from text
+                content_lower = content.lower()
+                is_valid = "valid" in content_lower and "invalid" not in content_lower
 
-    # Check if already analyzed
-    existing_results = load_existing_results()
-    if target_listing['address'] in existing_results:
-        print(f"ℹ️  This property has already been analyzed:")
-        print_house_analysis_summary(existing_results[target_listing['address']])
-        return
+                return ChipVerification(
+                    chip_path=str(chip_path),
+                    detection_idx=-1,
+                    class_name=class_name,
+                    original_confidence=confidence,
+                    is_valid=is_valid,
+                    verification_confidence=0.5,
+                    reasoning=content[:200],
+                    visual_evidence=[],
+                    processing_time=time.time() - start_time
+                )
 
-    # Analyze
-    try:
-        result = analyze_single_house(target_listing, listing_index, model_name)
-        print_house_analysis_summary(result)
-        append_result_to_file(result, existing_results)
-    except Exception as e:
-        print(f"❌ Error analyzing house: {e}")
+        except Exception as e:
+            logger.error(f"Error verifying chip {chip_path}: {e}")
+            return ChipVerification(
+                chip_path=str(chip_path),
+                detection_idx=-1,
+                class_name=class_name,
+                original_confidence=confidence,
+                is_valid=False,
+                verification_confidence=0.0,
+                reasoning="Verification failed",
+                visual_evidence=[],
+                error=str(e),
+                processing_time=time.time() - start_time
+            )
+
+    def verify_batch(self,
+                     chips: List[Tuple[Path, str, float]],
+                     thumbnail_path: Optional[Path] = None) -> List[ChipVerification]:
+        """Verify a batch of chips"""
+        results = []
+
+        for chip_path, class_name, confidence in chips:
+            if self.debug:
+                logger.info(f"Verifying {chip_path.name} ({class_name}, conf={confidence:.2f})")
+
+            result = self.verify_single_chip(
+                chip_path=chip_path,
+                class_name=class_name,
+                confidence=confidence,
+                thumbnail_path=thumbnail_path
+            )
+            results.append(result)
+
+            # Small delay to avoid overwhelming the API
+            time.sleep(0.5)
+
+        return results
+
+    def aggregate_detection_results(self,
+                                    detection_idx: int,
+                                    verifications: List[ChipVerification]) -> DetectionVerification:
+        """Aggregate multiple chip verifications for a single detection"""
+        if not verifications:
+            return DetectionVerification(
+                detection_idx=detection_idx,
+                class_name="unknown",
+                original_confidence=0.0,
+                bbox=[],
+                chip_verifications=[],
+                final_verdict="INVALID",
+                consensus_confidence=0.0,
+                reasoning="No verifications available"
+            )
+
+        # Get class info from first verification
+        class_name = verifications[0].class_name
+        original_conf = verifications[0].original_confidence
+
+        # Calculate consensus
+        valid_count = sum(1 for v in verifications if v.is_valid)
+        valid_ratio = valid_count / len(verifications)
+        avg_confidence = np.mean([v.verification_confidence for v in verifications])
+
+        # Get thresholds for this class
+        thresholds = CLASS_THRESHOLDS.get(
+            class_name.lower().replace("_", " "),
+            CLASS_THRESHOLDS["default"]
+        )
+
+        # Determine verdict
+        if valid_ratio >= thresholds["consensus"] and avg_confidence >= thresholds["confidence"]:
+            verdict = "VALID"
+            reasoning = f"Verified with {valid_count}/{len(verifications)} positive confirmations"
+        elif valid_ratio < 0.3 or avg_confidence < 0.4:
+            verdict = "INVALID"
+            reasoning = f"Only {valid_count}/{len(verifications)} positive confirmations"
+        else:
+            verdict = "UNCERTAIN"
+            reasoning = f"Mixed results: {valid_count}/{len(verifications)} positive, needs review"
+
+        return DetectionVerification(
+            detection_idx=detection_idx,
+            class_name=class_name,
+            original_confidence=original_conf,
+            bbox=[],  # Will be filled from detection data
+            chip_verifications=verifications,
+            final_verdict=verdict,
+            consensus_confidence=avg_confidence,
+            reasoning=reasoning
+        )
+
+    def verify_detections(self,
+                          output_dir: str,
+                          original_image_path: Optional[str] = None,
+                          max_chips_per_detection: int = 3) -> Dict:
+        """Main verification pipeline"""
+        output_dir = Path(output_dir)
+        logger.info(f"Starting verification for {output_dir}")
+
+        # Load GroundingDINO outputs
+        gd_data = self.load_grounding_dino_output(output_dir)
+        detections = gd_data["predictions"]["detections"]
+        chip_metadata = gd_data["chip_metadata"]
+        thumbnail = gd_data["thumbnail"]
+
+        if not detections:
+            logger.warning("No detections to verify")
+            return {"results": [], "summary": {}}
+
+        # Group chips by detection
+        chips_by_detection = defaultdict(list)
+        for chip_info in chip_metadata:
+            det_idx = chip_info["detection_idx"]
+            chip_path = gd_data["chips_dir"] / chip_info["filename"]
+            if chip_path.exists():
+                chips_by_detection[det_idx].append(chip_info)
+
+        # Verify each detection
+        all_results = []
+        valid_count = 0
+        invalid_count = 0
+        uncertain_count = 0
+
+        for det_idx, detection in enumerate(detections):
+            logger.info(f"\nVerifying detection {det_idx}: {detection['label']}")
+
+            # Get chips for this detection
+            detection_chips = chips_by_detection.get(det_idx, [])
+            if not detection_chips:
+                logger.warning(f"No chips found for detection {det_idx}")
+                continue
+
+            # Limit chips per detection
+            detection_chips = detection_chips[:max_chips_per_detection]
+
+            # Prepare chip data
+            chips_to_verify = []
+            for chip_info in detection_chips:
+                chip_path = gd_data["chips_dir"] / chip_info["filename"]
+                chips_to_verify.append((
+                    chip_path,
+                    detection["label"].split("(")[0].strip(),  # Remove confidence from label
+                    detection["score"] or 0.5
+                ))
+
+            # Verify chips
+            verifications = self.verify_batch(chips_to_verify, thumbnail)
+
+            # Update detection indices
+            for i, v in enumerate(verifications):
+                v.detection_idx = det_idx
+
+            # Aggregate results
+            detection_result = self.aggregate_detection_results(det_idx, verifications)
+            detection_result.bbox = detection["bbox_xyxy"]
+
+            all_results.append(detection_result)
+
+            # Count verdicts
+            if detection_result.final_verdict == "VALID":
+                valid_count += 1
+            elif detection_result.final_verdict == "INVALID":
+                invalid_count += 1
+            else:
+                uncertain_count += 1
+
+            # Log result
+            logger.info(f"  Verdict: {detection_result.final_verdict} "
+                        f"(confidence: {detection_result.consensus_confidence:.2f})")
+            logger.info(f"  Reasoning: {detection_result.reasoning}")
+
+        # Create summary
+        summary = {
+            "total_detections": len(detections),
+            "verified_detections": len(all_results),
+            "valid": valid_count,
+            "invalid": invalid_count,
+            "uncertain": uncertain_count,
+            "verification_rate": valid_count / len(all_results) if all_results else 0,
+            "timestamp": time.strftime('%Y-%m-%d %H:%M:%S')
+        }
+
+        # Save results
+        output_file = output_dir / "verification_results.json"
+        results_dict = {
+            "summary": summary,
+            "results": [self._detection_to_dict(r) for r in all_results],
+            "config": {
+                "model": self.model_name,
+                "thresholds": CLASS_THRESHOLDS,
+                "max_chips_per_detection": max_chips_per_detection
+            }
+        }
+
+        with open(output_file, 'w') as f:
+            json.dump(results_dict, f, indent=2)
+
+        logger.info(f"\n{'=' * 60}")
+        logger.info(f"Verification Complete!")
+        logger.info(f"Valid: {valid_count}, Invalid: {invalid_count}, Uncertain: {uncertain_count}")
+        logger.info(f"Results saved to: {output_file}")
+
+        return results_dict
+
+    def _detection_to_dict(self, detection: DetectionVerification) -> Dict:
+        """Convert DetectionVerification to dictionary"""
+        return {
+            "detection_idx": detection.detection_idx,
+            "class_name": detection.class_name,
+            "original_confidence": detection.original_confidence,
+            "bbox": detection.bbox,
+            "final_verdict": detection.final_verdict,
+            "consensus_confidence": detection.consensus_confidence,
+            "reasoning": detection.reasoning,
+            "chip_verifications": [
+                {
+                    "chip_path": v.chip_path,
+                    "is_valid": v.is_valid,
+                    "confidence": v.verification_confidence,
+                    "reasoning": v.reasoning,
+                    "visual_evidence": v.visual_evidence,
+                    "alternative": v.alternative_explanation
+                } for v in detection.chip_verifications
+            ]
+        }
 
 
 def main():
-    """Main entry point with Fire CLI"""
-    fire.Fire({
-        'analyze': analyze_houses,
-        'analyze_address': analyze_specific_address,
-        'opportunities': show_investment_opportunities,
-        'export': export_best_deals
-    })
+    """Main entry point"""
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Verify GroundingDINO detection chips")
+    parser.add_argument("output_dir", help="Path to GroundingDINO output directory")
+    parser.add_argument("--original-image", help="Path to original image (for control chips)")
+    parser.add_argument("--model", default=DEFAULT_MODEL, help="LM Studio model name")
+    parser.add_argument("--lm-studio-url", default=LM_STUDIO_URL, help="LM Studio API URL")
+    parser.add_argument("--max-chips", type=int, default=3, help="Max chips per detection")
+    parser.add_argument("--batch-size", type=int, default=3, help="Batch size for API calls")
+    parser.add_argument("--debug", action="store_true", help="Enable debug logging")
+
+    args = parser.parse_args()
+
+    # Create verifier
+    verifier = ChipVerifier(
+        lm_studio_url=args.lm_studio_url,
+        model_name=args.model,
+        batch_size=args.batch_size,
+        debug=args.debug
+    )
+
+    # Run verification
+    results = verifier.verify_detections(
+        output_dir=args.output_dir,
+        original_image_path=args.original_image,
+        max_chips_per_detection=args.max_chips
+    )
+
+    # Print summary
+    summary = results["summary"]
+    print(f"\n✅ Verification Summary:")
+    print(f"  Total Detections: {summary['total_detections']}")
+    print(f"  Valid: {summary['valid']}")
+    print(f"  Invalid: {summary['invalid']}")
+    print(f"  Uncertain: {summary['uncertain']}")
+    print(f"  Verification Rate: {summary['verification_rate']:.1%}")
 
 
 if __name__ == "__main__":
