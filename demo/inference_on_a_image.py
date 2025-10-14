@@ -54,7 +54,7 @@ def extract_chip(image_pil, bbox_xyxy, margin_percent=0.15):
 
 def calculate_chip_quality_metrics(chip):
     """
-    Calculate basic quality metrics for a chip.
+    Calculate basic quality metrics for a chip with improved blur detection.
 
     Args:
         chip: PIL Image
@@ -65,10 +65,18 @@ def calculate_chip_quality_metrics(chip):
     # Convert to numpy array
     chip_np = np.array(chip.convert('L'))  # Convert to grayscale for analysis
 
+    # Get image dimensions
+    height, width = chip_np.shape
+    image_size = height * width
+
     # Sharpness metric (variance of Laplacian)
     from scipy import ndimage
     laplacian = ndimage.laplace(chip_np)
     sharpness = laplacian.var()
+
+    # Normalize sharpness by image size for better consistency
+    # Smaller images tend to have higher variance
+    normalized_sharpness = sharpness / np.sqrt(image_size)
 
     # Exposure metrics
     mean_intensity = chip_np.mean()
@@ -77,13 +85,38 @@ def calculate_chip_quality_metrics(chip):
     # Simple contrast metric
     contrast = chip_np.max() - chip_np.min()
 
+    # Dynamic blur threshold based on image size
+    # Smaller images need higher thresholds
+    if image_size < 5000:  # Very small chips (e.g., 63x32 = 2016 pixels)
+        blur_threshold = 50  # Much stricter for small images
+    elif image_size < 20000:  # Small-medium chips
+        blur_threshold = 30
+    else:  # Larger chips
+        blur_threshold = 20
+
+    # Alternative blur detection using gradient magnitude
+    sobelx = ndimage.sobel(chip_np, axis=1)
+    sobely = ndimage.sobel(chip_np, axis=0)
+    gradient_magnitude = np.sqrt(sobelx ** 2 + sobely ** 2)
+    edge_strength = gradient_magnitude.mean()
+
+    # Combine both metrics for blur detection
+    # An image is blurry if EITHER:
+    # 1. Normalized sharpness is below threshold, OR
+    # 2. Edge strength is very low
+    is_blurry = (normalized_sharpness < blur_threshold) or (edge_strength < 2.0)
+
     # Convert numpy types to Python native types for JSON serialization
     return {
         'sharpness': float(sharpness),
+        'normalized_sharpness': float(normalized_sharpness),
+        'edge_strength': float(edge_strength),
         'mean_intensity': float(mean_intensity),
         'std_intensity': float(std_intensity),
         'contrast': int(contrast),
-        'is_blurry': bool(sharpness < 100),  # Convert numpy bool to Python bool
+        'image_size': int(image_size),
+        'blur_threshold_used': float(blur_threshold),
+        'is_blurry': bool(is_blurry),
         'is_overexposed': bool(mean_intensity > 240),
         'is_underexposed': bool(mean_intensity < 15),
         'is_low_contrast': bool(contrast < 50)
@@ -353,7 +386,9 @@ if __name__ == "__main__":
         "labels": pred_phrases,
     }
     # import ipdb; ipdb.set_trace()
-    image_with_box = plot_boxes_to_image(image_pil, pred_dict)[0]
+    # Create a copy for visualization so original stays clean
+    image_pil_copy = image_pil.copy()
+    image_with_box = plot_boxes_to_image(image_pil_copy, pred_dict)[0]
     image_with_box.save(os.path.join(output_dir, "pred.jpg"))
 
     # --- Write structured analysis alongside the image ---
