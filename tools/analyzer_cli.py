@@ -22,6 +22,9 @@ Usage example (Windows PowerShell):
       --property-key redfin_123 `
       --images "C:\img\a.jpg" "C:\img\b.jpg" `
       --box-thr 0.30 --text-thr 0.25 --chip-margin 0.15 --chip-quality --thumbnail
+
+  With --no-verify to skip chip verification:
+  python analyzer_cli.py --property-key prop_001 --images img.jpg --no-verify
 """
 
 import os
@@ -33,6 +36,15 @@ import argparse
 import subprocess
 from pathlib import Path
 from typing import List, Dict, Any
+
+SCRIPT_DIR = Path(__file__).parent.resolve()
+REPO_ROOT  = SCRIPT_DIR.parent
+
+DEFAULT_DETECT    = REPO_ROOT / "demo" / "inference_on_a_image.py"
+DEFAULT_CONFIG    = REPO_ROOT / "groundingdino" / "config" / "GroundingDINO_SwinT_OGC.py"
+DEFAULT_CKPT      = REPO_ROOT / "weights" / "groundingdino_swint_ogc.pth"
+DEFAULT_VERIF     = Path("C:/Users/Steven/IntelliJProjects/realtorvision/scripts/python/chip_verifier.py")
+DEFAULT_ARTIFACTS = REPO_ROOT / "artifacts"
 
 
 # ---------- helpers ----------
@@ -84,7 +96,11 @@ def main():
     parser.add_argument("--text-thr", type=float, default=0.25, help="Text threshold (default 0.25)")
     parser.add_argument("--chip-margin", type=float, default=0.15, help="Chip margin percent (0.15 = 15%)")
     parser.add_argument("--chip-quality", action="store_true", help="Compute chip quality metrics")
-    parser.add_argument("--thumbnail", action="store_true", help="Create thumbnail with masks")
+    parser.add_argument("--create-thumbnail", action="store_true", help="Create thumbnail with masks overlay")
+    parser.add_argument("--thumbnail-size", type=int, default=384, help="Thumbnail size (default: 384)")
+    parser.add_argument("--cpu-only", action="store_true", help="Run detection on CPU only")
+    parser.add_argument("--token_spans", type=str, default=None, help="Token spans for phrase grounding")
+    parser.add_argument("--no-verify", action="store_true", help="Skip chip verification step")
 
     # Optional explicit paths (otherwise read from env)
     parser.add_argument("--detect-script", help="Path to GDINO demo detect script (override GDINO_DETECT_SCRIPT)")
@@ -122,7 +138,10 @@ def main():
     must_exist(detect_script, "GDINO detect script")
     must_exist(config_path, "GDINO config")
     must_exist(checkpoint, "GDINO checkpoint")
-    must_exist(verifier_py, "ChipVerifier")
+
+    # Only validate verifier if we're actually verifying
+    if not args.no_verify:
+        must_exist(verifier_py, "ChipVerifier")
 
     # Validate images
     images = [ensure_abs(p) for p in args.images]
@@ -155,10 +174,19 @@ def main():
             "--extract-chips",
             "--chip-margin", str(args.chip_margin),
         ]
+
+        # Pass through optional flags to detection script
+        if args.cpu_only:
+            gd_args.append("--cpu-only")
+
         if args.chip_quality:
             gd_args.append("--chip-quality")
-        if args.thumbnail:
-            gd_args.extend(["--create-thumbnail", "--thumbnail-size", "384"])
+
+        if args.create_thumbnail:
+            gd_args.extend(["--create-thumbnail", "--thumbnail-size", str(args.thumbnail_size)])
+
+        if args.token_spans:
+            gd_args.extend(["--token_spans", args.token_spans])
 
         code, out, err = run_python(python_exe, gd_args)
         if code != 0:
@@ -183,23 +211,37 @@ def main():
             })
             continue
 
-        # 2) Run ChipVerifier on that output directory
-        ver_args = [
-            str(verifier_py),
-            str(out_dir),
-            "--lm-studio-url", lm_url,
-            "--model", lm_model,
-            "--max-chips", "3",
-        ]
-        v_code, v_out, v_err = run_python(python_exe, ver_args)
-        if v_code != 0:
-            failures.append({
-                "step": "verify",
-                "image": str(img),
-                "code": v_code,
-                "stderr": v_err,
-                "stdout": v_out,
-            })
+        # 2) Run ChipVerifier on that output directory (unless --no-verify)
+        ver = None
+        if not args.no_verify:
+            ver_args = [
+                str(verifier_py),
+                str(out_dir),
+                "--lm-studio-url", lm_url,
+                "--model", lm_model,
+                "--max-chips", "3",
+            ]
+            v_code, v_out, v_err = run_python(python_exe, ver_args)
+            if v_code != 0:
+                failures.append({
+                    "step": "verify",
+                    "image": str(img),
+                    "code": v_code,
+                    "stderr": v_err,
+                    "stdout": v_out,
+                })
+
+            # Read verification results
+            ver_json_path = out_dir / "verification_results.json"
+            if ver_json_path.exists():
+                try:
+                    with open(ver_json_path, "r", encoding="utf-8") as f:
+                        ver = json.load(f)
+                except Exception as ex:
+                    ver = {"error": f"Failed to read verification_results.json: {ex}"}
+        else:
+            # Skipped verification
+            ver = {"skipped": True, "reason": "--no-verify flag set"}
 
         # Read produced JSONs
         try:
@@ -207,15 +249,6 @@ def main():
                 pred = json.load(f)
         except Exception as ex:
             pred = {"error": f"Failed to read pred.json: {ex}"}
-
-        ver_json_path = out_dir / "verification_results.json"
-        ver = None
-        if ver_json_path.exists():
-            try:
-                with open(ver_json_path, "r", encoding="utf-8") as f:
-                    ver = json.load(f)
-            except Exception as ex:
-                ver = {"error": f"Failed to read verification_results.json: {ex}"}
 
         per_image.append({
             "imagePath": str(img),
@@ -232,6 +265,7 @@ def main():
         "boxThreshold": args.box_thr,
         "textThreshold": args.text_thr,
         "chipMargin": args.chip_margin,
+        "verificationSkipped": args.no_verify,
         "imagesProcessed": len(per_image),
         "results": per_image,
         "failures": failures,
