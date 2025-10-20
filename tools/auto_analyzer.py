@@ -368,10 +368,16 @@ class AutoAnalyzer:
                 error=str(e)
             )
 
-    def analyze_property(self,
-                         property_key: str,
-                         images: List[Path]) -> PropertyAnalysisJob:
-        """Analyze all images for a property."""
+    def analyze_property(self, property_key: str, images: List[Path]) -> PropertyAnalysisJob:
+        """
+        Analyze all images for a property in a SINGLE batch.
+
+        NEW BEHAVIOR:
+        - Classifies each image scene individually
+        - Combines all keywords into one prompt
+        - Runs detection ONCE for ALL images
+        - Maps results back to individual images
+        """
         job_id = f"{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
         job_dir = self.artifacts_root / property_key / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
@@ -383,39 +389,170 @@ class AutoAnalyzer:
 
         t0 = time.time()
 
-        # Prepare requests
-        requests = [
-            ImageAnalysisRequest(
-                image_path=img,
-                property_key=property_key
-            ) for img in images
-        ]
+        # Step 1: Classify ALL scenes first
+        logger.info("\n" + "=" * 60)
+        logger.info("STEP 1: Scene Classification")
+        logger.info("=" * 60)
 
-        # Process each image
+        scene_data = []
+        all_keywords = set()
+
+        for i, img in enumerate(images, 1):
+            logger.info(f"\n[{i}/{len(images)}] Classifying: {img.name}")
+            scene, conf, reasoning, keywords, prompt = self.classify_scene(img)
+
+            scene_data.append({
+                'image': img,
+                'scene': scene,
+                'confidence': conf,
+                'reasoning': reasoning,
+                'keywords': keywords,
+                'prompt': prompt
+            })
+            all_keywords.update(keywords)
+
+            logger.info(f"  Scene: {scene} (confidence: {conf:.1%})")
+            logger.info(f"  Keywords: {len(keywords)}")
+
+        # Step 2: Build combined prompt
+        combined_keywords = sorted(list(all_keywords))[:self.max_keywords]
+        combined_prompt = ". ".join(combined_keywords) + "."
+
+        logger.info("\n" + "=" * 60)
+        logger.info("STEP 2: Combined Detection Prompt")
+        logger.info("=" * 60)
+        logger.info(f"Unique keywords: {len(combined_keywords)}")
+        logger.info(f"Prompt: {combined_prompt[:150]}...")
+
+        # Step 3: Run detection pipeline ONCE with ALL images
+        logger.info("\n" + "=" * 60)
+        logger.info("STEP 3: Batch Detection")
+        logger.info("=" * 60)
+        logger.info(f"Running GroundingDINO for {len(images)} images in one batch...")
+
+        detection_result = self.run_detection_pipeline(
+            property_key=property_key,
+            images=images,  # ✅ ALL images at once
+            text_prompt=combined_prompt
+        )
+
+        # Step 4: Handle errors
+        if "error" in detection_result:
+            logger.error(f"\n❌ Detection pipeline failed: {detection_result['error']}")
+
+            # Create error results for all images
+            results = []
+            requests = []
+
+            for sd in scene_data:
+                results.append(ImageAnalysisResult(
+                    image_path=str(sd['image']),
+                    scene=sd['scene'],
+                    scene_confidence=sd['confidence'],
+                    keywords_used=sd['keywords'],
+                    detection_count=0,
+                    verified_count=None,
+                    output_dir="",
+                    processing_time=time.time() - t0,
+                    error=f"Pipeline failed: {detection_result.get('error', 'Unknown error')}"
+                ))
+
+                requests.append(ImageAnalysisRequest(
+                    image_path=sd['image'],
+                    property_key=property_key,
+                    scene=sd['scene'],
+                    keywords=sd['keywords'],
+                    grounding_prompt=sd['prompt']
+                ))
+
+            job = PropertyAnalysisJob(
+                job_id=job_id,
+                property_key=property_key,
+                timestamp=datetime.now().isoformat(),
+                images=requests,
+                results=results,
+                artifacts_dir=str(job_dir),
+                total_processing_time=time.time() - t0,
+                parameters={
+                    "box_threshold": self.box_threshold,
+                    "text_threshold": self.text_threshold,
+                    "chip_margin": self.chip_margin,
+                    "max_keywords": self.max_keywords,
+                    "include_common": self.include_common,
+                    "include_conditions": self.include_conditions,
+                    "skip_verification": self.skip_verification
+                }
+            )
+
+            self._save_job_summary(job, job_dir)
+            return job
+
+        # Step 5: Parse results for each image
+        logger.info("\n" + "=" * 60)
+        logger.info("STEP 4: Parsing Results")
+        logger.info("=" * 60)
+
         results = []
-        for i, req in enumerate(requests, 1):
-            logger.info(f"\n[{i}/{len(requests)}] Processing: {req.image_path.name}")
+        requests = []
+        pipeline_results = detection_result.get("results", [])
 
-            # Analyze image
-            result = self.analyze_image(
-                image_path=req.image_path,
-                property_key=property_key
+        for idx, sd in enumerate(scene_data):
+            # Get corresponding pipeline result
+            img_result = pipeline_results[idx] if idx < len(pipeline_results) else {}
+
+            # Extract detection data
+            detection_count = 0
+            verified_count = None
+            img_output_dir = ""
+
+            if "detection" in img_result:
+                det_data = img_result["detection"]
+                detections = det_data.get("detections", [])
+                detection_count = len(detections)
+
+            if "verification" in img_result and img_result["verification"]:
+                ver_data = img_result["verification"]
+                if not ver_data.get("skipped"):
+                    summary = ver_data.get("summary", {})
+                    verified_count = summary.get("valid", 0)
+
+            # Handle both output key formats
+            img_output_dir = img_result.get("outputDir") or img_result.get("output_dir") or ""
+
+            # Create result
+            result = ImageAnalysisResult(
+                image_path=str(sd['image']),
+                scene=sd['scene'],
+                scene_confidence=sd['confidence'],
+                keywords_used=sd['keywords'],
+                detection_count=detection_count,
+                verified_count=verified_count,
+                output_dir=img_output_dir,
+                processing_time=(time.time() - t0) / len(images)  # Approximate per-image time
             )
 
             results.append(result)
 
-            # Update request with discovered info
-            req.scene = result.scene
-            req.keywords = result.keywords_used
+            # Create request
+            requests.append(ImageAnalysisRequest(
+                image_path=sd['image'],
+                property_key=property_key,
+                scene=sd['scene'],
+                keywords=sd['keywords'],
+                grounding_prompt=sd['prompt']
+            ))
 
-            # Log progress
+            # Log results
+            logger.info(f"\n[{idx + 1}/{len(images)}] {sd['image'].name}")
             logger.info(f"  Scene: {result.scene} (confidence: {result.scene_confidence:.1%})")
             logger.info(f"  Keywords: {len(result.keywords_used)}")
             logger.info(f"  Detections: {result.detection_count}")
             if result.verified_count is not None:
                 logger.info(f"  Verified: {result.verified_count}")
+            if img_output_dir:
+                logger.info(f"  Output: {img_output_dir}")
 
-        # Create job summary
+        # Step 6: Create job summary
         job = PropertyAnalysisJob(
             job_id=job_id,
             property_key=property_key,
@@ -437,6 +574,10 @@ class AutoAnalyzer:
 
         # Save job summary
         self._save_job_summary(job, job_dir)
+
+        logger.info("\n" + "=" * 60)
+        logger.info("✅ ANALYSIS COMPLETE")
+        logger.info("=" * 60)
 
         return job
 
