@@ -5,17 +5,18 @@ Scene Classifier with Keyword Selection for Property Photos
 Purpose: Classify property photos into scene types and generate appropriate
 object detection keywords for GroundingDINO.
 
+Features:
+- Detects scene type (room/area)
+- Determines if photo is staged or vacant
+- Returns appropriate keywords (core only vs core + staging)
+
 Input: Path to a property photo
-Output: JSON with scene classification, confidence, and GroundingDINO prompt
+Output: JSON with scene classification, staging status, and GroundingDINO prompt
 
 Usage:
   python scene_classifier.py path/to/image.jpg
   python scene_classifier.py path/to/image.jpg --model gemma-3-27b-it --debug
-  python scene_classifier.py path/to/image.jpg --max-keywords 15 --include-conditions
-
-Environment variables:
-  LM_STUDIO_URL     - LM Studio API endpoint (default: http://localhost:1234)
-  LM_STUDIO_MODEL   - Model to use (default: gemma-3-27b-it)
+  python scene_classifier.py path/to/image.jpg --max-keywords 20 --include-conditions
 """
 
 import os
@@ -27,7 +28,7 @@ import logging
 import argparse
 import re
 from pathlib import Path
-from typing import Dict, Optional, List, Tuple
+from typing import Dict, Optional, List
 from dataclasses import dataclass
 import requests
 
@@ -42,7 +43,7 @@ try:
     LM_STUDIO_URL = cfg.LM_STUDIO_URL
     DEFAULT_MODEL = cfg.LM_STUDIO_MODEL
 except ImportError:
-    LM_STUDIO_URL = os.getenv("LM_STUDIO_URL", "http://192.168.86.143:1234")
+    LM_STUDIO_URL = os.getenv("LM_STUDIO_URL", "http://169.254.83.107:1234")
     DEFAULT_MODEL = os.getenv("LM_STUDIO_MODEL", "gemma-3-27b-it")
 
 # ── Scene Types ──────────────────────────────────────────────────────────────
@@ -82,194 +83,213 @@ VALID_SCENES = [
     "unknown"
 ]
 
-# Scene aliases for better matching
-SCENE_ALIASES = {
-    "living": "living_room",
-    "family_room": "living_room",
-    "great_room": "living_room",
-    "master_bedroom": "bedroom",
-    "guest_bedroom": "bedroom",
-    "kids_bedroom": "bedroom",
-    "master_bathroom": "bathroom",
-    "powder_room": "bathroom",
-    "half_bath": "bathroom",
-    "full_bath": "bathroom",
-    "study": "home_office",
-    "den": "home_office",
-    "utility_room": "laundry_room",
-    "mudroom": "laundry_room",
-    "backyard": "yard",
-    "front_yard": "yard",
-    "side_yard": "yard",
-    "exterior": "exterior_front",
-    "outside": "exterior_front"
-}
-
-# ── Keyword Mappings ─────────────────────────────────────────────────────────
-# Object keywords for each scene type (for GroundingDINO detection)
+# ── NEW KEYWORD SCHEMA (Core vs Staging) ─────────────────────────────────────
+# Core: Permanent fixtures, appliances, built-ins
+# Staging: Furniture, decor, movable items
 SCENE_KEYWORDS = {
-    "living_room": [
-        "sofa", "chair", "television", "coffee table", "lamp", "window",
-        "fireplace", "rug", "painting", "plant", "bookshelf", "curtain",
-        "ottoman", "side table", "vase", "cushion", "remote", "clock"
-    ],
+    "living_room": {
+        "core": ["fireplace", "mantel", "hearth", "built-in shelf", "built-in cabinet",
+                 "ceiling fan", "recessed light", "bay window", "floor vent", "baseboard",
+                 "outlet", "media niche", "sliding door", "radiator"],
+        "staging": ["sofa", "sectional", "armchair", "coffee table", "end table",
+                    "television", "tv stand", "media console", "floor lamp", "table lamp",
+                    "rug", "bookshelf", "ottoman"]
+    },
 
-    "kitchen": [
-        "refrigerator", "stove", "microwave", "sink", "cabinet", "counter",
-        "dishwasher", "table", "chair", "window", "toaster", "coffee maker",
-        "backsplash", "island", "bar stool", "cutting board", "pot", "pan"
-    ],
+    "kitchen": {
+        "core": ["range", "cooktop", "oven", "refrigerator", "microwave", "dishwasher",
+                 "sink", "faucet", "countertop", "backsplash", "cabinet", "island",
+                 "vent hood", "pot filler", "pantry door", "pendant light"],
+        "staging": ["bar stool", "counter stool", "chair", "table", "dish rack",
+                    "fruit bowl", "trash can"]
+    },
 
-    "bedroom": [
-        "bed", "nightstand", "dresser", "lamp", "window", "closet",
-        "mirror", "chair", "desk", "television", "rug", "painting",
-        "curtain", "blanket", "pillow", "wardrobe", "clock", "plant"
-    ],
+    "bedroom": {
+        "core": ["closet door", "ceiling fan", "ceiling light", "baseboard heater",
+                 "radiator", "smoke detector", "bay window", "sliding door",
+                 "floor register", "outlet"],
+        "staging": ["bed", "headboard", "nightstand", "dresser", "wardrobe", "desk",
+                    "chair", "table lamp", "floor lamp", "mirror", "television", "bench"]
+    },
 
-    "bathroom": [
-        "toilet", "sink", "bathtub", "shower", "mirror", "towel",
-        "cabinet", "window", "tile", "faucet", "counter", "light fixture",
-        "towel rack", "mat", "shower curtain", "soap dispenser", "toilet paper"
-    ],
+    "bathroom": {
+        "core": ["toilet", "vanity", "sink", "faucet", "mirror", "shower", "bathtub",
+                 "shower head", "glass door", "shower niche", "towel bar",
+                 "toilet paper holder", "exhaust fan", "grab bar", "floor drain"],
+        "staging": ["bath mat", "shower curtain", "towel", "hamper", "storage cart"]
+    },
 
-    "dining_room": [
-        "table", "chair", "chandelier", "window", "cabinet", "painting",
-        "rug", "mirror", "sideboard", "vase", "plant", "curtain",
-        "centerpiece", "place setting", "candlestick", "buffet", "wine rack"
-    ],
+    "dining_room": {
+        "core": ["chandelier", "ceiling fan", "built-in cabinet", "built-in shelf",
+                 "bay window", "pocket door", "wall sconce", "sliding door",
+                 "floor vent", "outlet"],
+        "staging": ["dining table", "dining chair", "sideboard", "buffet", "hutch",
+                    "bench", "rug", "bar cart"]
+    },
 
-    "home_office": [
-        "desk", "chair", "computer", "monitor", "keyboard", "bookshelf",
-        "lamp", "window", "printer", "filing cabinet", "plant", "clock",
-        "whiteboard", "phone", "pen holder", "notebook", "mouse"
-    ],
+    "home_office": {
+        "core": ["built-in shelf", "built-in cabinet", "closet door", "ceiling fan",
+                 "ceiling light", "outlet", "ethernet jack", "return vent",
+                 "bay window", "smoke detector"],
+        "staging": ["desk", "office chair", "monitor", "computer", "printer",
+                    "filing cabinet", "bookshelf", "task lamp"]
+    },
 
-    "garage": [
-        "car", "door", "shelf", "tool", "bicycle", "workbench",
-        "storage box", "ladder", "trash can", "light", "cabinet", "hose",
-        "lawn mower", "rake", "shovel", "paint can", "cooler"
-    ],
+    "laundry_room": {
+        "core": ["washer", "dryer", "laundry sink", "faucet", "countertop", "cabinet",
+                 "shelf", "hanging rod", "vent duct", "drain pan", "floor drain",
+                 "laundry hookups", "water heater", "electrical panel"],
+        "staging": ["laundry basket", "hamper", "detergent bottle", "drying rack",
+                    "ironing board"]
+    },
 
-    "laundry_room": [
-        "washer", "dryer", "basket", "shelf", "cabinet", "sink",
-        "iron", "ironing board", "detergent", "hanger", "rack", "counter",
-        "window", "hamper", "folding table", "storage bin"
-    ],
+    "hallway": {
+        "core": ["ceiling light", "sconce", "smoke detector", "return vent",
+                 "thermostat", "linen closet", "attic hatch", "baseboard heater",
+                 "floor register", "handrail"],
+        "staging": ["console table", "bench", "coat rack", "mirror", "runner", "wall art"]
+    },
 
-    "hallway": [
-        "door", "light", "painting", "mirror", "table", "rug",
-        "coat rack", "shoe rack", "bench", "stairs", "railing", "plant",
-        "photograph", "sconce", "console table"
-    ],
+    "stairway": {
+        "core": ["stairs", "landing", "handrail", "railing", "baluster", "newel post",
+                 "wall sconce", "skylight", "stair gate"],
+        "staging": ["runner", "wall art", "mirror", "bench"]
+    },
 
-    "stairway": [
-        "stairs", "railing", "landing", "window", "light", "carpet",
-        "painting", "photograph", "bannister", "spindle", "newel post"
-    ],
+    "basement": {
+        "core": ["water heater", "furnace", "boiler", "electrical panel", "sump pump",
+                 "support column", "support beam", "duct", "pipe", "dehumidifier",
+                 "laundry hookups", "egress window", "floor drain", "radon fan"],
+        "staging": ["shelving unit", "workbench", "storage rack", "tool chest",
+                    "storage bin", "folding table"]
+    },
 
-    "basement": [
-        "stairs", "window", "shelf", "box", "furniture", "light",
-        "pipe", "water heater", "furnace", "support beam", "storage",
-        "workbench", "tool", "dehumidifier"
-    ],
+    "attic": {
+        "core": ["rafter", "beam", "truss", "vent", "attic fan", "duct", "chimney",
+                 "hatch", "pull-down ladder", "skylight", "air handler"],
+        "staging": ["storage bin", "box", "shelving unit"]
+    },
 
-    "attic": [
-        "box", "insulation", "beam", "window", "light", "trunk",
-        "storage", "fan", "vent", "ladder", "christmas decorations"
-    ],
+    "garage": {
+        "core": ["garage door", "door opener", "track", "workbench", "cabinet", "shelf",
+                 "electrical panel", "water heater", "furnace", "laundry hookups",
+                 "attic ladder", "hose bib", "ev charger", "floor drain"],
+        "staging": ["tool chest", "storage bin", "ladder", "bicycle", "lawn mower",
+                    "storage rack", "freezer", "trash can"]
+    },
 
-    "closet": [
-        "clothes", "hanger", "shelf", "shoe", "box", "mirror",
-        "drawer", "rod", "basket", "light", "tie rack", "belt",
-        "organizer", "hamper"
-    ],
+    "closet": {
+        "core": ["shelf", "hanger rod", "drawer", "shoe rack", "organizer", "mirror",
+                 "light fixture", "bi-fold door", "sliding door", "safe"],
+        "staging": ["clothes", "hanger", "storage bin", "laundry basket", "luggage"]
+    },
 
-    "pantry": [
-        "shelf", "food", "jar", "can", "box", "basket",
-        "container", "spice rack", "bottle", "bag", "light"
-    ],
+    "pantry": {
+        "core": ["shelf", "cabinet", "drawer", "pull-out basket", "spice rack",
+                 "wine rack", "pantry door", "light fixture", "freezer", "appliance shelf"],
+        "staging": ["can", "jar", "bottle", "container", "bin", "crate"]
+    },
 
     # Exterior scenes
-    "exterior_front": [
-        "house", "door", "window", "roof", "garage", "driveway",
-        "lawn", "tree", "bush", "mailbox", "pathway", "porch",
-        "light", "gutter", "siding", "brick", "fence", "flower"
-    ],
+    "exterior_front": {
+        "core": ["front door", "garage door", "porch", "porch light", "column",
+                 "railing", "gutter", "downspout", "chimney", "mailbox", "walkway",
+                 "stair", "bay window", "security camera", "house number"],
+        "staging": ["bench", "chair", "planter", "porch swing", "doormat", "wreath"]
+    },
 
-    "exterior_back": [
-        "house", "door", "window", "patio", "deck", "lawn",
-        "tree", "fence", "garden", "grill", "furniture", "umbrella",
-        "shed", "pathway", "light", "planter", "swing"
-    ],
+    "exterior_back": {
+        "core": ["patio", "deck", "back door", "sliding door", "porch", "porch light",
+                 "fence", "gate", "gutter", "downspout", "shed", "stair",
+                 "exterior outlet", "hose bib"],
+        "staging": ["lounge chair", "dining chair", "dining table", "umbrella",
+                    "grill cart", "storage box", "hammock"]
+    },
 
-    "exterior_side": [
-        "house", "window", "fence", "gate", "pathway", "lawn",
-        "tree", "bush", "siding", "brick", "gutter", "light",
-        "air conditioner", "meter"
-    ],
+    "exterior_side": {
+        "core": ["side gate", "fence", "gutter", "downspout", "hose bib",
+                 "electric meter", "gas meter", "hvac condenser", "utility box",
+                 "satellite dish", "vent", "crawlspace door"],
+        "staging": ["trash bin", "storage tote"]
+    },
 
-    "yard": [
-        "lawn", "tree", "bush", "flower", "fence", "pathway",
-        "garden", "sprinkler", "shed", "bench", "bird bath",
-        "planter", "rock", "mulch", "grass"
-    ],
+    "yard": {
+        "core": ["fence", "gate", "shed", "sprinkler head", "irrigation control",
+                 "playset", "swing set", "raised bed", "fire pit", "retaining wall",
+                 "pathway", "composter"],
+        "staging": ["patio chair", "table", "umbrella", "trampoline", "garden bench",
+                    "hammock"]
+    },
 
-    "patio": [
-        "furniture", "chair", "table", "umbrella", "grill", "plant",
-        "light", "door", "railing", "cushion", "fire pit", "heater",
-        "fan", "rug", "planter"
-    ],
+    "patio": {
+        "core": ["pergola", "gazebo", "awning", "outdoor kitchen", "grill island",
+                 "fire pit", "ceiling fan", "railing", "stair", "privacy screen", "heater"],
+        "staging": ["chair", "table", "sofa", "coffee table", "umbrella", "storage box"]
+    },
 
-    "deck": [
-        "railing", "chair", "table", "grill", "stairs", "light",
-        "planter", "bench", "umbrella", "door", "wood", "post"
-    ],
+    "deck": {
+        "core": ["railing", "stair", "post", "baluster", "gate", "pergola", "awning",
+                 "lattice", "bench", "skirting"],
+        "staging": ["chair", "table", "umbrella", "storage box", "planter"]
+    },
 
-    "balcony": [
-        "railing", "chair", "table", "plant", "door", "light",
-        "planter", "view", "floor", "ceiling", "privacy screen"
-    ],
+    "balcony": {
+        "core": ["railing", "privacy screen", "awning", "sliding door", "drain",
+                 "ceiling fan", "guard rail", "support bracket", "sunshade"],
+        "staging": ["chair", "table", "planter", "side table"]
+    },
 
-    "driveway": [
-        "car", "garage door", "concrete", "asphalt", "mailbox",
-        "lamp post", "basketball hoop", "trash can", "gate"
-    ],
+    "driveway": {
+        "core": ["garage door", "carport", "gate", "lamp post", "mailbox", "drain",
+                 "retaining wall", "walkway", "curb cut"],
+        "staging": ["trash bin", "basketball hoop", "portable gate"]
+    },
 
-    "pool_area": [
-        "pool", "water", "chair", "umbrella", "table", "fence",
-        "diving board", "ladder", "slide", "hot tub", "deck",
-        "towel", "float", "light", "filter", "skimmer"
-    ],
+    "pool_area": {
+        "core": ["pool", "spa", "hot tub", "ladder", "handrail", "diving board",
+                 "slide", "pool light", "filter", "pump", "heater", "skimmer",
+                 "pool cover", "fence", "gate"],
+        "staging": ["lounge chair", "chair", "table", "umbrella", "storage box", "cabana"]
+    },
 
-    "garden": [
-        "plant", "flower", "tree", "bush", "pathway", "bench",
-        "fountain", "statue", "planter", "trellis", "mulch",
-        "rock", "grass", "vegetable", "herb", "fence"
-    ],
+    "garden": {
+        "core": ["raised bed", "trellis", "greenhouse", "irrigation line",
+                 "drip emitter", "hose reel", "fence", "gate", "planter box",
+                 "rain barrel", "garden shed"],
+        "staging": ["bench", "table", "chair", "wheelbarrow", "planter pot", "storage bin"]
+    },
 
-    # Special/other
-    "floor_plan": [
-        "room", "wall", "door", "window", "dimension", "label",
-        "square footage", "layout", "arrow", "measurement"
-    ],
+    # Special/other (no staging concept for these)
+    "floor_plan": {
+        "core": ["wall", "door", "window", "stair", "dimension", "label", "arrow",
+                 "north arrow", "scale bar", "room label", "closet", "appliance symbol"],
+        "staging": []
+    },
 
-    "aerial_view": [
-        "roof", "house", "property", "tree", "driveway", "lawn",
-        "street", "neighbor", "pool", "fence", "boundary"
-    ],
+    "aerial_view": {
+        "core": ["roof", "chimney", "solar panel", "driveway", "street", "sidewalk",
+                 "fence", "pool", "outbuilding", "carport", "hvac condenser",
+                 "septic lid", "well head", "property gate"],
+        "staging": []
+    },
 
-    "street_view": [
-        "house", "street", "sidewalk", "tree", "car", "mailbox",
-        "streetlight", "neighbor", "curb", "lawn", "driveway"
-    ],
+    "street_view": {
+        "core": ["house", "sidewalk", "driveway", "street", "curb", "crosswalk",
+                 "stop sign", "streetlight", "fire hydrant", "mailbox", "utility pole",
+                 "traffic signal"],
+        "staging": []
+    },
 
-    "unknown": [
-        "object", "item", "thing", "structure", "furniture", "fixture",
-        "appliance", "decoration", "feature", "element"
-    ]
+    "unknown": {
+        "core": ["cabinet", "countertop", "sink", "faucet", "appliance", "light fixture",
+                 "ceiling fan", "railing", "fence", "garage door", "water heater",
+                 "electrical panel", "vent", "smoke detector"],
+        "staging": ["sofa", "chair", "table", "bed", "dresser", "television",
+                    "lamp", "rug", "bar stool"]
+    }
 }
 
-# Common objects that appear in many scenes
+# Common objects that appear in many scenes (usually core/permanent)
 COMMON_OBJECTS = [
     "window", "door", "light", "wall", "floor", "ceiling",
     "outlet", "switch", "vent", "smoke detector"
@@ -294,10 +314,11 @@ logger = logging.getLogger(__name__)
 class SceneClassification:
     scene: str
     confidence: float
+    is_staged: bool
+    staging_confidence: float
     reasoning: str
     keywords: List[str]
     groundingdino_prompt: str
-    alternatives: Optional[List[Tuple[str, float]]] = None
     processing_time: float = 0.0
     raw_response: Optional[str] = None
     error: Optional[str] = None
@@ -318,14 +339,16 @@ def _clean_keywords(keywords: List[str]) -> List[str]:
 
 
 def keywords_for_scene(scene: str,
+                       is_staged: bool = True,
                        include_common: bool = True,
                        include_conditions: bool = False,
                        max_keywords: int = 25) -> List[str]:
     """
-    Get detection keywords for a scene type.
+    Get detection keywords for a scene type based on staging status.
 
     Args:
         scene: Scene type (e.g., 'living_room', 'kitchen')
+        is_staged: Whether the photo shows staged/furnished space
         include_common: Add common objects like window, door, light
         include_conditions: Add defect/condition keywords
         max_keywords: Maximum number of keywords to return
@@ -333,8 +356,15 @@ def keywords_for_scene(scene: str,
     Returns:
         List of cleaned, deduplicated keywords
     """
-    # Get scene-specific keywords
-    base_keywords = list(SCENE_KEYWORDS.get(scene, SCENE_KEYWORDS["unknown"]))
+    # Get scene keywords
+    scene_data = SCENE_KEYWORDS.get(scene, SCENE_KEYWORDS["unknown"])
+
+    # Start with core keywords (always included)
+    base_keywords = list(scene_data.get("core", []))
+
+    # Add staging keywords if photo is staged
+    if is_staged and "staging" in scene_data:
+        base_keywords.extend(scene_data["staging"])
 
     # Add common objects if requested
     if include_common:
@@ -385,27 +415,31 @@ class SceneClassifier:
 
     @staticmethod
     def build_classification_prompt() -> str:
-        """Build the scene classification prompt with full scene list."""
-        # Use the full list as JSON array for exact token matching
+        """Build the scene classification prompt with staging detection."""
         scenes_json = json.dumps(VALID_SCENES, indent=2)
 
         return (
             "You are an expert at analyzing real estate property photos.\n\n"
-            "TASK: Identify the single primary scene type (room/area) shown in this property photo.\n\n"
+            "TASK: Identify the scene type AND determine if the photo is staged/furnished.\n\n"
             f"VALID_SCENES = {scenes_json}\n\n"
+            "STAGING DETECTION:\n"
+            "- STAGED: Photo shows furniture, decor, or movable items (sofa, bed, table, etc.)\n"
+            "- VACANT: Photo shows only permanent fixtures (cabinets, appliances, built-ins)\n"
+            "- Consider: Is there furniture? Are there decorative items? Is it furnished?\n\n"
             "RULES:\n"
-            "- Choose exactly ONE value from VALID_SCENES above\n"
-            "- Copy the scene name verbatim from the list (e.g., 'living_room', 'kitchen', 'exterior_front')\n"
-            "- Consider the main subject of the photo, not background elements\n"
-            "- If uncertain between options, pick the most likely one\n"
-            "- Use 'unknown' only if truly unidentifiable\n"
-            "- Do NOT invent new scene labels outside this list\n\n"
+            "- Choose exactly ONE scene from VALID_SCENES above\n"
+            "- Copy the scene name verbatim from the list\n"
+            "- Determine if photo is 'staged' (has furniture/decor) or 'vacant' (empty/unfurnished)\n"
+            "- Consider the main subject of the photo\n"
+            "- If uncertain, pick the most likely option\n"
+            "- Use 'unknown' only if truly unidentifiable\n\n"
             "RESPOND ONLY WITH JSON (no extra text):\n"
             "{\n"
             '  "scene": "<one item from VALID_SCENES>",\n'
             '  "confidence": 0.0-1.0,\n'
-            '  "reasoning": "brief explanation",\n'
-            '  "alternatives": [["<also from VALID_SCENES>", 0.0-1.0], ["<another from VALID_SCENES>", 0.0-1.0]]\n'
+            '  "is_staged": true/false,\n'
+            '  "staging_confidence": 0.0-1.0,\n'
+            '  "reasoning": "brief explanation including staging status"\n'
             "}"
         )
 
@@ -444,15 +478,11 @@ class SceneClassifier:
         scene = scene.lower().strip()
         scene = scene.replace('-', '_').replace(' ', '_')
 
-        # Check aliases
-        if scene in SCENE_ALIASES:
-            return SCENE_ALIASES[scene]
-
         # Check if it's already valid
         if scene in VALID_SCENES:
             return scene
 
-        # Try to find closest match
+        # Try to find the closest match
         for valid in VALID_SCENES:
             if valid in scene or scene in valid:
                 return valid
@@ -492,7 +522,7 @@ class SceneClassifier:
                 "model": self.model_name,
                 "messages": messages,
                 "temperature": 0.1,
-                "max_tokens": 300,
+                "max_tokens": 400,
                 "stream": False
             }
 
@@ -514,7 +544,7 @@ class SceneClassifier:
             raw_response = data["choices"][0]["message"]["content"]
 
             if self.debug:
-                logger.info(f"Raw response: {raw_response[:200]}")
+                logger.info(f"Raw response: {raw_response[:300]}")
 
             parsed = self._extract_json(raw_response) or {}
 
@@ -522,22 +552,18 @@ class SceneClassifier:
             scene_raw = str(parsed.get("scene", "unknown"))
             scene = self._normalize_scene(scene_raw)
 
+            # Extract staging information
+            is_staged = bool(parsed.get("is_staged", True))  # Default to staged if not specified
+            staging_confidence = float(parsed.get("staging_confidence", 0.5))
+
             # Extract other fields
             confidence = float(parsed.get("confidence", 0.5))
             reasoning = str(parsed.get("reasoning", ""))[:500]
 
-            # Process alternatives if provided
-            alternatives = []
-            if "alternatives" in parsed and isinstance(parsed["alternatives"], list):
-                for alt in parsed["alternatives"][:3]:  # Max 3 alternatives
-                    if isinstance(alt, list) and len(alt) >= 2:
-                        alt_scene = self._normalize_scene(str(alt[0]))
-                        alt_conf = float(alt[1]) if len(alt) > 1 else 0.0
-                        alternatives.append((alt_scene, alt_conf))
-
-            # Generate keywords for the detected scene
+            # Generate keywords based on scene AND staging status
             keywords = keywords_for_scene(
                 scene,
+                is_staged=is_staged,
                 include_common=self.include_common,
                 include_conditions=self.include_conditions,
                 max_keywords=self.max_keywords
@@ -549,16 +575,18 @@ class SceneClassifier:
             result = SceneClassification(
                 scene=scene,
                 confidence=confidence,
+                is_staged=is_staged,
+                staging_confidence=staging_confidence,
                 reasoning=reasoning,
                 keywords=keywords,
                 groundingdino_prompt=gdino_prompt,
-                alternatives=alternatives if alternatives else None,
                 processing_time=time.time() - t0,
                 raw_response=raw_response if self.debug else None
             )
 
             if self.debug:
-                logger.info(f"Classification: {scene} (confidence: {confidence:.2f})")
+                staging_str = "STAGED" if is_staged else "VACANT"
+                logger.info(f"Classification: {scene} ({staging_str}) - confidence: {confidence:.2f}")
                 logger.info(f"Keywords: {len(keywords)} objects")
 
             return result
@@ -568,6 +596,8 @@ class SceneClassifier:
             return SceneClassification(
                 scene="unknown",
                 confidence=0.0,
+                is_staged=False,
+                staging_confidence=0.0,
                 reasoning="Classification failed",
                 keywords=[],
                 groundingdino_prompt="",
@@ -600,10 +630,11 @@ class SceneClassifier:
                 output["classifications"][path] = {
                     "scene": classification.scene,
                     "confidence": classification.confidence,
+                    "is_staged": classification.is_staged,
+                    "staging_confidence": classification.staging_confidence,
                     "reasoning": classification.reasoning,
                     "keywords": classification.keywords,
                     "groundingdino_prompt": classification.groundingdino_prompt,
-                    "alternatives": classification.alternatives,
                     "processing_time": classification.processing_time,
                     "error": classification.error
                 }
@@ -674,8 +705,10 @@ def main():
     if args.list_scenes:
         print("Valid scene types:")
         for scene in VALID_SCENES:
-            kw_count = len(SCENE_KEYWORDS.get(scene, []))
-            print(f"  {scene:20} - {kw_count} base keywords")
+            scene_data = SCENE_KEYWORDS.get(scene, {})
+            core_count = len(scene_data.get("core", []))
+            staging_count = len(scene_data.get("staging", []))
+            print(f"  {scene:20} - {core_count:2} core, {staging_count:2} staging keywords")
         sys.exit(0)
 
     # Setup classifier
@@ -706,10 +739,11 @@ def main():
             "image": str(image_paths[0]),
             "scene": result.scene,
             "confidence": result.confidence,
+            "is_staged": result.is_staged,
+            "staging_confidence": result.staging_confidence,
             "reasoning": result.reasoning,
             "keywords": result.keywords,
             "groundingdino_prompt": result.groundingdino_prompt,
-            "alternatives": result.alternatives,
             "processing_time": result.processing_time
         }
 
@@ -740,10 +774,11 @@ def main():
                 output["classifications"][path] = {
                     "scene": classification.scene,
                     "confidence": classification.confidence,
+                    "is_staged": classification.is_staged,
+                    "staging_confidence": classification.staging_confidence,
                     "reasoning": classification.reasoning,
                     "keywords": classification.keywords,
                     "groundingdino_prompt": classification.groundingdino_prompt,
-                    "alternatives": classification.alternatives,
                     "processing_time": classification.processing_time
                 }
 
@@ -753,10 +788,11 @@ def main():
 
         # Print summary
         print("\nClassification Summary:")
-        print("-" * 50)
+        print("-" * 70)
         for path, result in results.items():
             kw_count = len(result.keywords)
-            print(f"{Path(path).name:30} → {result.scene:15} ({result.confidence:.1%}) [{kw_count} keywords]")
+            staging = "STAGED" if result.is_staged else "VACANT"
+            print(f"{Path(path).name:25} → {result.scene:15} {staging:7} ({result.confidence:.1%}) [{kw_count} kw]")
 
 
 if __name__ == "__main__":

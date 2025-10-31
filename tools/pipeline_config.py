@@ -28,7 +28,7 @@ ARTIFACTS_ROOT = PROJECT_ROOT / "artifacts"
 # ============================================================================
 # LM STUDIO / VLM SETTINGS
 # ============================================================================
-LM_STUDIO_URL = "http://100.102.92.1:1234"  # CHANGE THIS to your LM Studio URL
+LM_STUDIO_URL = "http://169.254.83.107:1234"
 LM_STUDIO_MODEL = "gemma-3-27b-it"            # Vision-capable model name
 
 # ============================================================================
