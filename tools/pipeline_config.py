@@ -29,7 +29,7 @@ ARTIFACTS_ROOT = PROJECT_ROOT / "artifacts"
 # LM STUDIO / VLM SETTINGS
 # ============================================================================
 LM_STUDIO_URL = "http://169.254.83.107:1234"
-LM_STUDIO_MODEL = "gemma-3-27b-it"            # Vision-capable model name
+LM_STUDIO_MODEL = "qwen/qwen3-vl-30b"
 
 # ============================================================================
 # DETECTION PARAMETERS (GroundingDINO)

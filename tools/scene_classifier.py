@@ -15,8 +15,8 @@ Output: JSON with scene classification, staging status, and GroundingDINO prompt
 
 Usage:
   python scene_classifier.py path/to/image.jpg
-  python scene_classifier.py path/to/image.jpg --model gemma-3-27b-it --debug
-  python scene_classifier.py path/to/image.jpg --max-keywords 20 --include-conditions
+  python scene_classifier.py path/to/image.jpg --model qwen3-vl-30b --debug
+  python scene_classifier.py path/to/image.jpg --max-keywords 15 --include-conditions
 """
 
 import os
@@ -44,7 +44,7 @@ try:
     DEFAULT_MODEL = cfg.LM_STUDIO_MODEL
 except ImportError:
     LM_STUDIO_URL = os.getenv("LM_STUDIO_URL", "http://169.254.83.107:1234")
-    DEFAULT_MODEL = os.getenv("LM_STUDIO_MODEL", "gemma-3-27b-it")
+    DEFAULT_MODEL = os.getenv("LM_STUDIO_MODEL", "qwen/qwen3-vl-30b")
 
 # ── Scene Types ──────────────────────────────────────────────────────────────
 VALID_SCENES = [
@@ -289,12 +289,6 @@ SCENE_KEYWORDS = {
     }
 }
 
-# Common objects that appear in many scenes (usually core/permanent)
-COMMON_OBJECTS = [
-    "window", "door", "light", "wall", "floor", "ceiling",
-    "outlet", "switch", "vent", "smoke detector"
-]
-
 # Objects related to condition/defects (optional)
 CONDITION_KEYWORDS = [
     "crack", "stain", "damage", "hole", "scratch", "dent",
@@ -313,9 +307,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SceneClassification:
     scene: str
-    confidence: float
     is_staged: bool
-    staging_confidence: float
     reasoning: str
     keywords: List[str]
     groundingdino_prompt: str
@@ -340,16 +332,14 @@ def _clean_keywords(keywords: List[str]) -> List[str]:
 
 def keywords_for_scene(scene: str,
                        is_staged: bool = True,
-                       include_common: bool = True,
                        include_conditions: bool = False,
-                       max_keywords: int = 25) -> List[str]:
+                       max_keywords: int = 12) -> List[str]:
     """
     Get detection keywords for a scene type based on staging status.
 
     Args:
         scene: Scene type (e.g., 'living_room', 'kitchen')
         is_staged: Whether the photo shows staged/furnished space
-        include_common: Add common objects like window, door, light
         include_conditions: Add defect/condition keywords
         max_keywords: Maximum number of keywords to return
 
@@ -365,12 +355,6 @@ def keywords_for_scene(scene: str,
     # Add staging keywords if photo is staged
     if is_staged and "staging" in scene_data:
         base_keywords.extend(scene_data["staging"])
-
-    # Add common objects if requested
-    if include_common:
-        for obj in COMMON_OBJECTS:
-            if obj not in base_keywords:
-                base_keywords.append(obj)
 
     # Add condition keywords if requested
     if include_conditions:
@@ -396,13 +380,11 @@ def format_for_grounding_dino(keywords: List[str]) -> str:
 class SceneClassifier:
     def __init__(self, lm_studio_url: str = LM_STUDIO_URL,
                  model_name: str = DEFAULT_MODEL,
-                 include_common: bool = True,
                  include_conditions: bool = False,
-                 max_keywords: int = 25,
+                 max_keywords: int = 12,
                  debug: bool = False):
         self.lm_studio_url = lm_studio_url.rstrip('/')
         self.model_name = model_name
-        self.include_common = include_common
         self.include_conditions = include_conditions
         self.max_keywords = max_keywords
         self.debug = debug
@@ -430,15 +412,12 @@ class SceneClassifier:
             "- Choose exactly ONE scene from VALID_SCENES above\n"
             "- Copy the scene name verbatim from the list\n"
             "- Determine if photo is 'staged' (has furniture/decor) or 'vacant' (empty/unfurnished)\n"
-            "- Consider the main subject of the photo\n"
             "- If uncertain, pick the most likely option\n"
-            "- Use 'unknown' only if truly unidentifiable\n\n"
+            "- Use 'unknown' only if you cannot determine the scene or you believe that the scene depicted is not one of the listed scenes\n\n"
             "RESPOND ONLY WITH JSON (no extra text):\n"
             "{\n"
             '  "scene": "<one item from VALID_SCENES>",\n'
-            '  "confidence": 0.0-1.0,\n'
             '  "is_staged": true/false,\n'
-            '  "staging_confidence": 0.0-1.0,\n'
             '  "reasoning": "brief explanation including staging status"\n'
             "}"
         )
@@ -552,19 +531,13 @@ class SceneClassifier:
             scene_raw = str(parsed.get("scene", "unknown"))
             scene = self._normalize_scene(scene_raw)
 
-            # Extract staging information
             is_staged = bool(parsed.get("is_staged", True))  # Default to staged if not specified
-            staging_confidence = float(parsed.get("staging_confidence", 0.5))
-
-            # Extract other fields
-            confidence = float(parsed.get("confidence", 0.5))
             reasoning = str(parsed.get("reasoning", ""))[:500]
 
             # Generate keywords based on scene AND staging status
             keywords = keywords_for_scene(
                 scene,
                 is_staged=is_staged,
-                include_common=self.include_common,
                 include_conditions=self.include_conditions,
                 max_keywords=self.max_keywords
             )
@@ -574,9 +547,7 @@ class SceneClassifier:
 
             result = SceneClassification(
                 scene=scene,
-                confidence=confidence,
                 is_staged=is_staged,
-                staging_confidence=staging_confidence,
                 reasoning=reasoning,
                 keywords=keywords,
                 groundingdino_prompt=gdino_prompt,
@@ -586,7 +557,7 @@ class SceneClassifier:
 
             if self.debug:
                 staging_str = "STAGED" if is_staged else "VACANT"
-                logger.info(f"Classification: {scene} ({staging_str}) - confidence: {confidence:.2f}")
+                logger.info(f"Classification: {scene} ({staging_str})")
                 logger.info(f"Keywords: {len(keywords)} objects")
 
             return result
@@ -595,9 +566,7 @@ class SceneClassifier:
             logger.error(f"Error classifying image {image_path}: {e}")
             return SceneClassification(
                 scene="unknown",
-                confidence=0.0,
                 is_staged=False,
-                staging_confidence=0.0,
                 reasoning="Classification failed",
                 keywords=[],
                 groundingdino_prompt="",
@@ -629,9 +598,7 @@ class SceneClassifier:
             for path, classification in results.items():
                 output["classifications"][path] = {
                     "scene": classification.scene,
-                    "confidence": classification.confidence,
                     "is_staged": classification.is_staged,
-                    "staging_confidence": classification.staging_confidence,
                     "reasoning": classification.reasoning,
                     "keywords": classification.keywords,
                     "groundingdino_prompt": classification.groundingdino_prompt,
@@ -671,18 +638,13 @@ def main():
     parser.add_argument(
         "--max-keywords",
         type=int,
-        default=25,
-        help="Maximum keywords per scene (default: 25)"
+        default=12,
+        help="Maximum keywords per scene (default: 12)"
     )
     parser.add_argument(
         "--include-conditions",
         action="store_true",
         help="Include defect/condition keywords (crack, stain, damage, etc.)"
-    )
-    parser.add_argument(
-        "--no-common",
-        action="store_true",
-        help="Exclude common objects (window, door, light, etc.)"
     )
     parser.add_argument(
         "--output", "-o",
@@ -715,7 +677,6 @@ def main():
     classifier = SceneClassifier(
         lm_studio_url=args.lm_studio_url,
         model_name=args.model,
-        include_common=not args.no_common,
         include_conditions=args.include_conditions,
         max_keywords=args.max_keywords,
         debug=args.debug
@@ -738,9 +699,7 @@ def main():
         output = {
             "image": str(image_paths[0]),
             "scene": result.scene,
-            "confidence": result.confidence,
             "is_staged": result.is_staged,
-            "staging_confidence": result.staging_confidence,
             "reasoning": result.reasoning,
             "keywords": result.keywords,
             "groundingdino_prompt": result.groundingdino_prompt,
@@ -773,9 +732,7 @@ def main():
             for path, classification in results.items():
                 output["classifications"][path] = {
                     "scene": classification.scene,
-                    "confidence": classification.confidence,
                     "is_staged": classification.is_staged,
-                    "staging_confidence": classification.staging_confidence,
                     "reasoning": classification.reasoning,
                     "keywords": classification.keywords,
                     "groundingdino_prompt": classification.groundingdino_prompt,
@@ -792,7 +749,7 @@ def main():
         for path, result in results.items():
             kw_count = len(result.keywords)
             staging = "STAGED" if result.is_staged else "VACANT"
-            print(f"{Path(path).name:25} → {result.scene:15} {staging:7} ({result.confidence:.1%}) [{kw_count} kw]")
+            print(f"{Path(path).name:25} → {result.scene:15} {staging:7} [{kw_count} kw]")
 
 
 if __name__ == "__main__":
