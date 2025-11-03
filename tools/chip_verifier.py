@@ -29,7 +29,6 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
 from collections import defaultdict
-import numpy as np
 import logging
 import re
 
@@ -44,15 +43,13 @@ try:
     LM_STUDIO_URL = cfg.LM_STUDIO_URL
     DEFAULT_MODEL = cfg.LM_STUDIO_MODEL
     VERIFY_THRESHOLDS = {
-        "consensus_ratio": cfg.VERIFY_CONSENSUS_RATIO,
-        "avg_confidence": cfg.VERIFY_AVG_CONFIDENCE
+        "consensus_ratio": cfg.VERIFY_CONSENSUS_RATIO
     }
 except ImportError:
-    LM_STUDIO_URL = "http://192.168.86.143:1234"
-    DEFAULT_MODEL = "gemma-3-27b-it"
+    LM_STUDIO_URL = "http://169.254.83.107:1234"
+    DEFAULT_MODEL = "qwen3-vl-30b"
     VERIFY_THRESHOLDS = {
-        "consensus_ratio": 0.60,
-        "avg_confidence": 0.60
+        "consensus_ratio": 0.60
     }
 
 # ── Logging ──────────────────────────────────────────────────────────────────
@@ -67,7 +64,6 @@ class ChipVerification:
     label: str
     original_confidence: float
     is_valid: bool
-    verification_confidence: float
     reasoning: str
     bbox_quality: Optional[str] = None  # "tight"|"acceptable"|"too_broad"|"wrong_object"
     object_fill_ratio: Optional[float] = None
@@ -84,7 +80,6 @@ class DetectionVerification:
     bbox: List[int]
     chip_verifications: List[ChipVerification]
     final_verdict: str  # "VALID" | "INVALID" | "UNCERTAIN"
-    consensus_confidence: float
     reasoning: str
 
 
@@ -143,7 +138,6 @@ class ChipVerifier:
             "RESPOND ONLY WITH JSON in this schema (no extra text):\n"
             "{\n"
             "  \"is_valid\": true/false,\n"
-            "  \"confidence\": 0.0-1.0,\n"
             "  \"reasoning\": \"short explanation\",\n"
             "  \"bbox_quality\": \"tight|acceptable|too_broad|wrong_object\",\n"
             "  \"object_fill_ratio\": 0.0-1.0,\n"
@@ -227,7 +221,6 @@ class ChipVerifier:
             parsed = self._extract_json(raw) or {}
 
             is_valid = bool(parsed.get("is_valid", False))
-            vconf = float(parsed.get("confidence", 0.5))
 
             return ChipVerification(
                 chip_path=str(chip_path),
@@ -235,7 +228,6 @@ class ChipVerifier:
                 label=label,
                 original_confidence=float(gd_conf) if isinstance(gd_conf, (int, float)) else 0.0,
                 is_valid=is_valid,
-                verification_confidence=vconf,
                 reasoning=str(parsed.get("reasoning", ""))[:500],
                 bbox_quality=parsed.get("bbox_quality"),
                 object_fill_ratio=float(parsed.get("object_fill_ratio", 0.0)) if parsed.get("object_fill_ratio") is not None else None,
@@ -251,7 +243,6 @@ class ChipVerifier:
                 label=label,
                 original_confidence=float(gd_conf) if isinstance(gd_conf, (int, float)) else 0.0,
                 is_valid=False,
-                verification_confidence=0.0,
                 reasoning="Verification failed",
                 error=str(e),
                 processing_time=time.time() - t0
@@ -278,23 +269,21 @@ class ChipVerifier:
                 bbox=bbox_xyxy,
                 chip_verifications=[],
                 final_verdict="INVALID",
-                consensus_confidence=0.0,
                 reasoning="No verification chips available"
             )
 
         valid_count = sum(1 for v in verifications if v.is_valid)
         valid_ratio = valid_count / len(verifications)
-        avg_conf = float(np.mean([v.verification_confidence for v in verifications])) if verifications else 0.0
 
-        if valid_ratio >= VERIFY_THRESHOLDS["consensus_ratio"] and avg_conf >= VERIFY_THRESHOLDS["avg_confidence"]:
+        if valid_ratio >= VERIFY_THRESHOLDS["consensus_ratio"]:
             verdict = "VALID"
-            reason = f"Consensus {valid_ratio:.0%} with avg confidence {avg_conf:.2f}"
-        elif valid_ratio <= 0.25 or avg_conf < 0.40:
+            reason = f"Consensus {valid_ratio:.0%} ({valid_count}/{len(verifications)} chips)"
+        elif valid_ratio <= 0.25:
             verdict = "INVALID"
-            reason = f"Too weak consensus ({valid_ratio:.0%}) and/or low avg confidence ({avg_conf:.2f})"
+            reason = f"Low consensus ({valid_ratio:.0%}, only {valid_count}/{len(verifications)} valid)"
         else:
             verdict = "UNCERTAIN"
-            reason = f"Mixed verification: {valid_count}/{len(verifications)} valid, avg confidence {avg_conf:.2f}"
+            reason = f"Mixed verification: {valid_count}/{len(verifications)} valid ({valid_ratio:.0%})"
 
         return DetectionVerification(
             detection_idx=detection_idx,
@@ -303,7 +292,6 @@ class ChipVerifier:
             bbox=bbox_xyxy,
             chip_verifications=verifications,
             final_verdict=verdict,
-            consensus_confidence=avg_conf,
             reasoning=reason
         )
 
@@ -368,7 +356,7 @@ class ChipVerifier:
             all_results.append(dv)
             counts[dv.final_verdict] += 1
 
-            logger.info(f"  Verdict: {dv.final_verdict}  (avg conf: {dv.consensus_confidence:.2f})")
+            logger.info(f"  Verdict: {dv.final_verdict}")
             logger.info(f"  Reason:  {dv.reasoning}")
 
         # Summary
@@ -396,13 +384,11 @@ class ChipVerifier:
                     "original_confidence": r.original_confidence,
                     "bbox": r.bbox,
                     "final_verdict": r.final_verdict,
-                    "consensus_confidence": r.consensus_confidence,
                     "reasoning": r.reasoning,
                     "chip_verifications": [
                         {
                             "chip_path": cv.chip_path,
                             "is_valid": cv.is_valid,
-                            "confidence": cv.verification_confidence,
                             "reasoning": cv.reasoning,
                             "bbox_quality": cv.bbox_quality,
                             "object_fill_ratio": cv.object_fill_ratio,
