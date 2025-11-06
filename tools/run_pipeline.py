@@ -19,6 +19,7 @@ import sys
 import json
 import argparse
 import logging
+import re
 from pathlib import Path
 from datetime import datetime
 
@@ -42,6 +43,15 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Supported image extensions
+IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+def _natural_key(p: Path):
+    """Natural sort key (so photo_2.jpg comes before photo_10.jpg)."""
+    s = p.name.lower()
+    return [int(t) if t.isdigit() else t for t in re.split(r"(\d+)", s)]
 
 
 def validate_environment():
@@ -75,12 +85,12 @@ def validate_environment():
 
 
 def collect_images(args) -> list:
-    """Collect image paths from arguments."""
-    images = []
+    """Collect image paths from arguments (with deduplication and natural sorting)."""
+    candidates = []
 
     if args.images:
         # Individual image files specified
-        images = [Path(p).resolve() for p in args.images]
+        candidates = [Path(p) for p in args.images]
     elif args.images_dir:
         # Directory specified
         img_dir = Path(args.images_dir).resolve()
@@ -88,27 +98,61 @@ def collect_images(args) -> list:
             logger.error(f"Directory not found: {img_dir}")
             sys.exit(1)
 
-        # Find all image files
-        extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.webp']
-        for ext in extensions:
-            images.extend(img_dir.glob(f"*{ext}"))
-            images.extend(img_dir.glob(f"*{ext.upper()}"))
+        # Single pass - collect all files (we'll filter by suffix)
+        candidates = [p for p in img_dir.iterdir() if p.is_file()]
     else:
         logger.error("Error: Must specify either --images or --images-dir")
         sys.exit(1)
 
-    # Validate all images exist
-    for img in images:
-        if not img.exists():
-            logger.error(f"Image not found: {img}")
+    # Deduplicate and filter
+    seen = set()
+    unique = []
+    removed_non_img = 0
+    removed_artifacts = 0
+
+    for p in candidates:
+        rp = p.resolve()
+
+        if not rp.exists():
+            logger.error(f"Image not found: {rp}")
             sys.exit(1)
 
-    if not images:
+        # Check if it's an image file
+        if rp.suffix.lower() not in IMG_EXTS:
+            removed_non_img += 1
+            continue
+
+        # Keep artifacts directory files out (avoid processing previous outputs)
+        try:
+            if cfg.ARTIFACTS_ROOT.resolve() in rp.parents:
+                removed_artifacts += 1
+                continue
+        except Exception:
+            pass
+
+        # Deduplicate
+        key = str(rp)
+        if key in seen:
+            continue
+        seen.add(key)
+        unique.append(rp)
+
+    # Natural sort (so photo_2.jpg comes before photo_10.jpg)
+    unique.sort(key=_natural_key)
+
+    # Log what was filtered
+    if removed_non_img > 0:
+        logger.debug(f"Filtered {removed_non_img} non-image file(s)")
+    if removed_artifacts > 0:
+        logger.debug(f"Filtered {removed_artifacts} file(s) from artifacts directory")
+
+    logger.info(f"📸 Found {len(unique)} unique image(s) (from {len(candidates)} candidates)")
+
+    if not unique:
         logger.error("No images found!")
         sys.exit(1)
 
-    logger.info(f"📸 Found {len(images)} image(s) to process")
-    return images
+    return unique
 
 
 def run_pipeline(property_key: str, images: list, args):
@@ -138,7 +182,6 @@ def run_pipeline(property_key: str, images: list, args):
             text_threshold=text_thr,
             chip_margin=cfg.CHIP_MARGIN,
             max_keywords=cfg.MAX_KEYWORDS,
-            include_common=cfg.INCLUDE_COMMON,
             include_conditions=cfg.INCLUDE_CONDITIONS,
             skip_verification=skip_verify,
             debug=cfg.DEBUG_MODE
@@ -203,7 +246,6 @@ def run_pipeline(property_key: str, images: list, args):
                 {
                     "image_path": r.image_path,
                     "scene": r.scene,
-                    "scene_confidence": r.scene_confidence,
                     "keywords_used": r.keywords_used,
                     "detection_count": r.detection_count,
                     "verified_count": r.verified_count,

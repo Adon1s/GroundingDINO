@@ -90,7 +90,7 @@ SCENE_KEYWORDS = {
     "living_room": {
         "core": ["fireplace", "mantel", "hearth", "built-in shelf", "built-in cabinet",
                  "ceiling fan", "recessed light", "bay window", "floor vent", "baseboard",
-                 "outlet", "media niche", "sliding door", "radiator"],
+                 "media niche", "door", "radiator", "light fixture"],
         "staging": ["sofa", "sectional", "armchair", "coffee table", "end table",
                     "television", "tv stand", "media console", "floor lamp", "table lamp",
                     "rug", "bookshelf", "ottoman"]
@@ -99,45 +99,44 @@ SCENE_KEYWORDS = {
     "kitchen": {
         "core": ["range", "cooktop", "oven", "refrigerator", "microwave", "dishwasher",
                  "sink", "faucet", "countertop", "backsplash", "cabinet", "island",
-                 "vent hood", "pot filler", "pantry door", "pendant light"],
+                 "vent hood", "pantry", "pendant light"],
         "staging": ["bar stool", "counter stool", "chair", "table", "dish rack",
                     "fruit bowl", "trash can"]
     },
 
     "bedroom": {
-        "core": ["closet door", "ceiling fan", "ceiling light", "baseboard heater",
-                 "radiator", "smoke detector", "bay window", "sliding door",
-                 "floor register", "outlet"],
+        "core": ["door", "ceiling fan", "ceiling light", "baseboard heater",
+                 "radiator", "smoke detector", "bay window",
+                 "floor register"],
         "staging": ["bed", "headboard", "nightstand", "dresser", "wardrobe", "desk",
                     "chair", "table lamp", "floor lamp", "mirror", "television", "bench"]
     },
 
     "bathroom": {
-        "core": ["toilet", "vanity", "sink", "faucet", "mirror", "shower", "bathtub",
-                 "shower head", "glass door", "shower niche", "towel bar",
-                 "toilet paper holder", "exhaust fan", "grab bar", "floor drain"],
+        "core": ["toilet", "vanity", "sink", "faucet", "mirror", "shower", "bathtub", "towel bar",
+                 "toilet paper holder", "grab bar", "floor drain"],
         "staging": ["bath mat", "shower curtain", "towel", "hamper", "storage cart"]
     },
 
     "dining_room": {
-        "core": ["chandelier", "ceiling fan", "built-in cabinet", "built-in shelf",
-                 "bay window", "pocket door", "wall sconce", "sliding door",
-                 "floor vent", "outlet"],
+        "core": ["chandelier", "ceiling fan", "cabinet", "shelf",
+                 "bay window", "door",
+                 "floor vent"],
         "staging": ["dining table", "dining chair", "sideboard", "buffet", "hutch",
                     "bench", "rug", "bar cart"]
     },
 
     "home_office": {
-        "core": ["built-in shelf", "built-in cabinet", "closet door", "ceiling fan",
-                 "ceiling light", "outlet", "ethernet jack", "return vent",
-                 "bay window", "smoke detector"],
+        "core": ["shelf", "cabinet", "closet door", "ceiling fan",
+                 "ceiling light",
+                 "bay window"],
         "staging": ["desk", "office chair", "monitor", "computer", "printer",
                     "filing cabinet", "bookshelf", "task lamp"]
     },
 
     "laundry_room": {
-        "core": ["washer", "dryer", "laundry sink", "faucet", "countertop", "cabinet",
-                 "shelf", "hanging rod", "vent duct", "drain pan", "floor drain",
+        "core": ["washer", "dryer", "sink", "faucet", "countertop", "cabinet",
+                 "shelf", "hanging rod", "vent duct", "floor drain",
                  "laundry hookups", "water heater", "electrical panel"],
         "staging": ["laundry basket", "hamper", "detergent bottle", "drying rack",
                     "ironing board"]
@@ -147,26 +146,26 @@ SCENE_KEYWORDS = {
         "core": ["ceiling light", "sconce", "smoke detector", "return vent",
                  "thermostat", "linen closet", "attic hatch", "baseboard heater",
                  "floor register", "handrail"],
-        "staging": ["console table", "bench", "coat rack", "mirror", "runner", "wall art"]
+        "staging": ["console table", "bench", "coat rack", "mirror", "wall art"]
     },
 
     "stairway": {
-        "core": ["stairs", "landing", "handrail", "railing", "baluster", "newel post",
-                 "wall sconce", "skylight", "stair gate"],
+        "core": ["landing", "handrail", "railing", "baluster", "newel post",
+                 "wall sconce", "light fixture", "stair gate"],
         "staging": ["runner", "wall art", "mirror", "bench"]
     },
 
     "basement": {
-        "core": ["water heater", "furnace", "boiler", "electrical panel", "sump pump",
-                 "support column", "support beam", "duct", "pipe", "dehumidifier",
-                 "laundry hookups", "egress window", "floor drain", "radon fan"],
+        "core": ["water heater", "furnace", "boiler", "electrical panel",
+                 "support column", "support beam", "duct", "pipe",
+                 "laundry hookups", "egress window", "floor drain", "fan"],
         "staging": ["shelving unit", "workbench", "storage rack", "tool chest",
-                    "storage bin", "folding table"]
+                    "storage bin", "folding table", "dehumidifier"]
     },
 
     "attic": {
         "core": ["rafter", "beam", "truss", "vent", "attic fan", "duct", "chimney",
-                 "hatch", "pull-down ladder", "skylight", "air handler"],
+                 "hatch", "pull-down ladder", "skylight"],
         "staging": ["storage bin", "box", "shelving unit"]
     },
 
@@ -175,7 +174,7 @@ SCENE_KEYWORDS = {
                  "electrical panel", "water heater", "furnace", "laundry hookups",
                  "attic ladder", "hose bib", "ev charger", "floor drain"],
         "staging": ["tool chest", "storage bin", "ladder", "bicycle", "lawn mower",
-                    "storage rack", "freezer", "trash can"]
+                    "storage rack", "freezer", "refrigerator", "trash can"]
     },
 
     "closet": {
@@ -200,8 +199,7 @@ SCENE_KEYWORDS = {
 
     "exterior_back": {
         "core": ["patio", "deck", "back door", "sliding door", "porch", "porch light",
-                 "fence", "gate", "gutter", "downspout", "shed", "stair",
-                 "exterior outlet", "hose bib"],
+                 "fence", "gate", "gutter", "downspout", "shed", "stair", "hose bib"],
         "staging": ["lounge chair", "dining chair", "dining table", "umbrella",
                     "grill cart", "storage box", "hammock"]
     },
