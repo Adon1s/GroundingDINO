@@ -43,7 +43,6 @@ class ImageAnalysisResult:
     """Result from analyzing a single image."""
     image_path: str
     scene: str
-    scene_confidence: float
     keywords_used: List[str]
     detection_count: int
     verified_count: Optional[int] = None
@@ -77,7 +76,7 @@ class AutoAnalyzer:
                  include_conditions: bool = None,
                  skip_verification: bool = None,
                  debug: bool = None):
-        
+
         # Use config defaults if not specified
         self.python_exe = Path(python_exe)
         self.artifacts_root = Path(artifacts_root or cfg.ARTIFACTS_ROOT)
@@ -89,7 +88,7 @@ class AutoAnalyzer:
         self.include_conditions = include_conditions if include_conditions is not None else cfg.INCLUDE_CONDITIONS
         self.skip_verification = skip_verification if skip_verification is not None else cfg.SKIP_VERIFICATION
         self.debug = debug if debug is not None else cfg.DEBUG_MODE
-        
+
         # Validate environment
         self._validate_environment()
 
@@ -102,20 +101,20 @@ class AutoAnalyzer:
             "GDINO checkpoint": cfg.GDINO_CHECKPOINT,
             "GDINO infer script": cfg.GDINO_INFER_SCRIPT
         }
-        
+
         if not self.skip_verification:
             required_paths["Chip verifier"] = cfg.TOOLS_DIR / "chip_verifier.py"
-        
+
         missing = []
         for name, path in required_paths.items():
             if not path.exists():
                 missing.append(f"{name}: {path}")
-        
+
         if missing:
             error_msg = "Missing required components:\n" + "\n".join(missing)
             logger.error(error_msg)
             raise FileNotFoundError(error_msg)
-        
+
         # Create artifacts root
         self.artifacts_root.mkdir(parents=True, exist_ok=True)
 
@@ -123,7 +122,7 @@ class AutoAnalyzer:
         """Run a command and capture output."""
         if self.debug:
             logger.debug(f"Running: {' '.join(str(c) for c in cmd)}")
-        
+
         proc = subprocess.Popen(
             [str(c) for c in cmd],
             cwd=str(cwd) if cwd else None,
@@ -131,19 +130,19 @@ class AutoAnalyzer:
             stderr=subprocess.PIPE,
             text=True
         )
-        
+
         stdout, stderr = proc.communicate()
         return proc.returncode or 0, stdout, stderr
 
-    def classify_scene(self, image_path: Path) -> Tuple[str, float, str, List[str], str]:
+    def classify_scene(self, image_path: Path) -> Tuple[str, str, List[str], str]:
         """
         Classify the scene type and get keywords for detection.
-        
+
         Returns:
-            Tuple of (scene, confidence, reasoning, keywords, grounding_prompt)
+            Tuple of (scene, reasoning, keywords, grounding_prompt)
         """
         logger.info(f"Classifying scene: {image_path.name}")
-        
+
         cmd = [
             self.python_exe,
             cfg.TOOLS_DIR / "scene_classifier.py",
@@ -152,46 +151,42 @@ class AutoAnalyzer:
             "--lm-studio-url", cfg.LM_STUDIO_URL,
             "--max-keywords", str(self.max_keywords)
         ]
-        
+
         if self.include_conditions:
             cmd.append("--include-conditions")
-        
-        if not self.include_common:
-            cmd.append("--no-common")
-        
+
         if self.debug:
             cmd.append("--debug")
-        
+
         code, stdout, stderr = self._run_command(cmd)
-        
+
         if code != 0:
             logger.error(f"Scene classification failed: {stderr}")
-            return "unknown", 0.0, "Classification failed", [], ""
-        
+            return "unknown", "Classification failed", [], ""
+
         try:
             result = json.loads(stdout)
             scene = result.get("scene", "unknown")
-            conf = float(result.get("confidence", 0.0))
             reasoning = result.get("reasoning", "")
             keywords = result.get("keywords", []) or []
             prompt = result.get("groundingdino_prompt", "")
-            
+
             if not prompt and keywords:
                 prompt = ". ".join(keywords) + "."
-            
-            return scene, conf, reasoning, keywords, prompt
-        
+
+            return scene, reasoning, keywords, prompt
+
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse scene classification: {e}")
-            return "unknown", 0.0, "Parse error", [], ""
+            return "unknown", "Parse error", [], ""
 
-    def run_detection(self, 
-                     image_path: Path,
-                     output_dir: Path,
-                     text_prompt: str) -> Dict[str, Any]:
+    def run_detection(self,
+                      image_path: Path,
+                      output_dir: Path,
+                      text_prompt: str) -> Dict[str, Any]:
         """Run GroundingDINO detection on a single image."""
         logger.info(f"Running detection: {image_path.name}")
-        
+
         cmd = [
             self.python_exe,
             cfg.GDINO_INFER_SCRIPT,
@@ -205,22 +200,22 @@ class AutoAnalyzer:
             "--extract-chips",
             "--chip-margin", str(self.chip_margin),
         ]
-        
+
         if cfg.CPU_ONLY:
             cmd.append("--cpu-only")
-        
+
         if cfg.COMPUTE_CHIP_QUALITY:
             cmd.append("--chip-quality")
-        
+
         if cfg.CREATE_THUMBNAILS:
             cmd.extend(["--create-thumbnail", "--thumbnail-size", str(cfg.THUMBNAIL_SIZE)])
-        
+
         code, stdout, stderr = self._run_command(cmd)
-        
+
         if code != 0:
             logger.error(f"Detection failed: {stderr}")
             return {"error": stderr, "code": code}
-        
+
         # Load results
         pred_json = output_dir / "pred.json"
         if pred_json.exists():
@@ -233,9 +228,9 @@ class AutoAnalyzer:
         """Run chip verification on detection results."""
         if self.skip_verification:
             return {"skipped": True}
-        
+
         logger.info(f"Verifying detections in: {output_dir.name}")
-        
+
         cmd = [
             self.python_exe,
             cfg.TOOLS_DIR / "chip_verifier.py",
@@ -244,95 +239,90 @@ class AutoAnalyzer:
             "--lm-studio-url", cfg.LM_STUDIO_URL,
             "--max-chips", str(cfg.MAX_CHIPS_PER_DETECTION),
         ]
-        
+
         if self.debug:
             cmd.append("--debug")
-        
+
         code, stdout, stderr = self._run_command(cmd)
-        
+
         if code != 0:
             logger.error(f"Verification failed: {stderr}")
             return {"error": stderr, "code": code}
-        
+
         # Load verification results
         ver_json = output_dir / "verification_results.json"
         if ver_json.exists():
             with open(ver_json, 'r', encoding='utf-8') as f:
                 return json.load(f)
-        
+
         return None
 
     def analyze_image(self,
-                     image_path: Path,
-                     output_dir: Path) -> ImageAnalysisResult:
+                      image_path: Path,
+                      output_dir: Path) -> ImageAnalysisResult:
         """Analyze a single image through the complete pipeline."""
         t0 = time.time()
-        
+
         try:
             # 1. Classify scene and get keywords
-            scene, scene_conf, reasoning, keywords, prompt = self.classify_scene(image_path)
-            
-            logger.info(f"  Scene: {scene} (confidence: {scene_conf:.2f})")
+            scene, reasoning, keywords, prompt = self.classify_scene(image_path)
+
+            logger.info(f"  Scene: {scene}")
             logger.info(f"  Keywords: {len(keywords)} objects")
-            
+
             if not prompt:
                 logger.warning(f"  No detection prompt for {scene}, skipping detection")
                 return ImageAnalysisResult(
                     image_path=str(image_path),
                     scene=scene,
-                    scene_confidence=scene_conf,
                     keywords_used=keywords,
                     detection_count=0,
                     output_dir=str(output_dir),
                     processing_time=time.time() - t0,
                     error="No detection prompt generated"
                 )
-            
+
             # 2. Run detection
             detection_result = self.run_detection(image_path, output_dir, prompt)
-            
+
             if "error" in detection_result:
                 return ImageAnalysisResult(
                     image_path=str(image_path),
                     scene=scene,
-                    scene_confidence=scene_conf,
                     keywords_used=keywords,
                     detection_count=0,
                     output_dir=str(output_dir),
                     processing_time=time.time() - t0,
                     error=detection_result["error"]
                 )
-            
+
             detections = detection_result.get("detections", [])
             detection_count = len(detections)
-            
-            logger.info(f"  Detections: {detection_count}")
-            
+
             # 3. Verify detections (optional)
             verified_count = None
             if not self.skip_verification and detection_count > 0:
-                verification_result = self.run_verification(output_dir)
+                logger.info(f"  Verifying detections for {Path(image_path).name} in: {Path(output_dir).name}")
+                verification_result = self.run_verification(output_dir)  # ← single call
                 if verification_result and "summary" in verification_result:
                     verified_count = verification_result["summary"].get("valid", 0)
                     logger.info(f"  Verified: {verified_count}/{detection_count}")
-            
+
             return ImageAnalysisResult(
                 image_path=str(image_path),
                 scene=scene,
-                scene_confidence=scene_conf,
                 keywords_used=keywords,
                 detection_count=detection_count,
                 verified_count=verified_count,
                 output_dir=str(output_dir),
                 processing_time=time.time() - t0
             )
-        
+
         except Exception as e:
             logger.error(f"Error analyzing {image_path}: {e}")
             return ImageAnalysisResult(
                 image_path=str(image_path),
                 scene="unknown",
-                scene_confidence=0.0,
                 keywords_used=[],
                 detection_count=0,
                 output_dir=str(output_dir),
@@ -341,34 +331,35 @@ class AutoAnalyzer:
             )
 
     def analyze_property(self,
-                        property_key: str,
-                        images: List[Path]) -> PropertyAnalysisJob:
+                         property_key: str,
+                         images: List[Path]) -> PropertyAnalysisJob:
         """Analyze all images for a property."""
         t0 = time.time()
-        
+
         # Create job directory
         job_id = time.strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:8]
         job_dir = self.artifacts_root / property_key / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
-        
-        logger.info(f"\n{'='*60}")
+
+        logger.info(f"\n{'=' * 60}")
         logger.info(f"Property: {property_key}")
         logger.info(f"Job ID: {job_id}")
         logger.info(f"Images: {len(images)}")
-        logger.info(f"{'='*60}\n")
-        
+        logger.info(f"{'=' * 60}\n")
+
         results = []
-        
+
         for idx, image_path in enumerate(images):
-            logger.info(f"\n[{idx+1}/{len(images)}] Processing: {image_path.name}")
-            logger.info(f"{'-'*60}")
-            
+            logger.info(f"\n[{idx + 1}/{len(images)}] Processing: {image_path.name}")
+            logger.info(f"{'-' * 60}")
+
             output_dir = job_dir / f"img_{idx:03d}"
             output_dir.mkdir(parents=True, exist_ok=True)
-            
+            logger.info(f"\n[{idx + 1}/{len(images)}] Processing: {image_path.name} → {output_dir.name}")
+
             result = self.analyze_image(image_path, output_dir)
             results.append(result)
-        
+
         # Create job summary
         job = PropertyAnalysisJob(
             job_id=job_id,
@@ -387,7 +378,7 @@ class AutoAnalyzer:
                 "skip_verification": self.skip_verification,
             }
         )
-        
+
         return job
 
     def create_html_report(self, job: PropertyAnalysisJob, output_path: Path):
@@ -410,7 +401,7 @@ class AutoAnalyzer:
 </head>
 <body>
     <h1>Property Analysis Report</h1>
-    
+
     <div class="summary">
         <h2>Summary</h2>
         <p><strong>Property:</strong> {job.property_key}</p>
@@ -420,50 +411,48 @@ class AutoAnalyzer:
         <p><strong>Total Time:</strong> {job.total_processing_time:.1f} seconds</p>
         <p><strong>Artifacts:</strong> {job.artifacts_dir}</p>
     </div>
-    
+
     <h2>Parameters</h2>
     <ul>
 """
-        
+
         for key, value in job.parameters.items():
             html += f"        <li><strong>{key}:</strong> {value}</li>\n"
-        
+
         html += """    </ul>
-    
+
     <h2>Results</h2>
     <table>
         <tr>
             <th>Image</th>
             <th>Scene</th>
-            <th>Confidence</th>
             <th>Keywords</th>
             <th>Detections</th>
             <th>Verified</th>
             <th>Time (s)</th>
         </tr>
 """
-        
+
         for result in job.results:
             img_name = Path(result.image_path).name
             verified_text = str(result.verified_count) if result.verified_count is not None else "N/A"
             error_class = ' class="error"' if result.error else ''
-            
+
             html += f"""        <tr{error_class}>
             <td>{img_name}</td>
             <td>{result.scene}</td>
-            <td>{result.scene_confidence:.2f}</td>
             <td>{len(result.keywords_used)}</td>
             <td>{result.detection_count}</td>
             <td>{verified_text}</td>
             <td>{result.processing_time:.1f}</td>
         </tr>
 """
-        
+
         html += """    </table>
 </body>
 </html>"""
-        
+
         with open(output_path, 'w', encoding='utf-8') as f:
             f.write(html)
-        
+
         logger.info(f"HTML report saved to: {output_path}")
