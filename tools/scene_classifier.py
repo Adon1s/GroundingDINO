@@ -9,14 +9,16 @@ Features:
 - Detects scene type (room/area)
 - Determines if photo is staged or vacant
 - Returns appropriate keywords (core only vs core + staging)
+- Plans structured targets for detection with priorities
 
 Input: Path to a property photo
-Output: JSON with scene classification, staging status, and GroundingDINO prompt
+Output: JSON with scene classification, staging status, targets, and GroundingDINO prompt
 
 Usage:
   python scene_classifier.py path/to/image.jpg
   python scene_classifier.py path/to/image.jpg --model qwen3-vl-30b --debug
   python scene_classifier.py path/to/image.jpg --max-keywords 15 --include-conditions
+  python scene_classifier.py path/to/image.jpg --max-targets 8 --allow-free-discoveries 1
 """
 
 import os
@@ -40,11 +42,15 @@ if hasattr(sys.stdout, "reconfigure"):
 # Try to import from pipeline_config first, then fall back to env vars
 try:
     import pipeline_config as cfg
+
     LM_STUDIO_URL = cfg.LM_STUDIO_URL
     DEFAULT_MODEL = cfg.LM_STUDIO_MODEL
 except ImportError:
     LM_STUDIO_URL = os.getenv("LM_STUDIO_URL", "http://169.254.83.107:1234")
     DEFAULT_MODEL = os.getenv("LM_STUDIO_MODEL", "qwen/qwen3-vl-30b")
+
+# ── Constants ────────────────────────────────────────────────────────────────
+PROMPT_VERSION = "planner_v1"
 
 # ── Scene Types ──────────────────────────────────────────────────────────────
 VALID_SCENES = [
@@ -307,25 +313,125 @@ class SceneClassification:
     scene: str
     is_staged: bool
     reasoning: str
+    targets: List[Dict]
+    gdino_terms: List[str]
     keywords: List[str]
     groundingdino_prompt: str
     processing_time: float = 0.0
-    raw_response: Optional[str] = None
+    prompt_version: str = PROMPT_VERSION
+    scene_policy_version: str = "v1"
+    raw_response: Optional[str] = None  # classification raw
+    planner_raw_response: Optional[str] = None  # planner raw
     error: Optional[str] = None
 
 
-# ── Keyword Helper Functions ─────────────────────────────────────────────────
+# ── Helper Functions ─────────────────────────────────────────────────────────
+def _to_bool(v) -> bool:
+    """Convert various representations to boolean."""
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, str):
+        s = v.strip().lower()
+        return s in {"true", "yes", "1", "staged", "furnished"}
+    return bool(v)  # or return False to be conservative
+
+
+def _sanitize_term(s: str) -> str:
+    """Sanitize a term for detection: lowercase, strip, collapse whitespace."""
+    return " ".join(str(s).lower().strip().split())
+
+
+def dedup_preserving_order(seq: List[str]) -> List[str]:
+    """Remove duplicates from list while preserving order."""
+    seen = set()
+    result = []
+    for item in seq:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+
 def _clean_keywords(keywords: List[str]) -> List[str]:
     """Clean and deduplicate keywords."""
-    seen = set()
-    cleaned = []
-    for kw in keywords:
-        # Normalize: lowercase, strip, collapse whitespace
-        kw_clean = " ".join(str(kw).lower().strip().split())
-        if kw_clean and kw_clean not in seen:
-            seen.add(kw_clean)
-            cleaned.append(kw_clean)
-    return cleaned
+    return dedup_preserving_order([_sanitize_term(kw) for kw in keywords if kw])
+
+
+def get_scene_policy(scene: str) -> str:
+    """
+    Return a per-scene policy block for the planner prompt.
+    Provides concrete policies for kitchen, bathroom, and exterior_front.
+    Returns minimal general policy for all other scenes.
+    """
+    policies = {
+        "kitchen": """- Focus: sink/faucet, countertop material, range/hood, refrigerator, cabinet age/condition (peeling/dated), backsplash grout/caulk.
+- Defects: water stains (ceiling/wall), mold/mildew, damaged grout/caulk, burn marks, delaminated veneer.
+- Positives: quartz/granite counters, updated appliances, tile backsplash.
+- Exclude: decor (fruit bowls, staging) unless it indicates condition.""",
+
+        "bathroom": """- Focus: toilet, vanity/sink/faucet, shower/tub, tile/grout/caulk, ventilation fan, GFCI outlet (proxy).
+- Defects: mildew/mold, water damage, cracked tile, missing caulk, rust.
+- Positives: updated vanity, modern tile, frameless shower.
+- Exclude: towels/props unless relevant to condition.""",
+
+        "exterior_front": """- Focus: roof shingle condition, chimney cracks, gutters/downspouts, fascia/soffit, siding damage, windows, front door, house number, walkway/driveway cracks.
+- Positives: new roof, fiber-cement siding, updated windows.
+- Heuristics: house number small near entry; walkway touches bottom edge; chimney is vertical brick column."""
+    }
+
+    # Return specific policy or general fallback
+    if scene in policies:
+        return policies[scene]
+    else:
+        return """- Focus: permanent fixtures, structural elements, and condition indicators.
+- Defects: damage, wear, aging, water stains, cracks.
+- Positives: updates, quality materials, good condition.
+- Exclude: movable items unless they indicate property condition."""
+
+
+def build_planner_prompt(scene: str, is_staged: bool, policy_block: str,
+                         max_targets: int, allow_free: int) -> str:
+    """Build the planner prompt requesting structured targets."""
+    # Use str.format with {{ }} for literal braces
+    tmpl = (
+        "You are an expert at analyzing real-estate listing photos.\n\n"
+        "GOAL\n"
+        "- Propose up to {max_targets} high-value TARGETS (defects or notable positives) that we should draw bounding boxes around later.\n"
+        "- Prefer structural/condition items over decor.\n"
+        "- You may add up to {allow_free} additional high-severity \"free discoveries\" beyond the scene policy if they are important.\n\n"
+        "SCENE CONTEXT\n"
+        "- scene: {scene}\n"
+        "- is_staged: {is_staged}\n\n"
+        "SCENE POLICY\n"
+        "{policy_block}\n\n"
+        "OUTPUT FORMAT (STRICT JSON ONLY)\n"
+        "{{\n"
+        '  "scene": "<one from known scene list>",\n'
+        '  "is_staged": true/false,\n'
+        '  "reasoning": "≤200 chars why these targets matter",\n'
+        '  "targets": [\n'
+        "    {{\n"
+        '      "label": "<snake_case canonical-ish>",\n'
+        '      "synonyms": ["term1","term2","term3"],\n'
+        '      "reason": "≤120 chars",\n'
+        '      "roi_hint": "<top_left|top_center|top_right|mid_left|center|mid_right|bottom_left|bottom_center|bottom_right|unknown>",\n'
+        '      "priority": "<high|medium|low>"\n'
+        "    }}\n"
+        "  ]\n"
+        "}}\n\n"
+        "RULES\n"
+        "- No duplicates. Merge similar items; keep 3–6 succinct synonyms per target.\n"
+        "- Use short, detector-friendly nouns/noun-phrases in synonyms (no sentences).\n"
+        "- If uncertain, omit the target rather than guessing.\n"
+        "- Return JSON ONLY. No markdown, no commentary."
+    )
+    return tmpl.format(
+        max_targets=max_targets,
+        allow_free=allow_free,
+        scene=scene,
+        is_staged=str(is_staged).lower(),
+        policy_block=policy_block
+    )
 
 
 def keywords_for_scene(scene: str,
@@ -380,11 +486,17 @@ class SceneClassifier:
                  model_name: str = DEFAULT_MODEL,
                  include_conditions: bool = False,
                  max_keywords: int = 12,
+                 max_targets: int = 8,
+                 allow_free_discoveries: int = 1,
+                 scene_policy_version: str = "v1",
                  debug: bool = False):
         self.lm_studio_url = lm_studio_url.rstrip('/')
         self.model_name = model_name
         self.include_conditions = include_conditions
         self.max_keywords = max_keywords
+        self.max_targets = max_targets
+        self.allow_free_discoveries = allow_free_discoveries
+        self.scene_policy_version = scene_policy_version
         self.debug = debug
 
     @staticmethod
@@ -467,15 +579,31 @@ class SceneClassifier:
         # Default to unknown if no match
         return "unknown"
 
+    def _create_fallback_targets(self, scene: str) -> List[Dict]:
+        """Create fallback targets from scene core keywords."""
+        scene_data = SCENE_KEYWORDS.get(scene, SCENE_KEYWORDS["unknown"])
+        core_keywords = scene_data.get("core", [])[:4]  # Take first 4 core items
+
+        targets = []
+        for kw in core_keywords:
+            targets.append({
+                "label": kw.replace(" ", "_").lower(),
+                "synonyms": [kw],
+                "reason": "Scene core item",
+                "roi_hint": "unknown",
+                "priority": "medium"
+            })
+        return targets
+
     def classify_image(self, image_path: Path) -> SceneClassification:
-        """Classify a single image and generate detection keywords."""
+        """Classify a single image and plan detection targets."""
         t0 = time.time()
 
         try:
             if not image_path.exists():
                 raise FileNotFoundError(f"Image not found: {image_path}")
 
-            # Build request
+            # First, get scene classification
             prompt = self.build_classification_prompt()
             image_b64 = self.encode_image_to_b64(image_path)
 
@@ -506,7 +634,7 @@ class SceneClassifier:
             if self.debug:
                 logger.info(f"Sending classification request for: {image_path.name}")
 
-            # Make API request
+            # Make API request for scene classification
             resp = requests.post(
                 f"{self.lm_studio_url}/v1/chat/completions",
                 json=payload,
@@ -521,55 +649,174 @@ class SceneClassifier:
             raw_response = data["choices"][0]["message"]["content"]
 
             if self.debug:
-                logger.info(f"Raw response: {raw_response[:300]}")
+                logger.info(f"Raw classification response: {raw_response[:300]}")
 
             parsed = self._extract_json(raw_response) or {}
 
             # Extract and normalize scene
             scene_raw = str(parsed.get("scene", "unknown"))
             scene = self._normalize_scene(scene_raw)
+            is_staged = _to_bool(parsed.get("is_staged", True))
+            reasoning = str(parsed.get("reasoning", ""))[:200]
 
-            is_staged = bool(parsed.get("is_staged", True))  # Default to staged if not specified
-            reasoning = str(parsed.get("reasoning", ""))[:500]
-
-            # Generate keywords based on scene AND staging status
-            keywords = keywords_for_scene(
-                scene,
-                is_staged=is_staged,
-                include_conditions=self.include_conditions,
-                max_keywords=self.max_keywords
+            # Now get the planner targets
+            policy_block = get_scene_policy(scene)
+            planner_prompt = build_planner_prompt(
+                scene, is_staged, policy_block,
+                self.max_targets, self.allow_free_discoveries
             )
 
-            # Format as GroundingDINO prompt
-            gdino_prompt = format_for_grounding_dino(keywords)
+            # Make second API call for planner
+            planner_content = [
+                {"type": "text", "text": planner_prompt},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}
+                }
+            ]
+
+            planner_messages = [
+                {
+                    "role": "system",
+                    "content": "You are an expert at analyzing real-estate listing photos. Respond with valid JSON only."
+                },
+                {"role": "user", "content": planner_content}
+            ]
+
+            planner_payload = {
+                "model": self.model_name,
+                "messages": planner_messages,
+                "temperature": 0.1,
+                "max_tokens": 400,
+                "stream": False
+            }
+
+            if self.debug:
+                logger.info(f"Sending planner request for: {image_path.name}")
+
+            # Make planner API request
+            planner_resp = requests.post(
+                f"{self.lm_studio_url}/v1/chat/completions",
+                json=planner_payload,
+                timeout=30
+            )
+
+            targets = []
+            gdino_terms = []
+            planner_raw = None  # Initialize
+
+            if planner_resp.status_code == 200:
+                planner_data = planner_resp.json()
+                planner_raw = planner_data["choices"][0]["message"]["content"]
+
+                if self.debug:
+                    logger.info(f"Raw planner response: {planner_raw[:300]}")
+
+                planner_parsed = self._extract_json(planner_raw) or {}
+
+                # Update reasoning if planner provided one
+                if "reasoning" in planner_parsed:
+                    reasoning = str(planner_parsed["reasoning"])[:200]
+
+                # Extract targets
+                targets = planner_parsed.get("targets", [])[:self.max_targets]
+
+                # Build gdino_terms from targets
+                if targets:
+                    all_terms = []
+                    for target in targets:
+                        # Add label (convert snake_case to spaced phrase for detector)
+                        if "label" in target:
+                            label_term = _sanitize_term(target["label"]).replace("_", " ")
+                            if label_term:
+                                all_terms.append(label_term)
+                        # Add synonyms
+                        if "synonyms" in target and isinstance(target["synonyms"], list):
+                            for syn in target["synonyms"]:
+                                syn_term = _sanitize_term(syn)
+                                if syn_term:
+                                    all_terms.append(syn_term)
+
+                    # Deduplicate and cap at 15
+                    gdino_terms = dedup_preserving_order(all_terms)[:15]
+
+            # Fallback if no targets
+            if not gdino_terms:
+                targets = self._create_fallback_targets(scene)
+                # Build gdino_terms from fallback
+                all_terms = []
+                for target in targets:
+                    # Convert snake_case label to spaced phrase for detector
+                    label_term = _sanitize_term(target["label"]).replace("_", " ")
+                    if label_term:
+                        all_terms.append(label_term)
+                    for syn in target.get("synonyms", []):
+                        syn_term = _sanitize_term(syn)
+                        if syn_term:
+                            all_terms.append(syn_term)
+                gdino_terms = dedup_preserving_order(all_terms)[:15]
+
+            # For backward compatibility
+            keywords = gdino_terms
+            groundingdino_prompt = format_for_grounding_dino(gdino_terms)
 
             result = SceneClassification(
                 scene=scene,
                 is_staged=is_staged,
                 reasoning=reasoning,
+                targets=targets,
+                gdino_terms=gdino_terms,
                 keywords=keywords,
-                groundingdino_prompt=gdino_prompt,
+                groundingdino_prompt=groundingdino_prompt,
                 processing_time=time.time() - t0,
-                raw_response=raw_response if self.debug else None
+                prompt_version=PROMPT_VERSION,
+                scene_policy_version=self.scene_policy_version,
+                raw_response=raw_response if self.debug else None,
+                planner_raw_response=planner_raw if self.debug else None
             )
 
             if self.debug:
                 staging_str = "STAGED" if is_staged else "VACANT"
                 logger.info(f"Classification: {scene} ({staging_str})")
-                logger.info(f"Keywords: {len(keywords)} objects")
+                logger.info(f"Targets: {len(targets)} targets")
+                logger.info(f"GDINO terms: {len(gdino_terms)} terms")
 
             return result
 
         except Exception as e:
             logger.error(f"Error classifying image {image_path}: {e}")
+
+            # Create fallback response
+            fallback_scene = "unknown"
+            fallback_targets = self._create_fallback_targets(fallback_scene)
+
+            # Build gdino_terms from fallback
+            all_terms = []
+            for target in fallback_targets:
+                # Convert snake_case label to spaced phrase for detector
+                label_term = _sanitize_term(target["label"]).replace("_", " ")
+                if label_term:
+                    all_terms.append(label_term)
+                for syn in target.get("synonyms", []):
+                    syn_term = _sanitize_term(syn)
+                    if syn_term:
+                        all_terms.append(syn_term)
+            gdino_terms = dedup_preserving_order(all_terms)[:15]
+
             return SceneClassification(
-                scene="unknown",
+                scene=fallback_scene,
                 is_staged=False,
                 reasoning="Classification failed",
-                keywords=[],
-                groundingdino_prompt="",
+                targets=fallback_targets,
+                gdino_terms=gdino_terms,
+                keywords=gdino_terms,
+                groundingdino_prompt=format_for_grounding_dino(gdino_terms),
                 error=str(e),
-                processing_time=time.time() - t0
+                processing_time=time.time() - t0,
+                prompt_version=PROMPT_VERSION,
+                scene_policy_version=self.scene_policy_version,
+                raw_response=None,
+                planner_raw_response=None
             )
 
     def classify_batch(self, image_paths: List[Path],
@@ -590,19 +837,32 @@ class SceneClassifier:
             output = {
                 "timestamp": time.strftime('%Y-%m-%d %H:%M:%S'),
                 "model": self.model_name,
+                "prompt_version": PROMPT_VERSION,
+                "scene_policy_version": self.scene_policy_version,
                 "classifications": {}
             }
 
             for path, classification in results.items():
-                output["classifications"][path] = {
+                result_data = {
                     "scene": classification.scene,
                     "is_staged": classification.is_staged,
                     "reasoning": classification.reasoning,
+                    "targets": classification.targets,
+                    "gdino_terms": classification.gdino_terms,
                     "keywords": classification.keywords,
                     "groundingdino_prompt": classification.groundingdino_prompt,
                     "processing_time": classification.processing_time,
+                    "prompt_version": classification.prompt_version,
+                    "scene_policy_version": classification.scene_policy_version,
                     "error": classification.error
                 }
+                # Add debug fields if available
+                if classification.raw_response:
+                    result_data["raw_response"] = classification.raw_response
+                if classification.planner_raw_response:
+                    result_data["planner_raw_response"] = classification.planner_raw_response
+
+                output["classifications"][path] = result_data
 
             results_file = Path("scene_classifications.json")
             with open(results_file, 'w', encoding='utf-8') as f:
@@ -638,6 +898,23 @@ def main():
         type=int,
         default=12,
         help="Maximum keywords per scene (default: 12)"
+    )
+    parser.add_argument(
+        "--max-targets",
+        type=int,
+        default=8,
+        help="Maximum targets to plan per image (default: 8)"
+    )
+    parser.add_argument(
+        "--allow-free-discoveries",
+        type=int,
+        default=1,
+        help="Allow VLM to add off-policy high-priority targets (default: 1)"
+    )
+    parser.add_argument(
+        "--scene-policy-version",
+        default="v1",
+        help="Scene policy version to use (default: v1)"
     )
     parser.add_argument(
         "--include-conditions",
@@ -677,6 +954,9 @@ def main():
         model_name=args.model,
         include_conditions=args.include_conditions,
         max_keywords=args.max_keywords,
+        max_targets=args.max_targets,
+        allow_free_discoveries=args.allow_free_discoveries,
+        scene_policy_version=args.scene_policy_version,
         debug=args.debug
     )
 
@@ -699,13 +979,21 @@ def main():
             "scene": result.scene,
             "is_staged": result.is_staged,
             "reasoning": result.reasoning,
+            "targets": result.targets,
+            "gdino_terms": result.gdino_terms,
             "keywords": result.keywords,
             "groundingdino_prompt": result.groundingdino_prompt,
-            "processing_time": result.processing_time
+            "processing_time": result.processing_time,
+            "prompt_version": result.prompt_version,
+            "scene_policy_version": result.scene_policy_version,
+            "error": result.error
         }
 
-        if result.error:
-            output["error"] = result.error
+        # Add debug fields if available
+        if result.raw_response:
+            output["raw_response"] = result.raw_response
+        if result.planner_raw_response:
+            output["planner_raw_response"] = result.planner_raw_response
 
         if args.output:
             with open(args.output, 'w', encoding='utf-8') as f:
@@ -724,18 +1012,32 @@ def main():
             output = {
                 "timestamp": time.strftime('%Y-%m-%d %H:%M:%S'),
                 "model": classifier.model_name,
+                "prompt_version": PROMPT_VERSION,
+                "scene_policy_version": classifier.scene_policy_version,
                 "classifications": {}
             }
 
             for path, classification in results.items():
-                output["classifications"][path] = {
+                result_data = {
                     "scene": classification.scene,
                     "is_staged": classification.is_staged,
                     "reasoning": classification.reasoning,
+                    "targets": classification.targets,
+                    "gdino_terms": classification.gdino_terms,
                     "keywords": classification.keywords,
                     "groundingdino_prompt": classification.groundingdino_prompt,
-                    "processing_time": classification.processing_time
+                    "processing_time": classification.processing_time,
+                    "prompt_version": classification.prompt_version,
+                    "scene_policy_version": classification.scene_policy_version,
+                    "error": classification.error
                 }
+                # Add debug fields if available
+                if classification.raw_response:
+                    result_data["raw_response"] = classification.raw_response
+                if classification.planner_raw_response:
+                    result_data["planner_raw_response"] = classification.planner_raw_response
+
+                output["classifications"][path] = result_data
 
             with open(args.output, 'w', encoding='utf-8') as f:
                 json.dump(output, f, indent=2, ensure_ascii=False)
@@ -745,9 +1047,9 @@ def main():
         print("\nClassification Summary:")
         print("-" * 70)
         for path, result in results.items():
-            kw_count = len(result.keywords)
+            targets_count = len(result.targets)
             staging = "STAGED" if result.is_staged else "VACANT"
-            print(f"{Path(path).name:25} → {result.scene:15} {staging:7} [{kw_count} kw]")
+            print(f"{Path(path).name:25} → {result.scene:15} {staging:7} [{targets_count} targets]")
 
 
 if __name__ == "__main__":

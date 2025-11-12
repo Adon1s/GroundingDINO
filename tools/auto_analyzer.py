@@ -25,6 +25,13 @@ except ImportError:
     print("ERROR: pipeline_config.py not found!")
     sys.exit(1)
 
+# Import NMS postprocessing
+try:
+    from postprocess import class_aware_nms, enforce_scene_caps
+except ImportError:
+    print("ERROR: postprocess.py not found!")
+    sys.exit(1)
+
 # Console encoding safety
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -296,7 +303,76 @@ class AutoAnalyzer:
                     error=detection_result["error"]
                 )
 
-            detections = detection_result.get("detections", [])
+            detections = detection_result.get("detections", []) or []
+
+            # Sort by score for stable behavior
+            detections.sort(key=lambda d: float(d.get("score", 0.0)), reverse=True)
+
+            # --- NMS here (AFTER detection, BEFORE verification) ---
+            if getattr(cfg, "USE_NMS", True) and detections:
+                pre_nms_count = len(detections)
+                detections = class_aware_nms(
+                    detections,
+                    per_class_iou=getattr(cfg, "NMS_PER_CLASS", None),
+                    default_iou=getattr(cfg, "NMS_DEFAULT_IOU", 0.5),
+                )
+                logger.info(f"  NMS: {pre_nms_count} → {len(detections)} detections")
+
+            # Optional: enforce per-scene caps (keeps top-K per class)
+            if getattr(cfg, "USE_SCENE_CAPS", False) and detections:
+                pre_cap_count = len(detections)
+                detections = enforce_scene_caps(
+                    detections,
+                    scene=scene,
+                    caps_map=getattr(cfg, "SCENE_CAPS", None),
+                )
+                if pre_cap_count != len(detections):
+                    logger.info(f"  Scene caps: {pre_cap_count} → {len(detections)} detections")
+
+            # Write survivors back so downstream tools (e.g., chip_verifier) see the filtered set
+            detection_result["detections"] = detections
+
+            # Keep top-level counts consistent with filtered detections
+            for k in ("count", "num_detections", "detections_count"):
+                if k in detection_result:
+                    detection_result[k] = len(detections)
+
+            # Also keep chip_extraction total in sync (optional but tidy)
+            if "chip_extraction" in detection_result:
+                detection_result["chip_extraction"]["total_chips"] = len(detections)
+
+            pred_json_path = output_dir / "pred.json"
+            with open(pred_json_path, "w", encoding="utf-8") as f:
+                json.dump(detection_result, f, indent=2, ensure_ascii=False)
+
+            # (Optional) prune chips for detections that were dropped
+            if getattr(cfg, "PRUNE_DROPPED_CHIPS", False):
+                try:
+                    chip_dir = Path(
+                        (detection_result.get("chip_extraction", {}) or {}).get("chips_directory",
+                                                                                str(output_dir / "chips"))
+                    )
+                    keep = set()
+                    for d in detections:
+                        fn = ((d.get("chip_info") or {}).get("filename"))
+                        if fn:
+                            keep.add(str((chip_dir / fn).resolve()))
+
+                    if chip_dir.exists():
+                        pruned = 0
+                        for fp in chip_dir.glob("*"):
+                            if keep and str(fp.resolve()) not in keep:
+                                try:
+                                    fp.unlink()
+                                    pruned += 1
+                                except Exception:
+                                    pass
+                        if pruned > 0:
+                            logger.info(f"  Pruned {pruned} dropped chip file(s)")
+                except Exception as e:
+                    logger.warning(f"  Chip pruning failed: {e}")
+
+            # Finally, the filtered count
             detection_count = len(detections)
 
             # 3. Verify detections (optional)
@@ -376,6 +452,8 @@ class AutoAnalyzer:
                 "include_common": self.include_common,
                 "include_conditions": self.include_conditions,
                 "skip_verification": self.skip_verification,
+                "use_nms": getattr(cfg, "USE_NMS", True),
+                "use_scene_caps": getattr(cfg, "USE_SCENE_CAPS", False),
             }
         )
 
