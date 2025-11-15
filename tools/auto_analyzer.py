@@ -18,6 +18,8 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, asdict
 from datetime import datetime
 
+from PIL import Image
+
 # Import configuration
 try:
     import pipeline_config as cfg
@@ -27,7 +29,11 @@ except ImportError:
 
 # Import NMS postprocessing
 try:
-    from postprocess import class_aware_nms, enforce_scene_caps
+    from postprocess import (
+        class_aware_nms,
+        enforce_scene_caps,
+        apply_roi_hint_bonus_overlap,
+    )
 except ImportError:
     print("ERROR: postprocess.py not found!")
     sys.exit(1)
@@ -99,6 +105,14 @@ class AutoAnalyzer:
         # Validate environment
         self._validate_environment()
 
+    @staticmethod
+    def _normalize_label_for_hint(label: Optional[str]) -> str:
+        if not label:
+            return ""
+        s = str(label).strip().lower()
+        s = s.replace("-", " ").replace("_", " ")
+        return " ".join(s.split())
+
     def _validate_environment(self):
         """Validate that required components are available."""
         required_paths = {
@@ -141,12 +155,14 @@ class AutoAnalyzer:
         stdout, stderr = proc.communicate()
         return proc.returncode or 0, stdout, stderr
 
-    def classify_scene(self, image_path: Path) -> Tuple[str, str, List[str], str]:
+    def classify_scene(
+        self, image_path: Path
+    ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str]]:
         """
         Classify the scene type and get keywords for detection.
 
         Returns:
-            Tuple of (scene, reasoning, keywords, grounding_prompt)
+            Tuple of (scene, reasoning, keywords, grounding_prompt, planner_targets, planner_hints)
         """
         logger.info(f"Classifying scene: {image_path.name}")
 
@@ -169,7 +185,7 @@ class AutoAnalyzer:
 
         if code != 0:
             logger.error(f"Scene classification failed: {stderr}")
-            return "unknown", "Classification failed", [], ""
+            return "unknown", "Classification failed", [], "", [], {}
 
         try:
             result = json.loads(stdout)
@@ -177,15 +193,27 @@ class AutoAnalyzer:
             reasoning = result.get("reasoning", "")
             keywords = result.get("keywords", []) or []
             prompt = result.get("groundingdino_prompt", "")
+            targets = result.get("targets", []) or []
+
+            planner_hints: Dict[str, str] = {}
+            for target in targets:
+                hint = str(target.get("roi_hint", "unknown") or "unknown")
+                label_norm = self._normalize_label_for_hint(target.get("label"))
+                if label_norm:
+                    planner_hints[label_norm] = hint
+                for syn in (target.get("synonyms") or []):
+                    syn_norm = self._normalize_label_for_hint(syn)
+                    if syn_norm and syn_norm not in planner_hints:
+                        planner_hints[syn_norm] = hint
 
             if not prompt and keywords:
                 prompt = ". ".join(keywords) + "."
 
-            return scene, reasoning, keywords, prompt
+            return scene, reasoning, keywords, prompt, targets, planner_hints
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse scene classification: {e}")
-            return "unknown", "Parse error", [], ""
+            return "unknown", "Parse error", [], "", [], {}
 
     def run_detection(self,
                       image_path: Path,
@@ -272,7 +300,14 @@ class AutoAnalyzer:
 
         try:
             # 1. Classify scene and get keywords
-            scene, reasoning, keywords, prompt = self.classify_scene(image_path)
+            (
+                scene,
+                reasoning,
+                keywords,
+                prompt,
+                planner_targets,
+                planner_hints,
+            ) = self.classify_scene(image_path)
 
             logger.info(f"  Scene: {scene}")
             logger.info(f"  Keywords: {len(keywords)} objects")
@@ -304,6 +339,65 @@ class AutoAnalyzer:
                 )
 
             detections = detection_result.get("detections", []) or []
+            detection_result["planner_targets"] = planner_targets
+            detection_result["planner_hints"] = planner_hints
+
+            size_info = detection_result.get("size") or {}
+            img_w = int(size_info.get("width") or 0)
+            img_h = int(size_info.get("height") or 0)
+            if (img_w <= 0 or img_h <= 0) and image_path.exists():
+                try:
+                    with Image.open(image_path) as pil_im:
+                        img_w, img_h = pil_im.size
+                except Exception:
+                    pass
+
+            if (
+                getattr(cfg, "ROI_HINTS_ENABLED", False)
+                and detections
+                and img_w > 0
+                and img_h > 0
+            ):
+                detections_by_class: Dict[str, List[Dict[str, Any]]] = {}
+                unlabeled: List[Dict[str, Any]] = []
+                for det in detections:
+                    if det.get("score") is None:
+                        det["score"] = 0.0
+                    label_name = str(det.get("label") or "").strip()
+                    if not label_name:
+                        unlabeled.append(det)
+                        continue
+                    detections_by_class.setdefault(label_name, []).append(det)
+
+                for label_name, dets in detections_by_class.items():
+                    norm_label = self._normalize_label_for_hint(label_name)
+                    roi_hint = planner_hints.get(norm_label, "unknown")
+                    apply_roi_hint_bonus_overlap(
+                        dets=dets,
+                        roi_hint=roi_hint,
+                        W=img_w,
+                        H=img_h,
+                        full_bonus=getattr(cfg, "ROI_FULL_BONUS", 0.06),
+                        half_bonus=getattr(cfg, "ROI_HALF_BONUS", 0.03),
+                        penalty=getattr(cfg, "ROI_PENALTY", 0.03),
+                        hi=getattr(cfg, "ROI_OVERLAP_HI", 0.40),
+                        lo=getattr(cfg, "ROI_OVERLAP_LO", 0.10),
+                        attach_debug=True,
+                    )
+
+                if unlabeled:
+                    apply_roi_hint_bonus_overlap(
+                        dets=unlabeled,
+                        roi_hint="unknown",
+                        W=img_w,
+                        H=img_h,
+                        full_bonus=getattr(cfg, "ROI_FULL_BONUS", 0.06),
+                        half_bonus=getattr(cfg, "ROI_HALF_BONUS", 0.03),
+                        penalty=getattr(cfg, "ROI_PENALTY", 0.03),
+                        hi=getattr(cfg, "ROI_OVERLAP_HI", 0.40),
+                        lo=getattr(cfg, "ROI_OVERLAP_LO", 0.10),
+                        attach_debug=True,
+                    )
 
             # Sort by score for stable behavior
             detections.sort(key=lambda d: float(d.get("score", 0.0)), reverse=True)
@@ -328,6 +422,21 @@ class AutoAnalyzer:
                 )
                 if pre_cap_count != len(detections):
                     logger.info(f"  Scene caps: {pre_cap_count} → {len(detections)} detections")
+
+            if (
+                getattr(cfg, "ROI_HINTS_ENABLED", False)
+                and detections
+                and logger.isEnabledFor(logging.DEBUG)
+            ):
+                for det in detections:
+                    dbg = det.get("roi_debug", {})
+                    logger.debug(
+                        f"ROI [{det.get('label')}]: score={float(det.get('score', 0.0)):.3f} "
+                        f"hint={dbg.get('hint')} adj={dbg.get('adj')} "
+                        f"overlap={dbg.get('overlap_ratio', 0):.2f} "
+                        f"maj={dbg.get('majority_zone')}({dbg.get('majority_r', 0):.2f}) "
+                        f"img%={dbg.get('img_frac', 0):.3f}"
+                    )
 
             # Write survivors back so downstream tools (e.g., chip_verifier) see the filtered set
             detection_result["detections"] = detections
