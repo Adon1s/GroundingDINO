@@ -211,7 +211,7 @@ def _iou(a: Tuple[float, float, float, float],
 
 def class_aware_nms(dets: List[Dict],
                     per_class_iou: Optional[Dict[str, float]] = None,
-                    default_iou: float = 0.5) -> List[Dict]:
+                    default_iou: float = 0.3) -> List[Dict]:
     """
     Suppresses duplicates *within the same label* only.
     Each det dict must have at least: {'label': str, 'score': float, 'box': [4 numbers]}

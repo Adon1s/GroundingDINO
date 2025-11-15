@@ -357,6 +357,83 @@ def _clean_keywords(keywords: List[str]) -> List[str]:
     return dedup_preserving_order([_sanitize_term(kw) for kw in keywords if kw])
 
 
+def _extract_json(text: str) -> Optional[dict]:
+    """
+    Extract a single JSON object from an LLM response.
+
+    Assumptions:
+    - Response is either pure JSON, or
+      wrapped in ```json ... ``` fences, possibly with minor extra text.
+    - We do NOT try to "repair" truly broken / truncated JSON.
+    """
+    if not text:
+        return None
+
+    s = text.strip()
+
+    # Strip markdown code fences: ```json\n...\n``` or ```\n...\n```
+    if s.startswith("```"):
+        # Drop the first line (``` or ```json)
+        first_nl = s.find("\n")
+        if first_nl != -1:
+            s = s[first_nl + 1:]
+        # Strip trailing ```
+        if s.endswith("```"):
+            s = s[:-3]
+        s = s.strip()
+
+    # 1) Try to parse the whole string as JSON
+    try:
+        return json.loads(s)
+    except json.JSONDecodeError:
+        pass
+
+    # 2) Fallback: grab from first '{' to last '}' and try that
+    start = s.find("{")
+    end = s.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        candidate = s[start: end + 1]
+        try:
+            return json.loads(candidate)
+        except json.JSONDecodeError:
+            return None
+
+    return None
+
+
+def encode_image_to_b64(image_path: Path) -> str:
+    """Encode image file to base64 string."""
+    with open(image_path, 'rb') as f:
+        return base64.b64encode(f.read()).decode('utf-8')
+
+
+def build_classification_prompt() -> str:
+    """Build the scene classification prompt with staging detection."""
+    scenes_json = json.dumps(VALID_SCENES, indent=2)
+
+    return (
+        "You are an expert at analyzing real estate property photos.\n\n"
+        "TASK: Identify the scene type AND determine if the photo is staged/furnished.\n\n"
+        f"VALID_SCENES = {scenes_json}\n\n"
+        "STAGING DETECTION:\n"
+        "- STAGED: Photo shows furniture, decor, or movable items (sofa, bed, table, etc.)\n"
+        "- VACANT: Photo shows only permanent fixtures (cabinets, appliances, built-ins)\n"
+        "- Consider: Is there furniture? Are there decorative items? Is it furnished?\n\n"
+        "RULES:\n"
+        "- Choose exactly ONE scene from VALID_SCENES above\n"
+        "- Copy the scene name verbatim from the list\n"
+        "- Determine if photo is 'staged' (has furniture/decor) or 'vacant' (empty/unfurnished)\n"
+        "- If uncertain, pick the most likely option\n"
+        "- Use 'unknown' only if you cannot determine the scene or you believe that the scene depicted is not one of the listed scenes\n\n"
+        "RESPOND ONLY WITH JSON (no extra text):\n"
+        "{\n"
+        '  "scene": "<one item from VALID_SCENES>",\n'
+        '  "is_staged": true/false,\n'
+        '  "reasoning": "brief explanation including staging status"\n'
+        "}"
+    )
+
+
 def get_scene_policy(scene: str) -> str:
     """
     Return a per-scene policy block for the planner prompt.
@@ -499,69 +576,6 @@ class SceneClassifier:
         self.scene_policy_version = scene_policy_version
         self.debug = debug
 
-    @staticmethod
-    def encode_image_to_b64(image_path: Path) -> str:
-        """Encode image file to base64 string."""
-        with open(image_path, 'rb') as f:
-            return base64.b64encode(f.read()).decode('utf-8')
-
-    @staticmethod
-    def build_classification_prompt() -> str:
-        """Build the scene classification prompt with staging detection."""
-        scenes_json = json.dumps(VALID_SCENES, indent=2)
-
-        return (
-            "You are an expert at analyzing real estate property photos.\n\n"
-            "TASK: Identify the scene type AND determine if the photo is staged/furnished.\n\n"
-            f"VALID_SCENES = {scenes_json}\n\n"
-            "STAGING DETECTION:\n"
-            "- STAGED: Photo shows furniture, decor, or movable items (sofa, bed, table, etc.)\n"
-            "- VACANT: Photo shows only permanent fixtures (cabinets, appliances, built-ins)\n"
-            "- Consider: Is there furniture? Are there decorative items? Is it furnished?\n\n"
-            "RULES:\n"
-            "- Choose exactly ONE scene from VALID_SCENES above\n"
-            "- Copy the scene name verbatim from the list\n"
-            "- Determine if photo is 'staged' (has furniture/decor) or 'vacant' (empty/unfurnished)\n"
-            "- If uncertain, pick the most likely option\n"
-            "- Use 'unknown' only if you cannot determine the scene or you believe that the scene depicted is not one of the listed scenes\n\n"
-            "RESPOND ONLY WITH JSON (no extra text):\n"
-            "{\n"
-            '  "scene": "<one item from VALID_SCENES>",\n'
-            '  "is_staged": true/false,\n'
-            '  "reasoning": "brief explanation including staging status"\n'
-            "}"
-        )
-
-    @staticmethod
-    def _extract_json(text: str) -> Optional[dict]:
-        """Extract JSON object from text response."""
-        # Strip code fences if present
-        if "```" in text:
-            m = re.search(r"```json\s*(\{[\s\S]*?})\s*```", text, re.IGNORECASE)
-            if m:
-                text = m.group(1)
-            else:
-                text = re.sub(r"^```[\w-]*|```$", "", text.strip())
-
-        # Find first balanced { ... }
-        brace_stack = []
-        start = None
-        for i, ch in enumerate(text):
-            if ch == '{':
-                if not brace_stack:
-                    start = i
-                brace_stack.append('{')
-            elif ch == '}':
-                if brace_stack:
-                    brace_stack.pop()
-                    if not brace_stack and start is not None:
-                        candidate = text[start:i + 1]
-                        try:
-                            return json.loads(candidate)
-                        except Exception:
-                            pass
-        return None
-
     def _normalize_scene(self, scene: str) -> str:
         """Normalize scene name to canonical form."""
         scene = scene.lower().strip()
@@ -604,8 +618,8 @@ class SceneClassifier:
                 raise FileNotFoundError(f"Image not found: {image_path}")
 
             # First, get scene classification
-            prompt = self.build_classification_prompt()
-            image_b64 = self.encode_image_to_b64(image_path)
+            prompt = build_classification_prompt()
+            image_b64 = encode_image_to_b64(image_path)
 
             content = [
                 {"type": "text", "text": prompt},
@@ -627,7 +641,7 @@ class SceneClassifier:
                 "model": self.model_name,
                 "messages": messages,
                 "temperature": 0.1,
-                "max_tokens": 400,
+                "max_tokens": 2048,
                 "stream": False
             }
 
@@ -651,7 +665,7 @@ class SceneClassifier:
             if self.debug:
                 logger.info(f"Raw classification response: {raw_response[:300]}")
 
-            parsed = self._extract_json(raw_response) or {}
+            parsed = _extract_json(raw_response) or {}
 
             # Extract and normalize scene
             scene_raw = str(parsed.get("scene", "unknown"))
@@ -687,7 +701,7 @@ class SceneClassifier:
                 "model": self.model_name,
                 "messages": planner_messages,
                 "temperature": 0.1,
-                "max_tokens": 400,
+                "max_tokens": 2048,
                 "stream": False
             }
 
@@ -712,7 +726,10 @@ class SceneClassifier:
                 if self.debug:
                     logger.info(f"Raw planner response: {planner_raw[:300]}")
 
-                planner_parsed = self._extract_json(planner_raw) or {}
+                planner_parsed = _extract_json(planner_raw) or {}
+
+                if self.debug and not planner_parsed:
+                    logger.warning("Planner JSON parse failed; falling back to scene core targets.")
 
                 # Update reasoning if planner provided one
                 if "reasoning" in planner_parsed:

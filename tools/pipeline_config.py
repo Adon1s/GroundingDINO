@@ -68,7 +68,7 @@ CPU_ONLY = False            # Run detection on CPU only (slower)
 # ============================================================================
 GENERATE_HTML_REPORT = True # Create HTML summary report
 SAVE_JSON_SUMMARY = True    # Save JSON summary of results
-DEBUG_MODE = False          # Enable detailed logging
+DEBUG_MODE = True          # Enable detailed logging
 
 # ============================================================================
 # ROI HINTS

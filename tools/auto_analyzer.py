@@ -408,7 +408,7 @@ class AutoAnalyzer:
                 detections = class_aware_nms(
                     detections,
                     per_class_iou=getattr(cfg, "NMS_PER_CLASS", None),
-                    default_iou=getattr(cfg, "NMS_DEFAULT_IOU", 0.5),
+                    default_iou=getattr(cfg, "NMS_DEFAULT_IOU", 0.3),
                 )
                 logger.info(f"  NMS: {pre_nms_count} → {len(detections)} detections")
 
