@@ -7,6 +7,171 @@ Provides NMS (Non-Maximum Suppression) and scene-aware filtering.
 from typing import List, Dict, Tuple, Optional
 
 
+def _sanitize_box_xyxy(box):
+    x1, y1, x2, y2 = map(float, box)
+    if x2 < x1:
+        x1, x2 = x2, x1
+    if y2 < y1:
+        y1, y2 = y2, y1
+    return x1, y1, x2, y2
+
+
+def clamp_box_to_image(box, W, H):
+    x1, y1, x2, y2 = _sanitize_box_xyxy(box)
+    x1 = max(0.0, min(x1, W))
+    x2 = max(0.0, min(x2, W))
+    y1 = max(0.0, min(y1, H))
+    y2 = max(0.0, min(y2, H))
+    return x1, y1, x2, y2
+
+
+def box_area(box):
+    x1, y1, x2, y2 = _sanitize_box_xyxy(box)
+    return max(0.0, x2 - x1) * max(0.0, y2 - y1)
+
+
+def box_area_pct_of_image(box, W, H):
+    a = box_area(clamp_box_to_image(box, W, H))
+    return a / float(W * H) if W > 0 and H > 0 else 0.0
+
+
+def intersection_area(a, b):
+    ax1, ay1, ax2, ay2 = _sanitize_box_xyxy(a)
+    bx1, by1, bx2, by2 = _sanitize_box_xyxy(b)
+    ix1, iy1 = max(ax1, bx1), max(ay1, by1)
+    ix2, iy2 = min(ax2, bx2), min(ay2, by2)
+    return max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
+
+
+def roi_zone_rect(roi_hint, W, H):
+    """
+    Map 'top_left' | 'top_center' | 'top_right' |
+        'mid_left' | 'center'      | 'mid_right' |
+        'bottom_left' | 'bottom_center' | 'bottom_right'
+    to pixel XYXY. Unknown -> whole image.
+    """
+    rows = {"top": (0.0, H / 3.0), "mid": (H / 3.0, 2 * H / 3.0), "bottom": (2 * H / 3.0, float(H))}
+    cols = {"left": (0.0, W / 3.0), "center": (W / 3.0, 2 * W / 3.0), "right": (2 * W / 3.0, float(W))}
+    try:
+        row_key, col_key = roi_hint.split("_")
+        y1, y2 = rows[row_key]
+        x1, x2 = cols[col_key]
+        return (x1, y1, x2, y2)
+    except Exception:
+        return (0.0, 0.0, float(W), float(H))
+
+
+def roi_overlap_ratio(box, roi_hint, W, H):
+    """
+    Return fraction of the detection *area* that lies in the hinted zone [0..1].
+    """
+    bx = clamp_box_to_image(box, W, H)
+    zx = roi_zone_rect(roi_hint, W, H)
+    inter = intersection_area(bx, zx)
+    det_a = box_area(bx)
+    return inter / det_a if det_a > 0 else 0.0
+
+
+def _zone_of_center(box, W, H):
+    x1, y1, x2, y2 = _sanitize_box_xyxy(box)
+    cx, cy = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+    col = "left" if cx < W / 3 else ("center" if cx < 2 * W / 3 else "right")
+    row = "top" if cy < H / 3 else ("mid" if cy < 2 * H / 3 else "bottom")
+    return f"{row}_{col}"
+
+
+def roi_majority_zone(box, W, H):
+    """
+    Determine the zone that contains the majority of the object:
+    compute overlap with all 9 zones and return the max-overlap zone label.
+    """
+    zones = [
+        "top_left",
+        "top_center",
+        "top_right",
+        "mid_left",
+        "center",
+        "mid_right",
+        "bottom_left",
+        "bottom_center",
+        "bottom_right",
+    ]
+    best_zone, best_r = "center", -1.0
+    for z in zones:
+        r = roi_overlap_ratio(box, z, W, H)
+        if r > best_r:
+            best_r, best_zone = r, z
+    return best_zone, best_r
+
+
+def apply_roi_hint_bonus_overlap(
+    dets,
+    roi_hint,
+    W,
+    H,
+    full_bonus=0.06,
+    half_bonus=0.03,
+    penalty=0.03,
+    hi=0.40,
+    lo=0.10,
+    attach_debug=True,
+):
+    """
+    - If detection overlaps hinted zone > hi: +full_bonus
+    - If lo <= overlap < hi          : +half_bonus
+    - If overlap < lo and centroid clearly opposite: -penalty
+    Adds debug fields: img_frac, overlap_ratio, hint, adj, majority_zone, majority_r.
+    """
+    if not dets or not roi_hint or roi_hint == "unknown":
+        if dets and attach_debug:
+            for d in dets:
+                b = clamp_box_to_image(d["bbox_xyxy"], W, H)
+                mz, mr = roi_majority_zone(b, W, H)
+                d.setdefault("roi_debug", {})["majority_zone"] = mz
+                d["roi_debug"]["majority_r"] = mr
+                d["roi_debug"]["hint"] = roi_hint or "unknown"
+                d["roi_debug"]["img_frac"] = box_area_pct_of_image(b, W, H)
+        return dets
+
+    for d in dets:
+        x1, y1, x2, y2 = clamp_box_to_image(d["bbox_xyxy"], W, H)
+        box = (x1, y1, x2, y2)
+
+        img_frac = box_area_pct_of_image(box, W, H)
+        r = roi_overlap_ratio(box, roi_hint, W, H)
+        mz, mr = roi_majority_zone(box, W, H)
+
+        tag = "none"
+        if r >= hi:
+            d["score"] = float(d.get("score", 0.0)) + full_bonus
+            tag = "full_bonus"
+        elif r >= lo:
+            d["score"] = float(d.get("score", 0.0)) + half_bonus
+            tag = "half_bonus"
+        else:
+            cz = _zone_of_center(box, W, H)
+            opp = (
+                ("top" in roi_hint and cz.startswith("bottom"))
+                or ("bottom" in roi_hint and cz.startswith("top"))
+                or (roi_hint.endswith("left") and cz.endswith("right"))
+                or (roi_hint.endswith("right") and cz.endswith("left"))
+            )
+            if opp:
+                d["score"] = float(d.get("score", 0.0)) - penalty
+                tag = "penalty"
+
+        if attach_debug:
+            dbg = d.setdefault("roi_debug", {})
+            dbg["img_frac"] = img_frac
+            dbg["overlap_ratio"] = r
+            dbg["hint"] = roi_hint
+            dbg["adj"] = tag
+            dbg["majority_zone"] = mz
+            dbg["majority_r"] = mr
+    return dets
+
+
+
 def _to_xyxy(det: Dict) -> Tuple[float, float, float, float]:
     """
     Normalize your box to [x1,y1,x2,y2].

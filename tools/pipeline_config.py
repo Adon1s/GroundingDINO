@@ -71,6 +71,19 @@ SAVE_JSON_SUMMARY = True    # Save JSON summary of results
 DEBUG_MODE = False          # Enable detailed logging
 
 # ============================================================================
+# ROI HINTS
+# ============================================================================
+ROI_HINTS_ENABLED = True
+
+# 3×3 grid thresholds and scoring
+ROI_FULL_BONUS = 0.06      # add to score when overlap >= ROI_OVERLAP_HI
+ROI_HALF_BONUS = 0.03      # add when ROI_OVERLAP_LO <= overlap < ROI_OVERLAP_HI
+ROI_PENALTY    = 0.03      # subtract if clearly opposite zone and overlap < ROI_OVERLAP_LO
+
+ROI_OVERLAP_HI = 0.40      # fraction of detection area inside hinted zone for full bonus
+ROI_OVERLAP_LO = 0.10      # fraction for half bonus lower bound
+
+# ============================================================================
 # SCENE KEYWORDS QUICK EDIT
 # ============================================================================
 # You can add custom keywords here that will be merged with defaults
