@@ -747,12 +747,6 @@ class SceneClassifier:
                             label_term = _sanitize_term(target["label"]).replace("_", " ")
                             if label_term:
                                 all_terms.append(label_term)
-                        # Add synonyms
-                        if "synonyms" in target and isinstance(target["synonyms"], list):
-                            for syn in target["synonyms"]:
-                                syn_term = _sanitize_term(syn)
-                                if syn_term:
-                                    all_terms.append(syn_term)
 
                     # Deduplicate and cap at 15
                     gdino_terms = dedup_preserving_order(all_terms)[:15]
@@ -767,10 +761,6 @@ class SceneClassifier:
                     label_term = _sanitize_term(target["label"]).replace("_", " ")
                     if label_term:
                         all_terms.append(label_term)
-                    for syn in target.get("synonyms", []):
-                        syn_term = _sanitize_term(syn)
-                        if syn_term:
-                            all_terms.append(syn_term)
                 gdino_terms = dedup_preserving_order(all_terms)[:15]
 
             # For backward compatibility
@@ -814,10 +804,6 @@ class SceneClassifier:
                 label_term = _sanitize_term(target["label"]).replace("_", " ")
                 if label_term:
                     all_terms.append(label_term)
-                for syn in target.get("synonyms", []):
-                    syn_term = _sanitize_term(syn)
-                    if syn_term:
-                        all_terms.append(syn_term)
             gdino_terms = dedup_preserving_order(all_terms)[:15]
 
             return SceneClassification(
