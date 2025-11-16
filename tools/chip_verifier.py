@@ -375,6 +375,29 @@ class ChipVerifier:
             logger.info(f"  Verdict: {dv.final_verdict}")
             logger.info(f"  Reason:  {dv.reasoning}")
 
+        # Reorder results so they follow chip_000, chip_001, ... order
+        def _chip_index_from_path(path: str) -> int:
+            base = os.path.basename(path)
+            m = re.search(r"chip_(\d+)", base)
+            if m:
+                try:
+                    return int(m.group(1))
+                except ValueError:
+                    pass
+            # Put detections with no parsable chip index at the end
+            return 10**9
+
+        def _detection_sort_key(dv: DetectionVerification) -> int:
+            # Use the smallest chip index for this detection
+            if not dv.chip_verifications:
+                return 10**9
+            return min(
+                _chip_index_from_path(cv.chip_path)
+                for cv in dv.chip_verifications
+            )
+
+        all_results.sort(key=_detection_sort_key)
+
         # Summary
         verified = len(all_results)
         valid = counts["VALID"]
