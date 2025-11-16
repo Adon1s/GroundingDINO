@@ -25,6 +25,7 @@ import base64
 import requests
 import time
 import sys
+import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
@@ -310,13 +311,28 @@ class ChipVerifier:
             logger.warning("No detections found in pred.json")
             return {"results": [], "summary": {}}
 
-        # Map detection_idx -> chips
+        # Build a lookup from chip filename -> current detection index.
+        # This keeps chips aligned even if detections were re-ordered or pruned
+        # after chip extraction (e.g., ROI boosts, NMS, scene caps, etc.).
+        det_idx_by_chip_name: Dict[str, int] = {}
+        for det_idx, det in enumerate(detections):
+            chip_info = det.get("chip_info") or {}
+            fname = os.path.basename(chip_info.get("filename", ""))
+            if fname:
+                det_idx_by_chip_name[fname] = det_idx
+
+        # Map detection_idx -> chips using the filename mapping instead of the
+        # stale detection_idx stored in chip_metadata.json.
         chips_by_detection: Dict[int, List[dict]] = defaultdict(list)
         for info in chip_metadata:
-            det_idx = int(info.get("detection_idx", -1))
-            if det_idx < 0:
+            fname = os.path.basename(info.get("filename", ""))
+            if not fname:
                 continue
-            chip_path = gd["chips_dir"] / info.get("filename", "")
+            det_idx = det_idx_by_chip_name.get(fname)
+            if det_idx is None:
+                # Chip belonged to a detection that was dropped post-processing.
+                continue
+            chip_path = gd["chips_dir"] / fname
             if chip_path.exists():
                 entry = dict(info)
                 entry["__path"] = chip_path
