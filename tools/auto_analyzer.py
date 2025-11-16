@@ -11,6 +11,7 @@ import sys
 import json
 import time
 import uuid
+import shutil
 import subprocess
 import logging
 from pathlib import Path
@@ -19,6 +20,8 @@ from dataclasses import dataclass, asdict
 from datetime import datetime
 
 from PIL import Image
+
+from run_pipeline import redraw_overlay
 
 # Import configuration
 try:
@@ -480,6 +483,25 @@ class AutoAnalyzer:
                             logger.info(f"  Pruned {pruned} dropped chip file(s)")
                 except Exception as e:
                     logger.warning(f"  Chip pruning failed: {e}")
+
+            # Redraw overlay using filtered detections so pred.jpg matches NMS output
+            try:
+                nms_overlay = output_dir / "pred_nms.jpg"
+                redraw_overlay(image_path, detections, nms_overlay)
+
+                raw_overlay = output_dir / "pred.jpg"
+                before_overlay = output_dir / "pred_before.jpg"
+                if raw_overlay.exists():
+                    try:
+                        shutil.copy2(raw_overlay, before_overlay)
+                    except Exception:
+                        before_overlay.write_bytes(raw_overlay.read_bytes())
+
+                nms_overlay.replace(raw_overlay)
+
+                logger.info("  Overlay updated with NMS/ROI filtered detections")
+            except Exception as e:
+                logger.warning(f"  Failed to redraw overlay: {e}")
 
             # Finally, the filtered count
             detection_count = len(detections)

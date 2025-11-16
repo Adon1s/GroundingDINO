@@ -22,6 +22,9 @@ import logging
 import re
 from pathlib import Path
 from datetime import datetime
+from typing import Any, Dict, List
+
+from PIL import Image, ImageDraw, ImageFont
 
 # Add tools directory to path if needed
 SCRIPT_DIR = Path(__file__).parent
@@ -46,6 +49,47 @@ logger = logging.getLogger(__name__)
 
 # Supported image extensions
 IMG_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+
+
+def redraw_overlay(image_path: Path,
+                   detections: List[Dict[str, Any]],
+                   out_path: Path) -> None:
+    """
+    Draw bounding boxes + labels from the filtered detections onto an image.
+    This makes pred.jpg match NMS / ROI outputs.
+    """
+    if not detections:
+        return
+
+    img = Image.open(image_path).convert("RGB")
+    draw = ImageDraw.Draw(img)
+
+    try:
+        font = ImageFont.truetype("arial.ttf", 18)
+    except Exception:
+        font = ImageFont.load_default()
+
+    for det in detections:
+        box = det.get("bbox_xyxy") or det.get("bbox") or det.get("box")
+        if not box or len(box) != 4:
+            continue
+
+        x1, y1, x2, y2 = map(float, box)
+        label = str(det.get("label", "obj"))
+        score = float(det.get("score", 0.0))
+        text = f"{label}({score:.2f})"
+
+        draw.rectangle([x1, y1, x2, y2], outline="lime", width=3)
+
+        tb = draw.textbbox((0, 0), text, font=font)
+        tw = tb[2] - tb[0]
+        th = tb[3] - tb[1]
+        text_bg = [x1, max(0, y1 - th), x1 + tw, y1]
+        draw.rectangle(text_bg, fill="black")
+
+        draw.text((x1, text_bg[1]), text, fill="white", font=font)
+
+    img.save(out_path)
 
 
 def _natural_key(p: Path):
