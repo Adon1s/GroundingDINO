@@ -449,10 +449,6 @@ class AutoAnalyzer:
                 if k in detection_result:
                     detection_result[k] = len(detections)
 
-            # Also keep chip_extraction total in sync (optional but tidy)
-            if "chip_extraction" in detection_result:
-                detection_result["chip_extraction"]["total_chips"] = len(detections)
-
             pred_json_path = output_dir / "pred.json"
             with open(pred_json_path, "w", encoding="utf-8") as f:
                 json.dump(detection_result, f, indent=2, ensure_ascii=False)
