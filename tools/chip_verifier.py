@@ -131,7 +131,7 @@ class ChipVerifier:
         conf_txt = f" (detector score ~{gd_conf:.2f})" if isinstance(gd_conf, (int, float)) else ""
         return (
             "You are an expert visual verifier.\n\n"
-            f"TASK: Given a candidate crop ('chip') and an overview thumbnail, determine whether the chip primarily and tightly contains an instance of the target label: '{label}'.{conf_txt}\n\n"
+            f"TASK: Given a small image crop ('chip') from a property photo, determine whether the chip primarily and tightly contains an instance of the target label: '{label}'.{conf_txt}\n\n"
             "CRITERIA:\n"
             "1) The target is clearly present in the chip.\n"
             "2) The chip is tight: minimal unrelated background.\n"
@@ -192,13 +192,13 @@ class ChipVerifier:
                 "image_url": {"url": f"data:image/jpeg;base64,{chip_b64}"}
             })
 
-            # Thumbnail context (optional)
-            if thumbnail_path and thumbnail_path.exists():
-                thumb_b64 = self.encode_image_to_b64(thumbnail_path)
-                content.append({
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{thumb_b64}"}
-                })
+            # Thumbnail context (optional) – DISABLED
+            # if thumbnail_path and thumbnail_path.exists():
+            #     thumb_b64 = self.encode_image_to_b64(thumbnail_path)
+            #     content.append({
+            #         "type": "image_url",
+            #         "image_url": {"url": f"data:image/jpeg;base64,{thumb_b64}"}
+            #     })
 
             messages = [
                 {"role": "system", "content": "You are a careful, literal verifier. Respond with valid JSON only."},
