@@ -93,7 +93,13 @@ SPECIAL_CASE_FILTERS = {
         "mirror_labels": ["mirror"],
         # Optional slack in pixels when deciding containment (helps w/ rounding)
         "containment_eps": 0.0,
-    }
+    },
+    "fixture_collapse": {
+        "enabled": True,
+        "fixture_labels": ["light_fixture", "vanity_light", "ceiling_light"],
+        # Optional slack in pixels when deciding containment (helps w/ rounding)
+        "containment_eps": 0.0,
+    },
 }
 
 # ============================================================================
