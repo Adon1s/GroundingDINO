@@ -36,6 +36,7 @@ try:
         class_aware_nms,
         enforce_scene_caps,
         apply_roi_hint_bonus_overlap,
+        apply_special_case_filters,
     )
 except ImportError:
     print("ERROR: postprocess.py not found!")
@@ -404,6 +405,20 @@ class AutoAnalyzer:
 
             # Sort by score for stable behavior
             detections.sort(key=lambda d: float(d.get("score", 0.0)), reverse=True)
+
+            # Special-case filters (mirror containment, etc.)
+            special_case_cfg = getattr(cfg, "SPECIAL_CASE_FILTERS", {})
+            if detections and special_case_cfg:
+                pre_case = len(detections)
+                detections = apply_special_case_filters(
+                    detections,
+                    image_size=(img_w, img_h),
+                    config=special_case_cfg,
+                )
+                if pre_case != len(detections):
+                    logger.info(
+                        f"  Special cases: {pre_case} → {len(detections)} detections"
+                    )
 
             # --- NMS here (AFTER detection, BEFORE verification) ---
             if getattr(cfg, "USE_NMS", True) and detections:

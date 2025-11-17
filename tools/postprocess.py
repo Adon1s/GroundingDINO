@@ -43,6 +43,18 @@ def intersection_area(a, b):
     return max(0.0, ix2 - ix1) * max(0.0, iy2 - iy1)
 
 
+def is_box_fully_contained(inner, outer, eps: float = 0.0) -> bool:
+    """Return True if *inner* lies completely inside *outer* (within eps)."""
+    ix1, iy1, ix2, iy2 = _sanitize_box_xyxy(inner)
+    ox1, oy1, ox2, oy2 = _sanitize_box_xyxy(outer)
+    return (
+        ix1 >= ox1 - eps
+        and iy1 >= oy1 - eps
+        and ix2 <= ox2 + eps
+        and iy2 <= oy2 + eps
+    )
+
+
 def roi_zone_rect(roi_hint, W, H):
     """
     Map 'top_left' | 'top_center' | 'top_right' |
@@ -280,3 +292,116 @@ def enforce_scene_caps(dets: List[Dict], scene: str,
             counts[lbl] += 1
         out.append(d)
     return out
+
+
+def drop_detections_inside_mirrors(
+    dets: List[Dict],
+    mirror_labels: Optional[List[str]] = None,
+    containment_eps: float = 0.0,
+) -> List[Dict]:
+    """
+    Remove any detection completely contained inside a mirror detection.
+
+    Args:
+        dets: List of detection dictionaries.
+        mirror_labels: Labels that should be treated as mirrors.
+        containment_eps: Optional slack (in pixels) for containment checks.
+
+    Returns:
+        Filtered detections.
+    """
+
+    if not dets:
+        return dets
+
+    label_set = {
+        str(lbl).strip().lower() for lbl in (mirror_labels or ["mirror"]) if lbl
+    }
+    if not label_set:
+        return dets
+
+    box_map = {}
+    parse_fail_ids = set()
+    for det in dets:
+        try:
+            box_map[id(det)] = _to_xyxy(det)
+        except Exception:
+            parse_fail_ids.add(id(det))
+
+    if not box_map:
+        return dets
+
+    mirror_entries = []
+    for det in dets:
+        det_id = id(det)
+        if det_id not in box_map or det_id in parse_fail_ids:
+            continue
+        label = str(det.get("label") or "").strip().lower()
+        if label in label_set:
+            mirror_entries.append((det, box_map[det_id]))
+
+    if not mirror_entries:
+        return dets
+
+    # Keep only the "outer" mirrors (drop mirrors contained inside bigger mirrors)
+    mirror_entries.sort(key=lambda item: box_area(item[1]), reverse=True)
+    active_mirrors = []
+    dropped_mirror_ids = set()
+    for det, box in mirror_entries:
+        if any(
+            is_box_fully_contained(box, keep_box, containment_eps)
+            for _, keep_box in active_mirrors
+        ):
+            dropped_mirror_ids.add(id(det))
+            continue
+        active_mirrors.append((det, box))
+
+    active_boxes = [box for _, box in active_mirrors]
+
+    survivors: List[Dict] = []
+    for det in dets:
+        det_id = id(det)
+        # Keep detections we could not parse safely
+        if det_id not in box_map or det_id in parse_fail_ids:
+            survivors.append(det)
+            continue
+
+        box = box_map[det_id]
+        label = str(det.get("label") or "").strip().lower()
+
+        if label in label_set:
+            if det_id in dropped_mirror_ids:
+                continue
+            survivors.append(det)
+            continue
+
+        if any(is_box_fully_contained(box, m_box, containment_eps) for m_box in active_boxes):
+            continue
+
+        survivors.append(det)
+
+    return survivors
+
+
+def apply_special_case_filters(
+    dets: List[Dict],
+    image_size: Optional[Tuple[int, int]] = None,
+    config: Optional[Dict[str, Dict]] = None,
+) -> List[Dict]:
+    """Run any configured special-case filters over the detections."""
+
+    if not dets or not config:
+        return dets
+
+    survivors = dets
+    mirror_cfg = config.get("mirror_containment")
+    if mirror_cfg and mirror_cfg.get("enabled", True):
+        survivors = drop_detections_inside_mirrors(
+            survivors,
+            mirror_labels=mirror_cfg.get("mirror_labels") or ["mirror"],
+            containment_eps=float(mirror_cfg.get("containment_eps", 0.0)),
+        )
+
+    # Future special cases can be chained here using the same pattern.
+
+    return survivors
