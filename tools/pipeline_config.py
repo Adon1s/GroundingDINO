@@ -84,6 +84,19 @@ ROI_OVERLAP_HI = 0.40      # fraction of detection area inside hinted zone for f
 ROI_OVERLAP_LO = 0.10      # fraction for half bonus lower bound
 
 # ============================================================================
+# SPECIAL CASE FILTERS
+# ============================================================================
+# Configure bespoke post-processing passes (easy to extend later).
+SPECIAL_CASE_FILTERS = {
+    "mirror_containment": {
+        "enabled": True,
+        "mirror_labels": ["mirror"],
+        # Optional slack in pixels when deciding containment (helps w/ rounding)
+        "containment_eps": 0.0,
+    }
+}
+
+# ============================================================================
 # SCENE KEYWORDS QUICK EDIT
 # ============================================================================
 # You can add custom keywords here that will be merged with defaults
