@@ -383,6 +383,88 @@ def drop_detections_inside_mirrors(
     return survivors
 
 
+def drop_nested_fixtures(
+    dets: List[Dict],
+    fixture_labels: Optional[List[str]] = None,
+    containment_eps: float = 0.0,
+) -> List[Dict]:
+    """
+    Remove fixture detections that are fully contained in larger fixtures.
+
+    Only detections whose label is in *fixture_labels* are considered for
+    dropping. Detections with other labels are returned unchanged.
+
+    Args:
+        dets: List of detection dictionaries.
+        fixture_labels: Labels that should be treated as light fixtures.
+        containment_eps: Optional slack (in pixels) for containment checks.
+
+    Returns:
+        Filtered detections.
+    """
+
+    if not dets:
+        return dets
+
+    label_set = {
+        str(lbl).strip().lower()
+        for lbl in (fixture_labels or ["light_fixture", "vanity_light", "ceiling_light"])
+        if lbl
+    }
+    if not label_set:
+        return dets
+
+    box_map = {}
+    parse_fail_ids = set()
+    for det in dets:
+        try:
+            box_map[id(det)] = _to_xyxy(det)
+        except Exception:
+            parse_fail_ids.add(id(det))
+
+    if not box_map:
+        return dets
+
+    fixture_entries = []
+    for det in dets:
+        det_id = id(det)
+        if det_id not in box_map or det_id in parse_fail_ids:
+            continue
+        label = str(det.get("label") or "").strip().lower()
+        if label in label_set:
+            fixture_entries.append((det, box_map[det_id]))
+
+    if not fixture_entries:
+        return dets
+
+    fixture_entries.sort(key=lambda item: box_area(item[1]), reverse=True)
+    active_fixtures = []
+    dropped_fixture_ids = set()
+    for det, box in fixture_entries:
+        if any(
+            is_box_fully_contained(box, keep_box, containment_eps)
+            for _, keep_box in active_fixtures
+        ):
+            dropped_fixture_ids.add(id(det))
+            continue
+        active_fixtures.append((det, box))
+
+    survivors: List[Dict] = []
+    for det in dets:
+        det_id = id(det)
+        if det_id not in box_map or det_id in parse_fail_ids:
+            survivors.append(det)
+            continue
+
+        label = str(det.get("label") or "").strip().lower()
+        if label in label_set and det_id in dropped_fixture_ids:
+            continue
+
+        survivors.append(det)
+
+    return survivors
+
+
 def apply_special_case_filters(
     dets: List[Dict],
     image_size: Optional[Tuple[int, int]] = None,
@@ -400,6 +482,15 @@ def apply_special_case_filters(
             survivors,
             mirror_labels=mirror_cfg.get("mirror_labels") or ["mirror"],
             containment_eps=float(mirror_cfg.get("containment_eps", 0.0)),
+        )
+
+    fixture_cfg = config.get("fixture_collapse")
+    if fixture_cfg and fixture_cfg.get("enabled", True):
+        survivors = drop_nested_fixtures(
+            survivors,
+            fixture_labels=fixture_cfg.get("fixture_labels")
+            or ["light_fixture", "vanity_light", "ceiling_light"],
+            containment_eps=float(fixture_cfg.get("containment_eps", 0.0)),
         )
 
     # Future special cases can be chained here using the same pattern.
