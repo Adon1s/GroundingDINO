@@ -469,46 +469,98 @@ def get_scene_policy(scene: str) -> str:
 def build_planner_prompt(scene: str, is_staged: bool, policy_block: str,
                          max_targets: int, allow_free: int) -> str:
     """Build the planner prompt requesting structured targets."""
-    # Use str.format with {{ }} for literal braces
     tmpl = (
         "You are an expert at analyzing real-estate listing photos.\n\n"
         "GOAL\n"
-        "- Propose up to {max_targets} high-value TARGETS (defects or notable positives) that we should draw bounding boxes around later.\n"
-        "- Prefer structural/condition items over decor.\n"
-        "- You may add up to {allow_free} additional high-severity \"free discoveries\" beyond the scene policy if they are important.\n\n"
+        "- Propose up to {max_targets} high-value TARGETS to draw bounding boxes around.\n"
+        "- A TARGET is a physical surface or fixture that matters to buyers/agents "
+        "for price, marketability, or inspection risk.\n"
+        "- Prefer structural/condition-relevant items over decor and clutter.\n"
+        "- You may add up to {allow_free} extra high-severity \"free discoveries\" beyond the scene policy if important.\n\n"
+
         "SCENE CONTEXT\n"
         "- scene: {scene}\n"
         "- is_staged: {is_staged}\n\n"
-        "SCENE POLICY\n"
+
+        "SCENE POLICY (preferred surfaces/fixtures for this scene):\n"
         "{policy_block}\n\n"
+
+        "REALTOR PRIORITIES (examples)\n"
+        "- kitchens: kitchen_cabinets, countertops, backsplash, appliances, sink, faucet, flooring, walls_paint, light_fixtures, island\n"
+        "- bathrooms: bathroom_vanity, shower_tub, shower_tile, toilet, mirror, flooring, walls_paint, light_fixtures\n"
+        "- interior: ceiling, windows, interior_doors, stair_rail, fireplace, built_ins, closet_system\n"
+        "- exterior: roof_surface, siding, exterior_paint, driveway, walkway, front_door, garage_door, deck, patio, fence, landscaping\n\n"
+
+        "LABEL RULES\n"
+        "- `label` MUST be the underlying physical object/surface, NOT the problem description.\n"
+        "- Format: snake_case, lowercase.\n"
+        "- Length: 1–2 tokens when split on underscores.\n"
+        "- No repeated tokens (never 'cabinet_cabinet').\n"
+        "- Do NOT include scene words like 'kitchen', 'bathroom', 'living_room'.\n"
+        "- Do NOT include adjectives or condition words in `label` (old, new, cracked, stained, dirty, dated, mold, etc.).\n\n"
+        "- IMPORTANT: Do NOT respond with ceiling, wall, or flooring unless it is outdated or has a cosmetic flaw\n"
+
+
+        "SYNONYMS & CONDITION\n"
+        "- `synonyms`: 2–5 short nouns/noun-phrases (1–3 words) that a human might say for the same surface.\n"
+        "- Condition words (crack, stain, damaged, dirty, outdated, mold, etc.) are allowed ONLY in `reason`, "
+        "never in `label` or `synonyms`.\n\n"
+
+        "EXAMPLES\n"
+        "- Crack in driveway:\n"
+        '  label: "driveway"\n'
+        '  synonyms: ["driveway","concrete_drive","front_drive"]\n'
+        '  reason: "Visible cracking in concrete; driveway condition affects curb appeal and inspection risk."\n'
+        "- Water stains on ceiling:\n"
+        '  label: "ceiling"\n'
+        '  synonyms: ["ceiling","drywall_ceiling"]\n'
+        '  reason: "Water staining suggests possible roof or plumbing leak, which worries buyers."\n'
+        "- Dated kitchen cabinets:\n"
+        '  label: "kitchen_cabinets"\n'
+        '  synonyms: ["kitchen_cabinets","upper_cabinets","lower_cabinets"]\n'
+        '  reason: "Cabinets look worn and dated; kitchen cabinetry is a major cosmetic cost."\n\n'
+
+        "TARGET SELECTION RULES\n"
+        "- Prefer a small set of high-impact targets over many minor ones.\n"
+        "- If multiple issues exist on the same surface, use ONE target and describe the most important issue in `reason`.\n"
+        "- Skip small decor, personal items, and generic clutter.\n\n"
+
+        "SELF-CHECK BEFORE ANSWERING\n"
+        "- For every target, verify:\n"
+        "  * `label` is snake_case, 1–2 tokens, no duplicates.\n"
+        "  * `label` does not contain scene or condition words.\n"
+        "  * Condition words appear only in `reason`.\n\n"
+
         "OUTPUT FORMAT (STRICT JSON ONLY)\n"
         "{{\n"
         '  "scene": "<one from known scene list>",\n'
         '  "is_staged": true/false,\n'
-        '  "reasoning": "≤200 chars why these targets matter",\n'
+        '  "reasoning": "≤200 chars why these targets matter overall",\n'
         '  "targets": [\n'
         "    {{\n"
-        '      "label": "<snake_case canonical-ish>",\n'
+        '      "label": "<snake_case physical object/surface>",\n'
         '      "synonyms": ["term1","term2","term3"],\n'
-        '      "reason": "≤120 chars",\n'
+        '      "reason": "≤120 chars, including any condition or upgrade description",\n'
         '      "roi_hint": "<top_left|top_center|top_right|mid_left|center|mid_right|bottom_left|bottom_center|bottom_right|unknown>",\n'
         '      "priority": "<high|medium|low>"\n'
         "    }}\n"
         "  ]\n"
         "}}\n\n"
         "RULES\n"
-        "- No duplicates. Merge similar items; keep 3–6 succinct synonyms per target.\n"
-        "- Use short, detector-friendly nouns/noun-phrases in synonyms (no sentences).\n"
+        "- No duplicate targets; merge similar ones.\n"
+        "- Use short, detector-friendly nouns/noun-phrases in `label` and `synonyms`.\n"
         "- If uncertain, omit the target rather than guessing.\n"
-        "- Return JSON ONLY. No markdown, no commentary."
+        "- Respond with JSON ONLY (no markdown or commentary)."
     )
     return tmpl.format(
-        max_targets=max_targets,
-        allow_free=allow_free,
         scene=scene,
         is_staged=str(is_staged).lower(),
-        policy_block=policy_block
+        policy_block=policy_block,
+        max_targets=max_targets,
+        allow_free=allow_free,
     )
+
+
 
 
 def keywords_for_scene(scene: str,
