@@ -323,6 +323,15 @@ class SceneClassification:
     raw_response: Optional[str] = None  # classification raw
     planner_raw_response: Optional[str] = None  # planner raw
     error: Optional[str] = None
+    image_summary: str = ""
+    overall_impression: str = ""
+
+
+@dataclass
+class SceneSummary:
+    scene: str
+    image_summary: str
+    overall_impression: str
 
 
 # ── Helper Functions ─────────────────────────────────────────────────────────
@@ -405,6 +414,95 @@ def encode_image_to_b64(image_path: Path) -> str:
     """Encode image file to base64 string."""
     with open(image_path, 'rb') as f:
         return base64.b64encode(f.read()).decode('utf-8')
+
+
+def build_scene_summary_prompt() -> str:
+    """
+    Build the prompt for VLM Pass 1: scene classification + neutral summary + impression.
+    This prompt should NOT mention defects, targets, chips, or the issue catalog.
+    """
+    return (
+        "You are an assistant that analyzes real-estate listing photos.\n"
+        "You ONLY use what is clearly visible in the image. Do not guess about things you cannot see.\n\n"
+        "Your job for this image is ONLY to:\n"
+        "1) Identify the high-level scene type (e.g. 'kitchen', 'bathroom', 'living_room', 'bedroom', 'exterior_front', 'exterior_back', 'basement', 'hallway', 'dining_room', 'laundry_room', etc.).\n"
+        "2) Provide a 1–3 sentence neutral description of what the photo shows.\n"
+        "3) Provide a 1–2 sentence 'overall_impression' from a buyer or investor perspective.\n\n"
+        "Important:\n"
+        "- Do NOT talk about pricing or value.\n"
+        "- Do NOT invent defects or problems; just describe what is visible.\n"
+        "- Do NOT mention any issue catalog or targets.\n\n"
+        "Return a SINGLE JSON object with this exact structure:\n"
+        "{\n"
+        '  "scene": "<string scene label>",\n'
+        '  "image_summary": "<1-3 sentence neutral description>",\n'
+        '  "overall_impression": "<1-2 sentence high-level impression>"\n'
+        "}\n"
+        "Do NOT wrap the JSON in backticks or markdown; output raw JSON only.\n"
+    )
+
+
+def run_scene_summary(image_bytes: bytes, model_name: str, lm_studio_url: str = LM_STUDIO_URL,
+                      http_client=requests) -> SceneSummary:
+    """
+    Run VLM Pass 1 for a single image:
+    - Calls the VLM with the Pass 1 prompt.
+    - Parses the JSON response.
+    - Returns a SceneSummary object.
+    """
+    prompt = build_scene_summary_prompt()
+    image_b64 = base64.b64encode(image_bytes).decode('utf-8')
+
+    content = [
+        {"type": "text", "text": prompt},
+        {
+            "type": "image_url",
+            "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}
+        }
+    ]
+
+    messages = [
+        {
+            "role": "system",
+            "content": "You are a property photo analyzer. Respond with valid JSON only."
+        },
+        {"role": "user", "content": content}
+    ]
+
+    payload = {
+        "model": model_name,
+        "messages": messages,
+        "temperature": 0.1,
+        "max_tokens": 2048,
+        "stream": False
+    }
+
+    try:
+        resp = http_client.post(
+            f"{lm_studio_url.rstrip('/')}/v1/chat/completions",
+            json=payload,
+            timeout=30
+        )
+        if resp.status_code != 200:
+            raise RuntimeError(f"API error: HTTP {resp.status_code} - {resp.text[:200]}")
+
+        data = resp.json()
+        raw_response = data["choices"][0]["message"]["content"]
+        parsed = _extract_json(raw_response) or {}
+
+        scene = str(parsed.get("scene", "unknown"))
+        image_summary = str(parsed.get("image_summary", "")).strip()
+        overall_impression = str(parsed.get("overall_impression", "")).strip()
+
+        return SceneSummary(
+            scene=scene,
+            image_summary=image_summary,
+            overall_impression=overall_impression,
+        )
+
+    except Exception as e:
+        logger.error(f"VLM Pass 1 failed: {e}")
+        return SceneSummary(scene="unknown", image_summary="", overall_impression="")
 
 
 def build_classification_prompt() -> str:
@@ -664,14 +762,18 @@ class SceneClassifier:
     def classify_image(self, image_path: Path) -> SceneClassification:
         """Classify a single image and plan detection targets."""
         t0 = time.time()
+        scene_summary = SceneSummary(scene="unknown", image_summary="", overall_impression="")
 
         try:
             if not image_path.exists():
                 raise FileNotFoundError(f"Image not found: {image_path}")
 
+            image_bytes = image_path.read_bytes()
+            scene_summary = run_scene_summary(image_bytes, self.model_name, self.lm_studio_url)
+            image_b64 = base64.b64encode(image_bytes).decode('utf-8')
+
             # First, get scene classification
             prompt = build_classification_prompt()
-            image_b64 = encode_image_to_b64(image_path)
 
             content = [
                 {"type": "text", "text": prompt},
@@ -819,8 +921,15 @@ class SceneClassifier:
             keywords = gdino_terms
             groundingdino_prompt = format_for_grounding_dino(gdino_terms)
 
+            pass1_scene = self._normalize_scene(scene_summary.scene)
+            final_scene = pass1_scene or scene
+            if final_scene == "unknown" and scene != "unknown":
+                final_scene = scene
+
             result = SceneClassification(
-                scene=scene,
+                scene=final_scene,
+                image_summary=scene_summary.image_summary,
+                overall_impression=scene_summary.overall_impression,
                 is_staged=is_staged,
                 reasoning=reasoning,
                 targets=targets,
@@ -836,7 +945,12 @@ class SceneClassifier:
 
             if self.debug:
                 staging_str = "STAGED" if is_staged else "VACANT"
+                logger.info(f"Pass 1 scene: {final_scene}")
                 logger.info(f"Classification: {scene} ({staging_str})")
+                if scene_summary.image_summary:
+                    logger.info(f"Image summary: {scene_summary.image_summary[:200]}")
+                if scene_summary.overall_impression:
+                    logger.info(f"Overall impression: {scene_summary.overall_impression[:200]}")
                 logger.info(f"Targets: {len(targets)} targets")
                 logger.info(f"GDINO terms: {len(gdino_terms)} terms")
 
@@ -846,7 +960,7 @@ class SceneClassifier:
             logger.error(f"Error classifying image {image_path}: {e}")
 
             # Create fallback response
-            fallback_scene = "unknown"
+            fallback_scene = self._normalize_scene(scene_summary.scene) if scene_summary.scene else "unknown"
             fallback_targets = self._create_fallback_targets(fallback_scene)
 
             # Build gdino_terms from fallback
@@ -866,6 +980,8 @@ class SceneClassifier:
                 gdino_terms=gdino_terms,
                 keywords=gdino_terms,
                 groundingdino_prompt=format_for_grounding_dino(gdino_terms),
+                image_summary=scene_summary.image_summary,
+                overall_impression=scene_summary.overall_impression,
                 error=str(e),
                 processing_time=time.time() - t0,
                 prompt_version=PROMPT_VERSION,
@@ -900,6 +1016,8 @@ class SceneClassifier:
             for path, classification in results.items():
                 result_data = {
                     "scene": classification.scene,
+                    "image_summary": classification.image_summary,
+                    "overall_impression": classification.overall_impression,
                     "is_staged": classification.is_staged,
                     "reasoning": classification.reasoning,
                     "targets": classification.targets,
@@ -1032,6 +1150,8 @@ def main():
         output = {
             "image": str(image_paths[0]),
             "scene": result.scene,
+            "image_summary": result.image_summary,
+            "overall_impression": result.overall_impression,
             "is_staged": result.is_staged,
             "reasoning": result.reasoning,
             "targets": result.targets,
@@ -1075,6 +1195,8 @@ def main():
             for path, classification in results.items():
                 result_data = {
                     "scene": classification.scene,
+                    "image_summary": classification.image_summary,
+                    "overall_impression": classification.overall_impression,
                     "is_staged": classification.is_staged,
                     "reasoning": classification.reasoning,
                     "targets": classification.targets,
