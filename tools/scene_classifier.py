@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from __future__ import annotations
 """
 Scene Classifier with Keyword Selection for Property Photos
 -----------------------------------------------------------
@@ -30,8 +31,8 @@ import logging
 import argparse
 import re
 from pathlib import Path
-from typing import Dict, Optional, List
-from dataclasses import dataclass
+from typing import Dict, Optional, List, Literal
+from dataclasses import dataclass, asdict, field
 import requests
 
 # ── Console encoding (Windows safety) ─────────────────────────────────────────
@@ -51,6 +52,21 @@ except ImportError:
 
 # ── Constants ────────────────────────────────────────────────────────────────
 PROMPT_VERSION = "planner_v1"
+DEFAULT_ISSUE_CATALOG = "issue_catalog.json"
+
+# Static mapping from issue_id -> support-object labels for GroundingDINO
+ANCHOR_MAP = {
+    "water_stain_ceiling": ["ceiling"],
+    "outdated_kitchen_finishes": ["kitchen cabinets", "countertop"],
+    "outdated_bathroom_finishes": ["bathroom vanity", "bathroom tile"],
+    "damaged_or_aged_roof_shingles": ["roof"],
+    "damaged_or_rotted_siding_or_trim": ["siding", "exterior trim"],
+    "worn_or_stained_carpet": ["carpet"],
+    "scratched_or_damaged_hardwood": ["wood floor", "laminate floor"],
+    "unfinished_basement_present": ["basement floor", "basement walls"],
+}
+DEFAULT_DINO_CONFIG = Path("groundingdino/config/GroundingDINO_SwinT_OGC.py")
+DEFAULT_DINO_WEIGHTS = Path("weights/groundingdino_swint_ogc.pth")
 
 # ── Scene Types ──────────────────────────────────────────────────────────────
 VALID_SCENES = [
@@ -325,6 +341,9 @@ class SceneClassification:
     error: Optional[str] = None
     image_summary: str = ""
     overall_impression: str = ""
+    issues_natural_language: List[NLIssue] = field(default_factory=list)
+    catalog_flags: Dict[str, CatalogFlag] = field(default_factory=dict)
+    issue_visual_anchors: List[VisualAnchor] = field(default_factory=list)
 
 
 @dataclass
@@ -332,6 +351,37 @@ class SceneSummary:
     scene: str
     image_summary: str
     overall_impression: str
+
+
+Presence = Literal["yes", "no", "uncertain"]
+
+
+@dataclass
+class NLIssue:
+    description: str
+    rough_category: str
+    location_hint: str = ""
+
+
+@dataclass
+class CatalogFlag:
+    present: Presence
+    evidence: str = ""
+
+
+@dataclass
+class DefectAnalysis:
+    issues_natural_language: List[NLIssue]
+    catalog_flags: Dict[str, CatalogFlag]
+    targets: List[Dict]
+
+
+@dataclass
+class VisualAnchor:
+    issue_id: str
+    support_object_label: str
+    bbox: List[float]
+    confidence: float
 
 
 # ── Helper Functions ─────────────────────────────────────────────────────────
@@ -359,6 +409,44 @@ def dedup_preserving_order(seq: List[str]) -> List[str]:
             seen.add(item)
             result.append(item)
     return result
+
+
+def load_issue_catalog(path: Path) -> dict:
+    """
+    Load the issue catalog from JSON.
+
+    Returns a dict with at least keys:
+      - 'defect_issues': list of issue dicts
+      - 'opportunity_flags': list of issue dicts
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except FileNotFoundError:
+        logger.warning(f"Issue catalog not found at {path}; using empty catalog.")
+        data = {}
+    except Exception as exc:
+        logger.error(f"Failed to load issue catalog from {path}: {exc}")
+        data = {}
+
+    return {
+        "defect_issues": data.get("defect_issues", []),
+        "opportunity_flags": data.get("opportunity_flags", []),
+    }
+
+
+def get_catalog_ids(issue_catalog: dict) -> List[str]:
+    """Flatten all issue ids from defect_issues and opportunity_flags."""
+    ids = []
+    for key in ("defect_issues", "opportunity_flags"):
+        for item in issue_catalog.get(key, []) or []:
+            if isinstance(item, dict) and item.get("id"):
+                ids.append(str(item["id"]))
+    return ids
+
+
+def _serialize_catalog_flags(flags: Dict[str, CatalogFlag]) -> Dict[str, Dict[str, str]]:
+    return {iid: asdict(flag) for iid, flag in (flags or {}).items()}
 
 
 def _clean_keywords(keywords: List[str]) -> List[str]:
@@ -442,6 +530,83 @@ def build_scene_summary_prompt() -> str:
     )
 
 
+def _format_catalog_for_prompt(issue_catalog: dict) -> str:
+    """Summarize catalog ids, names, and descriptions for prompt context."""
+    parts = []
+    for section in ("defect_issues", "opportunity_flags"):
+        section_items = issue_catalog.get(section, []) or []
+        if not section_items:
+            continue
+        parts.append(f"{section} ({len(section_items)} items):")
+        for item in section_items:
+            if not isinstance(item, dict):
+                continue
+            iid = item.get("id", "")
+            name = item.get("name", "")
+            desc = item.get("description", "")
+            category = item.get("category", "")
+            severity = item.get("severity", "")
+            parts.append(f"- {iid}: {name} [{category}/{severity}] - {desc}")
+    return "\n".join(parts)
+
+
+def build_defect_analysis_prompt(scene: str, issue_catalog: dict) -> str:
+    """
+    Build the prompt for the Defect Analysis pass.
+    This prompt:
+      - RECEIVES the scene label from run_scene_summary as context.
+      - RECEIVES the issue catalog (ids, names, descriptions).
+      - MUST NOT ask for scene or general summary again.
+      - ASKS ONLY for:
+          * issues_natural_language[]
+          * catalog_flags{issue_id -> present/evidence}
+          * targets[] with ROI hints (similar to existing planner behavior).
+    """
+    catalog_text = _format_catalog_for_prompt(issue_catalog)
+    catalog_ids = get_catalog_ids(issue_catalog)
+    catalog_list_str = ", ".join(catalog_ids)
+
+    return (
+        "You are an assistant that ONLY analyzes defects and renovation opportunities visible in a real-estate photo.\n"
+        "Do NOT restate the scene or provide a general description.\n"
+        f"scene: {scene}\n\n"
+        "ISSUE CATALOG (fixed ids, include ALL of them in catalog_flags):\n"
+        f"{catalog_text}\n\n"
+        "What to return (strict JSON only, no markdown):\n"
+        "{\n"
+        '  "issues_natural_language": [\n'
+        "    {\n"
+        '      "description": "<string>",\n'
+        '      "rough_category": "<cosmetic|moisture|structure|systems|exterior|opportunity>",\n'
+        '      "location_hint": "<string>"\n'
+        "    }\n"
+        "  ],\n"
+        '  "catalog_flags": {\n'
+        '    "<issue_id>": {\n'
+        '      "present": "yes|no|uncertain",\n'
+        '      "evidence": "<string or empty>"\n'
+        "    }\n"
+        "  },\n"
+        '  "targets": [\n'
+        "    {\n"
+        '      "label": "<string or issue_id>",\n'
+        '      "description": "<string>",\n'
+        '      "roi_hint": "<string>",\n'
+        '      "priority": "<low|medium|high or numeric>"\n'
+        "    }\n"
+        "  ]\n"
+        "}\n\n"
+        "Rules:\n"
+        "- Focus ONLY on defects/condition issues/renovation opportunities visible in the photo.\n"
+        "- Use rough_category from: cosmetic, moisture, structure, systems, exterior, opportunity.\n"
+        "- catalog_flags MUST include every issue_id from the catalog:"
+        f" {catalog_list_str}. If unsure, use 'uncertain'.\n"
+        "- When present == 'yes', add brief evidence text.\n"
+        "- targets should be actionable ROI hints (like planner targets) using concise labels.\n"
+        "- Respond with raw JSON only. Do NOT wrap in backticks or add explanations."
+    )
+
+
 def run_scene_summary(image_bytes: bytes, model_name: str, lm_studio_url: str = LM_STUDIO_URL,
                       http_client=requests) -> SceneSummary:
     """
@@ -503,6 +668,104 @@ def run_scene_summary(image_bytes: bytes, model_name: str, lm_studio_url: str = 
     except Exception as e:
         logger.error(f"VLM Pass 1 failed: {e}")
         return SceneSummary(scene="unknown", image_summary="", overall_impression="")
+
+
+def _normalize_presence(value: str) -> Presence:
+    v = str(value).strip().lower()
+    if v in {"yes", "no", "uncertain"}:
+        return v  # type: ignore[return-value]
+    return "uncertain"
+
+
+def run_defect_analysis(
+    image_bytes: bytes,
+    scene: str,
+    issue_catalog: dict,
+    model_name: str,
+    lm_studio_url: str = LM_STUDIO_URL,
+    http_client=requests,
+) -> DefectAnalysis:
+    """
+    Run the Defect Analysis pass for a single image:
+      - Use build_defect_analysis_prompt(scene, issue_catalog) as the user prompt.
+      - Call the same VLM endpoint as used elsewhere.
+      - Parse raw JSON into a DefectAnalysis object.
+    """
+    prompt = build_defect_analysis_prompt(scene, issue_catalog)
+    image_b64 = base64.b64encode(image_bytes).decode('utf-8')
+    catalog_ids = get_catalog_ids(issue_catalog)
+
+    content = [
+        {"type": "text", "text": prompt},
+        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+    ]
+
+    messages = [
+        {"role": "system", "content": "You are a property photo analyzer. Respond with valid JSON only."},
+        {"role": "user", "content": content},
+    ]
+
+    payload = {
+        "model": model_name,
+        "messages": messages,
+        "temperature": 0.1,
+        "max_tokens": 2048,
+        "stream": False,
+    }
+
+    default_flags = {iid: CatalogFlag(present="uncertain", evidence="") for iid in catalog_ids}
+
+    try:
+        resp = http_client.post(
+            f"{lm_studio_url.rstrip('/')}/v1/chat/completions",
+            json=payload,
+            timeout=40,
+        )
+        if resp.status_code != 200:
+            raise RuntimeError(f"API error: HTTP {resp.status_code} - {resp.text[:200]}")
+
+        data = resp.json()
+        raw_response = data["choices"][0]["message"]["content"]
+        parsed = _extract_json(raw_response) or {}
+
+        # Parse issues_natural_language
+        nl_issues: List[NLIssue] = []
+        for item in parsed.get("issues_natural_language", []) or []:
+            if not isinstance(item, dict):
+                continue
+            desc = str(item.get("description", "")).strip()
+            category = str(item.get("rough_category", "")).strip()
+            location_hint = str(item.get("location_hint", "")).strip()
+            if desc:
+                nl_issues.append(NLIssue(description=desc, rough_category=category, location_hint=location_hint))
+
+        # Parse catalog_flags ensuring all ids exist
+        parsed_flags = parsed.get("catalog_flags", {}) or {}
+        catalog_flags: Dict[str, CatalogFlag] = {}
+        for iid in catalog_ids:
+            if isinstance(parsed_flags, dict) and iid in parsed_flags:
+                entry = parsed_flags.get(iid, {}) or {}
+                present_raw = entry.get("present", "uncertain") if isinstance(entry, dict) else "uncertain"
+                evidence = ""
+                if isinstance(entry, dict):
+                    evidence = str(entry.get("evidence", "")).strip()
+                catalog_flags[iid] = CatalogFlag(present=_normalize_presence(present_raw), evidence=evidence)
+            else:
+                catalog_flags[iid] = CatalogFlag(present="uncertain", evidence="")
+
+        # Parse targets
+        parsed_targets = parsed.get("targets", []) or []
+        targets = parsed_targets if isinstance(parsed_targets, list) else []
+
+        return DefectAnalysis(
+            issues_natural_language=nl_issues,
+            catalog_flags=catalog_flags,
+            targets=targets,
+        )
+
+    except Exception as e:
+        logger.error(f"Defect analysis failed: {e}")
+        return DefectAnalysis(issues_natural_language=[], catalog_flags=default_flags, targets=[])
 
 
 def build_classification_prompt() -> str:
@@ -707,6 +970,82 @@ def format_for_grounding_dino(keywords: List[str]) -> str:
     return ". ".join(keywords) + "."
 
 
+def run_groundingdino_for_issues(
+    image_path: Path,
+    defect_analysis: DefectAnalysis,
+    config_path: Path = DEFAULT_DINO_CONFIG,
+    weights_path: Path = DEFAULT_DINO_WEIGHTS,
+    box_threshold: float = 0.35,
+    text_threshold: float = 0.25,
+    device: Optional[str] = None,
+) -> List[VisualAnchor]:
+    """
+    For each issue_id with present == 'yes' in defect_analysis.catalog_flags:
+      - Look up support-object labels from ANCHOR_MAP.
+      - For each support-object label, call GroundingDINO to detect that object.
+      - For each detection, create a VisualAnchor(issue_id, support_object_label, bbox, confidence).
+    """
+    anchors: List[VisualAnchor] = []
+    try:
+        from groundingdino.util.inference import load_model, load_image, predict
+        import torch
+    except Exception as exc:
+        logger.error(f"GroundingDINO dependencies unavailable: {exc}")
+        return anchors
+
+    if not config_path.exists() or not weights_path.exists():
+        logger.warning(
+            f"GroundingDINO config/weights missing (config={config_path}, weights={weights_path}); skipping anchors."
+        )
+        return anchors
+
+    dev = device or ("cuda" if torch.cuda.is_available() else "cpu")
+    try:
+        model = load_model(str(config_path), str(weights_path), device=dev)
+        image_source, image_tensor = load_image(str(image_path))
+        height, width = image_source.shape[:2]
+    except Exception as exc:
+        logger.error(f"Failed to initialize GroundingDINO: {exc}")
+        return anchors
+
+    for issue_id, flag in defect_analysis.catalog_flags.items():
+        if flag.present != "yes":
+            continue
+        labels = ANCHOR_MAP.get(issue_id)
+        if not labels:
+            continue
+        prompt = ". ".join(labels) + "."
+        try:
+            boxes, logits, phrases = predict(
+                model,
+                image_tensor,
+                prompt,
+                box_threshold,
+                text_threshold,
+                device=dev,
+            )
+        except Exception as exc:
+            logger.error(f"GroundingDINO prediction failed for {issue_id}: {exc}")
+            continue
+
+        for box, logit, phrase in zip(boxes, logits, phrases):
+            cx, cy, bw, bh = [float(v) for v in box.tolist()]
+            x0 = (cx - bw / 2.0) * width
+            y0 = (cy - bh / 2.0) * height
+            x1 = (cx + bw / 2.0) * width
+            y1 = (cy + bh / 2.0) * height
+            anchors.append(
+                VisualAnchor(
+                    issue_id=issue_id,
+                    support_object_label=phrase.strip() or labels[0],
+                    bbox=[x0, y0, x1, y1],
+                    confidence=float(logit),
+                )
+            )
+
+    return anchors
+
+
 # ── Scene Classifier Class ───────────────────────────────────────────────────
 class SceneClassifier:
     def __init__(self, lm_studio_url: str = LM_STUDIO_URL,
@@ -716,7 +1055,9 @@ class SceneClassifier:
                  max_targets: int = 8,
                  allow_free_discoveries: int = 1,
                  scene_policy_version: str = "v1",
-                 debug: bool = False):
+                 debug: bool = False,
+                 issue_catalog_path: str | Path = DEFAULT_ISSUE_CATALOG,
+                 with_dino_anchors: bool = False):
         self.lm_studio_url = lm_studio_url.rstrip('/')
         self.model_name = model_name
         self.include_conditions = include_conditions
@@ -725,6 +1066,8 @@ class SceneClassifier:
         self.allow_free_discoveries = allow_free_discoveries
         self.scene_policy_version = scene_policy_version
         self.debug = debug
+        self.with_dino_anchors = with_dino_anchors
+        self.issue_catalog = load_issue_catalog(Path(issue_catalog_path))
 
     def _normalize_scene(self, scene: str) -> str:
         """Normalize scene name to canonical form."""
@@ -763,6 +1106,8 @@ class SceneClassifier:
         """Classify a single image and plan detection targets."""
         t0 = time.time()
         scene_summary = SceneSummary(scene="unknown", image_summary="", overall_impression="")
+        catalog_default_flags = {iid: CatalogFlag(present="uncertain", evidence="") for iid in get_catalog_ids(self.issue_catalog)}
+        defect_analysis = DefectAnalysis(issues_natural_language=[], catalog_flags=catalog_default_flags, targets=[])
 
         try:
             if not image_path.exists():
@@ -770,6 +1115,14 @@ class SceneClassifier:
 
             image_bytes = image_path.read_bytes()
             scene_summary = run_scene_summary(image_bytes, self.model_name, self.lm_studio_url)
+            analysis_scene = self._normalize_scene(scene_summary.scene) if scene_summary.scene else "unknown"
+            defect_analysis = run_defect_analysis(
+                image_bytes,
+                analysis_scene,
+                self.issue_catalog,
+                self.model_name,
+                self.lm_studio_url,
+            )
             image_b64 = base64.b64encode(image_bytes).decode('utf-8')
 
             # First, get scene classification
@@ -870,8 +1223,8 @@ class SceneClassifier:
             )
 
             targets = []
-            gdino_terms = []
             planner_raw = None  # Initialize
+            gdino_terms: List[str] = []
 
             if planner_resp.status_code == 200:
                 planner_data = planner_resp.json()
@@ -892,18 +1245,37 @@ class SceneClassifier:
                 # Extract targets
                 targets = planner_parsed.get("targets", [])[:self.max_targets]
 
-                # Build gdino_terms from targets
-                if targets:
-                    all_terms = []
-                    for target in targets:
-                        # Add label (convert snake_case to spaced phrase for detector)
-                        if "label" in target:
-                            label_term = _sanitize_term(target["label"]).replace("_", " ")
-                            if label_term:
-                                all_terms.append(label_term)
+            defect_targets = defect_analysis.targets or []
+            if defect_targets:
+                merged_targets = list(targets) if targets else []
+                existing_labels = {
+                    t.get("label")
+                    for t in merged_targets
+                    if isinstance(t, dict) and t.get("label")
+                }
+                for tgt in defect_targets:
+                    if not isinstance(tgt, dict):
+                        continue
+                    label = tgt.get("label")
+                    if label and label in existing_labels:
+                        continue
+                    merged_targets.append(tgt)
+                    if label:
+                        existing_labels.add(label)
+                targets = merged_targets[: self.max_targets] if merged_targets else targets
 
-                    # Deduplicate and cap at 15
-                    gdino_terms = dedup_preserving_order(all_terms)[:15]
+            # Build gdino_terms from merged targets
+            if targets:
+                all_terms = []
+                for target in targets:
+                    if not isinstance(target, dict):
+                        continue
+                    if "label" in target:
+                        label_term = _sanitize_term(target["label"]).replace("_", " ")
+                        if label_term:
+                            all_terms.append(label_term)
+
+                gdino_terms = dedup_preserving_order(all_terms)[:15]
 
             # Fallback if no targets
             if not gdino_terms:
@@ -921,6 +1293,13 @@ class SceneClassifier:
             keywords = gdino_terms
             groundingdino_prompt = format_for_grounding_dino(gdino_terms)
 
+            issue_visual_anchors: List[VisualAnchor] = []
+            if self.with_dino_anchors:
+                try:
+                    issue_visual_anchors = run_groundingdino_for_issues(image_path, defect_analysis)
+                except Exception as exc:
+                    logger.error(f"Failed to generate GroundingDINO anchors: {exc}")
+
             pass1_scene = self._normalize_scene(scene_summary.scene)
             final_scene = pass1_scene or scene
             if final_scene == "unknown" and scene != "unknown":
@@ -936,6 +1315,9 @@ class SceneClassifier:
                 gdino_terms=gdino_terms,
                 keywords=keywords,
                 groundingdino_prompt=groundingdino_prompt,
+                issues_natural_language=defect_analysis.issues_natural_language,
+                catalog_flags=defect_analysis.catalog_flags,
+                issue_visual_anchors=issue_visual_anchors,
                 processing_time=time.time() - t0,
                 prompt_version=PROMPT_VERSION,
                 scene_policy_version=self.scene_policy_version,
@@ -982,6 +1364,9 @@ class SceneClassifier:
                 groundingdino_prompt=format_for_grounding_dino(gdino_terms),
                 image_summary=scene_summary.image_summary,
                 overall_impression=scene_summary.overall_impression,
+                issues_natural_language=defect_analysis.issues_natural_language,
+                catalog_flags=defect_analysis.catalog_flags,
+                issue_visual_anchors=[],
                 error=str(e),
                 processing_time=time.time() - t0,
                 prompt_version=PROMPT_VERSION,
@@ -1024,6 +1409,9 @@ class SceneClassifier:
                     "gdino_terms": classification.gdino_terms,
                     "keywords": classification.keywords,
                     "groundingdino_prompt": classification.groundingdino_prompt,
+                    "issues_natural_language": [asdict(issue) for issue in classification.issues_natural_language],
+                    "catalog_flags": _serialize_catalog_flags(classification.catalog_flags),
+                    "issue_visual_anchors": [asdict(anchor) for anchor in classification.issue_visual_anchors],
                     "processing_time": classification.processing_time,
                     "prompt_version": classification.prompt_version,
                     "scene_policy_version": classification.scene_policy_version,
@@ -1095,6 +1483,16 @@ def main():
         help="Include defect/condition keywords (crack, stain, damage, etc.)"
     )
     parser.add_argument(
+        "--issue-catalog", "--catalog",
+        default=DEFAULT_ISSUE_CATALOG,
+        help=f"Path to issue catalog JSON (default: {DEFAULT_ISSUE_CATALOG})"
+    )
+    parser.add_argument(
+        "--with-dino-anchors",
+        action="store_true",
+        help="Run GroundingDINO on catalog issues marked present to produce visual anchors"
+    )
+    parser.add_argument(
         "--output", "-o",
         help="Output JSON file (default: stdout for single image, file for batch)"
     )
@@ -1130,7 +1528,9 @@ def main():
         max_targets=args.max_targets,
         allow_free_discoveries=args.allow_free_discoveries,
         scene_policy_version=args.scene_policy_version,
-        debug=args.debug
+        debug=args.debug,
+        issue_catalog_path=args.issue_catalog,
+        with_dino_anchors=args.with_dino_anchors,
     )
 
     # Convert paths
@@ -1158,6 +1558,9 @@ def main():
             "gdino_terms": result.gdino_terms,
             "keywords": result.keywords,
             "groundingdino_prompt": result.groundingdino_prompt,
+            "issues_natural_language": [asdict(issue) for issue in result.issues_natural_language],
+            "catalog_flags": _serialize_catalog_flags(result.catalog_flags),
+            "issue_visual_anchors": [asdict(anchor) for anchor in result.issue_visual_anchors],
             "processing_time": result.processing_time,
             "prompt_version": result.prompt_version,
             "scene_policy_version": result.scene_policy_version,
@@ -1203,6 +1606,9 @@ def main():
                     "gdino_terms": classification.gdino_terms,
                     "keywords": classification.keywords,
                     "groundingdino_prompt": classification.groundingdino_prompt,
+                    "issues_natural_language": [asdict(issue) for issue in classification.issues_natural_language],
+                    "catalog_flags": _serialize_catalog_flags(classification.catalog_flags),
+                    "issue_visual_anchors": [asdict(anchor) for anchor in classification.issue_visual_anchors],
                     "processing_time": classification.processing_time,
                     "prompt_version": classification.prompt_version,
                     "scene_policy_version": classification.scene_policy_version,
