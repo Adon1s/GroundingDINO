@@ -1,0 +1,245 @@
+{
+  "defect_issues": [
+    {
+      "id": "water_stain_ceiling",
+      "name": "Water Stain on Ceiling",
+      "category": "moisture",
+      "severity": 3,
+      "description": "Visible brown or dark discoloration on the ceiling that suggests past or active moisture intrusion."
+    },
+    {
+      "id": "peeling_or_discolored_paint",
+      "name": "Peeling or Discolored Paint",
+      "category": "cosmetic",
+      "severity": 1,
+      "description": "Paint that is peeling, bubbling, cracked, or visibly aged."
+    },
+    {
+      "id": "visible_mold_or_mildew",
+      "name": "Visible Mold or Mildew",
+      "category": "moisture",
+      "severity": 4,
+      "description": "Dark, fuzzy, or patchy growth on surfaces indicative of active or past moisture problems."
+    },
+    {
+      "id": "damaged_drywall_or_cracks",
+      "name": "Drywall Damage or Cracks",
+      "category": "structure",
+      "severity": 2,
+      "description": "Cracks, holes, nail pops, or uneven drywall that may indicate settling, impact damage, or poor repairs."
+    },
+    {
+      "id": "ceiling_cracks_or_sagging",
+      "name": "Ceiling Cracks or Sagging",
+      "category": "structure",
+      "severity": 3,
+      "description": "Noticeable cracks, separation at joints, or sagging areas in the ceiling that may indicate structural movement or moisture damage."
+    },
+    {
+      "id": "worn_or_stained_carpet",
+      "name": "Worn or Stained Carpet",
+      "category": "cosmetic",
+      "severity": 1,
+      "description": "Carpet that is visibly dirty, stained, frayed, or heavily worn."
+    },
+    {
+      "id": "scratched_or_damaged_flooring",
+      "name": "Scratched or Damaged Hard Flooring",
+      "category": "cosmetic",
+      "severity": 1,
+      "description": "Hardwood, laminate, vinyl, or tile flooring with scratches, chips, warping, broken tiles, or other visible damage."
+    },
+    {
+      "id": "trip_hazard_or_unlevel_floor",
+      "name": "Trip Hazard or Unlevel Floor",
+      "category": "safety",
+      "severity": 3,
+      "description": "Visibly uneven flooring, loose thresholds, or abrupt height changes that may pose a tripping risk or suggest settlement."
+    },
+    {
+      "id": "damaged_or_rotted_siding_or_trim",
+      "name": "Damaged or Rotted Exterior Siding/Trim",
+      "category": "exterior",
+      "severity": 3,
+      "description": "Exterior wood or siding showing visible rot, warping, cracks, missing sections, or advanced deterioration."
+    },
+    {
+      "id": "damaged_or_aged_roof_shingles",
+      "name": "Damaged or Aged Roof Shingles",
+      "category": "exterior",
+      "severity": 3,
+      "description": "Missing, curling, patchy, or visibly deteriorated roof shingles visible from the photo."
+    },
+    {
+      "id": "damaged_or_unsafe_deck_or_porch",
+      "name": "Damaged or Unsafe Deck/Porch",
+      "category": "exterior",
+      "severity": 3,
+      "description": "Deck, porch, or exterior stairs with loose, rotted, or missing boards or railings that appear unsafe or in poor condition."
+    },
+    {
+      "id": "broken_or_fogged_windows",
+      "name": "Broken or Fogged Windows",
+      "category": "exterior",
+      "severity": 2,
+      "description": "Cracked glass, damaged frames, missing panes, or fogged double-pane windows indicating failed seals."
+    },
+    {
+      "id": "outdated_or_damaged_cabinets",
+      "name": "Damaged or Outdated Cabinets",
+      "category": "cosmetic",
+      "severity": 2,
+      "description": "Kitchen or bathroom cabinets with visible wear, damaged doors or drawers, water staining, or visibly dated style."
+    },
+    {
+      "id": "countertop_damage",
+      "name": "Damaged Countertops",
+      "category": "cosmetic",
+      "severity": 2,
+      "description": "Countertops with visible burns, chips, cracks, swollen seams, or missing sections."
+    },
+    {
+      "id": "tile_or_grout_damage",
+      "name": "Damaged Tile or Grout",
+      "category": "cosmetic",
+      "severity": 2,
+      "description": "Broken, loose, or missing tiles or grout in kitchens, bathrooms, or flooring that may allow moisture intrusion."
+    },
+    {
+      "id": "appliance_damage_or_missing",
+      "name": "Appliance Damage or Missing",
+      "category": "systems",
+      "severity": 2,
+      "description": "Key built-in appliances (range, oven, dishwasher, built-in microwave) missing, visibly broken, or significantly aged or neglected."
+    },
+    {
+      "id": "plumbing_fixture_leaking_stained",
+      "name": "Leaking or Stained Plumbing Fixtures",
+      "category": "systems",
+      "severity": 3,
+      "description": "Visible leaks, corrosion, water staining, or heavy mineral buildup at sinks, toilets, tubs, or showers."
+    },
+    {
+      "id": "stained_or_damaged_bath_fixtures",
+      "name": "Stained or Damaged Bath Fixtures",
+      "category": "cosmetic",
+      "severity": 1,
+      "description": "Tubs, showers, or toilets with heavy staining, chipped enamel, or visibly worn finishes."
+    },
+    {
+      "id": "visible_electrical_risks",
+      "name": "Visible Electrical Risks",
+      "category": "systems",
+      "severity": 4,
+      "description": "Exposed wiring, missing outlet or switch covers, scorch marks, overfilled power strips, or visibly unsafe electrical components."
+    },
+    {
+      "id": "missing_or_damaged_handrails",
+      "name": "Missing or Damaged Handrails/Guardrails",
+      "category": "safety",
+      "severity": 3,
+      "description": "Stairs, balconies, or decks lacking proper handrails or guardrails, or having visibly loose or broken railings."
+    },
+    {
+      "id": "garage_or_basement_damage",
+      "name": "Basement or Garage Damage",
+      "category": "structure",
+      "severity": 3,
+      "description": "Visible cracking, moisture intrusion, efflorescence, or structural wear in garage or basement walls or floors."
+    },
+    {
+      "id": "major_foundation_or_settlement_signs",
+      "name": "Major Foundation or Settlement Signs",
+      "category": "structure",
+      "severity": 4,
+      "description": "Large step cracks in masonry, significantly sloped floors, misaligned doors or windows, or other clear indications of notable settlement."
+    },
+    {
+      "id": "pest_or_rodent_evidence",
+      "name": "Visible Pest or Rodent Evidence",
+      "category": "systems",
+      "severity": 2,
+      "description": "Visible droppings, chewed materials, nests, or other clear signs of insects or rodents."
+    },
+    {
+      "id": "standing_water_or_poor_grading",
+      "name": "Standing Water or Poor Grading",
+      "category": "exterior",
+      "severity": 3,
+      "description": "Visible standing water near the home, obvious negative grading toward the structure, or saturated soil that may promote moisture intrusion."
+    }
+  ],
+
+  "opportunity_flags": [
+    {
+      "id": "outdated_kitchen_finishes",
+      "name": "Outdated Kitchen Finishes",
+      "category": "opportunity",
+      "severity": 3,
+      "description": "Older cabinetry, countertops, appliances, or finishes that would benefit from modernization and could significantly improve value."
+    },
+    {
+      "id": "outdated_bathroom_finishes",
+      "name": "Outdated Bathroom Finishes",
+      "category": "opportunity",
+      "severity": 3,
+      "description": "Older tile, vanity, fixtures, or layout indicating that an update would noticeably improve appeal and value."
+    },
+    {
+      "id": "older_flooring_style",
+      "name": "Outdated Flooring Style",
+      "category": "opportunity",
+      "severity": 2,
+      "description": "Flooring that is clean but visually outdated (older carpet, laminate, linoleum, or tile colors or patterns)."
+    },
+    {
+      "id": "dated_lighting_fixtures",
+      "name": "Outdated Lighting Fixtures",
+      "category": "opportunity",
+      "severity": 1,
+      "description": "Older style ceiling lights, fans, sconces, or track lighting where modern fixtures would improve the look."
+    },
+    {
+      "id": "paint_refresh_recommended",
+      "name": "Paint Refresh Opportunity",
+      "category": "opportunity",
+      "severity": 1,
+      "description": "Photo suggests an older or highly personalized color scheme where repainting in modern neutrals would improve appeal."
+    },
+    {
+      "id": "landscape_improvement_needed",
+      "name": "Landscape Improvement",
+      "category": "exterior",
+      "severity": 2,
+      "description": "Exterior or yard appears sparse, overgrown, or tired and could be visually improved with fresh landscaping or cleanup."
+    },
+    {
+      "id": "curb_appeal_upgrade",
+      "name": "Curb Appeal Upgrade",
+      "category": "exterior",
+      "severity": 2,
+      "description": "Front entry, porch, or facade could benefit from cosmetic updates (paint, door hardware, simple accents) to improve first impressions."
+    },
+    {
+      "id": "energy_efficiency_upgrades",
+      "name": "Energy Efficiency Improvements",
+      "category": "systems",
+      "severity": 2,
+      "description": "Older windows, lighting, HVAC equipment, or appliances suggest potential for cost-saving energy efficiency upgrades."
+    },
+    {
+      "id": "unfinished_basement_present",
+      "name": "Unfinished Basement",
+      "category": "structure",
+      "severity": 3,
+      "description": "Unfinished basement suggests a meaningful opportunity for added living space or storage through future finishing."
+    },
+    {
+      "id": "staging_or_decluttering_opportunity",
+      "name": "Staging or Decluttering Opportunity",
+      "category": "opportunity",
+      "severity": 1,
+      "description": "Rooms appear cluttered, cramped, or heavily personalized; decluttering or staging would likely improve photos and buyer perception."
+    }
+  ]
+}
