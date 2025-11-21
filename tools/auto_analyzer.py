@@ -60,12 +60,14 @@ class ImageAnalysisResult:
     """Result from analyzing a single image."""
     image_path: str
     scene: str
+    scene_data: Optional[Dict[str, Any]]
     keywords_used: List[str]
     detection_count: int
     verified_count: Optional[int] = None
     output_dir: str = ""
     processing_time: float = 0.0
     error: Optional[str] = None
+    scene_classifier: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -161,12 +163,13 @@ class AutoAnalyzer:
 
     def classify_scene(
         self, image_path: Path
-    ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str]]:
+    ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str], Dict[str, Any]]:
         """
         Classify the scene type and get keywords for detection.
 
         Returns:
-            Tuple of (scene, reasoning, keywords, grounding_prompt, planner_targets, planner_hints)
+            Tuple of (scene, reasoning, keywords, grounding_prompt, planner_targets,
+            planner_hints, scene_payload)
         """
         logger.info(f"Classifying scene: {image_path.name}")
 
@@ -189,7 +192,10 @@ class AutoAnalyzer:
 
         if code != 0:
             logger.error(f"Scene classification failed: {stderr}")
-            return "unknown", "Classification failed", [], "", [], {}
+            empty_payload = self._scene_classifier_payload(
+                None, scene_override="unknown", error="Classification failed"
+            )
+            return "unknown", "Classification failed", [], "", [], {}, empty_payload
 
         try:
             result = json.loads(stdout)
@@ -213,11 +219,39 @@ class AutoAnalyzer:
             if not prompt and keywords:
                 prompt = ". ".join(keywords) + "."
 
-            return scene, reasoning, keywords, prompt, targets, planner_hints
+            # Persist the prompt in the scene result for downstream artifacts
+            if not result.get("groundingdino_prompt"):
+                result["groundingdino_prompt"] = prompt
+
+            # Normalize optional collections so they are always present downstream
+            result.setdefault("targets", targets)
+            result.setdefault("gdino_terms", [])
+            result.setdefault("keywords", keywords)
+            result.setdefault("issues_natural_language", [])
+            result.setdefault("catalog_flags", {})
+            result.setdefault("issue_visual_anchors", [])
+
+            scene_payload = self._scene_classifier_payload(
+                result, scene_override=scene
+            )
+            keywords = scene_payload.get("keywords", keywords) or []
+
+            return (
+                scene,
+                reasoning,
+                keywords,
+                prompt,
+                targets,
+                planner_hints,
+                scene_payload,
+            )
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse scene classification: {e}")
-            return "unknown", "Parse error", [], "", [], {}
+            empty_payload = self._scene_classifier_payload(
+                None, scene_override="unknown", error="Parse error"
+            )
+            return "unknown", "Parse error", [], "", [], {}, empty_payload
 
     def run_detection(self,
                       image_path: Path,
@@ -311,6 +345,7 @@ class AutoAnalyzer:
                 prompt,
                 planner_targets,
                 planner_hints,
+                scene_details,
             ) = self.classify_scene(image_path)
 
             logger.info(f"  Scene: {scene}")
@@ -321,6 +356,8 @@ class AutoAnalyzer:
                 return ImageAnalysisResult(
                     image_path=str(image_path),
                     scene=scene,
+                    scene_data=scene_details,
+                    scene_classifier=scene_details,
                     keywords_used=keywords,
                     detection_count=0,
                     output_dir=str(output_dir),
@@ -335,6 +372,8 @@ class AutoAnalyzer:
                 return ImageAnalysisResult(
                     image_path=str(image_path),
                     scene=scene,
+                    scene_data=scene_details,
+                    scene_classifier=scene_details,
                     keywords_used=keywords,
                     detection_count=0,
                     output_dir=str(output_dir),
@@ -529,6 +568,8 @@ class AutoAnalyzer:
             return ImageAnalysisResult(
                 image_path=str(image_path),
                 scene=scene,
+                scene_data=scene_details,
+                scene_classifier=scene_details,
                 keywords_used=keywords,
                 detection_count=detection_count,
                 verified_count=verified_count,
@@ -538,9 +579,14 @@ class AutoAnalyzer:
 
         except Exception as e:
             logger.error(f"Error analyzing {image_path}: {e}")
+            fallback_scene = self._scene_classifier_payload(
+                None, scene_override="unknown", error=str(e)
+            )
             return ImageAnalysisResult(
                 image_path=str(image_path),
                 scene="unknown",
+                scene_data=fallback_scene,
+                scene_classifier=fallback_scene,
                 keywords_used=[],
                 detection_count=0,
                 output_dir=str(output_dir),
@@ -600,6 +646,109 @@ class AutoAnalyzer:
         )
 
         return job
+
+    @staticmethod
+    def _scene_classifier_payload(
+        scene_data: Optional[Dict[str, Any]],
+        scene_override: Optional[str] = None,
+        error: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Normalize scene classifier output so all fields are present."""
+
+        payload: Dict[str, Any] = dict(scene_data or {})
+
+        if scene_override:
+            payload.setdefault("scene", scene_override)
+
+        payload.setdefault("scene", "unknown")
+        payload.setdefault("is_staged", None)
+        payload.setdefault("overall_impression", "")
+        payload.setdefault("reasoning", "" if error is None else error)
+        payload.setdefault("targets", [])
+        payload.setdefault("gdino_terms", [])
+        payload.setdefault("keywords", [])
+        payload.setdefault("groundingdino_prompt", "")
+        payload.setdefault("issues_natural_language", [])
+        payload.setdefault("catalog_flags", {})
+        payload.setdefault("issue_visual_anchors", [])
+        payload.setdefault("processing_time", payload.get("processing_time"))
+        payload.setdefault("prompt_version", payload.get("prompt_version", ""))
+        payload.setdefault("scene_policy_version", payload.get("scene_policy_version", ""))
+        payload.setdefault("image_summary", payload.get("image_summary", ""))
+        payload.setdefault("image", payload.get("image"))
+
+        if error and not payload.get("error"):
+            payload["error"] = error
+        payload.setdefault("error", payload.get("error"))
+
+        return payload
+
+    @staticmethod
+    def _build_photo_entry(result: ImageAnalysisResult) -> Dict[str, Any]:
+        """Create a serializable photo entry including scene classifier details."""
+        scene_payload = AutoAnalyzer._scene_classifier_payload(result.scene_classifier or result.scene_data)
+
+        return {
+            "image_path": result.image_path,
+            "scene": result.scene,
+            "is_staged": scene_payload.get("is_staged"),
+            "overall_impression": scene_payload.get("overall_impression", ""),
+            "reasoning": scene_payload.get("reasoning", ""),
+            "targets": scene_payload.get("targets", []),
+            "gdino_terms": scene_payload.get("gdino_terms", []),
+            "keywords": scene_payload.get("keywords", result.keywords_used),
+            "groundingdino_prompt": scene_payload.get("groundingdino_prompt", ""),
+            "issues_natural_language": scene_payload.get("issues_natural_language", []),
+            "catalog_flags": scene_payload.get("catalog_flags", {}),
+            "issue_visual_anchors": scene_payload.get("issue_visual_anchors", []),
+            "scene_classifier": scene_payload,
+            "keywords_used": result.keywords_used,
+            "detection_count": result.detection_count,
+            "verified_count": result.verified_count,
+            "output_dir": result.output_dir,
+            "processing_time": result.processing_time,
+            "error": result.error,
+        }
+
+    @staticmethod
+    def _pick_first_metadata(results: List[ImageAnalysisResult], key: str, default: str = "") -> str:
+        for res in results:
+            payload = AutoAnalyzer._scene_classifier_payload(res.scene_classifier or res.scene_data)
+            val = payload.get(key)
+            if isinstance(val, str) and val:
+                return val
+        return default
+
+    def save_photo_intel(self, job: PropertyAnalysisJob, output_path: Optional[Path] = None) -> Path:
+        """Persist per-photo intelligence (including scene classifier fields)."""
+        created_at = datetime.utcnow().isoformat() + "Z"
+
+        photos: Dict[str, Any] = {}
+        for res in job.results:
+            image_key = Path(res.image_path).name
+            payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
+            photos[image_key] = {"image_path": res.image_path, **payload}
+
+        photo_intel = {
+            "run_id": job.job_id,
+            "job_id": job.job_id,
+            "property_key": job.property_key,
+            "timestamp": job.timestamp,
+            "created_at": created_at,
+            "artifacts_dir": job.artifacts_dir,
+            "model": getattr(cfg, "LM_STUDIO_MODEL", ""),
+            "prompt_version": self._pick_first_metadata(job.results, "prompt_version", ""),
+            "scene_policy_version": self._pick_first_metadata(job.results, "scene_policy_version", ""),
+            "photos": photos,
+        }
+
+        output_path = output_path or Path(job.artifacts_dir) / "photo_intel.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(photo_intel, f, indent=2, ensure_ascii=False)
+
+        logger.info(f"Photo intel saved to: {output_path}")
+        return output_path
 
     def create_html_report(self, job: PropertyAnalysisJob, output_path: Path):
         """Generate a simple HTML report."""

@@ -12,7 +12,7 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 # The full pipeline lives in the GroundingDINO repo. This CLI expects to be
 # placed alongside the existing auto_analyzer.py / pipeline_config.py modules
@@ -91,7 +91,7 @@ def _parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _build_summary(job: Any) -> Dict[str, Any]:
+def _build_summary(job: Any, photo_intel_path: Optional[Path] = None) -> Dict[str, Any]:
     total_detections = sum((res.detection_count or 0) for res in job.results)
     verified = [res for res in job.results if res.verified_count is not None]
     total_verified = sum(res.verified_count or 0 for res in verified)
@@ -104,6 +104,7 @@ def _build_summary(job: Any) -> Dict[str, Any]:
         "total_detections": total_detections,
         "verified_detections": total_verified,
         "total_processing_time": job.total_processing_time,
+        "photo_intel_path": str(photo_intel_path) if photo_intel_path else None,
     }
 
 
@@ -134,11 +135,13 @@ def main() -> int:
 
     job = analyzer.analyze_property(args.property_key, images)
 
+    photo_intel_path = analyzer.save_photo_intel(job)
+
     if args.html_report:
         report_path = artifacts_root / args.property_key / job.job_id / "report.html"
         analyzer.create_html_report(job, report_path)
 
-    summary = _build_summary(job)
+    summary = _build_summary(job, photo_intel_path)
 
     if args.output_json:
         output_path = Path(args.output_json)
