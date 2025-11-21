@@ -506,7 +506,7 @@ def encode_image_to_b64(image_path: Path) -> str:
 
 def build_scene_summary_prompt() -> str:
     """
-    Build the prompt for VLM Pass 1: scene classification + neutral summary + impression.
+    Build the prompt for VLM Pass 1: scene classification + overall impression.
     This prompt should NOT mention defects, targets, chips, or the issue catalog.
     """
     return (
@@ -514,17 +514,15 @@ def build_scene_summary_prompt() -> str:
         "You ONLY use what is clearly visible in the image. Do not guess about things you cannot see.\n\n"
         "Your job for this image is ONLY to:\n"
         "1) Identify the high-level scene type (e.g. 'kitchen', 'bathroom', 'living_room', 'bedroom', 'exterior_front', 'exterior_back', 'basement', 'hallway', 'dining_room', 'laundry_room', etc.).\n"
-        "2) Provide a 1–3 sentence neutral description of what the photo shows.\n"
-        "3) Provide a 1–2 sentence 'overall_impression' from a buyer or investor perspective.\n\n"
+        "2) Provide a 2–3 sentence 'overall_impression' that briefly describes what the photo shows and gives a buyer or investor perspective on appeal and condition.\n\n"
         "Important:\n"
-        "- Do NOT talk about pricing or value.\n"
-        "- Do NOT invent defects or problems; just describe what is visible.\n"
-        "- Do NOT mention any issue catalog or targets.\n\n"
+        "- Do NOT talk about pricing or dollar values.\n"
+        "- Do NOT invent defects or problems; only comment on what is clearly visible.\n"
+        "- Do NOT mention any issue catalog, targets, chips, or bounding boxes.\n\n"
         "Return a SINGLE JSON object with this exact structure:\n"
         "{\n"
         '  "scene": "<string scene label>",\n'
-        '  "image_summary": "<1-3 sentence neutral description>",\n'
-        '  "overall_impression": "<1-2 sentence high-level impression>"\n'
+        '  "overall_impression": "<2-3 sentence description + high-level impression>"\n'
         "}\n"
         "Do NOT wrap the JSON in backticks or markdown; output raw JSON only.\n"
     )
@@ -656,12 +654,11 @@ def run_scene_summary(image_bytes: bytes, model_name: str, lm_studio_url: str = 
         parsed = _extract_json(raw_response) or {}
 
         scene = str(parsed.get("scene", "unknown"))
-        image_summary = str(parsed.get("image_summary", "")).strip()
         overall_impression = str(parsed.get("overall_impression", "")).strip()
 
         return SceneSummary(
             scene=scene,
-            image_summary=image_summary,
+            image_summary="",  # no longer used; kept for backward compatibility
             overall_impression=overall_impression,
         )
 
@@ -785,12 +782,13 @@ def build_classification_prompt() -> str:
         "- Copy the scene name verbatim from the list\n"
         "- Determine if photo is 'staged' (has furniture/decor) or 'vacant' (empty/unfurnished)\n"
         "- If uncertain, pick the most likely option\n"
-        "- Use 'unknown' only if you cannot determine the scene or you believe that the scene depicted is not one of the listed scenes\n\n"
+        "- Use 'unknown' only if you cannot determine the scene or you believe that the scene depicted is not one of the listed scenes\n"
+        "- Keep 'reasoning' VERY short (one brief phrase, max ~15 words).\n\n"
         "RESPOND ONLY WITH JSON (no extra text):\n"
         "{\n"
         '  "scene": "<one item from VALID_SCENES>",\n'
         '  "is_staged": true/false,\n'
-        '  "reasoning": "brief explanation including staging status"\n'
+        '  "reasoning": "very short phrase explaining why you chose this scene and staging"\n'
         "}"
     )
 
