@@ -274,10 +274,17 @@ def run_pipeline(property_key: str, images: list, args):
     # Save outputs if configured
     artifacts_path = Path(job.artifacts_dir)
 
+    photo_intel_path = analyzer.save_photo_intel(job, artifacts_path / "photo_intel.json")
+
     if cfg.SAVE_JSON_SUMMARY or args.output_json:
         json_path = artifacts_path / "summary.json"
         if args.output_json:
             json_path = Path(args.output_json)
+
+        summary_results = []
+        for r in job.results:
+            entry = analyzer._build_photo_entry(r)
+            summary_results.append(entry)
 
         summary = {
             "job_id": job.job_id,
@@ -286,25 +293,16 @@ def run_pipeline(property_key: str, images: list, args):
             "artifacts_dir": job.artifacts_dir,
             "processing_time": job.total_processing_time,
             "parameters": job.parameters,
-            "results": [
-                {
-                    "image_path": r.image_path,
-                    "scene": r.scene,
-                    "keywords_used": r.keywords_used,
-                    "detection_count": r.detection_count,
-                    "verified_count": r.verified_count,
-                    "output_dir": r.output_dir,
-                    "processing_time": r.processing_time,
-                    "error": r.error
-                }
-                for r in job.results
-            ]
+            "results": summary_results,
+            "photo_intel_path": str(photo_intel_path),
         }
 
         with open(json_path, 'w', encoding='utf-8') as f:
             json.dump(summary, f, indent=2, ensure_ascii=False)
 
         print(f"\n💾 JSON Summary: {json_path}")
+
+    print(f"📁 Photo Intel:  {photo_intel_path}")
 
     if cfg.GENERATE_HTML_REPORT or args.html_report:
         html_path = artifacts_path / "report.html"
