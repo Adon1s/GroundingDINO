@@ -55,15 +55,13 @@ PROMPT_VERSION = "planner_v1"
 DEFAULT_ISSUE_CATALOG = "issue_catalog.json"
 
 # Static mapping from issue_id -> support-object labels for GroundingDINO
+# NOTE: We intentionally avoid generic wall/ceiling/floor/carpet surfaces here
+# to prevent huge, low-value chips. Those issues are handled in text only.
 ANCHOR_MAP = {
-    "water_stain_ceiling": ["ceiling"],
     "outdated_kitchen_finishes": ["kitchen cabinets", "countertop"],
     "outdated_bathroom_finishes": ["bathroom vanity", "bathroom tile"],
     "damaged_or_aged_roof_shingles": ["roof"],
     "damaged_or_rotted_siding_or_trim": ["siding", "exterior trim"],
-    "worn_or_stained_carpet": ["carpet"],
-    "scratched_or_damaged_hardwood": ["wood floor", "laminate floor"],
-    "unfinished_basement_present": ["basement floor", "basement walls"],
 }
 DEFAULT_DINO_CONFIG = Path("groundingdino/config/GroundingDINO_SwinT_OGC.py")
 DEFAULT_DINO_WEIGHTS = Path("weights/groundingdino_swint_ogc.pth")
@@ -314,6 +312,68 @@ CONDITION_KEYWORDS = [
     "crack", "stain", "damage", "hole", "scratch", "dent",
     "rust", "mold", "water damage", "peeling paint", "broken"
 ]
+
+# Surfaces we NEVER want to draw bounding boxes on
+BANNED_SURFACE_LABELS = {
+    "ceiling",
+    "ceilings",
+    "wall",
+    "walls",
+    "floor",
+    "floors",
+    "flooring",
+    "carpet",
+    "hardwood_floor",
+    "wood_floor",
+    "laminate_floor",
+    "basement_floor",
+    "basement_walls",
+    "tile_floor",
+    "vinyl_floor",
+}
+
+
+def _is_banned_surface_label(label: str) -> bool:
+    """Return True if label is a generic wall/ceiling/floor surface."""
+    if not label:
+        return False
+    norm = _sanitize_term(label).replace(" ", "_")
+    return norm in BANNED_SURFACE_LABELS
+
+
+def _filter_banned_surface_targets(targets: List[Dict]) -> List[Dict]:
+    """
+    Drop any target whose label or synonyms are generic wall/ceiling/floor
+    so they never become GroundingDINO terms.
+    """
+    filtered: List[Dict] = []
+    for t in targets or []:
+        if not isinstance(t, dict):
+            continue
+
+        label = t.get("label", "")
+        synonyms = t.get("synonyms", [])
+        if not isinstance(synonyms, list):
+            synonyms = []
+
+        # Check label
+        if _is_banned_surface_label(label):
+            continue
+
+        # Check synonyms
+        banned = False
+        for s in synonyms:
+            if _is_banned_surface_label(str(s)):
+                banned = True
+                break
+
+        if banned:
+            continue
+
+        filtered.append(t)
+
+    return filtered
+
 
 # ── Logging ──────────────────────────────────────────────────────────────────
 logging.basicConfig(
@@ -845,9 +905,9 @@ def build_planner_prompt(scene: str, is_staged: bool, policy_block: str,
         "{policy_block}\n\n"
 
         "REALTOR PRIORITIES (examples)\n"
-        "- kitchens: kitchen_cabinets, countertops, backsplash, appliances, sink, faucet, flooring, walls_paint, light_fixtures, island\n"
-        "- bathrooms: bathroom_vanity, shower_tub, shower_tile, toilet, mirror, flooring, walls_paint, light_fixtures\n"
-        "- interior: ceiling, windows, interior_doors, stair_rail, fireplace, built_ins, closet_system\n"
+        "- kitchens: kitchen_cabinets, countertops, backsplash, appliances, sink, faucet, walls_paint, light_fixtures, island\n"
+        "- bathrooms: bathroom_vanity, shower_tub, shower_tile, toilet, mirror, walls_paint, light_fixtures\n"
+        "- interior: windows, interior_doors, stair_rail, fireplace, built_ins, closet_system\n"
         "- exterior: roof_surface, siding, exterior_paint, driveway, walkway, front_door, garage_door, deck, patio, fence, landscaping\n\n"
 
         "LABEL RULES\n"
@@ -857,7 +917,7 @@ def build_planner_prompt(scene: str, is_staged: bool, policy_block: str,
         "- No repeated tokens (never 'cabinet_cabinet').\n"
         "- Do NOT include scene words like 'kitchen', 'bathroom', 'living_room'.\n"
         "- Do NOT include adjectives or condition words in `label` (old, new, cracked, stained, dirty, dated, mold, etc.).\n\n"
-        "- IMPORTANT: Do NOT respond with ceiling, wall, or flooring unless it is outdated or has a cosmetic flaw\n"
+        "- IMPORTANT: Do NOT use generic surfaces like ceiling, ceilings, wall, walls, floor, flooring, carpet, hardwood floor, laminate floor, tile floor, basement floor/walls as TARGET labels. Those issues should be described in text only, not boxed.\n"
 
 
         "SYNONYMS & CONDITION\n"
@@ -871,8 +931,8 @@ def build_planner_prompt(scene: str, is_staged: bool, policy_block: str,
         '  synonyms: ["driveway","concrete_drive","front_drive"]\n'
         '  reason: "Visible cracking in concrete; driveway condition affects curb appeal and inspection risk."\n'
         "- Water stains on ceiling:\n"
-        '  label: "ceiling"\n'
-        '  synonyms: ["ceiling","drywall_ceiling"]\n'
+        '  label: "ceiling_area"\n'
+        '  synonyms: ["ceiling_area","upper_drywall"]\n'
         '  reason: "Water staining suggests possible roof or plumbing leak, which worries buyers."\n'
         "- Dated kitchen cabinets:\n"
         '  label: "kitchen_cabinets"\n'
@@ -1241,7 +1301,8 @@ class SceneClassifier:
                     reasoning = str(planner_parsed["reasoning"])[:200]
 
                 # Extract targets
-                targets = planner_parsed.get("targets", [])[:self.max_targets]
+                raw_targets = planner_parsed.get("targets", []) or []
+                targets = _filter_banned_surface_targets(raw_targets)[: self.max_targets]
 
             defect_targets = defect_analysis.targets or []
             if defect_targets:
@@ -1260,7 +1321,7 @@ class SceneClassifier:
                     merged_targets.append(tgt)
                     if label:
                         existing_labels.add(label)
-                targets = merged_targets[: self.max_targets] if merged_targets else targets
+                targets = _filter_banned_surface_targets(merged_targets)[: self.max_targets] if merged_targets else targets
 
             # Build gdino_terms from merged targets
             if targets:
