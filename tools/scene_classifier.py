@@ -414,6 +414,7 @@ class SceneSummary:
 
 
 Presence = Literal["yes", "no", "uncertain"]
+SeverityLabel = Literal["none", "minor_repair", "moderate_repair", "full_replacement"]
 
 
 @dataclass
@@ -427,6 +428,8 @@ class NLIssue:
 class CatalogFlag:
     present: Presence
     evidence: str = ""
+    # severity of work implied if present == "yes"
+    severity: SeverityLabel = "none"
 
 
 @dataclass
@@ -642,6 +645,7 @@ def build_defect_analysis_prompt(scene: str, issue_catalog: dict) -> str:
         '  "catalog_flags": {\n'
         '    "<issue_id>": {\n'
         '      "present": "yes|no|uncertain",\n'
+        '      "severity": "none|minor_repair|moderate_repair|full_replacement",\n'
         '      "evidence": "<string or empty>"\n'
         "    }\n"
         "  },\n"
@@ -659,7 +663,16 @@ def build_defect_analysis_prompt(scene: str, issue_catalog: dict) -> str:
         "- Use rough_category from: cosmetic, moisture, structure, systems, exterior, opportunity.\n"
         "- catalog_flags MUST include every issue_id from the catalog:"
         f" {catalog_list_str}. If unsure, use 'uncertain'.\n"
+        "- For every issue_id in catalog_flags, ALWAYS include \"present\" and \"severity\". If you are unsure or it is not visible, use: \"present\": \"uncertain\", \"severity\": \"none\".\n"
         "- When present == 'yes', add brief evidence text.\n"
+        "- severity meanings:\n"
+        "  * none: no meaningful issue or no work recommended based on this photo.\n"
+        "  * minor_repair: small/local repair (patch, touch-up, limited area of the component).\n"
+        "  * moderate_repair: visible issue that likely needs a more substantial repair to part of the component.\n"
+        "  * full_replacement: condition suggests replacing the entire component (roof, full countertop run, all cabinets, etc.).\n"
+        "- If present == 'no' or 'uncertain', set severity to 'none'.\n"
+        "- Use full_replacement only when the visible condition strongly suggests replacing the whole component, not just a small section.\n"
+        "- If the photo only shows a small portion of a component (e.g., a tiny piece of roof), avoid full_replacement unless that small portion clearly indicates severe widespread failure.\n"
         "- targets should be actionable ROI hints (like planner targets) using concise labels.\n"
         "- Respond with raw JSON only. Do NOT wrap in backticks or add explanations."
     )
@@ -734,6 +747,44 @@ def _normalize_presence(value: str) -> Presence:
     return "uncertain"
 
 
+def _normalize_severity(value: str) -> SeverityLabel:
+    """
+    Map noisy model severity strings into a small fixed set:
+    'none', 'minor_repair', 'moderate_repair', 'full_replacement'.
+    """
+    v = str(value or "").strip().lower().replace("-", "_").replace(" ", "_")
+
+    mapping = {
+        # no work / no meaningful issue
+        "none": "none",
+        "na": "none",
+        "n_a": "none",
+        "not_applicable": "none",
+        "no_issue": "none",
+        "no_repair": "none",
+
+        # minor repair
+        "minor": "minor_repair",
+        "small": "minor_repair",
+        "spot_repair": "minor_repair",
+        "minor_repair": "minor_repair",
+
+        # moderate repair
+        "moderate": "moderate_repair",
+        "medium": "moderate_repair",
+        "partial_repair": "moderate_repair",
+        "moderate_repair": "moderate_repair",
+
+        # full replacement
+        "full": "full_replacement",
+        "replacement": "full_replacement",
+        "full_replacement": "full_replacement",
+        "replace": "full_replacement",
+    }
+
+    return mapping.get(v, "none")
+
+
 def run_defect_analysis(
     image_bytes: bytes,
     scene: str,
@@ -770,7 +821,10 @@ def run_defect_analysis(
         "stream": False,
     }
 
-    default_flags = {iid: CatalogFlag(present="uncertain", evidence="") for iid in catalog_ids}
+    default_flags = {
+        iid: CatalogFlag(present="uncertain", evidence="", severity="none")
+        for iid in catalog_ids
+    }
 
     try:
         resp = http_client.post(
@@ -799,16 +853,38 @@ def run_defect_analysis(
         # Parse catalog_flags ensuring all ids exist
         parsed_flags = parsed.get("catalog_flags", {}) or {}
         catalog_flags: Dict[str, CatalogFlag] = {}
+
         for iid in catalog_ids:
             if isinstance(parsed_flags, dict) and iid in parsed_flags:
                 entry = parsed_flags.get(iid, {}) or {}
-                present_raw = entry.get("present", "uncertain") if isinstance(entry, dict) else "uncertain"
-                evidence = ""
+
                 if isinstance(entry, dict):
+                    present_raw = entry.get("present", "uncertain")
                     evidence = str(entry.get("evidence", "")).strip()
-                catalog_flags[iid] = CatalogFlag(present=_normalize_presence(present_raw), evidence=evidence)
+                    severity_raw = entry.get("severity", "none")
+                else:
+                    present_raw = "uncertain"
+                    evidence = ""
+                    severity_raw = "none"
+
+                present = _normalize_presence(present_raw)
+                severity = _normalize_severity(severity_raw)
+
+                # Enforce: if not clearly present, there is no work to estimate
+                if present != "yes":
+                    severity = "none"
+
+                catalog_flags[iid] = CatalogFlag(
+                    present=present,
+                    evidence=evidence,
+                    severity=severity,
+                )
             else:
-                catalog_flags[iid] = CatalogFlag(present="uncertain", evidence="")
+                catalog_flags[iid] = CatalogFlag(
+                    present="uncertain",
+                    evidence="",
+                    severity="none",
+                )
 
         # Parse targets
         parsed_targets = parsed.get("targets", []) or []
