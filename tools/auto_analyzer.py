@@ -16,12 +16,13 @@ import subprocess
 import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime
 
 from PIL import Image
 
 from run_pipeline import redraw_overlay
+from scene_classifier import load_issue_catalog
 
 # Import configuration
 try:
@@ -54,6 +55,20 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+default_catalog_path = getattr(
+    cfg, "PROJECT_ROOT", Path(__file__).resolve().parent.parent
+) / "issue_catalog.json"
+ISSUE_CATALOG_PATH = Path(getattr(cfg, "ISSUE_CATALOG_PATH", default_catalog_path))
+ISSUE_CATALOG = load_issue_catalog(ISSUE_CATALOG_PATH)
+
+SEVERITY_RANK = {
+    "none": 0,
+    "minor_repair": 1,
+    "moderate_repair": 2,
+    "full_replacement": 3,
+}
+
+
 # ── Data Classes ─────────────────────────────────────────────────────────────
 @dataclass
 class ImageAnalysisResult:
@@ -80,6 +95,121 @@ class PropertyAnalysisJob:
     artifacts_dir: str
     total_processing_time: float
     parameters: Dict[str, Any]
+
+
+def _worst_severity(current: str, new: str) -> str:
+    if SEVERITY_RANK.get(new, 0) > SEVERITY_RANK.get(current, 0):
+        return new
+    return current
+
+
+def _parse_catalog_flag(flag: Any) -> Tuple[str, str, str]:
+    """Normalize catalog flag inputs from dicts or dataclass-like objects."""
+
+    if isinstance(flag, dict):
+        present = str(flag.get("present", "")).lower() or "uncertain"
+        evidence = str(flag.get("evidence", ""))
+        severity = str(flag.get("severity", "none")).lower() or "none"
+    else:
+        present = str(getattr(flag, "present", "uncertain") or "uncertain").lower()
+        evidence = str(getattr(flag, "evidence", ""))
+        severity = str(getattr(flag, "severity", "none") or "none").lower()
+
+    if present != "yes":
+        severity = "none"
+
+    return present, severity, evidence
+
+
+def build_renovation_needs(job: "PropertyAnalysisJob") -> Dict[str, Any]:
+    """
+    Aggregate per-photo catalog_flags + severity into a property-level
+    renovation_needs structure.
+    """
+
+    issue_meta: Dict[str, Dict[str, str]] = {}
+    for item in ISSUE_CATALOG.get("defect_issues", []) or []:
+        if isinstance(item, dict) and item.get("id"):
+            issue_meta[item["id"]] = {
+                "name": item.get("name", item["id"]),
+                "category": item.get("category", "unknown"),
+            }
+    for item in ISSUE_CATALOG.get("opportunity_flags", []) or []:
+        if isinstance(item, dict) and item.get("id"):
+            issue_meta[item["id"]] = {
+                "name": item.get("name", item["id"]),
+                "category": item.get("category", "unknown"),
+            }
+
+    aggregates: Dict[str, Dict[str, Any]] = {}
+    totals_by_category: Dict[str, Dict[str, float]] = {}
+
+    for result in job.results:
+        scene_payload = (result.scene_classifier or result.scene_data) or {}
+        if not isinstance(scene_payload, dict):
+            continue
+
+        flags = scene_payload.get("catalog_flags", {}) or {}
+        photo_name = Path(result.image_path).name
+
+        for issue_id, flag in flags.items():
+            present, severity, evidence = _parse_catalog_flag(flag)
+            if present != "yes":
+                continue
+
+            meta = issue_meta.get(issue_id, {"name": issue_id, "category": "unknown"})
+            agg = aggregates.setdefault(issue_id, {
+                "issue_id": issue_id,
+                "name": meta["name"],
+                "category": meta["category"],
+                "worst_severity": "none",
+                "occurrences": 0,
+                "present_in_photos": [],
+                "sample_evidence": "",
+                "est_cost_low": 0.0,
+                "est_cost_high": 0.0,
+            })
+
+            agg["occurrences"] += 1
+            agg["present_in_photos"].append(photo_name)
+            agg["worst_severity"] = _worst_severity(agg["worst_severity"], severity)
+
+            if not agg["sample_evidence"] and evidence:
+                agg["sample_evidence"] = evidence
+
+            cost_cfg = getattr(cfg, "RENOVATION_COST_TABLE", {}).get(issue_id, {})
+            sev_cost = cost_cfg.get(severity)
+            if sev_cost:
+                low, high = sev_cost
+                agg["est_cost_low"] += low
+                agg["est_cost_high"] += high
+
+    for issue in aggregates.values():
+        cat = issue.get("category", "unknown")
+        cat_totals = totals_by_category.setdefault(cat, {
+            "est_cost_low": 0.0,
+            "est_cost_high": 0.0,
+        })
+        cat_totals["est_cost_low"] += issue["est_cost_low"]
+        cat_totals["est_cost_high"] += issue["est_cost_high"]
+
+    grand_low = sum(cat.get("est_cost_low", 0.0) for cat in totals_by_category.values())
+    grand_high = sum(cat.get("est_cost_high", 0.0) for cat in totals_by_category.values())
+
+    issues_sorted = sorted(
+        aggregates.values(),
+        key=lambda x: x.get("est_cost_high", 0.0),
+        reverse=True,
+    )
+
+    return {
+        "issues": issues_sorted,
+        "totals_by_category": totals_by_category,
+        "grand_total": {
+            "est_cost_low": grand_low,
+            "est_cost_high": grand_high,
+        },
+    }
 
 
 # ── Auto-Analyzer Class ──────────────────────────────────────────────────────
@@ -741,6 +871,11 @@ class AutoAnalyzer:
             "scene_policy_version": self._pick_first_metadata(job.results, "scene_policy_version", ""),
             "photos": photos,
         }
+
+        try:
+            photo_intel["renovation_needs"] = build_renovation_needs(job)
+        except Exception as exc:
+            logger.error(f"Failed to build renovation_needs: {exc}", exc_info=True)
 
         output_path = output_path or Path(job.artifacts_dir) / "photo_intel.json"
         output_path.parent.mkdir(parents=True, exist_ok=True)
