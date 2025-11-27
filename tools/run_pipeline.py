@@ -201,7 +201,7 @@ def collect_images(args) -> list:
 
 def run_pipeline(property_key: str, images: list, args):
     """Run the complete analysis pipeline."""
-    from auto_analyzer import AutoAnalyzer
+    from auto_analyzer import AutoAnalyzer, build_renovation_needs
 
     # Override config with command line args if provided
     skip_verify = args.no_verify if args.no_verify is not None else cfg.SKIP_VERIFICATION
@@ -295,6 +295,7 @@ def run_pipeline(property_key: str, images: list, args):
             "parameters": job.parameters,
             "results": summary_results,
             "photo_intel_path": str(photo_intel_path),
+            "renovation_needs": build_renovation_needs(job),
         }
 
         with open(json_path, 'w', encoding='utf-8') as f:
