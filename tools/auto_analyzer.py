@@ -31,6 +31,13 @@ except ImportError:
     print("ERROR: pipeline_config.py not found!")
     sys.exit(1)
 
+# Import renovation cost table from dedicated module
+try:
+    from renovation_costs import RENOVATION_COST_TABLE
+except ImportError:
+    print("WARNING: renovation_costs.py not found, using empty cost table")
+    RENOVATION_COST_TABLE = {}
+
 # Import NMS postprocessing
 try:
     from postprocess import (
@@ -177,7 +184,7 @@ def build_renovation_needs(job: "PropertyAnalysisJob") -> Dict[str, Any]:
             if not agg["sample_evidence"] and evidence:
                 agg["sample_evidence"] = evidence
 
-            cost_cfg = getattr(cfg, "RENOVATION_COST_TABLE", {}).get(issue_id, {})
+            cost_cfg = RENOVATION_COST_TABLE.get(issue_id, {})
             sev_cost = cost_cfg.get(severity)
             if sev_cost:
                 low, high = sev_cost

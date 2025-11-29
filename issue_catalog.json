@@ -68,7 +68,7 @@
       "name": "Damaged or Aged Roof Shingles",
       "category": "exterior",
       "severity": 3,
-      "description": "Missing, curling, patchy, or visibly deteriorated roof shingles visible from the photo."
+      "description": "Missing, curling, patchy, heavily worn, or visibly deteriorated roof shingles, or heavy moss/debris accumulation that suggests reduced remaining life."
     },
     {
       "id": "damaged_or_unsafe_deck_or_porch",
@@ -167,6 +167,27 @@
       "category": "exterior",
       "severity": 3,
       "description": "Visible standing water near the home, obvious negative grading toward the structure, or saturated soil that may promote moisture intrusion."
+    },
+    {
+      "id": "driveway_or_walkway_cracking",
+      "name": "Driveway or Walkway Cracking/Settlement",
+      "category": "exterior",
+      "severity": 2,
+      "description": "Visible cracks, heaving, spalling, or settlement in concrete or paved driveways and walkways that may impact safety, drainage, or curb appeal."
+    },
+    {
+      "id": "clogged_or_damaged_gutters",
+      "name": "Clogged or Damaged Gutters/Downspouts",
+      "category": "exterior",
+      "severity": 3,
+      "description": "Gutters or downspouts visibly clogged with leaves/debris, sagging, disconnected, or discharging too close to the foundation, increasing moisture risk."
+    },
+    {
+      "id": "trees_or_vegetation_too_close",
+      "name": "Trees or Vegetation Too Close to Structure",
+      "category": "exterior",
+      "severity": 2,
+      "description": "Large trees, shrubs, or dense vegetation in direct contact with or very close to siding, roof, or foundation that may promote moisture, pests, or physical damage."
     }
   ],
 
@@ -219,13 +240,6 @@
       "category": "exterior",
       "severity": 2,
       "description": "Front entry, porch, or facade could benefit from cosmetic updates (paint, door hardware, simple accents) to improve first impressions."
-    },
-    {
-      "id": "energy_efficiency_upgrades",
-      "name": "Energy Efficiency Improvements",
-      "category": "systems",
-      "severity": 2,
-      "description": "Older windows, lighting, HVAC equipment, or appliances suggest potential for cost-saving energy efficiency upgrades."
     },
     {
       "id": "unfinished_basement_present",

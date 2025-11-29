@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 from __future__ import annotations
+
 """
 Scene Classifier with Keyword Selection for Property Photos
 -----------------------------------------------------------
@@ -485,6 +486,7 @@ def load_issue_catalog(path: Path) -> dict:
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
+        logger.debug(f"Loaded issue catalog from {path}")
     except FileNotFoundError:
         logger.warning(f"Issue catalog not found at {path}; using empty catalog.")
         data = {}
@@ -686,6 +688,7 @@ def run_scene_summary(image_bytes: bytes, model_name: str, lm_studio_url: str = 
     - Parses the JSON response.
     - Returns a SceneSummary object.
     """
+    logger.debug("  Building scene summary prompt...")
     prompt = build_scene_summary_prompt()
     image_b64 = base64.b64encode(image_bytes).decode('utf-8')
 
@@ -714,20 +717,26 @@ def run_scene_summary(image_bytes: bytes, model_name: str, lm_studio_url: str = 
     }
 
     try:
+        logger.debug(f"  Sending scene summary request to {lm_studio_url}...")
         resp = http_client.post(
             f"{lm_studio_url.rstrip('/')}/v1/chat/completions",
             json=payload,
             timeout=30
         )
         if resp.status_code != 200:
+            logger.error(f"  Scene summary API error: HTTP {resp.status_code}")
             raise RuntimeError(f"API error: HTTP {resp.status_code} - {resp.text[:200]}")
 
         data = resp.json()
         raw_response = data["choices"][0]["message"]["content"]
+        logger.debug(f"  Scene summary raw response length: {len(raw_response)} chars")
+
         parsed = _extract_json(raw_response) or {}
 
         scene = str(parsed.get("scene", "unknown"))
         overall_impression = str(parsed.get("overall_impression", "")).strip()
+
+        logger.debug(f"  Scene summary parsed: scene='{scene}'")
 
         return SceneSummary(
             scene=scene,
@@ -736,7 +745,7 @@ def run_scene_summary(image_bytes: bytes, model_name: str, lm_studio_url: str = 
         )
 
     except Exception as e:
-        logger.error(f"VLM Pass 1 failed: {e}")
+        logger.error(f"  VLM Pass 1 (scene summary) failed: {e}")
         return SceneSummary(scene="unknown", image_summary="", overall_impression="")
 
 
@@ -786,12 +795,12 @@ def _normalize_severity(value: str) -> SeverityLabel:
 
 
 def run_defect_analysis(
-    image_bytes: bytes,
-    scene: str,
-    issue_catalog: dict,
-    model_name: str,
-    lm_studio_url: str = LM_STUDIO_URL,
-    http_client=requests,
+        image_bytes: bytes,
+        scene: str,
+        issue_catalog: dict,
+        model_name: str,
+        lm_studio_url: str = LM_STUDIO_URL,
+        http_client=requests,
 ) -> DefectAnalysis:
     """
     Run the Defect Analysis pass for a single image:
@@ -799,9 +808,11 @@ def run_defect_analysis(
       - Call the same VLM endpoint as used elsewhere.
       - Parse raw JSON into a DefectAnalysis object.
     """
+    logger.debug(f"  Building defect analysis prompt for scene='{scene}'...")
     prompt = build_defect_analysis_prompt(scene, issue_catalog)
     image_b64 = base64.b64encode(image_bytes).decode('utf-8')
     catalog_ids = get_catalog_ids(issue_catalog)
+    logger.debug(f"  Catalog has {len(catalog_ids)} issue IDs to check")
 
     content = [
         {"type": "text", "text": prompt},
@@ -827,16 +838,20 @@ def run_defect_analysis(
     }
 
     try:
+        logger.debug(f"  Sending defect analysis request to {lm_studio_url}...")
         resp = http_client.post(
             f"{lm_studio_url.rstrip('/')}/v1/chat/completions",
             json=payload,
             timeout=40,
         )
         if resp.status_code != 200:
+            logger.error(f"  Defect analysis API error: HTTP {resp.status_code}")
             raise RuntimeError(f"API error: HTTP {resp.status_code} - {resp.text[:200]}")
 
         data = resp.json()
         raw_response = data["choices"][0]["message"]["content"]
+        logger.debug(f"  Defect analysis raw response length: {len(raw_response)} chars")
+
         parsed = _extract_json(raw_response) or {}
 
         # Parse issues_natural_language
@@ -850,10 +865,13 @@ def run_defect_analysis(
             if desc:
                 nl_issues.append(NLIssue(description=desc, rough_category=category, location_hint=location_hint))
 
+        logger.debug(f"  Found {len(nl_issues)} natural language issues")
+
         # Parse catalog_flags ensuring all ids exist
         parsed_flags = parsed.get("catalog_flags", {}) or {}
         catalog_flags: Dict[str, CatalogFlag] = {}
 
+        issues_present = 0
         for iid in catalog_ids:
             if isinstance(parsed_flags, dict) and iid in parsed_flags:
                 entry = parsed_flags.get(iid, {}) or {}
@@ -873,6 +891,8 @@ def run_defect_analysis(
                 # Enforce: if not clearly present, there is no work to estimate
                 if present != "yes":
                     severity = "none"
+                else:
+                    issues_present += 1
 
                 catalog_flags[iid] = CatalogFlag(
                     present=present,
@@ -886,9 +906,12 @@ def run_defect_analysis(
                     severity="none",
                 )
 
+        logger.debug(f"  Catalog flags: {issues_present}/{len(catalog_ids)} issues marked present")
+
         # Parse targets
         parsed_targets = parsed.get("targets", []) or []
         targets = parsed_targets if isinstance(parsed_targets, list) else []
+        logger.debug(f"  Found {len(targets)} defect targets")
 
         return DefectAnalysis(
             issues_natural_language=nl_issues,
@@ -897,34 +920,35 @@ def run_defect_analysis(
         )
 
     except Exception as e:
-        logger.error(f"Defect analysis failed: {e}")
+        logger.error(f"  Defect analysis failed: {e}")
         return DefectAnalysis(issues_natural_language=[], catalog_flags=default_flags, targets=[])
 
 
-def build_classification_prompt() -> str:
-    """Build the scene classification prompt with staging detection."""
-    scenes_json = json.dumps(VALID_SCENES, indent=2)
+def build_staging_prompt(scene: str) -> str:
+    """Build prompt for staging detection only (scene already determined)."""
+
+    # Get scene-specific staging keywords to help the VLM
+    scene_data = SCENE_KEYWORDS.get(scene, SCENE_KEYWORDS.get("unknown", {}))
+    staging_items = scene_data.get("staging", [])
+    staging_examples = ", ".join(staging_items[:8]) if staging_items else "furniture, decor, movable items"
 
     return (
         "You are an expert at analyzing real estate property photos.\n\n"
-        "TASK: Identify the scene type AND determine if the photo is staged/furnished.\n\n"
-        f"VALID_SCENES = {scenes_json}\n\n"
+        f"CONTEXT: This photo has been identified as a '{scene}'.\n\n"
+        "TASK: Determine if the photo is STAGED (furnished) or VACANT (empty).\n\n"
         "STAGING DETECTION:\n"
-        "- STAGED: Photo shows furniture, decor, or movable items (sofa, bed, table, etc.)\n"
+        "- STAGED: Photo shows furniture, decor, or movable items\n"
+        f"  Examples for {scene}: {staging_examples}\n"
         "- VACANT: Photo shows only permanent fixtures (cabinets, appliances, built-ins)\n"
         "- Consider: Is there furniture? Are there decorative items? Is it furnished?\n\n"
         "RULES:\n"
-        "- Choose exactly ONE scene from VALID_SCENES above\n"
-        "- Copy the scene name verbatim from the list\n"
-        "- Determine if photo is 'staged' (has furniture/decor) or 'vacant' (empty/unfurnished)\n"
         "- If uncertain, pick the most likely option\n"
-        "- Use 'unknown' only if you cannot determine the scene or you believe that the scene depicted is not one of the listed scenes\n"
-        "- Keep 'reasoning' VERY short (one brief phrase, max ~15 words).\n\n"
+        "- Keep 'reasoning' VERY short (one brief phrase, max ~15 words)\n"
+        "- Focus ONLY on staging status, not scene identification\n\n"
         "RESPOND ONLY WITH JSON (no extra text):\n"
         "{\n"
-        '  "scene": "<one item from VALID_SCENES>",\n'
         '  "is_staged": true/false,\n'
-        '  "reasoning": "very short phrase explaining why you chose this scene and staging"\n'
+        '  "reasoning": "very short phrase explaining why you chose staged or vacant"\n'
         "}"
     )
 
@@ -1056,8 +1080,6 @@ def build_planner_prompt(scene: str, is_staged: bool, policy_block: str,
     )
 
 
-
-
 def keywords_for_scene(scene: str,
                        is_staged: bool = True,
                        include_conditions: bool = False,
@@ -1105,13 +1127,13 @@ def format_for_grounding_dino(keywords: List[str]) -> str:
 
 
 def run_groundingdino_for_issues(
-    image_path: Path,
-    defect_analysis: DefectAnalysis,
-    config_path: Path = DEFAULT_DINO_CONFIG,
-    weights_path: Path = DEFAULT_DINO_WEIGHTS,
-    box_threshold: float = 0.35,
-    text_threshold: float = 0.25,
-    device: Optional[str] = None,
+        image_path: Path,
+        defect_analysis: DefectAnalysis,
+        config_path: Path = DEFAULT_DINO_CONFIG,
+        weights_path: Path = DEFAULT_DINO_WEIGHTS,
+        box_threshold: float = 0.35,
+        text_threshold: float = 0.25,
+        device: Optional[str] = None,
 ) -> List[VisualAnchor]:
     """
     For each issue_id with present == 'yes' in defect_analysis.catalog_flags:
@@ -1203,6 +1225,12 @@ class SceneClassifier:
         self.with_dino_anchors = with_dino_anchors
         self.issue_catalog = load_issue_catalog(Path(issue_catalog_path))
 
+        logger.info(f"SceneClassifier initialized:")
+        logger.info(f"  Model: {self.model_name}")
+        logger.info(f"  LM Studio URL: {self.lm_studio_url}")
+        logger.info(f"  Max targets: {self.max_targets}")
+        logger.info(f"  Issue catalog: {len(get_catalog_ids(self.issue_catalog))} issues loaded")
+
     def _normalize_scene(self, scene: str) -> str:
         """Normalize scene name to canonical form."""
         scene = scene.lower().strip()
@@ -1239,17 +1267,42 @@ class SceneClassifier:
     def classify_image(self, image_path: Path) -> SceneClassification:
         """Classify a single image and plan detection targets."""
         t0 = time.time()
+        img_name = image_path.name
+
+        logger.info(f"")
+        logger.info(f"[{img_name}] {'═' * 60}")
+        logger.info(f"[{img_name}] Starting classification pipeline")
+
         scene_summary = SceneSummary(scene="unknown", image_summary="", overall_impression="")
-        catalog_default_flags = {iid: CatalogFlag(present="uncertain", evidence="") for iid in get_catalog_ids(self.issue_catalog)}
+        catalog_default_flags = {iid: CatalogFlag(present="uncertain", evidence="") for iid in
+                                 get_catalog_ids(self.issue_catalog)}
         defect_analysis = DefectAnalysis(issues_natural_language=[], catalog_flags=catalog_default_flags, targets=[])
 
         try:
             if not image_path.exists():
                 raise FileNotFoundError(f"Image not found: {image_path}")
 
+            file_size_kb = image_path.stat().st_size / 1024
+            logger.info(f"[{img_name}] Loading image ({file_size_kb:.1f} KB)")
             image_bytes = image_path.read_bytes()
+
+            # ═══════════════════════════════════════════════════════════════════
+            # PASS 1: Scene Summary (VLM call 1/4)
+            # ═══════════════════════════════════════════════════════════════════
+            t_pass1 = time.time()
+            logger.info(f"[{img_name}] PASS 1: Scene Summary (VLM call 1/4)")
             scene_summary = run_scene_summary(image_bytes, self.model_name, self.lm_studio_url)
+            pass1_duration = time.time() - t_pass1
+            logger.info(f"[{img_name}] PASS 1 complete: scene='{scene_summary.scene}' ({pass1_duration:.2f}s)")
+            if scene_summary.overall_impression:
+                logger.debug(f"[{img_name}]   Impression: {scene_summary.overall_impression[:100]}...")
+
+            # ═══════════════════════════════════════════════════════════════════
+            # PASS 2: Defect Analysis (VLM call 2/4)
+            # ═══════════════════════════════════════════════════════════════════
+            t_pass2 = time.time()
             analysis_scene = self._normalize_scene(scene_summary.scene) if scene_summary.scene else "unknown"
+            logger.info(f"[{img_name}] PASS 2: Defect Analysis (VLM call 2/4) [scene={analysis_scene}]")
             defect_analysis = run_defect_analysis(
                 image_bytes,
                 analysis_scene,
@@ -1257,10 +1310,22 @@ class SceneClassifier:
                 self.model_name,
                 self.lm_studio_url,
             )
+            pass2_duration = time.time() - t_pass2
+            issues_present = sum(1 for f in defect_analysis.catalog_flags.values() if f.present == "yes")
+            logger.info(
+                f"[{img_name}] PASS 2 complete: {len(defect_analysis.issues_natural_language)} NL issues, {issues_present} catalog flags present ({pass2_duration:.2f}s)")
+
             image_b64 = base64.b64encode(image_bytes).decode('utf-8')
 
-            # First, get scene classification
-            prompt = build_classification_prompt()
+            # ═══════════════════════════════════════════════════════════════════
+            # PASS 3: Staging Detection (VLM call 3/4)
+            # ═══════════════════════════════════════════════════════════════════
+            t_pass3 = time.time()
+            # Use the authoritative scene from Pass 1 for all subsequent passes
+            scene = analysis_scene  # This was normalized from scene_summary.scene
+            logger.info(f"[{img_name}] PASS 3: Staging Detection (VLM call 3/4) [scene={scene}]")
+
+            prompt = build_staging_prompt(scene)
 
             content = [
                 {"type": "text", "text": prompt},
@@ -1282,14 +1347,14 @@ class SceneClassifier:
                 "model": self.model_name,
                 "messages": messages,
                 "temperature": 0.1,
-                "max_tokens": 2048,
+                "max_tokens": 1024,  # Reduced since response is smaller now
                 "stream": False
             }
 
             if self.debug:
-                logger.info(f"Sending classification request for: {image_path.name}")
+                logger.debug(f"[{img_name}]   Sending staging detection request...")
 
-            # Make API request for scene classification
+            # Make API request for staging detection
             resp = requests.post(
                 f"{self.lm_studio_url}/v1/chat/completions",
                 json=payload,
@@ -1304,17 +1369,25 @@ class SceneClassifier:
             raw_response = data["choices"][0]["message"]["content"]
 
             if self.debug:
-                logger.info(f"Raw classification response: {raw_response[:300]}")
+                logger.debug(f"[{img_name}]   Raw staging response: {raw_response[:300]}")
 
             parsed = _extract_json(raw_response) or {}
 
-            # Extract and normalize scene
-            scene_raw = str(parsed.get("scene", "unknown"))
-            scene = self._normalize_scene(scene_raw)
+            # Extract staging info (scene is already determined from Pass 1)
             is_staged = _to_bool(parsed.get("is_staged", True))
             reasoning = str(parsed.get("reasoning", ""))[:200]
 
-            # Now get the planner targets
+            pass3_duration = time.time() - t_pass3
+            staging_str = "STAGED" if is_staged else "VACANT"
+            logger.info(
+                f"[{img_name}] PASS 3 complete: {staging_str}, reason='{reasoning[:50]}...' ({pass3_duration:.2f}s)")
+
+            # ═══════════════════════════════════════════════════════════════════
+            # PASS 4: Target Planning (VLM call 4/4)
+            # ═══════════════════════════════════════════════════════════════════
+            t_pass4 = time.time()
+            logger.info(f"[{img_name}] PASS 4: Target Planning (VLM call 4/4)")
+
             policy_block = get_scene_policy(scene)
             planner_prompt = build_planner_prompt(
                 scene, is_staged, policy_block,
@@ -1347,7 +1420,7 @@ class SceneClassifier:
             }
 
             if self.debug:
-                logger.info(f"Sending planner request for: {image_path.name}")
+                logger.debug(f"[{img_name}]   Sending planner request...")
 
             # Make planner API request
             planner_resp = requests.post(
@@ -1365,12 +1438,12 @@ class SceneClassifier:
                 planner_raw = planner_data["choices"][0]["message"]["content"]
 
                 if self.debug:
-                    logger.info(f"Raw planner response: {planner_raw[:300]}")
+                    logger.debug(f"[{img_name}]   Raw planner response: {planner_raw[:300]}")
 
                 planner_parsed = _extract_json(planner_raw) or {}
 
                 if self.debug and not planner_parsed:
-                    logger.warning("Planner JSON parse failed; falling back to scene core targets.")
+                    logger.warning(f"[{img_name}]   Planner JSON parse failed; falling back to scene core targets.")
 
                 # Update reasoning if planner provided one
                 if "reasoning" in planner_parsed:
@@ -1379,9 +1452,21 @@ class SceneClassifier:
                 # Extract targets
                 raw_targets = planner_parsed.get("targets", []) or []
                 targets = _filter_banned_surface_targets(raw_targets)[: self.max_targets]
+            else:
+                logger.warning(f"[{img_name}]   Planner API returned status {planner_resp.status_code}")
+
+            pass4_duration = time.time() - t_pass4
+            logger.info(f"[{img_name}] PASS 4 complete: {len(targets)} targets from planner ({pass4_duration:.2f}s)")
+
+            # ═══════════════════════════════════════════════════════════════════
+            # POST-PROCESSING: Merge targets, build GDINO terms
+            # ═══════════════════════════════════════════════════════════════════
+            logger.info(f"[{img_name}] Post-processing: merging targets and building GDINO terms")
 
             defect_targets = defect_analysis.targets or []
             if defect_targets:
+                logger.debug(
+                    f"[{img_name}]   Merging {len(defect_targets)} defect targets with {len(targets)} planner targets")
                 merged_targets = list(targets) if targets else []
                 existing_labels = {
                     t.get("label")
@@ -1397,7 +1482,9 @@ class SceneClassifier:
                     merged_targets.append(tgt)
                     if label:
                         existing_labels.add(label)
-                targets = _filter_banned_surface_targets(merged_targets)[: self.max_targets] if merged_targets else targets
+                targets = _filter_banned_surface_targets(merged_targets)[
+                          : self.max_targets] if merged_targets else targets
+                logger.debug(f"[{img_name}]   After merge: {len(targets)} targets")
 
             # Build gdino_terms from merged targets
             if targets:
@@ -1414,6 +1501,7 @@ class SceneClassifier:
 
             # Fallback if no targets
             if not gdino_terms:
+                logger.warning(f"[{img_name}]   No GDINO terms from targets, creating fallback from scene keywords")
                 targets = self._create_fallback_targets(scene)
                 # Build gdino_terms from fallback
                 all_terms = []
@@ -1428,17 +1516,29 @@ class SceneClassifier:
             keywords = gdino_terms
             groundingdino_prompt = format_for_grounding_dino(gdino_terms)
 
+            logger.info(f"[{img_name}] GDINO prompt: '{groundingdino_prompt[:80]}...' ({len(gdino_terms)} terms)")
+
+            # ═══════════════════════════════════════════════════════════════════
+            # OPTIONAL: Visual Anchors via GroundingDINO
+            # ═══════════════════════════════════════════════════════════════════
             issue_visual_anchors: List[VisualAnchor] = []
             if self.with_dino_anchors:
+                logger.info(f"[{img_name}] Running GroundingDINO for issue visual anchors...")
                 try:
+                    t_anchors = time.time()
                     issue_visual_anchors = run_groundingdino_for_issues(image_path, defect_analysis)
+                    logger.info(
+                        f"[{img_name}]   Found {len(issue_visual_anchors)} visual anchors ({time.time() - t_anchors:.2f}s)")
                 except Exception as exc:
-                    logger.error(f"Failed to generate GroundingDINO anchors: {exc}")
+                    logger.error(f"[{img_name}]   Failed to generate GroundingDINO anchors: {exc}")
 
-            pass1_scene = self._normalize_scene(scene_summary.scene)
-            final_scene = pass1_scene or scene
-            if final_scene == "unknown" and scene != "unknown":
-                final_scene = scene
+            # ═══════════════════════════════════════════════════════════════════
+            # FINALIZE: Build result (scene already determined from Pass 1)
+            # ═══════════════════════════════════════════════════════════════════
+            # Scene is authoritatively set from Pass 1 (analysis_scene -> scene)
+            final_scene = scene
+
+            total_time = time.time() - t0
 
             result = SceneClassification(
                 scene=final_scene,
@@ -1453,28 +1553,33 @@ class SceneClassifier:
                 issues_natural_language=defect_analysis.issues_natural_language,
                 catalog_flags=defect_analysis.catalog_flags,
                 issue_visual_anchors=issue_visual_anchors,
-                processing_time=time.time() - t0,
+                processing_time=total_time,
                 prompt_version=PROMPT_VERSION,
                 scene_policy_version=self.scene_policy_version,
                 raw_response=raw_response if self.debug else None,
                 planner_raw_response=planner_raw if self.debug else None
             )
 
-            if self.debug:
-                staging_str = "STAGED" if is_staged else "VACANT"
-                logger.info(f"Pass 1 scene: {final_scene}")
-                logger.info(f"Classification: {scene} ({staging_str})")
-                if scene_summary.image_summary:
-                    logger.info(f"Image summary: {scene_summary.image_summary[:200]}")
-                if scene_summary.overall_impression:
-                    logger.info(f"Overall impression: {scene_summary.overall_impression[:200]}")
-                logger.info(f"Targets: {len(targets)} targets")
-                logger.info(f"GDINO terms: {len(gdino_terms)} terms")
+            # Final summary log
+            logger.info(f"[{img_name}] {'─' * 60}")
+            logger.info(f"[{img_name}] CLASSIFICATION COMPLETE")
+            logger.info(f"[{img_name}]   Scene: {final_scene} ({staging_str})")
+            logger.info(f"[{img_name}]   Targets: {len(targets)}")
+            logger.info(f"[{img_name}]   NL Issues: {len(defect_analysis.issues_natural_language)}")
+            logger.info(f"[{img_name}]   Catalog flags present: {issues_present}")
+            logger.info(f"[{img_name}]   Total time: {total_time:.2f}s")
+            logger.info(f"[{img_name}]     Pass 1 (scene summary):     {pass1_duration:.2f}s")
+            logger.info(f"[{img_name}]     Pass 2 (defect analysis):   {pass2_duration:.2f}s")
+            logger.info(f"[{img_name}]     Pass 3 (staging detection): {pass3_duration:.2f}s")
+            logger.info(f"[{img_name}]     Pass 4 (target planning):   {pass4_duration:.2f}s")
+            logger.info(f"[{img_name}] {'═' * 60}")
 
             return result
 
         except Exception as e:
-            logger.error(f"Error classifying image {image_path}: {e}")
+            logger.error(f"[{img_name}] ERROR: Classification failed: {e}")
+            import traceback
+            logger.debug(f"[{img_name}] Traceback: {traceback.format_exc()}")
 
             # Create fallback response
             fallback_scene = self._normalize_scene(scene_summary.scene) if scene_summary.scene else "unknown"
@@ -1488,6 +1593,10 @@ class SceneClassifier:
                 if label_term:
                     all_terms.append(label_term)
             gdino_terms = dedup_preserving_order(all_terms)[:15]
+
+            total_time = time.time() - t0
+            logger.warning(
+                f"[{img_name}] Returning fallback result (scene='{fallback_scene}', {len(fallback_targets)} targets)")
 
             return SceneClassification(
                 scene=fallback_scene,
@@ -1503,7 +1612,7 @@ class SceneClassifier:
                 catalog_flags=defect_analysis.catalog_flags,
                 issue_visual_anchors=[],
                 error=str(e),
-                processing_time=time.time() - t0,
+                processing_time=total_time,
                 prompt_version=PROMPT_VERSION,
                 scene_policy_version=self.scene_policy_version,
                 raw_response=None,
@@ -1514,9 +1623,16 @@ class SceneClassifier:
                        save_results: bool = True) -> Dict[str, SceneClassification]:
         """Classify multiple images."""
         results = {}
+        total_images = len(image_paths)
 
-        for img_path in image_paths:
-            logger.info(f"Classifying: {img_path.name}")
+        logger.info(f"")
+        logger.info(f"{'█' * 70}")
+        logger.info(f"BATCH CLASSIFICATION: {total_images} images")
+        logger.info(f"{'█' * 70}")
+
+        for idx, img_path in enumerate(image_paths, 1):
+            logger.info(f"")
+            logger.info(f"[BATCH {idx}/{total_images}] Processing: {img_path.name}")
             result = self.classify_image(img_path)
             results[str(img_path)] = result
 
@@ -1565,6 +1681,23 @@ class SceneClassifier:
                 json.dump(output, f, indent=2, ensure_ascii=False)
 
             logger.info(f"Results saved to: {results_file}")
+
+        # Batch summary
+        logger.info(f"")
+        logger.info(f"{'█' * 70}")
+        logger.info(f"BATCH COMPLETE: {total_images} images processed")
+
+        scene_counts = {}
+        total_time = 0
+        for result in results.values():
+            scene_counts[result.scene] = scene_counts.get(result.scene, 0) + 1
+            total_time += result.processing_time
+
+        logger.info(f"Scene distribution:")
+        for scene, count in sorted(scene_counts.items(), key=lambda x: -x[1]):
+            logger.info(f"  {scene}: {count}")
+        logger.info(f"Total processing time: {total_time:.1f}s (avg: {total_time / total_images:.1f}s/image)")
+        logger.info(f"{'█' * 70}")
 
         return results
 
@@ -1643,6 +1776,11 @@ def main():
     )
 
     args = parser.parse_args()
+
+    # Set logging level based on debug flag
+    if args.debug:
+        logging.getLogger().setLevel(logging.DEBUG)
+        logger.setLevel(logging.DEBUG)
 
     # Handle --list-scenes
     if args.list_scenes:

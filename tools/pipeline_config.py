@@ -28,7 +28,7 @@ ARTIFACTS_ROOT = PROJECT_ROOT / "artifacts"
 # ============================================================================
 # LM STUDIO / VLM SETTINGS
 # ============================================================================
-LM_STUDIO_URL = "http://100.102.92.1:1234"
+LM_STUDIO_URL = "http://169.254.83.107:1234"
 LM_STUDIO_MODEL = "qwen/qwen3-vl-30b"
 
 # ============================================================================
@@ -82,29 +82,6 @@ ROI_PENALTY    = 0.03      # subtract if clearly opposite zone and overlap < ROI
 
 ROI_OVERLAP_HI = 0.40      # fraction of detection area inside hinted zone for full bonus
 ROI_OVERLAP_LO = 0.10      # fraction for half bonus lower bound
-
-# ============================================================================
-# RENOVATION / ISSUE COST MODEL
-# ============================================================================
-# Rough ballpark ranges per issue + severity. These can be tuned as we calibrate
-# estimates from real jobs.
-RENOVATION_COST_TABLE = {
-    "water_stain_ceiling": {
-        "minor_repair": (300, 800),
-        "moderate_repair": (800, 2500),
-        "full_replacement": (2500, 6000),
-    },
-    "worn_or_stained_carpet": {
-        "minor_repair": (400, 1200),
-        "moderate_repair": (1200, 3500),
-        "full_replacement": (3500, 9000),
-    },
-    "outdated_kitchen_finishes": {
-        "minor_repair": (1500, 4000),
-        "moderate_repair": (8000, 20000),
-        "full_replacement": (20000, 45000),
-    },
-}
 
 # ============================================================================
 # SPECIAL CASE FILTERS
