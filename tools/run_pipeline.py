@@ -11,6 +11,7 @@ Usage (from tools/ directory):
     python run_pipeline.py --images img1.jpg img2.jpg img3.jpg
     python run_pipeline.py --images-dir path/to/folder
     python run_pipeline.py --images image.jpg --property-key test_001 --no-verify
+    python run_pipeline.py --images-dir path/to/folder --no-summary
 
 All parameters can be configured in pipeline_config.py
 """
@@ -207,6 +208,7 @@ def run_pipeline(property_key: str, images: list, args):
     skip_verify = args.no_verify if args.no_verify is not None else cfg.SKIP_VERIFICATION
     box_thr = args.box_thr if args.box_thr is not None else cfg.BOX_THRESHOLD
     text_thr = args.text_thr if args.text_thr is not None else cfg.TEXT_THRESHOLD
+    skip_summary = getattr(args, 'no_summary', False)
 
     logger.info("=" * 70)
     logger.info("🚀 Starting GroundingDINO Analysis Pipeline")
@@ -216,6 +218,7 @@ def run_pipeline(property_key: str, images: list, args):
     logger.info(f"Box Threshold: {box_thr}")
     logger.info(f"Text Threshold: {text_thr}")
     logger.info(f"Verification: {'SKIPPED' if skip_verify else 'ENABLED'}")
+    logger.info(f"Property Summary: {'SKIPPED' if skip_summary else 'ENABLED'}")
     logger.info("=" * 70)
 
     try:
@@ -274,7 +277,54 @@ def run_pipeline(property_key: str, images: list, args):
     # Save outputs if configured
     artifacts_path = Path(job.artifacts_dir)
 
-    photo_intel_path = analyzer.save_photo_intel(job, artifacts_path / "photo_intel.json")
+    # Save photo_intel (optionally with property summary generation)
+    photo_intel_path = analyzer.save_photo_intel(
+        job,
+        artifacts_path / "photo_intel.json",
+        generate_summary=not skip_summary
+    )
+
+    # Check if property summary was generated
+    summary_path = artifacts_path / "property_summary.json"
+    if summary_path.exists():
+        try:
+            with open(summary_path, 'r', encoding='utf-8') as f:
+                summary_data = json.load(f)
+
+            print("\n" + "=" * 70)
+            print("📋 PROPERTY SUMMARY")
+            print("=" * 70)
+            print(f"  Overall Condition:   {summary_data.get('overall_condition', 'N/A').upper()}")
+            print(f"  Investment Verdict:  {summary_data.get('investment_verdict', 'N/A').replace('_', ' ').upper()}")
+            print(f"  Renovation Scope:    {summary_data.get('renovation_scope', 'N/A')}")
+            print(
+                f"  Issues Found:        {summary_data.get('total_issues_found', 0)} across {summary_data.get('total_images_analyzed', 0)} images")
+
+            # Show risk flags if any
+            risk_flags = summary_data.get('risk_flags', [])
+            if risk_flags:
+                print(f"\n  ⚠️  Risk Flags ({len(risk_flags)}):")
+                for flag in risk_flags[:3]:
+                    print(f"     • {flag}")
+                if len(risk_flags) > 3:
+                    print(f"     ... and {len(risk_flags) - 3} more")
+
+            # Show top priorities
+            priorities = summary_data.get('renovation_priorities', [])
+            if priorities:
+                print(f"\n  🔧 Top Renovation Priorities:")
+                for i, priority in enumerate(priorities[:3], 1):
+                    print(f"     {i}. {priority}")
+                if len(priorities) > 3:
+                    print(f"     ... and {len(priorities) - 3} more")
+
+            # Show investment rationale
+            rationale = summary_data.get('investment_rationale', '')
+            if rationale:
+                print(f"\n  💡 Rationale: {rationale[:150]}{'...' if len(rationale) > 150 else ''}")
+
+        except Exception as e:
+            logger.warning(f"Could not display summary: {e}")
 
     if cfg.SAVE_JSON_SUMMARY or args.output_json:
         json_path = artifacts_path / "summary.json"
@@ -295,6 +345,7 @@ def run_pipeline(property_key: str, images: list, args):
             "parameters": job.parameters,
             "results": summary_results,
             "photo_intel_path": str(photo_intel_path),
+            "property_summary_path": str(summary_path) if summary_path.exists() else None,
             "renovation_needs": build_renovation_needs(job),
         }
 
@@ -304,6 +355,9 @@ def run_pipeline(property_key: str, images: list, args):
         print(f"\n💾 JSON Summary: {json_path}")
 
     print(f"📁 Photo Intel:  {photo_intel_path}")
+
+    if summary_path.exists():
+        print(f"📋 Property Summary: {summary_path}")
 
     if cfg.GENERATE_HTML_REPORT or args.html_report:
         html_path = artifacts_path / "report.html"
@@ -356,6 +410,12 @@ def main():
         action="store_true",
         default=None,
         help="Skip chip verification (faster testing)"
+    )
+    parser.add_argument(
+        "--no-summary",
+        action="store_true",
+        default=False,
+        help="Skip property summary generation"
     )
 
     # Output options

@@ -575,22 +575,34 @@ def build_scene_summary_prompt() -> str:
     This prompt should NOT mention defects, targets, chips, or the issue catalog.
     """
     return (
-        "You are an assistant that analyzes real-estate listing photos.\n"
-        "You ONLY use what is clearly visible in the image. Do not guess about things you cannot see.\n\n"
-        "Your job for this image is ONLY to:\n"
-        "1) Identify the high-level scene type (e.g. 'kitchen', 'bathroom', 'living_room', 'bedroom', 'exterior_front', 'exterior_back', 'basement', 'hallway', 'dining_room', 'laundry_room', etc.).\n"
-        "2) Provide a 2–3 sentence 'overall_impression' that briefly describes what the photo shows and gives a buyer or investor perspective on appeal and condition.\n\n"
-        "Important:\n"
-        "- Do NOT talk about pricing or dollar values.\n"
-        "- Do NOT invent defects or problems; only comment on what is clearly visible.\n"
-        "- Do NOT mention any issue catalog, targets, chips, or bounding boxes.\n\n"
-        "Return a SINGLE JSON object with this exact structure:\n"
+        "You are analyzing a single real-estate listing photo.\n\n"
+        "Use ONLY what is clearly visible in the image. Do NOT guess about hidden issues, exact ages, renovation dates, or anything that is not visually obvious.\n\n"
+        "Your job for this image is to:\n\n"
+        "Set \"scene\" to a simple room/area type such as:\n"
+        "\"kitchen\", \"bathroom\", \"living_room\", \"bedroom\", \"dining_room\",\n"
+        "\"hallway\", \"laundry_room\", \"basement\", \"garage\", \"exterior_front\",\n"
+        "\"exterior_back\", \"yard\", etc.\n\n"
+        "If the space is ambiguous, say unkown.\n"
+        "Set \"overall_impression\" to 2–3 concise sentences written for a buyer or investor that:\n\n"
+        "Briefly describe what the photo shows.\n"
+        "Highlight the main positives (e.g., natural light, modern/updated finishes, clean presentation, good layout, spaciousness).\n"
+        "Highlight any clear negatives (e.g., visible wear or damage, clutter, dark/cramped feel, obviously dated finishes, mismatched updates).\n"
+        "You may use high-level judgments like:\n\n"
+        "\"dated\", \"basic\", \"builder-grade\", \"somewhat modern\", \"recently updated\",\n"
+        "\"move-in ready\", \"shows wear\", \"needs cosmetic refresh\" BUT only when these are clearly supported by what you can see (finishes, fixtures, appliances, flooring, overall condition). Describe the visual impression, not the renovation history.\n\n"
+        "Important:\n\n"
+        "Focus on features that affect aesthetics or salability.\n"
+        "Do NOT comment on tiny personal items like fridge magnets, papers, or small toys unless they create noticeable clutter that affects how the space presents.\n"
+        "Do NOT mention brand names or speculate about price or quality of materials.\n"
+        "Return a SINGLE JSON object with this exact structure and valid JSON syntax (double quotes around keys and strings):\n\n"
         "{\n"
-        '  "scene": "<string scene label>",\n'
-        '  "overall_impression": "<2-3 sentence description + high-level impression>"\n'
-        "}\n"
-        "Do NOT wrap the JSON in backticks or markdown; output raw JSON only.\n"
+        "\"scene\": \"<string room/area label>\",\n"
+        "\"overall_impression\": \"<2-3 sentence description of the main positives and negatives, based only on what is visible>\"\n"
+        "}\n\n"
+        "Do NOT wrap the JSON in backticks or markdown; output raw JSON only."
     )
+
+
 
 
 def _format_catalog_for_prompt(issue_catalog: dict) -> str:

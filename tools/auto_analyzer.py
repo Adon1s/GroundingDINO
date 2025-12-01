@@ -2,7 +2,7 @@
 """
 Auto-Analyzer for GroundingDINO Pipeline
 -----------------------------------------
-Orchestrates: Scene Classification → Detection → Verification
+Orchestrates: Scene Classification → Detection → Verification → Property Summary
 Uses settings from pipeline_config.py
 """
 
@@ -50,6 +50,13 @@ except ImportError:
     print("ERROR: postprocess.py not found!")
     sys.exit(1)
 
+# Import property summarizer (optional - graceful fallback if not available)
+try:
+    from property_summarizer import PropertySummarizer
+except ImportError:
+    PropertySummarizer = None
+    print("INFO: property_summarizer.py not found, property summaries will be skipped")
+
 # Console encoding safety
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -60,7 +67,6 @@ logging.basicConfig(
     format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
-
 
 default_catalog_path = getattr(
     cfg, "PROJECT_ROOT", Path(__file__).resolve().parent.parent
@@ -299,7 +305,7 @@ class AutoAnalyzer:
         return proc.returncode or 0, stdout, stderr
 
     def classify_scene(
-        self, image_path: Path
+            self, image_path: Path
     ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str], Dict[str, Any]]:
         """
         Classify the scene type and get keywords for detection.
@@ -533,10 +539,10 @@ class AutoAnalyzer:
                     pass
 
             if (
-                getattr(cfg, "ROI_HINTS_ENABLED", False)
-                and detections
-                and img_w > 0
-                and img_h > 0
+                    getattr(cfg, "ROI_HINTS_ENABLED", False)
+                    and detections
+                    and img_w > 0
+                    and img_h > 0
             ):
                 detections_by_class: Dict[str, List[Dict[str, Any]]] = {}
                 unlabeled: List[Dict[str, Any]] = []
@@ -618,9 +624,9 @@ class AutoAnalyzer:
                     logger.info(f"  Scene caps: {pre_cap_count} → {len(detections)} detections")
 
             if (
-                getattr(cfg, "ROI_HINTS_ENABLED", False)
-                and detections
-                and logger.isEnabledFor(logging.DEBUG)
+                    getattr(cfg, "ROI_HINTS_ENABLED", False)
+                    and detections
+                    and logger.isEnabledFor(logging.DEBUG)
             ):
                 for det in detections:
                     dbg = det.get("roi_debug", {})
@@ -786,9 +792,9 @@ class AutoAnalyzer:
 
     @staticmethod
     def _scene_classifier_payload(
-        scene_data: Optional[Dict[str, Any]],
-        scene_override: Optional[str] = None,
-        error: Optional[str] = None,
+            scene_data: Optional[Dict[str, Any]],
+            scene_override: Optional[str] = None,
+            error: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Normalize scene classifier output so all fields are present."""
 
@@ -856,8 +862,23 @@ class AutoAnalyzer:
                 return val
         return default
 
-    def save_photo_intel(self, job: PropertyAnalysisJob, output_path: Optional[Path] = None) -> Path:
-        """Persist per-photo intelligence (including scene classifier fields)."""
+    def save_photo_intel(
+            self,
+            job: PropertyAnalysisJob,
+            output_path: Optional[Path] = None,
+            generate_summary: bool = True
+    ) -> Path:
+        """
+        Persist per-photo intelligence (including scene classifier fields).
+
+        Args:
+            job: The completed PropertyAnalysisJob
+            output_path: Where to save photo_intel.json
+            generate_summary: If True, also generate property_summary.json
+
+        Returns:
+            Path to the saved photo_intel.json
+        """
         created_at = datetime.utcnow().isoformat() + "Z"
 
         photos: Dict[str, Any] = {}
@@ -890,7 +911,96 @@ class AutoAnalyzer:
             json.dump(photo_intel, f, indent=2, ensure_ascii=False)
 
         logger.info(f"Photo intel saved to: {output_path}")
+
+        # Generate property summary if requested
+        if generate_summary:
+            summary_path = output_path.parent / "property_summary.json"
+            self.generate_property_summary(job, photo_intel_path=output_path, output_path=summary_path)
+
         return output_path
+
+    def generate_property_summary(
+            self,
+            job: PropertyAnalysisJob,
+            photo_intel_path: Optional[Path] = None,
+            output_path: Optional[Path] = None
+    ) -> Optional[Path]:
+        """
+        Generate a property-level summary from the analysis results.
+
+        This runs an additional VLM pass to aggregate all per-image issues
+        into a coherent property assessment.
+
+        Args:
+            job: The completed PropertyAnalysisJob
+            photo_intel_path: Path to photo_intel.json (if already saved)
+            output_path: Where to save property_summary.json
+
+        Returns:
+            Path to the saved summary, or None if summarization failed/skipped
+        """
+        if PropertySummarizer is None:
+            logger.warning("PropertySummarizer not available, skipping summary generation")
+            return None
+
+        # Check config flag
+        if not getattr(cfg, "GENERATE_PROPERTY_SUMMARY", True):
+            logger.info("Property summary generation disabled in config")
+            return None
+
+        logger.info(f"\n{'=' * 60}")
+        logger.info("Generating Property Summary...")
+        logger.info(f"{'=' * 60}")
+
+        try:
+            # Load photo_intel from file if provided, otherwise build from job
+            if photo_intel_path and photo_intel_path.exists():
+                with open(photo_intel_path, 'r', encoding='utf-8') as f:
+                    photo_intel = json.load(f)
+            else:
+                # Build photo_intel structure from job results
+                photos = {}
+                for res in job.results:
+                    image_key = Path(res.image_path).name
+                    payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
+                    photos[image_key] = {"image_path": res.image_path, **payload}
+
+                photo_intel = {
+                    "property_key": job.property_key,
+                    "job_id": job.job_id,
+                    "timestamp": job.timestamp,
+                    "artifacts_dir": job.artifacts_dir,
+                    "photos": photos,
+                }
+
+                # Add renovation_needs if available
+                try:
+                    photo_intel["renovation_needs"] = build_renovation_needs(job)
+                except Exception as exc:
+                    logger.warning(f"Could not build renovation_needs: {exc}")
+
+            # Create summarizer
+            summarizer = PropertySummarizer(
+                lm_studio_url=cfg.LM_STUDIO_URL,
+                model_name=getattr(cfg, "SUMMARY_MODEL", cfg.LM_STUDIO_MODEL),
+                debug=self.debug
+            )
+
+            # Generate summary
+            summary = summarizer.summarize_property(photo_intel)
+
+            # Save summary
+            if output_path is None:
+                output_path = Path(job.artifacts_dir) / "property_summary.json"
+
+            PropertySummarizer.save_summary(summary, output_path)
+
+            logger.info(f"Property summary saved to: {output_path}")
+            return output_path
+
+        except Exception as e:
+            logger.error(f"Failed to generate property summary: {e}", exc_info=True)
+            return None
 
     def create_html_report(self, job: PropertyAnalysisJob, output_path: Path):
         """Generate a simple HTML report."""
