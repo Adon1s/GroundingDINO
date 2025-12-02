@@ -2,16 +2,30 @@
 from __future__ import annotations
 
 """
-Scene Classifier with Keyword Selection for Property Photos
------------------------------------------------------------
+Scene Classifier with Issue-Driven Target Planning for Property Photos
+-----------------------------------------------------------------------
 Purpose: Classify property photos into scene types and generate appropriate
-object detection keywords for GroundingDINO.
+object detection targets for GroundingDINO based on detected issues.
+
+Pipeline (4 VLM passes per image):
+1. Pass 1 - Scene Summary: scene type + overall impression
+2. Pass 2 - Defect Analysis: issues_natural_language + catalog_flags
+3. Pass 3 - Staging Detection: is_staged
+4. Pass 4 - Issue-Driven Target Planning: targets based on issues from Pass 2
+
+Output Fields:
+- keywords: Scene-based keywords (core only vs core + staging), controlled by
+            --max-keywords and --include-conditions CLI flags
+- gdino_terms: Issues-driven detection terms from the planner (Pass 4)
+- groundingdino_prompt: Formatted gdino_terms for GroundingDINO input
+- targets: Structured target objects with labels, synonyms, roi_hints, priorities
 
 Features:
 - Detects scene type (room/area)
 - Determines if photo is staged or vacant
-- Returns appropriate keywords (core only vs core + staging)
-- Plans structured targets for detection with priorities
+- Returns scene-based keywords (core only vs core + staging)
+- Plans issues-driven targets for detection with priorities
+- Filters out generic surfaces (wall, floor, ceiling, carpet) from targets
 
 Input: Path to a property photo
 Output: JSON with scene classification, staging status, targets, and GroundingDINO prompt
@@ -335,11 +349,22 @@ BANNED_SURFACE_LABELS = {
 
 
 def _is_banned_surface_label(label: str) -> bool:
-    """Return True if label is a generic wall/ceiling/floor surface."""
+    """
+    Return True if label or any of its underscore-separated tokens
+    is a generic wall/ceiling/floor surface.
+    This lets us block things like 'wall', 'walls', 'floor_tiles', 'carpet_floor', etc.
+    """
     if not label:
         return False
     norm = _sanitize_term(label).replace(" ", "_")
-    return norm in BANNED_SURFACE_LABELS
+    tokens = norm.split("_")
+
+    # Ban if the full label is in the banned set
+    if norm in BANNED_SURFACE_LABELS:
+        return True
+
+    # Ban if ANY token is a banned surface word
+    return any(t in BANNED_SURFACE_LABELS for t in tokens)
 
 
 def _filter_banned_surface_targets(targets: List[Dict]) -> List[Dict]:
@@ -582,7 +607,7 @@ def build_scene_summary_prompt() -> str:
         "\"kitchen\", \"bathroom\", \"living_room\", \"bedroom\", \"dining_room\",\n"
         "\"hallway\", \"laundry_room\", \"basement\", \"garage\", \"exterior_front\",\n"
         "\"exterior_back\", \"yard\", etc.\n\n"
-        "If the space is ambiguous, say unkown.\n"
+        "If the space is ambiguous, say unknown.\n"
         "Set \"overall_impression\" to 2–3 concise sentences written for a buyer or investor that:\n\n"
         "Briefly describe what the photo shows.\n"
         "Highlight the main positives (e.g., natural light, modern/updated finishes, clean presentation, good layout, spaciousness).\n"
@@ -603,8 +628,6 @@ def build_scene_summary_prompt() -> str:
     )
 
 
-
-
 def _format_catalog_for_prompt(issue_catalog: dict) -> str:
     """Summarize catalog ids, names, and descriptions for prompt context."""
     parts = []
@@ -623,6 +646,31 @@ def _format_catalog_for_prompt(issue_catalog: dict) -> str:
             severity = item.get("severity", "")
             parts.append(f"- {iid}: {name} [{category}/{severity}] - {desc}")
     return "\n".join(parts)
+
+
+def _format_issues_for_planner(issues: List[NLIssue]) -> str:
+    """
+    Convert issues_natural_language into a numbered list string for the planner prompt.
+
+    Each line should include:
+      - description
+      - rough_category
+      - location_hint
+
+    If there are no issues, return a short line indicating that.
+    """
+    if not issues:
+        return "None explicitly detected; rely primarily on scene policies and the image."
+
+    lines = []
+    for i, iss in enumerate(issues, 1):
+        desc = iss.description or ""
+        category = iss.rough_category or "unspecified"
+        loc = iss.location_hint or "unspecified area"
+        lines.append(
+            f"{i}. {desc} (category={category}, location={loc})"
+        )
+    return "\n".join(lines)
 
 
 def build_defect_analysis_prompt(scene: str, issue_catalog: dict) -> str:
@@ -998,80 +1046,73 @@ def get_scene_policy(scene: str) -> str:
 
 
 def build_planner_prompt(scene: str, is_staged: bool, policy_block: str,
-                         max_targets: int, allow_free: int) -> str:
-    """Build the planner prompt requesting structured targets."""
+                         max_targets: int, allow_free: int,
+                         issues: List[NLIssue]) -> str:
+    """
+    Build the planner prompt requesting structured targets.
+
+    The planner is now ISSUES-DRIVEN: it uses the defect/issue analysis from Pass 2
+    as its primary source for selecting targets, with scene policy as helper context.
+    """
+    issues_text = _format_issues_for_planner(issues)
+
     tmpl = (
         "You are an expert at analyzing real-estate listing photos.\n\n"
+
         "GOAL\n"
-        "- Propose up to {max_targets} high-value TARGETS to draw bounding boxes around.\n"
-        "- A TARGET is a physical surface or fixture that matters to buyers/agents "
-        "for price, marketability, or inspection risk.\n"
-        "- Prefer structural/condition-relevant items over decor and clutter.\n"
-        "- You may add up to {allow_free} extra high-severity \"free discoveries\" beyond the scene policy if important.\n\n"
+        f"- Propose up to {{max_targets}} high-value TARGETS to draw bounding boxes around.\n"
+        "- A TARGET is a physical surface or fixture that affects price, marketability, or inspection risk.\n"
+        f"- Use the issue list below as your PRIMARY guide. You may add up to {{allow_free}} extra targets only for clearly visible, high-severity problems.\n\n"
 
-        "SCENE CONTEXT\n"
-        "- scene: {scene}\n"
-        "- is_staged: {is_staged}\n\n"
+        "SCENE\n"
+        f"- scene: {{scene}}\n"
+        f"- is_staged: {{is_staged}}\n\n"
 
-        "SCENE POLICY (preferred surfaces/fixtures for this scene):\n"
+        "ISSUES ALREADY DETECTED (from a separate analysis pass):\n"
+        "{issues_text}\n\n"
+        "Interpretation:\n"
+        "- Do NOT invent new problems that are not clearly implied by the issue text.\n"
+        "- For each issue, pick ONE or a FEW specific surfaces/fixtures that best represent it.\n"
+        "- Prefer concrete objects like 'cabinet_door', 'countertop', 'faucet' over vague areas.\n\n"
+
+        "SCENE POLICY HINTS\n"
         "{policy_block}\n\n"
 
-        "REALTOR PRIORITIES (examples)\n"
-        "- kitchens: kitchen_cabinets, countertops, backsplash, appliances, sink, faucet, walls_paint, light_fixtures, island\n"
-        "- bathrooms: bathroom_vanity, shower_tub, shower_tile, toilet, mirror, walls_paint, light_fixtures\n"
-        "- interior: windows, interior_doors, stair_rail, fireplace, built_ins, closet_system\n"
-        "- exterior: roof_surface, siding, exterior_paint, driveway, walkway, front_door, garage_door, deck, patio, fence, landscaping\n\n"
-
         "LABEL RULES\n"
-        "- `label` MUST be the underlying physical object/surface, NOT the problem description.\n"
-        "- Format: snake_case, lowercase.\n"
-        "- Length: 1–2 tokens when split on underscores.\n"
-        "- No repeated tokens (never 'cabinet_cabinet').\n"
-        "- Do NOT include scene words like 'kitchen', 'bathroom', 'living_room'.\n"
-        "- Do NOT include adjectives or condition words in `label` (old, new, cracked, stained, dirty, dated, mold, etc.).\n\n"
-        "- IMPORTANT: Do NOT use generic surfaces like ceiling, ceilings, wall, walls, floor, flooring, carpet, hardwood floor, laminate floor, tile floor, basement floor/walls as TARGET labels. Those issues should be described in text only, not boxed.\n"
+        "- `label` is the physical object/surface only, not the problem description.\n"
+        "- snake_case, lowercase, 1–2 tokens, no repeated tokens.\n"
+        "- Do NOT include scene words ('kitchen', 'bathroom', etc.).\n"
+        "- Do NOT include adjectives or condition words (cracked, stained, dirty, dated, mold, etc.).\n"
+        "- NEVER use generic surfaces: ceiling, ceilings, wall, walls, floor, floors, flooring, carpet, "
+        "hardwood_floor, laminate_floor, tile_floor, floor_tiles, carpet_floor, basement_floor, basement_walls.\n\n"
 
+        "SYNONYMS & REASON\n"
+        "- `synonyms`: 2–5 short nouns/noun-phrases someone might use for the same object.\n"
+        "- `reason` MUST be consistent with the issues above.\n"
+        "- If the issues are vague (e.g. 'outdated', 'older style'), keep `reason` vague.\n"
+        "- Do NOT invent specific defects like stains, leaks, cracks, mold, discoloration, grime, or warping "
+        "if they are not explicitly described in the issues.\n\n"
 
-        "SYNONYMS & CONDITION\n"
-        "- `synonyms`: 2–5 short nouns/noun-phrases (1–3 words) that a human might say for the same surface.\n"
-        "- Condition words (crack, stain, damaged, dirty, outdated, mold, etc.) are allowed ONLY in `reason`, "
-        "never in `label` or `synonyms`.\n\n"
-
-        "EXAMPLES\n"
-        "- Crack in driveway:\n"
-        '  label: "driveway"\n'
-        '  synonyms: ["driveway","concrete_drive","front_drive"]\n'
-        '  reason: "Visible cracking in concrete; driveway condition affects curb appeal and inspection risk."\n'
-        "- Water stains on ceiling:\n"
-        '  label: "ceiling_area"\n'
-        '  synonyms: ["ceiling_area","upper_drywall"]\n'
-        '  reason: "Water staining suggests possible roof or plumbing leak, which worries buyers."\n'
-        "- Dated kitchen cabinets:\n"
-        '  label: "kitchen_cabinets"\n'
-        '  synonyms: ["kitchen_cabinets","upper_cabinets","lower_cabinets"]\n'
-        '  reason: "Cabinets look worn and dated; kitchen cabinetry is a major cosmetic cost."\n\n'
-
-        "TARGET SELECTION RULES\n"
-        "- Prefer a small set of high-impact targets over many minor ones.\n"
-        "- If multiple issues exist on the same surface, use ONE target and describe the most important issue in `reason`.\n"
-        "- Skip small decor, personal items, and generic clutter.\n\n"
+        "TARGET SELECTION\n"
+        "- Focus on a small set of high-impact targets tied to the issues.\n"
+        "- If several issues affect the same object, use ONE target and summarize the main concern in `reason`.\n"
+        "- Ignore decor, personal items, and clutter.\n\n"
 
         "SELF-CHECK BEFORE ANSWERING\n"
         "- For every target, verify:\n"
-        "  * `label` is snake_case, 1–2 tokens, no duplicates.\n"
-        "  * `label` does not contain scene or condition words.\n"
-        "  * Condition words appear only in `reason`.\n\n"
+        "  * `label` follows the rules and is not a generic surface.\n"
+        "  * `reason` does NOT mention a specific defect type that is missing from the issue list.\n\n"
 
-        "OUTPUT FORMAT (STRICT JSON ONLY)\n"
+        "OUTPUT FORMAT (RAW JSON ONLY)\n"
         "{{\n"
         '  "scene": "<one from known scene list>",\n'
         '  "is_staged": true/false,\n'
-        '  "reasoning": "≤200 chars why these targets matter overall",\n'
+        '  "reasoning": "≤200 chars on why these targets matter overall",\n'
         '  "targets": [\n'
         "    {{\n"
         '      "label": "<snake_case physical object/surface>",\n'
         '      "synonyms": ["term1","term2","term3"],\n'
-        '      "reason": "≤120 chars, including any condition or upgrade description",\n'
+        '      "reason": "≤120 chars, consistent with the issue list only",\n'
         '      "roi_hint": "<top_left|top_center|top_right|mid_left|center|mid_right|bottom_left|bottom_center|bottom_right|unknown>",\n'
         '      "priority": "<high|medium|low>"\n'
         "    }}\n"
@@ -1079,8 +1120,7 @@ def build_planner_prompt(scene: str, is_staged: bool, policy_block: str,
         "}}\n\n"
         "RULES\n"
         "- No duplicate targets; merge similar ones.\n"
-        "- Use short, detector-friendly nouns/noun-phrases in `label` and `synonyms`.\n"
-        "- If uncertain, omit the target rather than guessing.\n"
+        "- If uncertain, omit the target instead of guessing.\n"
         "- Respond with JSON ONLY (no markdown or commentary)."
     )
     return tmpl.format(
@@ -1089,6 +1129,7 @@ def build_planner_prompt(scene: str, is_staged: bool, policy_block: str,
         policy_block=policy_block,
         max_targets=max_targets,
         allow_free=allow_free,
+        issues_text=issues_text,
     )
 
 
@@ -1395,15 +1436,21 @@ class SceneClassifier:
                 f"[{img_name}] PASS 3 complete: {staging_str}, reason='{reasoning[:50]}...' ({pass3_duration:.2f}s)")
 
             # ═══════════════════════════════════════════════════════════════════
-            # PASS 4: Target Planning (VLM call 4/4)
+            # PASS 4: Issue-driven Target Planning (VLM call 4/4)
             # ═══════════════════════════════════════════════════════════════════
             t_pass4 = time.time()
-            logger.info(f"[{img_name}] PASS 4: Target Planning (VLM call 4/4)")
+            logger.info(f"[{img_name}] PASS 4: Issue-driven Target Planning (VLM call 4/4)")
+            logger.debug(
+                f"[{img_name}]   Using {len(defect_analysis.issues_natural_language)} issues from Pass 2 to guide target selection")
 
             policy_block = get_scene_policy(scene)
             planner_prompt = build_planner_prompt(
-                scene, is_staged, policy_block,
-                self.max_targets, self.allow_free_discoveries
+                scene,
+                is_staged,
+                policy_block,
+                self.max_targets,
+                self.allow_free_discoveries,
+                defect_analysis.issues_natural_language,  # Pass issues from defect analysis
             )
 
             # Make second API call for planner
@@ -1471,34 +1518,15 @@ class SceneClassifier:
             logger.info(f"[{img_name}] PASS 4 complete: {len(targets)} targets from planner ({pass4_duration:.2f}s)")
 
             # ═══════════════════════════════════════════════════════════════════
-            # POST-PROCESSING: Merge targets, build GDINO terms
+            # POST-PROCESSING: planner-only targets → GDINO terms
             # ═══════════════════════════════════════════════════════════════════
-            logger.info(f"[{img_name}] Post-processing: merging targets and building GDINO terms")
+            logger.info(f"[{img_name}] Post-processing: using planner targets only and building GDINO terms")
+            logger.debug(
+                f"[{img_name}]   Planner targets: {len(targets)}, "
+                f"defect-analysis targets (not used for detection): {len(defect_analysis.targets or [])}"
+            )
 
-            defect_targets = defect_analysis.targets or []
-            if defect_targets:
-                logger.debug(
-                    f"[{img_name}]   Merging {len(defect_targets)} defect targets with {len(targets)} planner targets")
-                merged_targets = list(targets) if targets else []
-                existing_labels = {
-                    t.get("label")
-                    for t in merged_targets
-                    if isinstance(t, dict) and t.get("label")
-                }
-                for tgt in defect_targets:
-                    if not isinstance(tgt, dict):
-                        continue
-                    label = tgt.get("label")
-                    if label and label in existing_labels:
-                        continue
-                    merged_targets.append(tgt)
-                    if label:
-                        existing_labels.add(label)
-                targets = _filter_banned_surface_targets(merged_targets)[
-                          : self.max_targets] if merged_targets else targets
-                logger.debug(f"[{img_name}]   After merge: {len(targets)} targets")
-
-            # Build gdino_terms from merged targets
+            # Build gdino_terms from planner targets
             if targets:
                 all_terms = []
                 for target in targets:
@@ -1515,6 +1543,8 @@ class SceneClassifier:
             if not gdino_terms:
                 logger.warning(f"[{img_name}]   No GDINO terms from targets, creating fallback from scene keywords")
                 targets = self._create_fallback_targets(scene)
+                # Filter banned surfaces from fallback targets too
+                targets = _filter_banned_surface_targets(targets)
                 # Build gdino_terms from fallback
                 all_terms = []
                 for target in targets:
@@ -1524,11 +1554,17 @@ class SceneClassifier:
                         all_terms.append(label_term)
                 gdino_terms = dedup_preserving_order(all_terms)[:15]
 
-            # For backward compatibility
-            keywords = gdino_terms
+            # Compute scene-based keywords (core vs staging) - separate from issues-driven gdino_terms
+            keywords = keywords_for_scene(
+                scene,
+                is_staged=is_staged,
+                include_conditions=self.include_conditions,
+                max_keywords=self.max_keywords,
+            )
             groundingdino_prompt = format_for_grounding_dino(gdino_terms)
 
             logger.info(f"[{img_name}] GDINO prompt: '{groundingdino_prompt[:80]}...' ({len(gdino_terms)} terms)")
+            logger.debug(f"[{img_name}]   Scene keywords: {len(keywords)} terms")
 
             # ═══════════════════════════════════════════════════════════════════
             # OPTIONAL: Visual Anchors via GroundingDINO
@@ -1583,7 +1619,7 @@ class SceneClassifier:
             logger.info(f"[{img_name}]     Pass 1 (scene summary):     {pass1_duration:.2f}s")
             logger.info(f"[{img_name}]     Pass 2 (defect analysis):   {pass2_duration:.2f}s")
             logger.info(f"[{img_name}]     Pass 3 (staging detection): {pass3_duration:.2f}s")
-            logger.info(f"[{img_name}]     Pass 4 (target planning):   {pass4_duration:.2f}s")
+            logger.info(f"[{img_name}]     Pass 4 (issue-driven planning): {pass4_duration:.2f}s")
             logger.info(f"[{img_name}] {'═' * 60}")
 
             return result
@@ -1596,6 +1632,8 @@ class SceneClassifier:
             # Create fallback response
             fallback_scene = self._normalize_scene(scene_summary.scene) if scene_summary.scene else "unknown"
             fallback_targets = self._create_fallback_targets(fallback_scene)
+            # Filter banned surfaces from fallback targets
+            fallback_targets = _filter_banned_surface_targets(fallback_targets)
 
             # Build gdino_terms from fallback
             all_terms = []
@@ -1605,6 +1643,14 @@ class SceneClassifier:
                 if label_term:
                     all_terms.append(label_term)
             gdino_terms = dedup_preserving_order(all_terms)[:15]
+
+            # Compute scene-based keywords (separate from gdino_terms)
+            fallback_keywords = keywords_for_scene(
+                fallback_scene,
+                is_staged=False,
+                include_conditions=self.include_conditions,
+                max_keywords=self.max_keywords,
+            )
 
             total_time = time.time() - t0
             logger.warning(
@@ -1616,7 +1662,7 @@ class SceneClassifier:
                 reasoning="Classification failed",
                 targets=fallback_targets,
                 gdino_terms=gdino_terms,
-                keywords=gdino_terms,
+                keywords=fallback_keywords,
                 groundingdino_prompt=format_for_grounding_dino(gdino_terms),
                 image_summary=scene_summary.image_summary,
                 overall_impression=scene_summary.overall_impression,
