@@ -7,25 +7,31 @@ Scene Classifier with Issue-Driven Target Planning for Property Photos
 Purpose: Classify property photos into scene types and generate appropriate
 object detection targets for GroundingDINO based on detected issues.
 
-Pipeline (4 VLM passes per image):
+Pipeline (5 VLM passes per image):
 1. Pass 1 - Scene Summary: scene type + overall impression
-2. Pass 2 - Defect Analysis: issues_natural_language + catalog_flags
-3. Pass 3 - Staging Detection: is_staged
-4. Pass 4 - Issue-Driven Target Planning: targets based on issues from Pass 2
+2. Pass 2a - Freeform Defect Notes: image + simple question → plain text notes
+3. Pass 2b - Defect Structuring: text-only → issues_natural_language + catalog_flags
+4. Pass 3 - Staging Detection: is_staged
+5. Pass 4 - Issue-Driven Target Planning: image + issues → targets for GroundingDINO
+
+Note: Target planning happens ONLY in Pass 4 (with image context).
+      Pass 2b is purely text-based structuring of the freeform notes.
 
 Output Fields:
 - keywords: Scene-based keywords (core only vs core + staging), controlled by
             --max-keywords and --include-conditions CLI flags
-- gdino_terms: Issues-driven detection terms from the planner (Pass 4)
+- gdino_terms: Issues-driven detection terms from the planner (Pass 4 only)
 - groundingdino_prompt: Formatted gdino_terms for GroundingDINO input
-- targets: Structured target objects with labels, synonyms, roi_hints, priorities
+- targets: Structured target objects with labels, synonyms, roi_hints, priorities (Pass 4 only)
+- vlm_outputs: Debug capture of ALL raw VLM responses for every pass
 
 Features:
 - Detects scene type (room/area)
 - Determines if photo is staged or vacant
 - Returns scene-based keywords (core only vs core + staging)
-- Plans issues-driven targets for detection with priorities
+- Plans issues-driven targets for detection with priorities (Pass 4 only)
 - Filters out generic surfaces (wall, floor, ceiling, carpet) from targets
+- Captures all VLM outputs for debugging/analysis
 
 Input: Path to a property photo
 Output: JSON with scene classification, staging status, targets, and GroundingDINO prompt
@@ -66,7 +72,7 @@ except ImportError:
     DEFAULT_MODEL = os.getenv("LM_STUDIO_MODEL", "qwen/qwen3-vl-30b")
 
 # ── Constants ────────────────────────────────────────────────────────────────
-PROMPT_VERSION = "planner_v1"
+PROMPT_VERSION = "planner_v2_split"
 DEFAULT_ISSUE_CATALOG = "issue_catalog.json"
 
 # Static mapping from issue_id -> support-object labels for GroundingDINO
@@ -329,7 +335,9 @@ CONDITION_KEYWORDS = [
 ]
 
 # Surfaces we NEVER want to draw bounding boxes on
+# These are generic surface labels that produce huge, low-value chips
 BANNED_SURFACE_LABELS = {
+    # Exact matches only - single words
     "ceiling",
     "ceilings",
     "wall",
@@ -338,6 +346,7 @@ BANNED_SURFACE_LABELS = {
     "floors",
     "flooring",
     "carpet",
+    # Compound surface terms we explicitly ban
     "hardwood_floor",
     "wood_floor",
     "laminate_floor",
@@ -345,32 +354,82 @@ BANNED_SURFACE_LABELS = {
     "basement_walls",
     "tile_floor",
     "vinyl_floor",
+    "floor_tiles",
+    "carpet_floor",
+    "concrete_floor",
+    "wood_flooring",
+    "laminate_flooring",
+}
+
+# Fixtures that contain surface words but ARE valid targets
+# These override the token-based check
+ALLOWED_FIXTURE_PATTERNS = {
+    "floor_lamp",
+    "floor_vent",
+    "floor_drain",
+    "floor_register",
+    "ceiling_fan",
+    "ceiling_light",
+    "ceiling_fixture",
+    "wall_sconce",
+    "wall_mount",
+    "wall_outlet",
+    "wall_switch",
+    "wall_vent",
 }
 
 
 def _is_banned_surface_label(label: str) -> bool:
     """
-    Return True if label or any of its underscore-separated tokens
-    is a generic wall/ceiling/floor surface.
-    This lets us block things like 'wall', 'walls', 'floor_tiles', 'carpet_floor', etc.
+    Return True if label is a generic wall/ceiling/floor surface.
+
+    We want to ban:
+    - Single-word surfaces: "wall", "floor", "ceiling", "carpet"
+    - Surface compound terms: "tile_floor", "hardwood_floor", "basement_walls"
+
+    We do NOT want to ban fixtures that happen to contain surface words:
+    - "floor_lamp", "ceiling_fan", "wall_sconce" are valid fixtures
     """
     if not label:
         return False
     norm = _sanitize_term(label).replace(" ", "_")
-    tokens = norm.split("_")
 
-    # Ban if the full label is in the banned set
+    # Check explicit allowlist first - these are valid fixtures
+    if norm in ALLOWED_FIXTURE_PATTERNS:
+        return False
+
+    # Check if the full normalized label is in the banned set
     if norm in BANNED_SURFACE_LABELS:
         return True
 
-    # Ban if ANY token is a banned surface word
-    return any(t in BANNED_SURFACE_LABELS for t in tokens)
+    # For single-token labels, check if it's a banned surface word
+    tokens = norm.split("_")
+    if len(tokens) == 1:
+        return norm in {"ceiling", "ceilings", "wall", "walls", "floor", "floors", "flooring", "carpet"}
+
+    # For multi-token labels, only ban if the LAST token indicates it's a surface
+    # e.g., "tile_floor" (surface) vs "floor_lamp" (fixture)
+    # The pattern: <material>_<surface> should be banned
+    #              <surface>_<fixture> should be allowed
+    surface_words = {"floor", "floors", "flooring", "wall", "walls", "ceiling", "ceilings", "carpet"}
+    last_token = tokens[-1]
+
+    # If it ends with a surface word, it's probably a surface type
+    if last_token in surface_words:
+        return True
+
+    return False
 
 
 def _filter_banned_surface_targets(targets: List[Dict]) -> List[Dict]:
     """
-    Drop any target whose label or synonyms are generic wall/ceiling/floor
-    so they never become GroundingDINO terms.
+    Filter targets to remove generic surfaces from becoming GroundingDINO terms.
+
+    - Drop targets whose LABEL is a banned surface (wall, floor, ceiling, etc.)
+    - Strip banned surface words from synonyms (but keep the target if label is good)
+
+    This is less aggressive than before: a good label like "cabinet_door" won't be
+    dropped just because the VLM included "kitchen wall" in the synonyms.
     """
     filtered: List[Dict] = []
     for t in targets or []:
@@ -378,23 +437,16 @@ def _filter_banned_surface_targets(targets: List[Dict]) -> List[Dict]:
             continue
 
         label = t.get("label", "")
-        synonyms = t.get("synonyms", [])
-        if not isinstance(synonyms, list):
-            synonyms = []
 
-        # Check label
+        # Only check the label for ban decision
         if _is_banned_surface_label(label):
             continue
 
-        # Check synonyms
-        banned = False
-        for s in synonyms:
-            if _is_banned_surface_label(str(s)):
-                banned = True
-                break
-
-        if banned:
-            continue
+        # Clean synonyms: strip any banned surface words, but don't drop the target
+        synonyms = t.get("synonyms", [])
+        if isinstance(synonyms, list):
+            clean_synonyms = [s for s in synonyms if not _is_banned_surface_label(str(s))]
+            t["synonyms"] = clean_synonyms
 
         filtered.append(t)
 
@@ -411,32 +463,24 @@ logger = logging.getLogger(__name__)
 
 # ── Data Classes ─────────────────────────────────────────────────────────────
 @dataclass
-class SceneClassification:
-    scene: str
-    is_staged: bool
-    reasoning: str
-    targets: List[Dict]
-    gdino_terms: List[str]
-    keywords: List[str]
-    groundingdino_prompt: str
-    processing_time: float = 0.0
-    prompt_version: str = PROMPT_VERSION
-    scene_policy_version: str = "v1"
-    raw_response: Optional[str] = None  # classification raw
-    planner_raw_response: Optional[str] = None  # planner raw
+class VLMDebugOutput:
+    """Container for a single VLM call's debug info."""
+    pass_name: str
+    prompt_summary: str  # Brief description of what was asked
+    raw_response: str
+    parsed_result: Optional[Dict] = None  # Parsed JSON if applicable
+    duration_seconds: float = 0.0
     error: Optional[str] = None
-    image_summary: str = ""
-    overall_impression: str = ""
-    issues_natural_language: List[NLIssue] = field(default_factory=list)
-    catalog_flags: Dict[str, CatalogFlag] = field(default_factory=dict)
-    issue_visual_anchors: List[VisualAnchor] = field(default_factory=list)
 
 
 @dataclass
-class SceneSummary:
-    scene: str
-    image_summary: str
-    overall_impression: str
+class VLMDebugOutputs:
+    """Container for ALL VLM outputs from a single image classification."""
+    pass1_scene_summary: Optional[VLMDebugOutput] = None
+    pass2a_freeform_notes: Optional[VLMDebugOutput] = None
+    pass2b_defect_structuring: Optional[VLMDebugOutput] = None
+    pass3_staging_detection: Optional[VLMDebugOutput] = None
+    pass4_target_planning: Optional[VLMDebugOutput] = None
 
 
 Presence = Literal["yes", "no", "uncertain"]
@@ -460,9 +504,17 @@ class CatalogFlag:
 
 @dataclass
 class DefectAnalysis:
+    """
+    Output of Pass 2b (text-only defect structuring).
+
+    This pass is intentionally limited to:
+    - issues_natural_language: 0–5 calm, factual issues extracted from the freeform notes
+    - catalog_flags: presence / severity / evidence for every catalog issue_id
+    - freeform_notes: the raw text from Pass 2a (for debugging / UI)
+    """
     issues_natural_language: List[NLIssue]
     catalog_flags: Dict[str, CatalogFlag]
-    targets: List[Dict]
+    freeform_notes: str = ""  # Raw text from Pass 2a
 
 
 @dataclass
@@ -471,6 +523,37 @@ class VisualAnchor:
     support_object_label: str
     bbox: List[float]
     confidence: float
+
+
+@dataclass
+class SceneSummary:
+    scene: str
+    image_summary: str
+    overall_impression: str
+
+
+@dataclass
+class SceneClassification:
+    scene: str
+    is_staged: bool
+    reasoning: str
+    targets: List[Dict]
+    gdino_terms: List[str]
+    keywords: List[str]
+    groundingdino_prompt: str
+    processing_time: float = 0.0
+    prompt_version: str = PROMPT_VERSION
+    scene_policy_version: str = "v1"
+    raw_response: Optional[str] = None  # classification raw (legacy, kept for compat)
+    planner_raw_response: Optional[str] = None  # planner raw (legacy)
+    error: Optional[str] = None
+    image_summary: str = ""
+    overall_impression: str = ""
+    issues_natural_language: List[NLIssue] = field(default_factory=list)
+    catalog_flags: Dict[str, CatalogFlag] = field(default_factory=dict)
+    issue_visual_anchors: List[VisualAnchor] = field(default_factory=list)
+    freeform_defect_notes: str = ""  # Raw text from Pass 2a
+    vlm_outputs: Optional[VLMDebugOutputs] = None  # All VLM outputs for debugging
 
 
 # ── Helper Functions ─────────────────────────────────────────────────────────
@@ -673,81 +756,19 @@ def _format_issues_for_planner(issues: List[NLIssue]) -> str:
     return "\n".join(lines)
 
 
-def build_defect_analysis_prompt(scene: str, issue_catalog: dict) -> str:
-    """
-    Build the prompt for the Defect Analysis pass.
-    This prompt:
-      - RECEIVES the scene label from run_scene_summary as context.
-      - RECEIVES the issue catalog (ids, names, descriptions).
-      - MUST NOT ask for scene or general summary again.
-      - ASKS ONLY for:
-          * issues_natural_language[]
-          * catalog_flags{issue_id -> present/evidence}
-          * targets[] with ROI hints (similar to existing planner behavior).
-    """
-    catalog_text = _format_catalog_for_prompt(issue_catalog)
-    catalog_ids = get_catalog_ids(issue_catalog)
-    catalog_list_str = ", ".join(catalog_ids)
-
-    return (
-        "You are an assistant that ONLY analyzes defects and renovation opportunities visible in a real-estate photo.\n"
-        "Do NOT restate the scene or provide a general description.\n"
-        f"scene: {scene}\n\n"
-        "ISSUE CATALOG (fixed ids, include ALL of them in catalog_flags):\n"
-        f"{catalog_text}\n\n"
-        "What to return (strict JSON only, no markdown):\n"
-        "{\n"
-        '  "issues_natural_language": [\n'
-        "    {\n"
-        '      "description": "<string>",\n'
-        '      "rough_category": "<cosmetic|moisture|structure|systems|exterior|opportunity>",\n'
-        '      "location_hint": "<string>"\n'
-        "    }\n"
-        "  ],\n"
-        '  "catalog_flags": {\n'
-        '    "<issue_id>": {\n'
-        '      "present": "yes|no|uncertain",\n'
-        '      "severity": "none|minor_repair|moderate_repair|full_replacement",\n'
-        '      "evidence": "<string or empty>"\n'
-        "    }\n"
-        "  },\n"
-        '  "targets": [\n'
-        "    {\n"
-        '      "label": "<string or issue_id>",\n'
-        '      "description": "<string>",\n'
-        '      "roi_hint": "<string>",\n'
-        '      "priority": "<low|medium|high or numeric>"\n'
-        "    }\n"
-        "  ]\n"
-        "}\n\n"
-        "Rules:\n"
-        "- Focus ONLY on defects/condition issues/renovation opportunities visible in the photo.\n"
-        "- Use rough_category from: cosmetic, moisture, structure, systems, exterior, opportunity.\n"
-        "- catalog_flags MUST include every issue_id from the catalog:"
-        f" {catalog_list_str}. If unsure, use 'uncertain'.\n"
-        "- For every issue_id in catalog_flags, ALWAYS include \"present\" and \"severity\". If you are unsure or it is not visible, use: \"present\": \"uncertain\", \"severity\": \"none\".\n"
-        "- When present == 'yes', add brief evidence text.\n"
-        "- severity meanings:\n"
-        "  * none: no meaningful issue or no work recommended based on this photo.\n"
-        "  * minor_repair: small/local repair (patch, touch-up, limited area of the component).\n"
-        "  * moderate_repair: visible issue that likely needs a more substantial repair to part of the component.\n"
-        "  * full_replacement: condition suggests replacing the entire component (roof, full countertop run, all cabinets, etc.).\n"
-        "- If present == 'no' or 'uncertain', set severity to 'none'.\n"
-        "- Use full_replacement only when the visible condition strongly suggests replacing the whole component, not just a small section.\n"
-        "- If the photo only shows a small portion of a component (e.g., a tiny piece of roof), avoid full_replacement unless that small portion clearly indicates severe widespread failure.\n"
-        "- targets should be actionable ROI hints (like planner targets) using concise labels.\n"
-        "- Respond with raw JSON only. Do NOT wrap in backticks or add explanations."
-    )
-
+# ═══════════════════════════════════════════════════════════════════════════════
+# PASS 1: Scene Summary
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def run_scene_summary(image_bytes: bytes, model_name: str, lm_studio_url: str = LM_STUDIO_URL,
-                      http_client=requests) -> SceneSummary:
+                      http_client=requests) -> tuple[SceneSummary, VLMDebugOutput]:
     """
     Run VLM Pass 1 for a single image:
     - Calls the VLM with the Pass 1 prompt.
     - Parses the JSON response.
-    - Returns a SceneSummary object.
+    - Returns a SceneSummary object AND the debug output.
     """
+    t0 = time.time()
     logger.debug("  Building scene summary prompt...")
     prompt = build_scene_summary_prompt()
     image_b64 = base64.b64encode(image_bytes).decode('utf-8')
@@ -776,6 +797,12 @@ def run_scene_summary(image_bytes: bytes, model_name: str, lm_studio_url: str = 
         "stream": False
     }
 
+    debug_output = VLMDebugOutput(
+        pass_name="pass1_scene_summary",
+        prompt_summary="Scene classification + overall impression (JSON)",
+        raw_response="",
+    )
+
     try:
         logger.debug(f"  Sending scene summary request to {lm_studio_url}...")
         resp = http_client.post(
@@ -785,13 +812,19 @@ def run_scene_summary(image_bytes: bytes, model_name: str, lm_studio_url: str = 
         )
         if resp.status_code != 200:
             logger.error(f"  Scene summary API error: HTTP {resp.status_code}")
+            debug_output.error = f"API error: HTTP {resp.status_code}"
+            debug_output.duration_seconds = time.time() - t0
             raise RuntimeError(f"API error: HTTP {resp.status_code} - {resp.text[:200]}")
 
         data = resp.json()
         raw_response = data["choices"][0]["message"]["content"]
         logger.debug(f"  Scene summary raw response length: {len(raw_response)} chars")
 
+        debug_output.raw_response = raw_response
+        debug_output.duration_seconds = time.time() - t0
+
         parsed = _extract_json(raw_response) or {}
+        debug_output.parsed_result = parsed
 
         scene = str(parsed.get("scene", "unknown"))
         overall_impression = str(parsed.get("overall_impression", "")).strip()
@@ -802,11 +835,13 @@ def run_scene_summary(image_bytes: bytes, model_name: str, lm_studio_url: str = 
             scene=scene,
             image_summary="",  # no longer used; kept for backward compatibility
             overall_impression=overall_impression,
-        )
+        ), debug_output
 
     except Exception as e:
         logger.error(f"  VLM Pass 1 (scene summary) failed: {e}")
-        return SceneSummary(scene="unknown", image_summary="", overall_impression="")
+        debug_output.error = str(e)
+        debug_output.duration_seconds = time.time() - t0
+        return SceneSummary(scene="unknown", image_summary="", overall_impression=""), debug_output
 
 
 def _normalize_presence(value: str) -> Presence:
@@ -854,34 +889,201 @@ def _normalize_severity(value: str) -> SeverityLabel:
     return mapping.get(v, "none")
 
 
-def run_defect_analysis(
+# ═══════════════════════════════════════════════════════════════════════════════
+# PASS 2a: Freeform Defect Notes (Vision + Simple Question → Plain Text)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+PASS_2A_USER_PROMPT = "What issues do you see that a realtor might want to know about? Dont be overdramatic. There might not be any issues at all"
+
+
+def run_freeform_defect_notes(
         image_bytes: bytes,
         scene: str,
-        issue_catalog: dict,
         model_name: str,
         lm_studio_url: str = LM_STUDIO_URL,
         http_client=requests,
-) -> DefectAnalysis:
+) -> tuple[str, VLMDebugOutput]:
     """
-    Run the Defect Analysis pass for a single image:
-      - Use build_defect_analysis_prompt(scene, issue_catalog) as the user prompt.
-      - Call the same VLM endpoint as used elsewhere.
-      - Parse raw JSON into a DefectAnalysis object.
-    """
-    logger.debug(f"  Building defect analysis prompt for scene='{scene}'...")
-    prompt = build_defect_analysis_prompt(scene, issue_catalog)
-    image_b64 = base64.b64encode(image_bytes).decode('utf-8')
-    catalog_ids = get_catalog_ids(issue_catalog)
-    logger.debug(f"  Catalog has {len(catalog_ids)} issue IDs to check")
+    Run VLM Pass 2a: Freeform defect notes.
 
+    This is a simple vision call with the image and a plain-text question.
+    Returns plain text (not JSON) - a narrative of what the VLM thinks are issues.
+
+    Args:
+        image_bytes: Raw bytes of the image
+        scene: Scene label from Pass 1 (for context, not included in prompt per spec)
+        model_name: LM Studio model name
+        lm_studio_url: LM Studio endpoint
+        http_client: HTTP client (for testing)
+
+    Returns:
+        Tuple of (freeform_notes: str, debug_output: VLMDebugOutput)
+    """
+    t0 = time.time()
+    logger.debug(f"  Pass 2a: Sending freeform defect notes request...")
+
+    image_b64 = base64.b64encode(image_bytes).decode('utf-8')
+
+    # Per the spec: exact user prompt, no extra instructions
     content = [
-        {"type": "text", "text": prompt},
+        {"type": "text", "text": PASS_2A_USER_PROMPT},
         {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
     ]
 
     messages = [
-        {"role": "system", "content": "You are a property photo analyzer. Respond with valid JSON only."},
+        {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": content},
+    ]
+
+    payload = {
+        "model": model_name,
+        "messages": messages,
+        "temperature": 0.1,  # Keep low for consistency
+        "max_tokens": 1024,
+        "stream": False,
+    }
+
+    debug_output = VLMDebugOutput(
+        pass_name="pass2a_freeform_notes",
+        prompt_summary=f"Freeform defect notes (plain text) for scene={scene}",
+        raw_response="",
+    )
+
+    try:
+        resp = http_client.post(
+            f"{lm_studio_url.rstrip('/')}/v1/chat/completions",
+            json=payload,
+            timeout=40,
+        )
+        if resp.status_code != 200:
+            logger.error(f"  Pass 2a API error: HTTP {resp.status_code}")
+            debug_output.error = f"API error: HTTP {resp.status_code}"
+            debug_output.duration_seconds = time.time() - t0
+            return "", debug_output
+
+        data = resp.json()
+        raw_response = data["choices"][0]["message"]["content"]
+        logger.debug(f"  Pass 2a raw response length: {len(raw_response)} chars")
+
+        debug_output.raw_response = raw_response
+        debug_output.duration_seconds = time.time() - t0
+        # No parsed_result for plain text
+
+        return raw_response.strip(), debug_output
+
+    except Exception as e:
+        logger.error(f"  Pass 2a (freeform notes) failed: {e}")
+        debug_output.error = str(e)
+        debug_output.duration_seconds = time.time() - t0
+        return "", debug_output
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PASS 2b: Defect Structuring (Text-only → Structured JSON)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def build_defect_structuring_prompt(scene: str, freeform_notes: str, issue_catalog: dict) -> str:
+    catalog_text = _format_catalog_for_prompt(issue_catalog)
+    catalog_ids = get_catalog_ids(issue_catalog)
+    catalog_list_str = ", ".join(catalog_ids)
+
+    return f"""You are a text analysis assistant that structures freeform property inspection notes into a conservative, factual JSON format.
+
+CONTEXT:
+- Scene type: {scene}
+- Issue catalog IDs: {catalog_list_str}
+
+FREEFORM NOTES (from a vision model looking at a property photo):
+---
+{freeform_notes}
+---
+
+ISSUE CATALOG REFERENCE:
+{catalog_text}
+
+YOUR TASK:
+Convert the freeform notes above into structured JSON. Be VERY CONSERVATIVE:
+- Treat the notes as potentially noisy or dramatic.
+- Only create issues for things that would typically require money, time, or a contractor to address (repair, replacement, or significant maintenance).
+- Layout, size, and preference items (e.g. small bedroom, single-car garage, mailbox at curb, houses close together) are NOT issues unless the notes clearly describe a safety concern or defect.
+- Avoid over-interpreting speculative language ("might be water damage", "could be unsafe") unless there is a clearly described visible condition.
+- If the notes say "no issues" or similar, output empty lists and mark all catalog_flags as "no".
+
+OUTPUT FORMAT (strict JSON only, no markdown):
+{{
+  "issues_natural_language": [
+    {{
+      "description": "<string: calm factual description of a visible, concrete issue>",
+      "rough_category": "<cosmetic|moisture|structure|systems|exterior|opportunity>",
+      "location_hint": "<string: where in the photo>"
+    }}
+  ],
+  "catalog_flags": {{
+    "<issue_id>": {{
+      "present": "yes|no|uncertain",
+      "severity": "none|minor_repair|moderate_repair|full_replacement",
+      "evidence": "<string or empty>"
+    }}
+  }}
+}}
+
+RULES:
+1. issues_natural_language:
+   - Only include items where there is a clearly visible condition or defect (e.g., staining, damage, heavy wear, missing component, obvious neglect).
+   - Do NOT create issues for normal, expected conditions such as:
+     * a standard-size garage door,
+     * a typical sloped driveway with no visible damage,
+     * a mailbox at the curb or property line,
+     * houses being close together in a subdivision.
+   - Light cosmetic yard care (slightly patchy grass, a few dry spots) should appear at most as a single low-severity cosmetic issue.
+
+2. catalog_flags:
+   - Include EVERY issue_id from the catalog ({catalog_list_str}).
+   - present:
+     * "yes" only if the notes clearly describe that specific issue as visible in the image.
+     * If the notes use words like "may", "might", "could", "potentially", or "possible" without describing an actual visible defect, set present="uncertain" and severity="none".
+     * "no" if the notes explicitly say the issue is not present.
+   - If present is "no" or "uncertain", force severity="none".
+   - Only use "moderate_repair" or "full_replacement" when the notes clearly imply substantial work, not just age or preference.
+   - evidence: short phrase from notes, or empty.
+
+Respond with raw JSON only. No markdown, no backticks, no explanations."""
+
+
+def run_defect_structuring(
+        scene: str,
+        freeform_notes: str,
+        issue_catalog: dict,
+        model_name: str,
+        lm_studio_url: str = LM_STUDIO_URL,
+        http_client=requests,
+) -> tuple[DefectAnalysis, VLMDebugOutput]:
+    """
+    Run VLM Pass 2b: Text-only structuring of freeform notes into DefectAnalysis.
+
+    This call does NOT include the image - it's purely text-based.
+
+    Args:
+        scene: Scene label from Pass 1
+        freeform_notes: Plain text notes from Pass 2a
+        issue_catalog: The issue catalog dict
+        model_name: LM Studio model name
+        lm_studio_url: LM Studio endpoint
+        http_client: HTTP client (for testing)
+
+    Returns:
+        Tuple of (DefectAnalysis, VLMDebugOutput)
+    """
+    t0 = time.time()
+    logger.debug(f"  Pass 2b: Structuring freeform notes for scene='{scene}'...")
+
+    catalog_ids = get_catalog_ids(issue_catalog)
+    prompt = build_defect_structuring_prompt(scene, freeform_notes, issue_catalog)
+
+    # Text-only: no image in this call
+    messages = [
+        {"role": "system", "content": "You are a structured data extraction assistant. Respond with valid JSON only."},
+        {"role": "user", "content": prompt},
     ]
 
     payload = {
@@ -892,27 +1094,43 @@ def run_defect_analysis(
         "stream": False,
     }
 
+    debug_output = VLMDebugOutput(
+        pass_name="pass2b_defect_structuring",
+        prompt_summary=f"Text-only structuring of freeform notes → JSON for scene={scene}",
+        raw_response="",
+    )
+
     default_flags = {
         iid: CatalogFlag(present="uncertain", evidence="", severity="none")
         for iid in catalog_ids
     }
 
     try:
-        logger.debug(f"  Sending defect analysis request to {lm_studio_url}...")
+        logger.debug(f"  Sending defect structuring request to {lm_studio_url}...")
         resp = http_client.post(
             f"{lm_studio_url.rstrip('/')}/v1/chat/completions",
             json=payload,
             timeout=40,
         )
         if resp.status_code != 200:
-            logger.error(f"  Defect analysis API error: HTTP {resp.status_code}")
-            raise RuntimeError(f"API error: HTTP {resp.status_code} - {resp.text[:200]}")
+            logger.error(f"  Pass 2b API error: HTTP {resp.status_code}")
+            debug_output.error = f"API error: HTTP {resp.status_code}"
+            debug_output.duration_seconds = time.time() - t0
+            return DefectAnalysis(
+                issues_natural_language=[],
+                catalog_flags=default_flags,
+                freeform_notes=freeform_notes,
+            ), debug_output
 
         data = resp.json()
         raw_response = data["choices"][0]["message"]["content"]
-        logger.debug(f"  Defect analysis raw response length: {len(raw_response)} chars")
+        logger.debug(f"  Pass 2b raw response length: {len(raw_response)} chars")
+
+        debug_output.raw_response = raw_response
+        debug_output.duration_seconds = time.time() - t0
 
         parsed = _extract_json(raw_response) or {}
+        debug_output.parsed_result = parsed
 
         # Parse issues_natural_language
         nl_issues: List[NLIssue] = []
@@ -968,21 +1186,26 @@ def run_defect_analysis(
 
         logger.debug(f"  Catalog flags: {issues_present}/{len(catalog_ids)} issues marked present")
 
-        # Parse targets
-        parsed_targets = parsed.get("targets", []) or []
-        targets = parsed_targets if isinstance(parsed_targets, list) else []
-        logger.debug(f"  Found {len(targets)} defect targets")
-
         return DefectAnalysis(
             issues_natural_language=nl_issues,
             catalog_flags=catalog_flags,
-            targets=targets,
-        )
+            freeform_notes=freeform_notes,
+        ), debug_output
 
     except Exception as e:
-        logger.error(f"  Defect analysis failed: {e}")
-        return DefectAnalysis(issues_natural_language=[], catalog_flags=default_flags, targets=[])
+        logger.error(f"  Pass 2b (defect structuring) failed: {e}")
+        debug_output.error = str(e)
+        debug_output.duration_seconds = time.time() - t0
+        return DefectAnalysis(
+            issues_natural_language=[],
+            catalog_flags=default_flags,
+            freeform_notes=freeform_notes,
+        ), debug_output
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PASS 3: Staging Detection
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def build_staging_prompt(scene: str) -> str:
     """Build prompt for staging detection only (scene already determined)."""
@@ -1012,6 +1235,85 @@ def build_staging_prompt(scene: str) -> str:
         "}"
     )
 
+
+def run_staging_detection(
+        image_bytes: bytes,
+        scene: str,
+        model_name: str,
+        lm_studio_url: str = LM_STUDIO_URL,
+        http_client=requests,
+) -> tuple[bool, str, VLMDebugOutput]:
+    """
+    Run VLM Pass 3: Staging detection.
+
+    Returns:
+        Tuple of (is_staged: bool, reasoning: str, debug_output: VLMDebugOutput)
+    """
+    t0 = time.time()
+    logger.debug(f"  Pass 3: Staging detection for scene='{scene}'...")
+
+    image_b64 = base64.b64encode(image_bytes).decode('utf-8')
+    prompt = build_staging_prompt(scene)
+
+    content = [
+        {"type": "text", "text": prompt},
+        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+    ]
+
+    messages = [
+        {"role": "system", "content": "You are a property photo analyzer. Respond with valid JSON only."},
+        {"role": "user", "content": content},
+    ]
+
+    payload = {
+        "model": model_name,
+        "messages": messages,
+        "temperature": 0.1,
+        "max_tokens": 1024,
+        "stream": False,
+    }
+
+    debug_output = VLMDebugOutput(
+        pass_name="pass3_staging_detection",
+        prompt_summary=f"Staging detection (is_staged + reasoning) for scene={scene}",
+        raw_response="",
+    )
+
+    try:
+        resp = http_client.post(
+            f"{lm_studio_url.rstrip('/')}/v1/chat/completions",
+            json=payload,
+            timeout=30,
+        )
+        if resp.status_code != 200:
+            debug_output.error = f"API error: HTTP {resp.status_code}"
+            debug_output.duration_seconds = time.time() - t0
+            return True, "API error, defaulting to staged", debug_output
+
+        data = resp.json()
+        raw_response = data["choices"][0]["message"]["content"]
+
+        debug_output.raw_response = raw_response
+        debug_output.duration_seconds = time.time() - t0
+
+        parsed = _extract_json(raw_response) or {}
+        debug_output.parsed_result = parsed
+
+        is_staged = _to_bool(parsed.get("is_staged", True))
+        reasoning = str(parsed.get("reasoning", ""))[:200]
+
+        return is_staged, reasoning, debug_output
+
+    except Exception as e:
+        logger.error(f"  Pass 3 (staging detection) failed: {e}")
+        debug_output.error = str(e)
+        debug_output.duration_seconds = time.time() - t0
+        return True, "Error, defaulting to staged", debug_output
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# PASS 4: Issue-Driven Target Planning
+# ═══════════════════════════════════════════════════════════════════════════════
 
 def get_scene_policy(scene: str) -> str:
     """
@@ -1133,6 +1435,92 @@ def build_planner_prompt(scene: str, is_staged: bool, policy_block: str,
     )
 
 
+def run_target_planning(
+        image_bytes: bytes,
+        scene: str,
+        is_staged: bool,
+        issues: List[NLIssue],
+        max_targets: int,
+        allow_free: int,
+        model_name: str,
+        lm_studio_url: str = LM_STUDIO_URL,
+        http_client=requests,
+) -> tuple[List[Dict], str, VLMDebugOutput]:
+    """
+    Run VLM Pass 4: Issue-driven target planning.
+
+    Returns:
+        Tuple of (targets: List[Dict], reasoning: str, debug_output: VLMDebugOutput)
+    """
+    t0 = time.time()
+    logger.debug(f"  Pass 4: Target planning for scene='{scene}'...")
+
+    image_b64 = base64.b64encode(image_bytes).decode('utf-8')
+    policy_block = get_scene_policy(scene)
+    prompt = build_planner_prompt(scene, is_staged, policy_block, max_targets, allow_free, issues)
+
+    content = [
+        {"type": "text", "text": prompt},
+        {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}},
+    ]
+
+    messages = [
+        {"role": "system",
+         "content": "You are an expert at analyzing real-estate listing photos. Respond with valid JSON only."},
+        {"role": "user", "content": content},
+    ]
+
+    payload = {
+        "model": model_name,
+        "messages": messages,
+        "temperature": 0.1,
+        "max_tokens": 2048,
+        "stream": False,
+    }
+
+    debug_output = VLMDebugOutput(
+        pass_name="pass4_target_planning",
+        prompt_summary=f"Issue-driven target planning for scene={scene}, {len(issues)} issues",
+        raw_response="",
+    )
+
+    try:
+        resp = http_client.post(
+            f"{lm_studio_url.rstrip('/')}/v1/chat/completions",
+            json=payload,
+            timeout=30,
+        )
+        if resp.status_code != 200:
+            debug_output.error = f"API error: HTTP {resp.status_code}"
+            debug_output.duration_seconds = time.time() - t0
+            return [], "API error", debug_output
+
+        data = resp.json()
+        raw_response = data["choices"][0]["message"]["content"]
+
+        debug_output.raw_response = raw_response
+        debug_output.duration_seconds = time.time() - t0
+
+        parsed = _extract_json(raw_response) or {}
+        debug_output.parsed_result = parsed
+
+        reasoning = str(parsed.get("reasoning", ""))[:200]
+        raw_targets = parsed.get("targets", []) or []
+        targets = _filter_banned_surface_targets(raw_targets)[:max_targets]
+
+        return targets, reasoning, debug_output
+
+    except Exception as e:
+        logger.error(f"  Pass 4 (target planning) failed: {e}")
+        debug_output.error = str(e)
+        debug_output.duration_seconds = time.time() - t0
+        return [], "Error", debug_output
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Utility Functions
+# ═══════════════════════════════════════════════════════════════════════════════
+
 def keywords_for_scene(scene: str,
                        is_staged: bool = True,
                        include_conditions: bool = False,
@@ -1172,58 +1560,65 @@ def format_for_grounding_dino(keywords: List[str]) -> str:
     """
     Format keywords as GroundingDINO text prompt.
 
-    GroundingDINO expects: "object1. object2. object3."
+    GroundingDINO expects lowercase, period-separated terms.
+    Example: "sofa . coffee table . fireplace"
     """
     if not keywords:
         return ""
-    return ". ".join(keywords) + "."
+
+    # Clean and deduplicate
+    cleaned = _clean_keywords(keywords)
+
+    # Join with " . " separator
+    return " . ".join(cleaned)
 
 
 def run_groundingdino_for_issues(
         image_path: Path,
         defect_analysis: DefectAnalysis,
-        config_path: Path = DEFAULT_DINO_CONFIG,
-        weights_path: Path = DEFAULT_DINO_WEIGHTS,
         box_threshold: float = 0.35,
         text_threshold: float = 0.25,
-        device: Optional[str] = None,
 ) -> List[VisualAnchor]:
     """
-    For each issue_id with present == 'yes' in defect_analysis.catalog_flags:
-      - Look up support-object labels from ANCHOR_MAP.
-      - For each support-object label, call GroundingDINO to detect that object.
-      - For each detection, create a VisualAnchor(issue_id, support_object_label, bbox, confidence).
+    Run GroundingDINO on catalog issues marked 'present' to produce visual anchors.
     """
-    anchors: List[VisualAnchor] = []
     try:
-        from groundingdino.util.inference import load_model, load_image, predict
         import torch
-    except Exception as exc:
-        logger.error(f"GroundingDINO dependencies unavailable: {exc}")
-        return anchors
+        from groundingdino.util.inference import load_model, load_image, predict
+    except ImportError as ie:
+        logger.warning(f"GroundingDINO not available: {ie}")
+        return []
 
-    if not config_path.exists() or not weights_path.exists():
-        logger.warning(
-            f"GroundingDINO config/weights missing (config={config_path}, weights={weights_path}); skipping anchors."
-        )
-        return anchors
+    # Find issues marked present
+    present_ids = [
+        iid for iid, flag in defect_analysis.catalog_flags.items()
+        if flag.present == "yes"
+    ]
+    if not present_ids:
+        logger.debug("No issues marked present; skipping GroundingDINO anchors.")
+        return []
 
-    dev = device or ("cuda" if torch.cuda.is_available() else "cpu")
-    try:
-        model = load_model(str(config_path), str(weights_path), device=dev)
-        image_source, image_tensor = load_image(str(image_path))
-        height, width = image_source.shape[:2]
-    except Exception as exc:
-        logger.error(f"Failed to initialize GroundingDINO: {exc}")
-        return anchors
+    # Load model once
+    if not DEFAULT_DINO_CONFIG.exists() or not DEFAULT_DINO_WEIGHTS.exists():
+        logger.warning("GroundingDINO config or weights not found; skipping anchors.")
+        return []
 
-    for issue_id, flag in defect_analysis.catalog_flags.items():
-        if flag.present != "yes":
-            continue
-        labels = ANCHOR_MAP.get(issue_id)
+    dev = "cuda" if torch.cuda.is_available() else "cpu"
+    model = load_model(str(DEFAULT_DINO_CONFIG), str(DEFAULT_DINO_WEIGHTS), device=dev)
+    image_tensor, _ = load_image(str(image_path))
+
+    from PIL import Image
+    with Image.open(image_path) as pil_img:
+        width, height = pil_img.size
+
+    anchors: List[VisualAnchor] = []
+
+    for issue_id in present_ids:
+        labels = ANCHOR_MAP.get(issue_id, [])
         if not labels:
             continue
-        prompt = ". ".join(labels) + "."
+        prompt = " . ".join(labels)
+
         try:
             boxes, logits, phrases = predict(
                 model,
@@ -1255,7 +1650,10 @@ def run_groundingdino_for_issues(
     return anchors
 
 
-# ── Scene Classifier Class ───────────────────────────────────────────────────
+# ═══════════════════════════════════════════════════════════════════════════════
+# Scene Classifier Class
+# ═══════════════════════════════════════════════════════════════════════════════
+
 class SceneClassifier:
     def __init__(self, lm_studio_url: str = LM_STUDIO_URL,
                  model_name: str = DEFAULT_MODEL,
@@ -1324,12 +1722,21 @@ class SceneClassifier:
 
         logger.info(f"")
         logger.info(f"[{img_name}] {'═' * 60}")
-        logger.info(f"[{img_name}] Starting classification pipeline")
+        logger.info(f"[{img_name}] Starting classification pipeline (5 VLM passes)")
+
+        # Initialize debug outputs container
+        vlm_outputs = VLMDebugOutputs()
 
         scene_summary = SceneSummary(scene="unknown", image_summary="", overall_impression="")
-        catalog_default_flags = {iid: CatalogFlag(present="uncertain", evidence="") for iid in
-                                 get_catalog_ids(self.issue_catalog)}
-        defect_analysis = DefectAnalysis(issues_natural_language=[], catalog_flags=catalog_default_flags, targets=[])
+        catalog_default_flags = {
+            iid: CatalogFlag(present="uncertain", evidence="")
+            for iid in get_catalog_ids(self.issue_catalog)
+        }
+        defect_analysis = DefectAnalysis(
+            issues_natural_language=[],
+            catalog_flags=catalog_default_flags,
+            freeform_notes="",
+        )
 
         try:
             if not image_path.exists():
@@ -1340,193 +1747,104 @@ class SceneClassifier:
             image_bytes = image_path.read_bytes()
 
             # ═══════════════════════════════════════════════════════════════════
-            # PASS 1: Scene Summary (VLM call 1/4)
+            # PASS 1: Scene Summary (VLM call 1/5)
             # ═══════════════════════════════════════════════════════════════════
             t_pass1 = time.time()
-            logger.info(f"[{img_name}] PASS 1: Scene Summary (VLM call 1/4)")
-            scene_summary = run_scene_summary(image_bytes, self.model_name, self.lm_studio_url)
+            logger.info(f"[{img_name}] PASS 1: Scene Summary (VLM call 1/5)")
+            scene_summary, pass1_debug = run_scene_summary(image_bytes, self.model_name, self.lm_studio_url)
+            vlm_outputs.pass1_scene_summary = pass1_debug
             pass1_duration = time.time() - t_pass1
             logger.info(f"[{img_name}] PASS 1 complete: scene='{scene_summary.scene}' ({pass1_duration:.2f}s)")
             if scene_summary.overall_impression:
                 logger.debug(f"[{img_name}]   Impression: {scene_summary.overall_impression[:100]}...")
 
             # ═══════════════════════════════════════════════════════════════════
-            # PASS 2: Defect Analysis (VLM call 2/4)
+            # PASS 2a: Freeform Defect Notes (VLM call 2/5)
             # ═══════════════════════════════════════════════════════════════════
-            t_pass2 = time.time()
+            t_pass2a = time.time()
             analysis_scene = self._normalize_scene(scene_summary.scene) if scene_summary.scene else "unknown"
-            logger.info(f"[{img_name}] PASS 2: Defect Analysis (VLM call 2/4) [scene={analysis_scene}]")
-            defect_analysis = run_defect_analysis(
+            logger.info(f"[{img_name}] PASS 2a: Freeform Defect Notes (VLM call 2/5) [scene={analysis_scene}]")
+            freeform_notes, pass2a_debug = run_freeform_defect_notes(
                 image_bytes,
                 analysis_scene,
+                self.model_name,
+                self.lm_studio_url,
+            )
+            vlm_outputs.pass2a_freeform_notes = pass2a_debug
+            pass2a_duration = time.time() - t_pass2a
+            notes_preview = freeform_notes[:100].replace('\n', ' ') if freeform_notes else "(empty)"
+            logger.info(f"[{img_name}] PASS 2a complete: {len(freeform_notes)} chars ({pass2a_duration:.2f}s)")
+            logger.debug(f"[{img_name}]   Notes preview: {notes_preview}...")
+
+            # ═══════════════════════════════════════════════════════════════════
+            # PASS 2b: Defect Structuring (VLM call 3/5) - TEXT ONLY
+            # ═══════════════════════════════════════════════════════════════════
+            t_pass2b = time.time()
+            logger.info(f"[{img_name}] PASS 2b: Defect Structuring (VLM call 3/5) [text-only]")
+            defect_analysis, pass2b_debug = run_defect_structuring(
+                analysis_scene,
+                freeform_notes,
                 self.issue_catalog,
                 self.model_name,
                 self.lm_studio_url,
             )
-            pass2_duration = time.time() - t_pass2
+            vlm_outputs.pass2b_defect_structuring = pass2b_debug
+            pass2b_duration = time.time() - t_pass2b
             issues_present = sum(1 for f in defect_analysis.catalog_flags.values() if f.present == "yes")
             logger.info(
-                f"[{img_name}] PASS 2 complete: {len(defect_analysis.issues_natural_language)} NL issues, {issues_present} catalog flags present ({pass2_duration:.2f}s)")
-
-            image_b64 = base64.b64encode(image_bytes).decode('utf-8')
+                f"[{img_name}] PASS 2b complete: {len(defect_analysis.issues_natural_language)} NL issues, {issues_present} catalog flags present ({pass2b_duration:.2f}s)")
 
             # ═══════════════════════════════════════════════════════════════════
-            # PASS 3: Staging Detection (VLM call 3/4)
+            # PASS 3: Staging Detection (VLM call 4/5)
             # ═══════════════════════════════════════════════════════════════════
             t_pass3 = time.time()
-            # Use the authoritative scene from Pass 1 for all subsequent passes
-            scene = analysis_scene  # This was normalized from scene_summary.scene
-            logger.info(f"[{img_name}] PASS 3: Staging Detection (VLM call 3/4) [scene={scene}]")
-
-            prompt = build_staging_prompt(scene)
-
-            content = [
-                {"type": "text", "text": prompt},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}
-                }
-            ]
-
-            messages = [
-                {
-                    "role": "system",
-                    "content": "You are a property photo analyzer. Respond with valid JSON only."
-                },
-                {"role": "user", "content": content}
-            ]
-
-            payload = {
-                "model": self.model_name,
-                "messages": messages,
-                "temperature": 0.1,
-                "max_tokens": 1024,  # Reduced since response is smaller now
-                "stream": False
-            }
-
-            if self.debug:
-                logger.debug(f"[{img_name}]   Sending staging detection request...")
-
-            # Make API request for staging detection
-            resp = requests.post(
-                f"{self.lm_studio_url}/v1/chat/completions",
-                json=payload,
-                timeout=30
+            scene = analysis_scene
+            logger.info(f"[{img_name}] PASS 3: Staging Detection (VLM call 4/5) [scene={scene}]")
+            is_staged, reasoning, pass3_debug = run_staging_detection(
+                image_bytes,
+                scene,
+                self.model_name,
+                self.lm_studio_url,
             )
-
-            if resp.status_code != 200:
-                raise RuntimeError(f"API error: HTTP {resp.status_code} - {resp.text[:200]}")
-
-            # Parse response
-            data = resp.json()
-            raw_response = data["choices"][0]["message"]["content"]
-
-            if self.debug:
-                logger.debug(f"[{img_name}]   Raw staging response: {raw_response[:300]}")
-
-            parsed = _extract_json(raw_response) or {}
-
-            # Extract staging info (scene is already determined from Pass 1)
-            is_staged = _to_bool(parsed.get("is_staged", True))
-            reasoning = str(parsed.get("reasoning", ""))[:200]
-
+            vlm_outputs.pass3_staging_detection = pass3_debug
             pass3_duration = time.time() - t_pass3
             staging_str = "STAGED" if is_staged else "VACANT"
             logger.info(
                 f"[{img_name}] PASS 3 complete: {staging_str}, reason='{reasoning[:50]}...' ({pass3_duration:.2f}s)")
 
             # ═══════════════════════════════════════════════════════════════════
-            # PASS 4: Issue-driven Target Planning (VLM call 4/4)
+            # PASS 4: Issue-driven Target Planning (VLM call 5/5)
             # ═══════════════════════════════════════════════════════════════════
             t_pass4 = time.time()
-            logger.info(f"[{img_name}] PASS 4: Issue-driven Target Planning (VLM call 4/4)")
+            logger.info(f"[{img_name}] PASS 4: Issue-driven Target Planning (VLM call 5/5)")
             logger.debug(
-                f"[{img_name}]   Using {len(defect_analysis.issues_natural_language)} issues from Pass 2 to guide target selection")
+                f"[{img_name}]   Using {len(defect_analysis.issues_natural_language)} issues from Pass 2b to guide target selection")
 
-            policy_block = get_scene_policy(scene)
-            planner_prompt = build_planner_prompt(
+            targets, planner_reasoning, pass4_debug = run_target_planning(
+                image_bytes,
                 scene,
                 is_staged,
-                policy_block,
+                defect_analysis.issues_natural_language,
                 self.max_targets,
                 self.allow_free_discoveries,
-                defect_analysis.issues_natural_language,  # Pass issues from defect analysis
+                self.model_name,
+                self.lm_studio_url,
             )
+            vlm_outputs.pass4_target_planning = pass4_debug
 
-            # Make second API call for planner
-            planner_content = [
-                {"type": "text", "text": planner_prompt},
-                {
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/jpeg;base64,{image_b64}"}
-                }
-            ]
-
-            planner_messages = [
-                {
-                    "role": "system",
-                    "content": "You are an expert at analyzing real-estate listing photos. Respond with valid JSON only."
-                },
-                {"role": "user", "content": planner_content}
-            ]
-
-            planner_payload = {
-                "model": self.model_name,
-                "messages": planner_messages,
-                "temperature": 0.1,
-                "max_tokens": 2048,
-                "stream": False
-            }
-
-            if self.debug:
-                logger.debug(f"[{img_name}]   Sending planner request...")
-
-            # Make planner API request
-            planner_resp = requests.post(
-                f"{self.lm_studio_url}/v1/chat/completions",
-                json=planner_payload,
-                timeout=30
-            )
-
-            targets = []
-            planner_raw = None  # Initialize
-            gdino_terms: List[str] = []
-
-            if planner_resp.status_code == 200:
-                planner_data = planner_resp.json()
-                planner_raw = planner_data["choices"][0]["message"]["content"]
-
-                if self.debug:
-                    logger.debug(f"[{img_name}]   Raw planner response: {planner_raw[:300]}")
-
-                planner_parsed = _extract_json(planner_raw) or {}
-
-                if self.debug and not planner_parsed:
-                    logger.warning(f"[{img_name}]   Planner JSON parse failed; falling back to scene core targets.")
-
-                # Update reasoning if planner provided one
-                if "reasoning" in planner_parsed:
-                    reasoning = str(planner_parsed["reasoning"])[:200]
-
-                # Extract targets
-                raw_targets = planner_parsed.get("targets", []) or []
-                targets = _filter_banned_surface_targets(raw_targets)[: self.max_targets]
-            else:
-                logger.warning(f"[{img_name}]   Planner API returned status {planner_resp.status_code}")
+            # Use planner reasoning if available
+            if planner_reasoning:
+                reasoning = planner_reasoning
 
             pass4_duration = time.time() - t_pass4
             logger.info(f"[{img_name}] PASS 4 complete: {len(targets)} targets from planner ({pass4_duration:.2f}s)")
 
             # ═══════════════════════════════════════════════════════════════════
-            # POST-PROCESSING: planner-only targets → GDINO terms
+            # POST-PROCESSING: Build GDINO terms from targets
             # ═══════════════════════════════════════════════════════════════════
-            logger.info(f"[{img_name}] Post-processing: using planner targets only and building GDINO terms")
-            logger.debug(
-                f"[{img_name}]   Planner targets: {len(targets)}, "
-                f"defect-analysis targets (not used for detection): {len(defect_analysis.targets or [])}"
-            )
+            logger.info(f"[{img_name}] Post-processing: building GDINO terms from planner targets")
 
-            # Build gdino_terms from planner targets
+            gdino_terms: List[str] = []
             if targets:
                 all_terms = []
                 for target in targets:
@@ -1536,25 +1854,21 @@ class SceneClassifier:
                         label_term = _sanitize_term(target["label"]).replace("_", " ")
                         if label_term:
                             all_terms.append(label_term)
-
                 gdino_terms = dedup_preserving_order(all_terms)[:15]
 
             # Fallback if no targets
             if not gdino_terms:
                 logger.warning(f"[{img_name}]   No GDINO terms from targets, creating fallback from scene keywords")
                 targets = self._create_fallback_targets(scene)
-                # Filter banned surfaces from fallback targets too
                 targets = _filter_banned_surface_targets(targets)
-                # Build gdino_terms from fallback
                 all_terms = []
                 for target in targets:
-                    # Convert snake_case label to spaced phrase for detector
                     label_term = _sanitize_term(target["label"]).replace("_", " ")
                     if label_term:
                         all_terms.append(label_term)
                 gdino_terms = dedup_preserving_order(all_terms)[:15]
 
-            # Compute scene-based keywords (core vs staging) - separate from issues-driven gdino_terms
+            # Compute scene-based keywords
             keywords = keywords_for_scene(
                 scene,
                 is_staged=is_staged,
@@ -1581,11 +1895,9 @@ class SceneClassifier:
                     logger.error(f"[{img_name}]   Failed to generate GroundingDINO anchors: {exc}")
 
             # ═══════════════════════════════════════════════════════════════════
-            # FINALIZE: Build result (scene already determined from Pass 1)
+            # FINALIZE: Build result
             # ═══════════════════════════════════════════════════════════════════
-            # Scene is authoritatively set from Pass 1 (analysis_scene -> scene)
             final_scene = scene
-
             total_time = time.time() - t0
 
             result = SceneClassification(
@@ -1601,11 +1913,15 @@ class SceneClassifier:
                 issues_natural_language=defect_analysis.issues_natural_language,
                 catalog_flags=defect_analysis.catalog_flags,
                 issue_visual_anchors=issue_visual_anchors,
+                freeform_defect_notes=freeform_notes,
                 processing_time=total_time,
                 prompt_version=PROMPT_VERSION,
                 scene_policy_version=self.scene_policy_version,
-                raw_response=raw_response if self.debug else None,
-                planner_raw_response=planner_raw if self.debug else None
+                # Legacy fields for backward compatibility
+                raw_response=pass3_debug.raw_response if self.debug else None,
+                planner_raw_response=pass4_debug.raw_response if self.debug else None,
+                # New: all VLM outputs
+                vlm_outputs=vlm_outputs,
             )
 
             # Final summary log
@@ -1616,10 +1932,11 @@ class SceneClassifier:
             logger.info(f"[{img_name}]   NL Issues: {len(defect_analysis.issues_natural_language)}")
             logger.info(f"[{img_name}]   Catalog flags present: {issues_present}")
             logger.info(f"[{img_name}]   Total time: {total_time:.2f}s")
-            logger.info(f"[{img_name}]     Pass 1 (scene summary):     {pass1_duration:.2f}s")
-            logger.info(f"[{img_name}]     Pass 2 (defect analysis):   {pass2_duration:.2f}s")
-            logger.info(f"[{img_name}]     Pass 3 (staging detection): {pass3_duration:.2f}s")
-            logger.info(f"[{img_name}]     Pass 4 (issue-driven planning): {pass4_duration:.2f}s")
+            logger.info(f"[{img_name}]     Pass 1 (scene summary):      {pass1_duration:.2f}s")
+            logger.info(f"[{img_name}]     Pass 2a (freeform notes):    {pass2a_duration:.2f}s")
+            logger.info(f"[{img_name}]     Pass 2b (defect structuring): {pass2b_duration:.2f}s")
+            logger.info(f"[{img_name}]     Pass 3 (staging detection):  {pass3_duration:.2f}s")
+            logger.info(f"[{img_name}]     Pass 4 (target planning):    {pass4_duration:.2f}s")
             logger.info(f"[{img_name}] {'═' * 60}")
 
             return result
@@ -1632,19 +1949,15 @@ class SceneClassifier:
             # Create fallback response
             fallback_scene = self._normalize_scene(scene_summary.scene) if scene_summary.scene else "unknown"
             fallback_targets = self._create_fallback_targets(fallback_scene)
-            # Filter banned surfaces from fallback targets
             fallback_targets = _filter_banned_surface_targets(fallback_targets)
 
-            # Build gdino_terms from fallback
             all_terms = []
             for target in fallback_targets:
-                # Convert snake_case label to spaced phrase for detector
                 label_term = _sanitize_term(target["label"]).replace("_", " ")
                 if label_term:
                     all_terms.append(label_term)
             gdino_terms = dedup_preserving_order(all_terms)[:15]
 
-            # Compute scene-based keywords (separate from gdino_terms)
             fallback_keywords = keywords_for_scene(
                 fallback_scene,
                 is_staged=False,
@@ -1669,12 +1982,14 @@ class SceneClassifier:
                 issues_natural_language=defect_analysis.issues_natural_language,
                 catalog_flags=defect_analysis.catalog_flags,
                 issue_visual_anchors=[],
+                freeform_defect_notes=defect_analysis.freeform_notes,
                 error=str(e),
                 processing_time=total_time,
                 prompt_version=PROMPT_VERSION,
                 scene_policy_version=self.scene_policy_version,
                 raw_response=None,
-                planner_raw_response=None
+                planner_raw_response=None,
+                vlm_outputs=vlm_outputs,
             )
 
     def classify_batch(self, image_paths: List[Path],
@@ -1708,30 +2023,7 @@ class SceneClassifier:
             }
 
             for path, classification in results.items():
-                result_data = {
-                    "scene": classification.scene,
-                    "image_summary": classification.image_summary,
-                    "overall_impression": classification.overall_impression,
-                    "is_staged": classification.is_staged,
-                    "reasoning": classification.reasoning,
-                    "targets": classification.targets,
-                    "gdino_terms": classification.gdino_terms,
-                    "keywords": classification.keywords,
-                    "groundingdino_prompt": classification.groundingdino_prompt,
-                    "issues_natural_language": [asdict(issue) for issue in classification.issues_natural_language],
-                    "catalog_flags": _serialize_catalog_flags(classification.catalog_flags),
-                    "issue_visual_anchors": [asdict(anchor) for anchor in classification.issue_visual_anchors],
-                    "processing_time": classification.processing_time,
-                    "prompt_version": classification.prompt_version,
-                    "scene_policy_version": classification.scene_policy_version,
-                    "error": classification.error
-                }
-                # Add debug fields if available
-                if classification.raw_response:
-                    result_data["raw_response"] = classification.raw_response
-                if classification.planner_raw_response:
-                    result_data["planner_raw_response"] = classification.planner_raw_response
-
+                result_data = _serialize_classification(classification)
                 output["classifications"][path] = result_data
 
             results_file = Path("scene_classifications.json")
@@ -1758,6 +2050,67 @@ class SceneClassifier:
         logger.info(f"{'█' * 70}")
 
         return results
+
+
+def _serialize_vlm_debug_output(output: Optional[VLMDebugOutput]) -> Optional[Dict]:
+    """Serialize a VLMDebugOutput to a dict."""
+    if output is None:
+        return None
+    return {
+        "pass_name": output.pass_name,
+        "prompt_summary": output.prompt_summary,
+        "raw_response": output.raw_response,
+        "parsed_result": output.parsed_result,
+        "duration_seconds": output.duration_seconds,
+        "error": output.error,
+    }
+
+
+def _serialize_vlm_debug_outputs(outputs: Optional[VLMDebugOutputs]) -> Optional[Dict]:
+    """Serialize all VLM debug outputs to a dict."""
+    if outputs is None:
+        return None
+    return {
+        "pass1_scene_summary": _serialize_vlm_debug_output(outputs.pass1_scene_summary),
+        "pass2a_freeform_notes": _serialize_vlm_debug_output(outputs.pass2a_freeform_notes),
+        "pass2b_defect_structuring": _serialize_vlm_debug_output(outputs.pass2b_defect_structuring),
+        "pass3_staging_detection": _serialize_vlm_debug_output(outputs.pass3_staging_detection),
+        "pass4_target_planning": _serialize_vlm_debug_output(outputs.pass4_target_planning),
+    }
+
+
+def _serialize_classification(classification: SceneClassification) -> Dict:
+    """Serialize a SceneClassification to a dict for JSON output."""
+    result = {
+        "scene": classification.scene,
+        "image_summary": classification.image_summary,
+        "overall_impression": classification.overall_impression,
+        "is_staged": classification.is_staged,
+        "reasoning": classification.reasoning,
+        "targets": classification.targets,
+        "gdino_terms": classification.gdino_terms,
+        "keywords": classification.keywords,
+        "groundingdino_prompt": classification.groundingdino_prompt,
+        "issues_natural_language": [asdict(issue) for issue in classification.issues_natural_language],
+        "catalog_flags": _serialize_catalog_flags(classification.catalog_flags),
+        "issue_visual_anchors": [asdict(anchor) for anchor in classification.issue_visual_anchors],
+        "freeform_defect_notes": classification.freeform_defect_notes,
+        "processing_time": classification.processing_time,
+        "prompt_version": classification.prompt_version,
+        "scene_policy_version": classification.scene_policy_version,
+        "error": classification.error,
+    }
+
+    # Always include VLM outputs for debugging
+    result["vlm_outputs"] = _serialize_vlm_debug_outputs(classification.vlm_outputs)
+
+    # Legacy fields (for backward compatibility)
+    if classification.raw_response:
+        result["raw_response"] = classification.raw_response
+    if classification.planner_raw_response:
+        result["planner_raw_response"] = classification.planner_raw_response
+
+    return result
 
 
 # ── CLI ──────────────────────────────────────────────────────────────────────
@@ -1880,29 +2233,8 @@ def main():
 
         output = {
             "image": str(image_paths[0]),
-            "scene": result.scene,
-            "image_summary": result.image_summary,
-            "overall_impression": result.overall_impression,
-            "is_staged": result.is_staged,
-            "reasoning": result.reasoning,
-            "targets": result.targets,
-            "gdino_terms": result.gdino_terms,
-            "keywords": result.keywords,
-            "groundingdino_prompt": result.groundingdino_prompt,
-            "issues_natural_language": [asdict(issue) for issue in result.issues_natural_language],
-            "catalog_flags": _serialize_catalog_flags(result.catalog_flags),
-            "issue_visual_anchors": [asdict(anchor) for anchor in result.issue_visual_anchors],
-            "processing_time": result.processing_time,
-            "prompt_version": result.prompt_version,
-            "scene_policy_version": result.scene_policy_version,
-            "error": result.error
+            **_serialize_classification(result)
         }
-
-        # Add debug fields if available
-        if result.raw_response:
-            output["raw_response"] = result.raw_response
-        if result.planner_raw_response:
-            output["planner_raw_response"] = result.planner_raw_response
 
         if args.output:
             with open(args.output, 'w', encoding='utf-8') as f:
@@ -1927,31 +2259,7 @@ def main():
             }
 
             for path, classification in results.items():
-                result_data = {
-                    "scene": classification.scene,
-                    "image_summary": classification.image_summary,
-                    "overall_impression": classification.overall_impression,
-                    "is_staged": classification.is_staged,
-                    "reasoning": classification.reasoning,
-                    "targets": classification.targets,
-                    "gdino_terms": classification.gdino_terms,
-                    "keywords": classification.keywords,
-                    "groundingdino_prompt": classification.groundingdino_prompt,
-                    "issues_natural_language": [asdict(issue) for issue in classification.issues_natural_language],
-                    "catalog_flags": _serialize_catalog_flags(classification.catalog_flags),
-                    "issue_visual_anchors": [asdict(anchor) for anchor in classification.issue_visual_anchors],
-                    "processing_time": classification.processing_time,
-                    "prompt_version": classification.prompt_version,
-                    "scene_policy_version": classification.scene_policy_version,
-                    "error": classification.error
-                }
-                # Add debug fields if available
-                if classification.raw_response:
-                    result_data["raw_response"] = classification.raw_response
-                if classification.planner_raw_response:
-                    result_data["planner_raw_response"] = classification.planner_raw_response
-
-                output["classifications"][path] = result_data
+                output["classifications"][path] = _serialize_classification(classification)
 
             with open(args.output, 'w', encoding='utf-8') as f:
                 json.dump(output, f, indent=2, ensure_ascii=False)
