@@ -39,6 +39,7 @@ PATH_OVERRIDE_KEYS = {
 STRING_OVERRIDE_KEYS = {
     "LM_STUDIO_URL",
     "LM_STUDIO_MODEL",
+    "DETECTION_BACKEND",  # 👈 allow env override for backend
 }
 
 
@@ -73,13 +74,6 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--chip-margin", type=float)
     parser.add_argument("--max-keywords", type=int)
     parser.add_argument(
-        "--include-common",
-        action="store_const",
-        const=True,
-        default=None,
-        help="Override config to include common objects",
-    )
-    parser.add_argument(
         "--include-conditions",
         action="store_const",
         const=True,
@@ -88,6 +82,15 @@ def _parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--no-verify", dest="skip_verification", action="store_true")
     parser.add_argument("--debug", action="store_true")
+
+    # Override detection backend for this run ("groundingdino" or "dinox")
+    parser.add_argument(
+        "--detection-backend",
+        dest="detection_backend",
+        choices=["groundingdino", "dinox"],
+        help="Override detection backend for this run",
+    )
+
     return parser.parse_args()
 
 
@@ -127,10 +130,10 @@ def main() -> int:
         text_threshold=args.text_threshold,
         chip_margin=args.chip_margin,
         max_keywords=args.max_keywords,
-        include_common=args.include_common,
         include_conditions=args.include_conditions,
         skip_verification=args.skip_verification,
         debug=args.debug,
+        detection_backend=args.detection_backend,  # 👈 wire through to AutoAnalyzer
     )
 
     job = analyzer.analyze_property(args.property_key, images)

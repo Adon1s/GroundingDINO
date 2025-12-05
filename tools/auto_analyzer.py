@@ -234,7 +234,6 @@ class AutoAnalyzer:
                  text_threshold: float = None,
                  chip_margin: float = None,
                  max_keywords: int = None,
-                 include_common: bool = None,
                  include_conditions: bool = None,
                  skip_verification: bool = None,
                  debug: bool = None):
@@ -246,7 +245,6 @@ class AutoAnalyzer:
         self.text_threshold = text_threshold if text_threshold is not None else cfg.TEXT_THRESHOLD
         self.chip_margin = chip_margin if chip_margin is not None else cfg.CHIP_MARGIN
         self.max_keywords = max_keywords if max_keywords is not None else cfg.MAX_KEYWORDS
-        self.include_common = include_common if include_common is not None else cfg.INCLUDE_COMMON
         self.include_conditions = include_conditions if include_conditions is not None else cfg.INCLUDE_CONDITIONS
         self.skip_verification = skip_verification if skip_verification is not None else cfg.SKIP_VERIFICATION
         self.debug = debug if debug is not None else cfg.DEBUG_MODE
@@ -780,7 +778,6 @@ class AutoAnalyzer:
                 "text_threshold": self.text_threshold,
                 "chip_margin": self.chip_margin,
                 "max_keywords": self.max_keywords,
-                "include_common": self.include_common,
                 "include_conditions": self.include_conditions,
                 "skip_verification": self.skip_verification,
                 "use_nms": getattr(cfg, "USE_NMS", True),

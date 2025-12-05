@@ -6,7 +6,7 @@ Edit this file to change pipeline parameters without touching the code.
 This version is configured for tools/ directory placement.
 All scripts are in the tools/ directory.
 """
-
+import os
 from pathlib import Path
 
 # ============================================================================
@@ -31,6 +31,75 @@ ARTIFACTS_ROOT = PROJECT_ROOT / "artifacts"
 LM_STUDIO_URL = "http://169.254.83.107:1234"
 LM_STUDIO_MODEL = "qwen/qwen3-vl-30b"
 
+# =============================================================================
+# DINO-X Configuration Variables
+# Add these to your pipeline_config.py to enable DINO-X backend support
+# =============================================================================
+
+# ─── Backend Selection ───────────────────────────────────────────────────────
+# Options: "groundingdino" (local) or "dinox" (remote API)
+DETECTION_BACKEND = "groundingdino"  # Default to local GroundingDINO
+
+# ─── DINO-X API Settings ─────────────────────────────────────────────────────
+# Get your API token from https://cloud.deepdataspace.com/
+DINOX_API_TOKEN = os.environ.get("DINOX_API_TOKEN", "")
+
+# API Endpoints (v2 API)
+DINOX_DETECTION_ENDPOINT = "https://api.deepdataspace.com/v2/task/dinox/detection"
+DINOX_STATUS_ENDPOINT = "https://api.deepdataspace.com/v2/task_status"
+
+# Model selection
+DINOX_MODEL = "DINO-X-1.0"
+
+# Detection targets - what outputs to request from DINO-X
+# Options typically include: "bbox", "mask", "keypoint"
+DINOX_TARGETS = ["bbox"]
+
+# Thresholds
+DINOX_BBOX_THRESHOLD = 0.25  # Minimum confidence for bounding boxes
+DINOX_IOU_THRESHOLD = 0.8    # IoU threshold for NMS on DINO-X side
+
+# Timeouts (in seconds)
+DINOX_REQUEST_TIMEOUT = 60   # Timeout for individual HTTP requests
+DINOX_POLL_TIMEOUT = 120     # Max time to wait for task completion
+DINOX_POLL_INTERVAL = 1.0    # Seconds between status polls
+
+
+# =============================================================================
+# Usage Examples
+# =============================================================================
+#
+# 1. Using local GroundingDINO (default):
+#    DETECTION_BACKEND = "groundingdino"
+#
+# 2. Using DINO-X API:
+#    DETECTION_BACKEND = "dinox"
+#    DINOX_API_TOKEN = "your-api-token-here"
+#
+# 3. Setting token via environment variable (recommended for security):
+#    export DINOX_API_TOKEN="your-api-token-here"
+#
+# 4. Programmatic override when creating analyzer:
+#    analyzer = AutoAnalyzer(detection_backend="dinox")
+#
+# =============================================================================
+# Notes
+# =============================================================================
+#
+# - When using DINO-X, chip extraction is not available, so skip_verification
+#   is automatically forced to True
+#
+# - Prompts are automatically normalized for DINO-X format:
+#   "water stain. cracked tile." -> "waterstain.crackedtile"
+#
+# - DINO-X detection results include a "source": "dinox" field for tracking
+#
+# - Raw DINO-X API responses are saved to dinox_raw.json for debugging
+#
+# - The pred.json schema remains compatible with the rest of your pipeline
+#   (NMS, ROI hints, overlays, photo_intel, etc. all work unchanged)
+#
+
 # ============================================================================
 # DETECTION PARAMETERS (GroundingDINO)
 # ============================================================================
@@ -42,8 +111,8 @@ CHIP_MARGIN = 0.15          # Extra margin around crops (0.15 = 15%)
 # SCENE CLASSIFICATION PARAMETERS
 # ============================================================================
 MAX_KEYWORDS = 25           # Maximum keywords per scene for detection
-INCLUDE_COMMON = True       # Include common objects (window, door, light, etc.)
 INCLUDE_CONDITIONS = False  # Include defect keywords (crack, stain, damage, etc.)
+INCLUDE_COMMON = True       # Include common object keywords in prompts
 
 # ============================================================================
 # VERIFICATION PARAMETERS
