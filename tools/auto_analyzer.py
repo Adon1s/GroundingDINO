@@ -1,30 +1,9 @@
 #!/usr/bin/env python3
 """
-Auto-Analyzer for RealtorVision
---------------------------------
-Orchestrates the complete automated property image analysis pipeline:
-1. Scene classification with keyword generation
-2. GroundingDINO detection
-3. Chip verification (optional)
-
-Usage:
-  python auto_analyzer.py --property-key redfin_12345 --images img1.jpg img2.jpg
-  python auto_analyzer.py --property-key zillow_99 --images-dir ./property_photos/
-  python auto_analyzer.py --property-key mls_88 --images img.jpg --no-verify
-
-Environment variables (required):
-  GDINO_PY            - Python executable for GroundingDINO venv
-  GDINO_CONFIG        - Path to GroundingDINO config
-  GDINO_CHECKPOINT    - Path to GroundingDINO weights
-  GDINO_INFER_SCRIPT  - Path to GroundingDINO inference script (demo/inference_on_a_image.py)
-  CHIP_VERIFIER_PY    - Path to chip_verifier.py
-  ANALYZER_CLI        - Path to analyzer_cli.py
-  ARTIFACTS_ROOT      - Output root directory
-  LM_STUDIO_URL       - LM Studio endpoint
-  LM_STUDIO_MODEL     - Model name
-
-Optional:
-  SCENE_CLASSIFIER_PY - Path to scene_classifier.py
+Auto-Analyzer for GroundingDINO Pipeline
+-----------------------------------------
+Orchestrates: Scene Classification → Detection → Verification → Property Summary
+Uses settings from pipeline_config.py
 """
 
 import os
@@ -32,73 +11,91 @@ import sys
 import json
 import time
 import uuid
+import shutil
 import subprocess
-import argparse
 import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime
 
-# ── Console encoding (Windows safety) ─────────────────────────────────────────
+from PIL import Image
+
+from run_pipeline import redraw_overlay
+from scene_classifier import load_issue_catalog
+
+# Import configuration
+try:
+    import pipeline_config as cfg
+except ImportError:
+    print("ERROR: pipeline_config.py not found!")
+    sys.exit(1)
+
+# Import renovation cost table from dedicated module
+try:
+    from renovation_costs import RENOVATION_COST_TABLE
+except ImportError:
+    print("WARNING: renovation_costs.py not found, using empty cost table")
+    RENOVATION_COST_TABLE = {}
+
+# Import NMS postprocessing
+try:
+    from postprocess import (
+        class_aware_nms,
+        enforce_scene_caps,
+        apply_roi_hint_bonus_overlap,
+        apply_special_case_filters,
+    )
+except ImportError:
+    print("ERROR: postprocess.py not found!")
+    sys.exit(1)
+
+# Import property summarizer (optional - graceful fallback if not available)
+try:
+    from property_summarizer import PropertySummarizer
+except ImportError:
+    PropertySummarizer = None
+    print("INFO: property_summarizer.py not found, property summaries will be skipped")
+
+# Console encoding safety
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
-# ── Configuration from environment ──────────────────────────────────────────
-# Core pipeline components
-GDINO_PY = os.getenv("GDINO_PY", sys.executable)
-GDINO_CONFIG = os.getenv("GDINO_CONFIG", "")
-GDINO_CHECKPOINT = os.getenv("GDINO_CHECKPOINT", "")
-GDINO_INFER_SCRIPT = os.getenv("GDINO_INFER_SCRIPT", "")
-CHIP_VERIFIER_PY = os.getenv("CHIP_VERIFIER_PY", "")
-ANALYZER_CLI = os.getenv("ANALYZER_CLI", "./analyzer_cli.py")
-ARTIFACTS_ROOT = os.getenv("ARTIFACTS_ROOT", "./artifacts")
-
-# Auto-analyzer components (assume in same directory if not specified)
-SCRIPT_DIR = Path(__file__).parent
-SCENE_CLASSIFIER_PY = os.getenv("SCENE_CLASSIFIER_PY", str(SCRIPT_DIR / "scene_classifier.py"))
-
-# LM Studio config
-LM_STUDIO_URL = os.getenv("LM_STUDIO_URL", "http://192.168.86.143:1234")
-LM_STUDIO_MODEL = os.getenv("LM_STUDIO_MODEL", "gemma-3-27b-it")
-
-# Analysis parameters
-DEFAULT_BOX_THR = 0.30
-DEFAULT_TEXT_THR = 0.25
-DEFAULT_CHIP_MARGIN = 0.15
-DEFAULT_MAX_KEYWORDS = 25
-
-# ── Logging ──────────────────────────────────────────────────────────────────
+# Logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    level=logging.DEBUG if cfg.DEBUG_MODE else logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
+default_catalog_path = getattr(
+    cfg, "PROJECT_ROOT", Path(__file__).resolve().parent.parent
+) / "issue_catalog.json"
+ISSUE_CATALOG_PATH = Path(getattr(cfg, "ISSUE_CATALOG_PATH", default_catalog_path))
+ISSUE_CATALOG = load_issue_catalog(ISSUE_CATALOG_PATH)
+
+SEVERITY_RANK = {
+    "none": 0,
+    "minor_repair": 1,
+    "moderate_repair": 2,
+    "full_replacement": 3,
+}
+
 
 # ── Data Classes ─────────────────────────────────────────────────────────────
-@dataclass
-class ImageAnalysisRequest:
-    """Request for analyzing a single image."""
-    image_path: Path
-    property_key: str
-    scene: Optional[str] = None
-    keywords: Optional[List[str]] = None
-    grounding_prompt: Optional[str] = None
-
-
 @dataclass
 class ImageAnalysisResult:
     """Result from analyzing a single image."""
     image_path: str
     scene: str
-    scene_confidence: float
+    scene_data: Optional[Dict[str, Any]]
     keywords_used: List[str]
     detection_count: int
     verified_count: Optional[int] = None
     output_dir: str = ""
     processing_time: float = 0.0
     error: Optional[str] = None
+    scene_classifier: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -107,55 +104,176 @@ class PropertyAnalysisJob:
     job_id: str
     property_key: str
     timestamp: str
-    images: List[ImageAnalysisRequest]
     results: List[ImageAnalysisResult]
     artifacts_dir: str
     total_processing_time: float
     parameters: Dict[str, Any]
 
 
+def _worst_severity(current: str, new: str) -> str:
+    if SEVERITY_RANK.get(new, 0) > SEVERITY_RANK.get(current, 0):
+        return new
+    return current
+
+
+def _parse_catalog_flag(flag: Any) -> Tuple[str, str, str]:
+    """Normalize catalog flag inputs from dicts or dataclass-like objects."""
+
+    if isinstance(flag, dict):
+        present = str(flag.get("present", "")).lower() or "uncertain"
+        evidence = str(flag.get("evidence", ""))
+        severity = str(flag.get("severity", "none")).lower() or "none"
+    else:
+        present = str(getattr(flag, "present", "uncertain") or "uncertain").lower()
+        evidence = str(getattr(flag, "evidence", ""))
+        severity = str(getattr(flag, "severity", "none") or "none").lower()
+
+    if present != "yes":
+        severity = "none"
+
+    return present, severity, evidence
+
+
+def build_renovation_needs(job: "PropertyAnalysisJob") -> Dict[str, Any]:
+    """
+    Aggregate per-photo catalog_flags + severity into a property-level
+    renovation_needs structure.
+    """
+
+    issue_meta: Dict[str, Dict[str, str]] = {}
+    for item in ISSUE_CATALOG.get("defect_issues", []) or []:
+        if isinstance(item, dict) and item.get("id"):
+            issue_meta[item["id"]] = {
+                "name": item.get("name", item["id"]),
+                "category": item.get("category", "unknown"),
+            }
+    for item in ISSUE_CATALOG.get("opportunity_flags", []) or []:
+        if isinstance(item, dict) and item.get("id"):
+            issue_meta[item["id"]] = {
+                "name": item.get("name", item["id"]),
+                "category": item.get("category", "unknown"),
+            }
+
+    aggregates: Dict[str, Dict[str, Any]] = {}
+    totals_by_category: Dict[str, Dict[str, float]] = {}
+
+    for result in job.results:
+        scene_payload = (result.scene_classifier or result.scene_data) or {}
+        if not isinstance(scene_payload, dict):
+            continue
+
+        flags = scene_payload.get("catalog_flags", {}) or {}
+        photo_name = Path(result.image_path).name
+
+        for issue_id, flag in flags.items():
+            present, severity, evidence = _parse_catalog_flag(flag)
+            if present != "yes":
+                continue
+
+            meta = issue_meta.get(issue_id, {"name": issue_id, "category": "unknown"})
+            agg = aggregates.setdefault(issue_id, {
+                "issue_id": issue_id,
+                "name": meta["name"],
+                "category": meta["category"],
+                "worst_severity": "none",
+                "occurrences": 0,
+                "present_in_photos": [],
+                "sample_evidence": "",
+                "est_cost_low": 0.0,
+                "est_cost_high": 0.0,
+            })
+
+            agg["occurrences"] += 1
+            agg["present_in_photos"].append(photo_name)
+            agg["worst_severity"] = _worst_severity(agg["worst_severity"], severity)
+
+            if not agg["sample_evidence"] and evidence:
+                agg["sample_evidence"] = evidence
+
+            cost_cfg = RENOVATION_COST_TABLE.get(issue_id, {})
+            sev_cost = cost_cfg.get(severity)
+            if sev_cost:
+                low, high = sev_cost
+                agg["est_cost_low"] += low
+                agg["est_cost_high"] += high
+
+    for issue in aggregates.values():
+        cat = issue.get("category", "unknown")
+        cat_totals = totals_by_category.setdefault(cat, {
+            "est_cost_low": 0.0,
+            "est_cost_high": 0.0,
+        })
+        cat_totals["est_cost_low"] += issue["est_cost_low"]
+        cat_totals["est_cost_high"] += issue["est_cost_high"]
+
+    grand_low = sum(cat.get("est_cost_low", 0.0) for cat in totals_by_category.values())
+    grand_high = sum(cat.get("est_cost_high", 0.0) for cat in totals_by_category.values())
+
+    issues_sorted = sorted(
+        aggregates.values(),
+        key=lambda x: x.get("est_cost_high", 0.0),
+        reverse=True,
+    )
+
+    return {
+        "issues": issues_sorted,
+        "totals_by_category": totals_by_category,
+        "grand_total": {
+            "est_cost_low": grand_low,
+            "est_cost_high": grand_high,
+        },
+    }
+
+
 # ── Auto-Analyzer Class ──────────────────────────────────────────────────────
 class AutoAnalyzer:
     def __init__(self,
-                 python_exe: str = GDINO_PY,
-                 artifacts_root: str = ARTIFACTS_ROOT,
-                 box_threshold: float = DEFAULT_BOX_THR,
-                 text_threshold: float = DEFAULT_TEXT_THR,
-                 chip_margin: float = DEFAULT_CHIP_MARGIN,
-                 max_keywords: int = DEFAULT_MAX_KEYWORDS,
-                 include_common: bool = True,
-                 include_conditions: bool = False,
-                 skip_verification: bool = False,
-                 debug: bool = False):
+                 python_exe: str = sys.executable,
+                 artifacts_root: str = None,
+                 box_threshold: float = None,
+                 text_threshold: float = None,
+                 chip_margin: float = None,
+                 max_keywords: int = None,
+                 include_common: bool = None,
+                 include_conditions: bool = None,
+                 skip_verification: bool = None,
+                 debug: bool = None):
 
+        # Use config defaults if not specified
         self.python_exe = Path(python_exe)
-        self.artifacts_root = Path(artifacts_root)
-        self.box_threshold = box_threshold
-        self.text_threshold = text_threshold
-        self.chip_margin = chip_margin
-        self.max_keywords = max_keywords
-        self.include_common = include_common
-        self.include_conditions = include_conditions
-        self.skip_verification = skip_verification
-        self.debug = debug
+        self.artifacts_root = Path(artifacts_root or cfg.ARTIFACTS_ROOT)
+        self.box_threshold = box_threshold if box_threshold is not None else cfg.BOX_THRESHOLD
+        self.text_threshold = text_threshold if text_threshold is not None else cfg.TEXT_THRESHOLD
+        self.chip_margin = chip_margin if chip_margin is not None else cfg.CHIP_MARGIN
+        self.max_keywords = max_keywords if max_keywords is not None else cfg.MAX_KEYWORDS
+        self.include_common = include_common if include_common is not None else cfg.INCLUDE_COMMON
+        self.include_conditions = include_conditions if include_conditions is not None else cfg.INCLUDE_CONDITIONS
+        self.skip_verification = skip_verification if skip_verification is not None else cfg.SKIP_VERIFICATION
+        self.debug = debug if debug is not None else cfg.DEBUG_MODE
 
-        # Validate required paths
+        # Validate environment
         self._validate_environment()
+
+    @staticmethod
+    def _normalize_label_for_hint(label: Optional[str]) -> str:
+        if not label:
+            return ""
+        s = str(label).strip().lower()
+        s = s.replace("-", " ").replace("_", " ")
+        return " ".join(s.split())
 
     def _validate_environment(self):
         """Validate that required components are available."""
         required_paths = {
             "Python executable": self.python_exe,
-            "Scene classifier": Path(SCENE_CLASSIFIER_PY),
-            "Analyzer CLI": Path(ANALYZER_CLI),
-            "GDINO config": Path(GDINO_CONFIG),
-            "GDINO checkpoint": Path(GDINO_CHECKPOINT),
-            "GDINO infer script": Path(GDINO_INFER_SCRIPT)
+            "Scene classifier": cfg.TOOLS_DIR / "scene_classifier.py",
+            "GDINO config": cfg.GDINO_CONFIG,
+            "GDINO checkpoint": cfg.GDINO_CHECKPOINT,
+            "GDINO infer script": cfg.GDINO_INFER_SCRIPT
         }
 
-        # Only require verifier if we're actually verifying
         if not self.skip_verification:
-            required_paths["Chip verifier"] = Path(CHIP_VERIFIER_PY)
+            required_paths["Chip verifier"] = cfg.TOOLS_DIR / "chip_verifier.py"
 
         missing = []
         for name, path in required_paths.items():
@@ -167,7 +285,7 @@ class AutoAnalyzer:
             logger.error(error_msg)
             raise FileNotFoundError(error_msg)
 
-        # Create artifacts root if needed
+        # Create artifacts root
         self.artifacts_root.mkdir(parents=True, exist_ok=True)
 
     def _run_command(self, cmd: List[str], cwd: Optional[Path] = None) -> Tuple[int, str, str]:
@@ -186,29 +304,29 @@ class AutoAnalyzer:
         stdout, stderr = proc.communicate()
         return proc.returncode or 0, stdout, stderr
 
-    def classify_scene(self, image_path: Path) -> Tuple[str, float, str, List[str], str]:
+    def classify_scene(
+            self, image_path: Path
+    ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str], Dict[str, Any]]:
         """
         Classify the scene type and get keywords for detection.
 
         Returns:
-            Tuple of (scene, confidence, reasoning, keywords, grounding_prompt)
+            Tuple of (scene, reasoning, keywords, grounding_prompt, planner_targets,
+            planner_hints, scene_payload)
         """
-        logger.info(f"Classifying scene for: {image_path.name}")
+        logger.info(f"Classifying scene: {image_path.name}")
 
         cmd = [
             self.python_exe,
-            SCENE_CLASSIFIER_PY,
+            cfg.TOOLS_DIR / "scene_classifier.py",
             str(image_path),
-            "--model", LM_STUDIO_MODEL,
-            "--lm-studio-url", LM_STUDIO_URL,
+            "--model", cfg.LM_STUDIO_MODEL,
+            "--lm-studio-url", cfg.LM_STUDIO_URL,
             "--max-keywords", str(self.max_keywords)
         ]
 
         if self.include_conditions:
             cmd.append("--include-conditions")
-
-        if not self.include_common:
-            cmd.append("--no-common")
 
         if self.debug:
             cmd.append("--debug")
@@ -217,347 +335,443 @@ class AutoAnalyzer:
 
         if code != 0:
             logger.error(f"Scene classification failed: {stderr}")
-            return "unknown", 0.0, "Classification failed", [], ""
+            empty_payload = self._scene_classifier_payload(
+                None, scene_override="unknown", error="Classification failed"
+            )
+            return "unknown", "Classification failed", [], "", [], {}, empty_payload
 
         try:
             result = json.loads(stdout)
             scene = result.get("scene", "unknown")
-            conf = float(result.get("confidence", 0.0))
             reasoning = result.get("reasoning", "")
             keywords = result.get("keywords", []) or []
             prompt = result.get("groundingdino_prompt", "")
+            targets = result.get("targets", []) or []
 
-            # Fallback: construct prompt from keywords if not provided
+            planner_hints: Dict[str, str] = {}
+            for target in targets:
+                hint = str(target.get("roi_hint", "unknown") or "unknown")
+                label_norm = self._normalize_label_for_hint(target.get("label"))
+                if label_norm:
+                    planner_hints[label_norm] = hint
+                for syn in (target.get("synonyms") or []):
+                    syn_norm = self._normalize_label_for_hint(syn)
+                    if syn_norm and syn_norm not in planner_hints:
+                        planner_hints[syn_norm] = hint
+
             if not prompt and keywords:
                 prompt = ". ".join(keywords) + "."
 
-            return scene, conf, reasoning, keywords, prompt
+            # Persist the prompt in the scene result for downstream artifacts
+            if not result.get("groundingdino_prompt"):
+                result["groundingdino_prompt"] = prompt
+
+            # Normalize optional collections so they are always present downstream
+            result.setdefault("targets", targets)
+            result.setdefault("gdino_terms", [])
+            result.setdefault("keywords", keywords)
+            result.setdefault("issues_natural_language", [])
+            result.setdefault("catalog_flags", {})
+            result.setdefault("issue_visual_anchors", [])
+
+            scene_payload = self._scene_classifier_payload(
+                result, scene_override=scene
+            )
+            keywords = scene_payload.get("keywords", keywords) or []
+
+            return (
+                scene,
+                reasoning,
+                keywords,
+                prompt,
+                targets,
+                planner_hints,
+                scene_payload,
+            )
 
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse scene classification: {e}")
-            return "unknown", 0.0, "Parse error", [], ""
+            empty_payload = self._scene_classifier_payload(
+                None, scene_override="unknown", error="Parse error"
+            )
+            return "unknown", "Parse error", [], "", [], {}, empty_payload
 
-    def run_detection_pipeline(self,
-                               property_key: str,
-                               images: List[Path],
-                               text_prompt: str) -> Dict[str, Any]:
-        """Run the GroundingDINO detection and verification pipeline."""
-        logger.info(f"Running detection pipeline for {len(images)} image(s)")
+    def run_detection(self,
+                      image_path: Path,
+                      output_dir: Path,
+                      text_prompt: str) -> Dict[str, Any]:
+        """Run GroundingDINO detection on a single image."""
+        logger.info(f"Running detection: {image_path.name}")
 
-        # Build analyzer_cli command
         cmd = [
-                  self.python_exe,
-                  ANALYZER_CLI,
-                  "--property-key", property_key,
-                  "--text-prompt", text_prompt,
-                  "--box-thr", str(self.box_threshold),
-                  "--text-thr", str(self.text_threshold),
-                  "--chip-margin", str(self.chip_margin),
+            self.python_exe,
+            cfg.GDINO_INFER_SCRIPT,
+            "--config_file", cfg.GDINO_CONFIG,
+            "--checkpoint_path", cfg.GDINO_CHECKPOINT,
+            "--image_path", str(image_path),
+            "--text_prompt", text_prompt,
+            "--output_dir", str(output_dir),
+            "--box_threshold", str(self.box_threshold),
+            "--text_threshold", str(self.text_threshold),
+            "--extract-chips",
+            "--chip-margin", str(self.chip_margin),
+        ]
 
-                  # ✅ Pass top-level artifacts root, not per-job dir
-                  # analyzer_cli will create its own <root>/<property>/<job_id>/ structure
-                  "--artifacts-root", str(self.artifacts_root),
+        if cfg.CPU_ONLY:
+            cmd.append("--cpu-only")
 
-                  # ✅ Pass explicit paths instead of relying on env vars
-                  "--detect-script", GDINO_INFER_SCRIPT,
-                  "--config", GDINO_CONFIG,
-                  "--checkpoint", GDINO_CHECKPOINT,
+        if cfg.COMPUTE_CHIP_QUALITY:
+            cmd.append("--chip-quality")
 
-                  # ✅ Pass LM Studio settings for verifier
-                  "--lm-url", LM_STUDIO_URL,
-                  "--lm-model", LM_STUDIO_MODEL,
-
-                  "--images"
-              ] + [str(img) for img in images]
-
-        # Add optional flags
-        cmd.extend(["--chip-quality", "--create-thumbnail"])
-
-        # Only pass verifier when not skipping and path is set
-        if not self.skip_verification and CHIP_VERIFIER_PY:
-            cmd.extend(["--verifier", CHIP_VERIFIER_PY])
-        else:
-            cmd.append("--no-verify")
+        if cfg.CREATE_THUMBNAILS:
+            cmd.extend(["--create-thumbnail", "--thumbnail-size", str(cfg.THUMBNAIL_SIZE)])
 
         code, stdout, stderr = self._run_command(cmd)
 
         if code != 0:
-            logger.error(f"Detection pipeline failed (exit {code})")
-            logger.error(f"STDERR (tail): {stderr[-2000:]}")
-            logger.error(f"STDOUT (tail): {stdout[-2000:]}")
-            return {"error": stderr, "code": code, "stdout": stdout}
+            logger.error(f"Detection failed: {stderr}")
+            return {"error": stderr, "code": code}
 
-        try:
-            return json.loads(stdout)
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse detection results: {e}")
-            return {"error": str(e), "stdout": stdout}
+        # Load results
+        pred_json = output_dir / "pred.json"
+        if pred_json.exists():
+            with open(pred_json, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        else:
+            return {"error": "pred.json not produced"}
+
+    def run_verification(self, output_dir: Path) -> Optional[Dict[str, Any]]:
+        """Run chip verification on detection results."""
+        if self.skip_verification:
+            return {"skipped": True}
+
+        logger.info(f"Verifying detections in: {output_dir.name}")
+
+        cmd = [
+            self.python_exe,
+            cfg.TOOLS_DIR / "chip_verifier.py",
+            str(output_dir),
+            "--model", cfg.LM_STUDIO_MODEL,
+            "--lm-studio-url", cfg.LM_STUDIO_URL,
+            "--max-chips", str(cfg.MAX_CHIPS_PER_DETECTION),
+        ]
+
+        if self.debug:
+            cmd.append("--debug")
+
+        code, stdout, stderr = self._run_command(cmd)
+
+        if code != 0:
+            logger.error(f"Verification failed: {stderr}")
+            return {"error": stderr, "code": code}
+
+        # Load verification results
+        ver_json = output_dir / "verification_results.json"
+        if ver_json.exists():
+            with open(ver_json, 'r', encoding='utf-8') as f:
+                return json.load(f)
+
+        return None
 
     def analyze_image(self,
                       image_path: Path,
-                      property_key: str) -> ImageAnalysisResult:
+                      output_dir: Path) -> ImageAnalysisResult:
         """Analyze a single image through the complete pipeline."""
         t0 = time.time()
 
         try:
-            # Step 1: Classify scene (now returns keywords & prompt)
-            scene, scene_conf, reasoning, keywords, grounding_prompt = self.classify_scene(image_path)
+            # 1. Classify scene and get keywords
+            (
+                scene,
+                reasoning,
+                keywords,
+                prompt,
+                planner_targets,
+                planner_hints,
+                scene_details,
+            ) = self.classify_scene(image_path)
 
-            # Step 2: Run detection (single image)
-            detection_result = self.run_detection_pipeline(
-                property_key=property_key,
-                images=[image_path],
-                text_prompt=grounding_prompt
-            )
+            logger.info(f"  Scene: {scene}")
+            logger.info(f"  Keywords: {len(keywords)} objects")
 
-            # Handle pipeline errors
+            if not prompt:
+                logger.warning(f"  No detection prompt for {scene}, skipping detection")
+                return ImageAnalysisResult(
+                    image_path=str(image_path),
+                    scene=scene,
+                    scene_data=scene_details,
+                    scene_classifier=scene_details,
+                    keywords_used=keywords,
+                    detection_count=0,
+                    output_dir=str(output_dir),
+                    processing_time=time.time() - t0,
+                    error="No detection prompt generated"
+                )
+
+            # 2. Run detection
+            detection_result = self.run_detection(image_path, output_dir, prompt)
+
             if "error" in detection_result:
                 return ImageAnalysisResult(
                     image_path=str(image_path),
                     scene=scene,
-                    scene_confidence=scene_conf,
+                    scene_data=scene_details,
+                    scene_classifier=scene_details,
                     keywords_used=keywords,
                     detection_count=0,
-                    verified_count=None,
-                    output_dir="",
+                    output_dir=str(output_dir),
                     processing_time=time.time() - t0,
-                    error=f"Detection pipeline failed: {detection_result['error']}"
+                    error=detection_result["error"]
                 )
 
-            # Parse results
-            detection_count = 0
+            detections = detection_result.get("detections", []) or []
+            detection_result["planner_targets"] = planner_targets
+            detection_result["planner_hints"] = planner_hints
+
+            size_info = detection_result.get("size") or {}
+            img_w = int(size_info.get("width") or 0)
+            img_h = int(size_info.get("height") or 0)
+            if (img_w <= 0 or img_h <= 0) and image_path.exists():
+                try:
+                    with Image.open(image_path) as pil_im:
+                        img_w, img_h = pil_im.size
+                except Exception:
+                    pass
+
+            if (
+                    getattr(cfg, "ROI_HINTS_ENABLED", False)
+                    and detections
+                    and img_w > 0
+                    and img_h > 0
+            ):
+                detections_by_class: Dict[str, List[Dict[str, Any]]] = {}
+                unlabeled: List[Dict[str, Any]] = []
+                for det in detections:
+                    if det.get("score") is None:
+                        det["score"] = 0.0
+                    label_name = str(det.get("label") or "").strip()
+                    if not label_name:
+                        unlabeled.append(det)
+                        continue
+                    detections_by_class.setdefault(label_name, []).append(det)
+
+                for label_name, dets in detections_by_class.items():
+                    norm_label = self._normalize_label_for_hint(label_name)
+                    roi_hint = planner_hints.get(norm_label, "unknown")
+                    apply_roi_hint_bonus_overlap(
+                        dets=dets,
+                        roi_hint=roi_hint,
+                        W=img_w,
+                        H=img_h,
+                        full_bonus=getattr(cfg, "ROI_FULL_BONUS", 0.06),
+                        half_bonus=getattr(cfg, "ROI_HALF_BONUS", 0.03),
+                        penalty=getattr(cfg, "ROI_PENALTY", 0.03),
+                        hi=getattr(cfg, "ROI_OVERLAP_HI", 0.40),
+                        lo=getattr(cfg, "ROI_OVERLAP_LO", 0.10),
+                        attach_debug=True,
+                    )
+
+                if unlabeled:
+                    apply_roi_hint_bonus_overlap(
+                        dets=unlabeled,
+                        roi_hint="unknown",
+                        W=img_w,
+                        H=img_h,
+                        full_bonus=getattr(cfg, "ROI_FULL_BONUS", 0.06),
+                        half_bonus=getattr(cfg, "ROI_HALF_BONUS", 0.03),
+                        penalty=getattr(cfg, "ROI_PENALTY", 0.03),
+                        hi=getattr(cfg, "ROI_OVERLAP_HI", 0.40),
+                        lo=getattr(cfg, "ROI_OVERLAP_LO", 0.10),
+                        attach_debug=True,
+                    )
+
+            # Sort by score for stable behavior
+            detections.sort(key=lambda d: float(d.get("score", 0.0)), reverse=True)
+
+            # Special-case filters (mirror containment, etc.)
+            special_case_cfg = getattr(cfg, "SPECIAL_CASE_FILTERS", {})
+            if detections and special_case_cfg:
+                pre_case = len(detections)
+                detections = apply_special_case_filters(
+                    detections,
+                    image_size=(img_w, img_h),
+                    config=special_case_cfg,
+                )
+                if pre_case != len(detections):
+                    logger.info(
+                        f"  Special cases: {pre_case} → {len(detections)} detections"
+                    )
+
+            # --- NMS here (AFTER detection, BEFORE verification) ---
+            if getattr(cfg, "USE_NMS", True) and detections:
+                pre_nms_count = len(detections)
+                detections = class_aware_nms(
+                    detections,
+                    per_class_iou=getattr(cfg, "NMS_PER_CLASS", None),
+                    default_iou=getattr(cfg, "NMS_DEFAULT_IOU", 0.3),
+                )
+                logger.info(f"  NMS: {pre_nms_count} → {len(detections)} detections")
+
+            # Optional: enforce per-scene caps (keeps top-K per class)
+            if getattr(cfg, "USE_SCENE_CAPS", False) and detections:
+                pre_cap_count = len(detections)
+                detections = enforce_scene_caps(
+                    detections,
+                    scene=scene,
+                    caps_map=getattr(cfg, "SCENE_CAPS", None),
+                )
+                if pre_cap_count != len(detections):
+                    logger.info(f"  Scene caps: {pre_cap_count} → {len(detections)} detections")
+
+            if (
+                    getattr(cfg, "ROI_HINTS_ENABLED", False)
+                    and detections
+                    and logger.isEnabledFor(logging.DEBUG)
+            ):
+                for det in detections:
+                    dbg = det.get("roi_debug", {})
+                    logger.debug(
+                        f"ROI [{det.get('label')}]: score={float(det.get('score', 0.0)):.3f} "
+                        f"hint={dbg.get('hint')} adj={dbg.get('adj')} "
+                        f"overlap={dbg.get('overlap_ratio', 0):.2f} "
+                        f"maj={dbg.get('majority_zone')}({dbg.get('majority_r', 0):.2f}) "
+                        f"img%={dbg.get('img_frac', 0):.3f}"
+                    )
+
+            # Write survivors back so downstream tools (e.g., chip_verifier) see the filtered set
+            detection_result["detections"] = detections
+
+            # Keep top-level counts consistent with filtered detections
+            for k in ("count", "num_detections", "detections_count"):
+                if k in detection_result:
+                    detection_result[k] = len(detections)
+
+            pred_json_path = output_dir / "pred.json"
+            with open(pred_json_path, "w", encoding="utf-8") as f:
+                json.dump(detection_result, f, indent=2, ensure_ascii=False)
+
+            # (Optional) prune chips for detections that were dropped
+            if getattr(cfg, "PRUNE_DROPPED_CHIPS", False):
+                try:
+                    chip_dir = Path(
+                        (detection_result.get("chip_extraction", {}) or {}).get("chips_directory",
+                                                                                str(output_dir / "chips"))
+                    )
+                    keep = set()
+                    for d in detections:
+                        fn = ((d.get("chip_info") or {}).get("filename"))
+                        if fn:
+                            keep.add(str((chip_dir / fn).resolve()))
+
+                    if chip_dir.exists():
+                        pruned = 0
+                        for fp in chip_dir.glob("*"):
+                            if keep and str(fp.resolve()) not in keep:
+                                try:
+                                    fp.unlink()
+                                    pruned += 1
+                                except Exception:
+                                    pass
+                        if pruned > 0:
+                            logger.info(f"  Pruned {pruned} dropped chip file(s)")
+                except Exception as e:
+                    logger.warning(f"  Chip pruning failed: {e}")
+
+            # Redraw overlay using filtered detections so pred.jpg matches NMS output
+            try:
+                nms_overlay = output_dir / "pred_nms.jpg"
+                redraw_overlay(image_path, detections, nms_overlay)
+
+                raw_overlay = output_dir / "pred.jpg"
+                before_overlay = output_dir / "pred_before.jpg"
+                if raw_overlay.exists():
+                    try:
+                        shutil.copy2(raw_overlay, before_overlay)
+                    except Exception:
+                        before_overlay.write_bytes(raw_overlay.read_bytes())
+
+                nms_overlay.replace(raw_overlay)
+
+                logger.info("  Overlay updated with NMS/ROI filtered detections")
+            except Exception as e:
+                logger.warning(f"  Failed to redraw overlay: {e}")
+
+            # Finally, the filtered count
+            detection_count = len(detections)
+
+            # 3. Verify detections (optional)
             verified_count = None
-            img_output_dir = ""
-
-            if "results" in detection_result and detection_result["results"]:
-                first_result = detection_result["results"][0]
-
-                if "detection" in first_result:
-                    det_data = first_result["detection"]
-                    detections = det_data.get("detections", [])
-                    detection_count = len(detections)
-
-                if "verification" in first_result and first_result["verification"]:
-                    ver_data = first_result["verification"]
-                    summary = ver_data.get("summary", {})
-                    verified_count = summary.get("valid", 0)
-
-                # Handle both outputDir and output_dir keys
-                img_output_dir = first_result.get("outputDir") or first_result.get("output_dir") or ""
+            if not self.skip_verification and detection_count > 0:
+                logger.info(f"  Verifying detections for {Path(image_path).name} in: {Path(output_dir).name}")
+                verification_result = self.run_verification(output_dir)  # ← single call
+                if verification_result and "summary" in verification_result:
+                    verified_count = verification_result["summary"].get("valid", 0)
+                    logger.info(f"  Verified: {verified_count}/{detection_count}")
 
             return ImageAnalysisResult(
                 image_path=str(image_path),
                 scene=scene,
-                scene_confidence=scene_conf,
+                scene_data=scene_details,
+                scene_classifier=scene_details,
                 keywords_used=keywords,
                 detection_count=detection_count,
                 verified_count=verified_count,
-                output_dir=img_output_dir,
+                output_dir=str(output_dir),
                 processing_time=time.time() - t0
             )
 
         except Exception as e:
-            logger.error(f"Failed to analyze {image_path}: {e}")
+            logger.error(f"Error analyzing {image_path}: {e}")
+            fallback_scene = self._scene_classifier_payload(
+                None, scene_override="unknown", error=str(e)
+            )
             return ImageAnalysisResult(
                 image_path=str(image_path),
                 scene="unknown",
-                scene_confidence=0.0,
+                scene_data=fallback_scene,
+                scene_classifier=fallback_scene,
                 keywords_used=[],
                 detection_count=0,
+                output_dir=str(output_dir),
                 processing_time=time.time() - t0,
                 error=str(e)
             )
 
-    def analyze_property(self, property_key: str, images: List[Path]) -> PropertyAnalysisJob:
-        """
-        Analyze all images for a property in a SINGLE batch.
+    def analyze_property(self,
+                         property_key: str,
+                         images: List[Path]) -> PropertyAnalysisJob:
+        """Analyze all images for a property."""
+        t0 = time.time()
 
-        NEW BEHAVIOR:
-        - Classifies each image scene individually
-        - Combines all keywords into one prompt
-        - Runs detection ONCE for ALL images
-        - Maps results back to individual images
-        """
-        job_id = f"{time.strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+        # Create job directory
+        job_id = time.strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:8]
         job_dir = self.artifacts_root / property_key / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
 
-        logger.info(f"Starting property analysis job: {job_id}")
+        logger.info(f"\n{'=' * 60}")
         logger.info(f"Property: {property_key}")
+        logger.info(f"Job ID: {job_id}")
         logger.info(f"Images: {len(images)}")
-        logger.info(f"Output: {job_dir}")
-
-        t0 = time.time()
-
-        # Step 1: Classify ALL scenes first
-        logger.info("\n" + "=" * 60)
-        logger.info("STEP 1: Scene Classification")
-        logger.info("=" * 60)
-
-        scene_data = []
-        all_keywords = set()
-
-        for i, img in enumerate(images, 1):
-            logger.info(f"\n[{i}/{len(images)}] Classifying: {img.name}")
-            scene, conf, reasoning, keywords, prompt = self.classify_scene(img)
-
-            scene_data.append({
-                'image': img,
-                'scene': scene,
-                'confidence': conf,
-                'reasoning': reasoning,
-                'keywords': keywords,
-                'prompt': prompt
-            })
-            all_keywords.update(keywords)
-
-            logger.info(f"  Scene: {scene} (confidence: {conf:.1%})")
-            logger.info(f"  Keywords: {len(keywords)}")
-
-        # Step 2: Build combined prompt
-        combined_keywords = sorted(list(all_keywords))[:self.max_keywords]
-        combined_prompt = ". ".join(combined_keywords) + "."
-
-        logger.info("\n" + "=" * 60)
-        logger.info("STEP 2: Combined Detection Prompt")
-        logger.info("=" * 60)
-        logger.info(f"Unique keywords: {len(combined_keywords)}")
-        logger.info(f"Prompt: {combined_prompt[:150]}...")
-
-        # Step 3: Run detection pipeline ONCE with ALL images
-        logger.info("\n" + "=" * 60)
-        logger.info("STEP 3: Batch Detection")
-        logger.info("=" * 60)
-        logger.info(f"Running GroundingDINO for {len(images)} images in one batch...")
-
-        detection_result = self.run_detection_pipeline(
-            property_key=property_key,
-            images=images,  # ✅ ALL images at once
-            text_prompt=combined_prompt
-        )
-
-        # Step 4: Handle errors
-        if "error" in detection_result:
-            logger.error(f"\n❌ Detection pipeline failed: {detection_result['error']}")
-
-            # Create error results for all images
-            results = []
-            requests = []
-
-            for sd in scene_data:
-                results.append(ImageAnalysisResult(
-                    image_path=str(sd['image']),
-                    scene=sd['scene'],
-                    scene_confidence=sd['confidence'],
-                    keywords_used=sd['keywords'],
-                    detection_count=0,
-                    verified_count=None,
-                    output_dir="",
-                    processing_time=time.time() - t0,
-                    error=f"Pipeline failed: {detection_result.get('error', 'Unknown error')}"
-                ))
-
-                requests.append(ImageAnalysisRequest(
-                    image_path=sd['image'],
-                    property_key=property_key,
-                    scene=sd['scene'],
-                    keywords=sd['keywords'],
-                    grounding_prompt=sd['prompt']
-                ))
-
-            job = PropertyAnalysisJob(
-                job_id=job_id,
-                property_key=property_key,
-                timestamp=datetime.now().isoformat(),
-                images=requests,
-                results=results,
-                artifacts_dir=str(job_dir),
-                total_processing_time=time.time() - t0,
-                parameters={
-                    "box_threshold": self.box_threshold,
-                    "text_threshold": self.text_threshold,
-                    "chip_margin": self.chip_margin,
-                    "max_keywords": self.max_keywords,
-                    "include_common": self.include_common,
-                    "include_conditions": self.include_conditions,
-                    "skip_verification": self.skip_verification
-                }
-            )
-
-            self._save_job_summary(job, job_dir)
-            return job
-
-        # Step 5: Parse results for each image
-        logger.info("\n" + "=" * 60)
-        logger.info("STEP 4: Parsing Results")
-        logger.info("=" * 60)
+        logger.info(f"{'=' * 60}\n")
 
         results = []
-        requests = []
-        pipeline_results = detection_result.get("results", [])
 
-        for idx, sd in enumerate(scene_data):
-            # Get corresponding pipeline result
-            img_result = pipeline_results[idx] if idx < len(pipeline_results) else {}
+        for idx, image_path in enumerate(images):
+            logger.info(f"\n[{idx + 1}/{len(images)}] Processing: {image_path.name}")
+            logger.info(f"{'-' * 60}")
 
-            # Extract detection data
-            detection_count = 0
-            verified_count = None
-            img_output_dir = ""
+            output_dir = job_dir / f"img_{idx:03d}"
+            output_dir.mkdir(parents=True, exist_ok=True)
+            logger.info(f"\n[{idx + 1}/{len(images)}] Processing: {image_path.name} → {output_dir.name}")
 
-            if "detection" in img_result:
-                det_data = img_result["detection"]
-                detections = det_data.get("detections", [])
-                detection_count = len(detections)
-
-            if "verification" in img_result and img_result["verification"]:
-                ver_data = img_result["verification"]
-                if not ver_data.get("skipped"):
-                    summary = ver_data.get("summary", {})
-                    verified_count = summary.get("valid", 0)
-
-            # Handle both output key formats
-            img_output_dir = img_result.get("outputDir") or img_result.get("output_dir") or ""
-
-            # Create result
-            result = ImageAnalysisResult(
-                image_path=str(sd['image']),
-                scene=sd['scene'],
-                scene_confidence=sd['confidence'],
-                keywords_used=sd['keywords'],
-                detection_count=detection_count,
-                verified_count=verified_count,
-                output_dir=img_output_dir,
-                processing_time=(time.time() - t0) / len(images)  # Approximate per-image time
-            )
-
+            result = self.analyze_image(image_path, output_dir)
             results.append(result)
 
-            # Create request
-            requests.append(ImageAnalysisRequest(
-                image_path=sd['image'],
-                property_key=property_key,
-                scene=sd['scene'],
-                keywords=sd['keywords'],
-                grounding_prompt=sd['prompt']
-            ))
-
-            # Log results
-            logger.info(f"\n[{idx + 1}/{len(images)}] {sd['image'].name}")
-            logger.info(f"  Scene: {result.scene} (confidence: {result.scene_confidence:.1%})")
-            logger.info(f"  Keywords: {len(result.keywords_used)}")
-            logger.info(f"  Detections: {result.detection_count}")
-            if result.verified_count is not None:
-                logger.info(f"  Verified: {result.verified_count}")
-            if img_output_dir:
-                logger.info(f"  Output: {img_output_dir}")
-
-        # Step 6: Create job summary
+        # Create job summary
         job = PropertyAnalysisJob(
             job_id=job_id,
             property_key=property_key,
-            timestamp=datetime.now().isoformat(),
-            images=requests,
+            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
             results=results,
             artifacts_dir=str(job_dir),
             total_processing_time=time.time() - t0,
@@ -568,12 +782,11 @@ class AutoAnalyzer:
                 "max_keywords": self.max_keywords,
                 "include_common": self.include_common,
                 "include_conditions": self.include_conditions,
-                "skip_verification": self.skip_verification
+                "skip_verification": self.skip_verification,
+                "use_nms": getattr(cfg, "USE_NMS", True),
+                "use_scene_caps": getattr(cfg, "USE_SCENE_CAPS", False),
             }
         )
-
-        # Save job summary
-        self._save_job_summary(job, job_dir)
 
         logger.info("\n" + "=" * 60)
         logger.info("✅ ANALYSIS COMPLETE")
@@ -581,55 +794,234 @@ class AutoAnalyzer:
 
         return job
 
-    def _save_job_summary(self, job: PropertyAnalysisJob, job_dir: Path):
-        """Save job summary to JSON file."""
-        summary = {
+    @staticmethod
+    def _scene_classifier_payload(
+            scene_data: Optional[Dict[str, Any]],
+            scene_override: Optional[str] = None,
+            error: Optional[str] = None,
+    ) -> Dict[str, Any]:
+        """Normalize scene classifier output so all fields are present."""
+
+        payload: Dict[str, Any] = dict(scene_data or {})
+
+        if scene_override:
+            payload.setdefault("scene", scene_override)
+
+        payload.setdefault("scene", "unknown")
+        payload.setdefault("is_staged", None)
+        payload.setdefault("overall_impression", "")
+        payload.setdefault("reasoning", "" if error is None else error)
+        payload.setdefault("targets", [])
+        payload.setdefault("gdino_terms", [])
+        payload.setdefault("keywords", [])
+        payload.setdefault("groundingdino_prompt", "")
+        payload.setdefault("issues_natural_language", [])
+        payload.setdefault("catalog_flags", {})
+        payload.setdefault("issue_visual_anchors", [])
+        payload.setdefault("processing_time", payload.get("processing_time"))
+        payload.setdefault("prompt_version", payload.get("prompt_version", ""))
+        payload.setdefault("scene_policy_version", payload.get("scene_policy_version", ""))
+        payload.setdefault("image_summary", payload.get("image_summary", ""))
+        payload.setdefault("image", payload.get("image"))
+
+        if error and not payload.get("error"):
+            payload["error"] = error
+        payload.setdefault("error", payload.get("error"))
+
+        return payload
+
+    @staticmethod
+    def _build_photo_entry(result: ImageAnalysisResult) -> Dict[str, Any]:
+        """Create a serializable photo entry including scene classifier details."""
+        scene_payload = AutoAnalyzer._scene_classifier_payload(result.scene_classifier or result.scene_data)
+
+        return {
+            "image_path": result.image_path,
+            "scene": result.scene,
+            "is_staged": scene_payload.get("is_staged"),
+            "overall_impression": scene_payload.get("overall_impression", ""),
+            "reasoning": scene_payload.get("reasoning", ""),
+            "targets": scene_payload.get("targets", []),
+            "gdino_terms": scene_payload.get("gdino_terms", []),
+            "keywords": scene_payload.get("keywords", result.keywords_used),
+            "groundingdino_prompt": scene_payload.get("groundingdino_prompt", ""),
+            "issues_natural_language": scene_payload.get("issues_natural_language", []),
+            "catalog_flags": scene_payload.get("catalog_flags", {}),
+            "issue_visual_anchors": scene_payload.get("issue_visual_anchors", []),
+            "scene_classifier": scene_payload,
+            "keywords_used": result.keywords_used,
+            "detection_count": result.detection_count,
+            "verified_count": result.verified_count,
+            "output_dir": result.output_dir,
+            "processing_time": result.processing_time,
+            "error": result.error,
+        }
+
+    @staticmethod
+    def _pick_first_metadata(results: List[ImageAnalysisResult], key: str, default: str = "") -> str:
+        for res in results:
+            payload = AutoAnalyzer._scene_classifier_payload(res.scene_classifier or res.scene_data)
+            val = payload.get(key)
+            if isinstance(val, str) and val:
+                return val
+        return default
+
+    def save_photo_intel(
+            self,
+            job: PropertyAnalysisJob,
+            output_path: Optional[Path] = None,
+            generate_summary: bool = True
+    ) -> Path:
+        """
+        Persist per-photo intelligence (including scene classifier fields).
+
+        Args:
+            job: The completed PropertyAnalysisJob
+            output_path: Where to save photo_intel.json
+            generate_summary: If True, also generate property_summary.json
+
+        Returns:
+            Path to the saved photo_intel.json
+        """
+        created_at = datetime.utcnow().isoformat() + "Z"
+
+        photos: Dict[str, Any] = {}
+        for res in job.results:
+            image_key = Path(res.image_path).name
+            payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
+            photos[image_key] = {"image_path": res.image_path, **payload}
+
+        photo_intel = {
+            "run_id": job.job_id,
             "job_id": job.job_id,
             "property_key": job.property_key,
             "timestamp": job.timestamp,
-            "total_images": len(job.images),
-            "total_processing_time": job.total_processing_time,
-            "parameters": job.parameters,
-            "images": [
-                {
-                    "path": str(req.image_path),
-                    "scene": req.scene,
-                    "keywords_count": len(req.keywords) if req.keywords else 0
-                } for req in job.images
-            ],
-            "results": [asdict(r) for r in job.results],
-            "statistics": {
-                "total_detections": sum(r.detection_count for r in job.results),
-                "total_verified": sum(
-                    r.verified_count or 0 for r in job.results) if not self.skip_verification else None,
-                "scenes_identified": list(set(r.scene for r in job.results)),
-                "avg_confidence": sum(r.scene_confidence for r in job.results) / len(job.results) if job.results else 0
-            }
+            "created_at": created_at,
+            "artifacts_dir": job.artifacts_dir,
+            "model": getattr(cfg, "LM_STUDIO_MODEL", ""),
+            "prompt_version": self._pick_first_metadata(job.results, "prompt_version", ""),
+            "scene_policy_version": self._pick_first_metadata(job.results, "scene_policy_version", ""),
+            "photos": photos,
         }
 
-        summary_file = job_dir / "job_summary.json"
-        with open(summary_file, 'w', encoding='utf-8') as f:
-            json.dump(summary, f, indent=2, ensure_ascii=False)
+        try:
+            photo_intel["renovation_needs"] = build_renovation_needs(job)
+        except Exception as exc:
+            logger.error(f"Failed to build renovation_needs: {exc}", exc_info=True)
 
-        logger.info(f"Job summary saved to: {summary_file}")
+        output_path = output_path or Path(job.artifacts_dir) / "photo_intel.json"
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(photo_intel, f, indent=2, ensure_ascii=False)
+
+        logger.info(f"Photo intel saved to: {output_path}")
+
+        # Generate property summary if requested
+        if generate_summary:
+            summary_path = output_path.parent / "property_summary.json"
+            self.generate_property_summary(job, photo_intel_path=output_path, output_path=summary_path)
+
+        return output_path
+
+    def generate_property_summary(
+            self,
+            job: PropertyAnalysisJob,
+            photo_intel_path: Optional[Path] = None,
+            output_path: Optional[Path] = None
+    ) -> Optional[Path]:
+        """
+        Generate a property-level summary from the analysis results.
+
+        This runs an additional VLM pass to aggregate all per-image issues
+        into a coherent property assessment.
+
+        Args:
+            job: The completed PropertyAnalysisJob
+            photo_intel_path: Path to photo_intel.json (if already saved)
+            output_path: Where to save property_summary.json
+
+        Returns:
+            Path to the saved summary, or None if summarization failed/skipped
+        """
+        if PropertySummarizer is None:
+            logger.warning("PropertySummarizer not available, skipping summary generation")
+            return None
+
+        # Check config flag
+        if not getattr(cfg, "GENERATE_PROPERTY_SUMMARY", True):
+            logger.info("Property summary generation disabled in config")
+            return None
+
+        logger.info(f"\n{'=' * 60}")
+        logger.info("Generating Property Summary...")
+        logger.info(f"{'=' * 60}")
+
+        try:
+            # Load photo_intel from file if provided, otherwise build from job
+            if photo_intel_path and photo_intel_path.exists():
+                with open(photo_intel_path, 'r', encoding='utf-8') as f:
+                    photo_intel = json.load(f)
+            else:
+                # Build photo_intel structure from job results
+                photos = {}
+                for res in job.results:
+                    image_key = Path(res.image_path).name
+                    payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
+                    photos[image_key] = {"image_path": res.image_path, **payload}
+
+                photo_intel = {
+                    "property_key": job.property_key,
+                    "job_id": job.job_id,
+                    "timestamp": job.timestamp,
+                    "artifacts_dir": job.artifacts_dir,
+                    "photos": photos,
+                }
+
+                # Add renovation_needs if available
+                try:
+                    photo_intel["renovation_needs"] = build_renovation_needs(job)
+                except Exception as exc:
+                    logger.warning(f"Could not build renovation_needs: {exc}")
+
+            # Create summarizer
+            summarizer = PropertySummarizer(
+                lm_studio_url=cfg.LM_STUDIO_URL,
+                model_name=getattr(cfg, "SUMMARY_MODEL", cfg.LM_STUDIO_MODEL),
+                debug=self.debug
+            )
+
+            # Generate summary
+            summary = summarizer.summarize_property(photo_intel)
+
+            # Save summary
+            if output_path is None:
+                output_path = Path(job.artifacts_dir) / "property_summary.json"
+
+            PropertySummarizer.save_summary(summary, output_path)
+
+            logger.info(f"Property summary saved to: {output_path}")
+            return output_path
+
+        except Exception as e:
+            logger.error(f"Failed to generate property summary: {e}", exc_info=True)
+            return None
 
     def create_html_report(self, job: PropertyAnalysisJob, output_path: Path):
-        """Create an HTML report for the analysis job."""
+        """Generate a simple HTML report."""
         html = f"""<!DOCTYPE html>
 <html>
 <head>
-    <title>Property Analysis Report - {job.property_key}</title>
+    <meta charset="UTF-8">
+    <title>Analysis Report - {job.property_key}</title>
     <style>
-        body {{ font-family: Arial, sans-serif; margin: 20px; }}
-        h1 {{ color: #2c3e50; }}
-        h2 {{ color: #34495e; border-bottom: 2px solid #ecf0f1; padding-bottom: 5px; }}
-        .summary {{ background: #ecf0f1; padding: 15px; border-radius: 5px; margin: 20px 0; }}
-        .image-result {{ border: 1px solid #bdc3c7; padding: 15px; margin: 10px 0; border-radius: 5px; }}
-        .scene {{ font-weight: bold; color: #27ae60; }}
-        .error {{ color: #e74c3c; }}
-        table {{ border-collapse: collapse; width: 100%; }}
-        th, td {{ padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }}
-        th {{ background: #34495e; color: white; }}
+        body {{ font-family: Arial, sans-serif; margin: 40px; }}
+        h1 {{ color: #333; }}
+        table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
+        th, td {{ border: 1px solid #ddd; padding: 12px; text-align: left; }}
+        th {{ background-color: #4CAF50; color: white; }}
+        tr:nth-child(even) {{ background-color: #f2f2f2; }}
+        .summary {{ background-color: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0; }}
+        .error {{ color: red; }}
     </style>
 </head>
 <body>
@@ -637,19 +1029,28 @@ class AutoAnalyzer:
 
     <div class="summary">
         <h2>Summary</h2>
-        <p><strong>Property Key:</strong> {job.property_key}</p>
+        <p><strong>Property:</strong> {job.property_key}</p>
         <p><strong>Job ID:</strong> {job.job_id}</p>
         <p><strong>Timestamp:</strong> {job.timestamp}</p>
-        <p><strong>Total Images:</strong> {len(job.images)}</p>
-        <p><strong>Processing Time:</strong> {job.total_processing_time:.1f} seconds</p>
+        <p><strong>Images Processed:</strong> {len(job.results)}</p>
+        <p><strong>Total Time:</strong> {job.total_processing_time:.1f} seconds</p>
+        <p><strong>Artifacts:</strong> {job.artifacts_dir}</p>
     </div>
 
-    <h2>Analysis Results</h2>
+    <h2>Parameters</h2>
+    <ul>
+"""
+
+        for key, value in job.parameters.items():
+            html += f"        <li><strong>{key}:</strong> {value}</li>\n"
+
+        html += """    </ul>
+
+    <h2>Results</h2>
     <table>
         <tr>
             <th>Image</th>
             <th>Scene</th>
-            <th>Confidence</th>
             <th>Keywords</th>
             <th>Detections</th>
             <th>Verified</th>
@@ -659,31 +1060,20 @@ class AutoAnalyzer:
 
         for result in job.results:
             img_name = Path(result.image_path).name
-            verified = result.verified_count if result.verified_count is not None else "N/A"
+            verified_text = str(result.verified_count) if result.verified_count is not None else "N/A"
             error_class = ' class="error"' if result.error else ''
-            keyword_count = len(result.keywords_used)
 
             html += f"""        <tr{error_class}>
             <td>{img_name}</td>
-            <td class="scene">{result.scene}</td>
-            <td>{result.scene_confidence:.1%}</td>
-            <td>{keyword_count}</td>
+            <td>{result.scene}</td>
+            <td>{len(result.keywords_used)}</td>
             <td>{result.detection_count}</td>
-            <td>{verified}</td>
+            <td>{verified_text}</td>
             <td>{result.processing_time:.1f}</td>
         </tr>
 """
 
         html += """    </table>
-
-    <h2>Parameters Used</h2>
-    <ul>
-"""
-
-        for key, value in job.parameters.items():
-            html += f"        <li><strong>{key}:</strong> {value}</li>\n"
-
-        html += """    </ul>
 </body>
 </html>"""
 
@@ -691,233 +1081,3 @@ class AutoAnalyzer:
             f.write(html)
 
         logger.info(f"HTML report saved to: {output_path}")
-
-
-# ── CLI ──────────────────────────────────────────────────────────────────────
-def main():
-    parser = argparse.ArgumentParser(
-        description="Automated property image analysis orchestrator"
-    )
-
-    # Required arguments
-    parser.add_argument(
-        "--property-key",
-        required=True,
-        help="Property identifier (e.g., redfin_12345)"
-    )
-
-    # Image input (one of these required)
-    img_group = parser.add_mutually_exclusive_group(required=True)
-    img_group.add_argument(
-        "--images",
-        nargs="+",
-        help="Path(s) to image files"
-    )
-    img_group.add_argument(
-        "--images-dir",
-        help="Directory containing images"
-    )
-
-    # Detection parameters
-    parser.add_argument(
-        "--box-thr",
-        type=float,
-        default=DEFAULT_BOX_THR,
-        help=f"Box threshold (default: {DEFAULT_BOX_THR})"
-    )
-    parser.add_argument(
-        "--text-thr",
-        type=float,
-        default=DEFAULT_TEXT_THR,
-        help=f"Text threshold (default: {DEFAULT_TEXT_THR})"
-    )
-    parser.add_argument(
-        "--chip-margin",
-        type=float,
-        default=DEFAULT_CHIP_MARGIN,
-        help=f"Chip margin (default: {DEFAULT_CHIP_MARGIN})"
-    )
-
-    # Keyword parameters
-    parser.add_argument(
-        "--max-keywords",
-        type=int,
-        default=DEFAULT_MAX_KEYWORDS,
-        help=f"Max keywords per scene (default: {DEFAULT_MAX_KEYWORDS})"
-    )
-    parser.add_argument(
-        "--include-conditions",
-        action="store_true",
-        help="Include damage/condition detection keywords"
-    )
-    parser.add_argument(
-        "--no-common",
-        action="store_true",
-        help="Exclude common objects like window, door, light"
-    )
-
-    # Pipeline options
-    parser.add_argument(
-        "--no-verify",
-        action="store_true",
-        help="Skip chip verification step"
-    )
-    parser.add_argument(
-        "--artifacts-root",
-        default=ARTIFACTS_ROOT,
-        help=f"Output root directory (default: {ARTIFACTS_ROOT})"
-    )
-    parser.add_argument(
-        "--python-exe",
-        default=GDINO_PY,
-        help="Python executable for GroundingDINO"
-    )
-
-    # Output options
-    parser.add_argument(
-        "--html-report",
-        action="store_true",
-        help="Generate HTML report"
-    )
-    parser.add_argument(
-        "--output-json",
-        help="Save results to specified JSON file"
-    )
-
-    # Debug
-    parser.add_argument(
-        "--debug",
-        action="store_true",
-        help="Enable debug logging"
-    )
-
-    args = parser.parse_args()
-
-    # Setup logging
-    if args.debug:
-        logging.getLogger().setLevel(logging.DEBUG)
-
-    # Collect images
-    images = []
-    if args.images:
-        images = [Path(p) for p in args.images]
-    else:
-        # Get all images from directory
-        img_dir = Path(args.images_dir)
-        if not img_dir.exists():
-            logger.error(f"Directory not found: {img_dir}")
-            sys.exit(1)
-
-        # Common image extensions
-        extensions = ['.jpg', '.jpeg', '.png', '.bmp', '.webp']
-        for ext in extensions:
-            images.extend(img_dir.glob(f"*{ext}"))
-            images.extend(img_dir.glob(f"*{ext.upper()}"))
-
-        if not images:
-            logger.error(f"No images found in: {img_dir}")
-            sys.exit(1)
-
-    # Validate images exist
-    for img in images:
-        if not img.exists():
-            logger.error(f"Image not found: {img}")
-            sys.exit(1)
-
-    logger.info(f"Found {len(images)} image(s) to process")
-
-    # Create analyzer
-    try:
-        analyzer = AutoAnalyzer(
-            python_exe=args.python_exe,
-            artifacts_root=args.artifacts_root,
-            box_threshold=args.box_thr,
-            text_threshold=args.text_thr,
-            chip_margin=args.chip_margin,
-            max_keywords=args.max_keywords,
-            include_common=not args.no_common,
-            include_conditions=args.include_conditions,
-            skip_verification=args.no_verify,
-            debug=args.debug
-        )
-    except FileNotFoundError as e:
-        logger.error(str(e))
-        sys.exit(1)
-
-    # Run analysis
-    logger.info("=" * 60)
-    logger.info("Starting automated property analysis")
-    logger.info("=" * 60)
-
-    job = analyzer.analyze_property(
-        property_key=args.property_key,
-        images=images
-    )
-
-    # Print summary
-    print("\n" + "=" * 60)
-    print("ANALYSIS COMPLETE")
-    print("=" * 60)
-    print(f"Job ID: {job.job_id}")
-    print(f"Property: {job.property_key}")
-    print(f"Images Processed: {len(job.results)}")
-    print(f"Total Time: {job.total_processing_time:.1f} seconds")
-    print(f"Artifacts: {job.artifacts_dir}")
-
-    # Scene breakdown
-    scene_counts = {}
-    for result in job.results:
-        scene_counts[result.scene] = scene_counts.get(result.scene, 0) + 1
-
-    print("\nScenes Detected:")
-    for scene, count in sorted(scene_counts.items()):
-        print(f"  {scene}: {count}")
-
-    # Detection summary
-    total_detections = sum(r.detection_count for r in job.results)
-    total_verified = sum(r.verified_count or 0 for r in job.results)
-
-    print(f"\nTotal Detections: {total_detections}")
-    if not args.no_verify:
-        print(f"Total Verified: {total_verified}")
-
-    # Save outputs
-    if args.output_json:
-        output_path = Path(args.output_json)
-        summary = {
-            "job_id": job.job_id,
-            "property_key": job.property_key,
-            "timestamp": job.timestamp,
-            "artifacts_dir": job.artifacts_dir,
-            "total_processing_time": job.total_processing_time,
-            "parameters": job.parameters,
-            "results": [asdict(r) for r in job.results]
-        }
-
-        with open(output_path, 'w', encoding='utf-8') as f:
-            json.dump(summary, f, indent=2, ensure_ascii=False)
-
-        print(f"\nResults saved to: {output_path}")
-
-    if args.html_report:
-        report_path = Path(job.artifacts_dir) / "report.html"
-        analyzer.create_html_report(job, report_path)
-        print(f"HTML report saved to: {report_path}")
-
-    # Print to stdout as JSON (for pipeline integration)
-    output = {
-        "success": True,
-        "job_id": job.job_id,
-        "property_key": job.property_key,
-        "artifacts_dir": job.artifacts_dir,
-        "total_images": len(job.results),
-        "total_detections": total_detections,
-        "total_verified": total_verified if not args.no_verify else None,
-        "scenes": list(scene_counts.keys())
-    }
-
-    print("\n" + json.dumps(output, indent=2))
-
-
-if __name__ == "__main__":
-    main()
