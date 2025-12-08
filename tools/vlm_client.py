@@ -1,0 +1,628 @@
+"""
+VLM Client for Scene Classification Pipeline
+---------------------------------------------
+Provides a unified interface for calling Vision Language Models.
+
+Supports:
+- LM Studio (local Qwen, etc.) - uses requests for chat/completions
+- OpenAI API (GPT-4o, GPT-5) - uses official OpenAI Python SDK
+
+Usage:
+    client = VLMClient()
+
+    # Image analysis with LM Studio (base64 encoding)
+    result = await client.analyze_image(
+        image_path=Path('/path/to/image.jpg'),
+        system_prompt="You are a real estate analyst.",
+        user_prompt="What do you see?",
+        url="http://localhost:1234",
+        model="qwen-vl-7b",
+        provider="lmstudio",
+    )
+
+    # Image analysis with OpenAI (file upload via SDK)
+    result = await client.analyze_image(
+        image_path=Path('/path/to/image.jpg'),
+        system_prompt="You are a real estate analyst.",
+        user_prompt="What do you see?",
+        model="gpt-4o",
+        api_key="sk-...",
+        provider="openai",
+    )
+
+Requirements:
+    pip install openai requests
+"""
+
+import asyncio
+import base64
+import json
+import logging
+import os
+from pathlib import Path
+from typing import Any, Dict, Optional, Tuple, Literal
+
+import requests
+
+# Import official OpenAI SDK
+try:
+    from openai import OpenAI
+
+    OPENAI_SDK_AVAILABLE = True
+except ImportError:
+    OpenAI = None
+    OPENAI_SDK_AVAILABLE = False
+    print("WARNING: openai package not installed. Install with: pip install openai")
+
+logger = logging.getLogger(__name__)
+
+# Provider types
+ProviderType = Literal["openai", "lmstudio", "auto"]
+
+
+class VLMClient:
+    """
+    Unified client for Vision Language Model calls.
+
+    Handles both local (LM Studio) and cloud (OpenAI) endpoints.
+    Uses official OpenAI SDK for OpenAI calls.
+    """
+
+    def __init__(
+            self,
+            default_timeout: int = 120,
+            default_max_tokens: int = 4096,
+            default_temperature: float = 0.2,
+    ):
+        self.default_timeout = default_timeout
+        self.default_max_tokens = default_max_tokens
+        self.default_temperature = default_temperature
+
+        # Cache for OpenAI clients (keyed by api_key)
+        self._openai_clients: Dict[str, Any] = {}
+
+        # Cache for uploaded file IDs (avoid re-uploading same file)
+        self._file_cache: Dict[str, str] = {}
+
+    def _detect_provider(self, url: Optional[str], api_key: Optional[str]) -> ProviderType:
+        """Auto-detect provider based on URL and API key."""
+        env_key = os.environ.get("OPENAI_API_KEY")
+        key = api_key or env_key
+
+        if key and (not url or "openai.com" in (url or "")):
+            return "openai"
+        return "lmstudio"
+
+    def _get_openai_client(self, api_key: Optional[str] = None) -> Any:
+        """Get or create an OpenAI client. If api_key is None, rely on env + OpenAI()."""
+        if not OPENAI_SDK_AVAILABLE:
+            raise RuntimeError("OpenAI SDK not installed. Run: pip install openai")
+
+        # Read optional base URL overrides (ONLY if explicitly set)
+        base_url = (
+                os.environ.get("OPENAI_BASE_URL")
+                or os.environ.get("OPENAI_API_BASE")
+                or ""
+        ).strip()
+
+        if base_url:
+            base_url = base_url.rstrip("/")
+            if not base_url.endswith("/v1"):
+                base_url = base_url + "/v1"
+        else:
+            base_url = None  # <-- important: do not force a default
+
+        key_part = api_key or "__env__"
+        base_part = base_url or "__default__"
+        cache_key = f"{key_part}:{base_part}"
+
+        if cache_key not in self._openai_clients:
+            kwargs = {}
+            if api_key:
+                kwargs["api_key"] = api_key
+            if base_url:
+                kwargs["base_url"] = base_url
+
+            # This will be OpenAI() when kwargs is empty
+            self._openai_clients[cache_key] = OpenAI(**kwargs)
+
+        return self._openai_clients[cache_key]
+
+    def _encode_image_base64(self, image_path: Path) -> Tuple[str, str]:
+        """Encode image to base64 and determine media type."""
+        suffix = image_path.suffix.lower()
+        media_types = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.webp': 'image/webp',
+            '.gif': 'image/gif',
+        }
+        media_type = media_types.get(suffix, 'image/jpeg')
+
+        with open(image_path, 'rb') as f:
+            data = base64.b64encode(f.read()).decode('utf-8')
+
+        return data, media_type
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # OpenAI SDK Methods (using official openai package)
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    def _upload_file_to_openai(
+            self,
+            client: Any,
+            file_path: Path,
+    ) -> str:
+        """
+        Upload a file to OpenAI using the SDK and return the file ID.
+
+        Uses caching to avoid re-uploading the same file.
+        """
+        cache_key = f"{file_path}:{file_path.stat().st_mtime}"
+
+        if cache_key in self._file_cache:
+            logger.debug(f"Using cached file ID for {file_path.name}")
+            return self._file_cache[cache_key]
+
+        logger.debug(f"Uploading file to OpenAI: {file_path.name}")
+
+        # ⭐ DEBUG: Confirm the actual base URL the SDK is using
+        logger.debug(f"OpenAI base_url in use: {getattr(client, 'base_url', 'unknown')}")
+
+        # Use official SDK to upload file
+        with open(file_path, 'rb') as f:
+            file_response = client.files.create(
+                file=f,
+                purpose="user_data"
+            )
+
+        file_id = file_response.id
+        self._file_cache[cache_key] = file_id
+
+        logger.debug(f"Uploaded file {file_path.name} -> {file_id}")
+        return file_id
+
+
+    async def _analyze_image_openai(
+            self,
+            image_path: Path,
+            system_prompt: str,
+            user_prompt: str,
+            model: str,
+            api_key: Optional[str],
+            max_tokens: int,
+    ) -> str:
+        client = self._get_openai_client(api_key)
+
+        if not image_path.exists():
+            raise FileNotFoundError(f"Image not found: {image_path}")
+
+        if not image_path.is_file():
+            raise ValueError(f"Not a file: {image_path}")
+
+        logger.debug(f"OpenAI image path OK: {image_path.resolve()}")
+        logger.debug(f"OpenAI image size bytes: {image_path.stat().st_size}")
+
+        # Base64 encode
+        image_data, media_type = self._encode_image_base64(image_path)
+
+        # Doc-aligned format
+        data_url = f"data:{media_type};base64,{image_data}"
+
+        def _call():
+            return client.responses.create(
+                model=model,
+                input=[
+                    {
+                        "role": "system",
+                        "content": system_prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "input_text", "text": user_prompt},
+                            {
+                                "type": "input_image",
+                                "image_url": data_url,
+                                # optional knob from your docs:
+                                # "detail": "low",
+                            },
+                        ],
+                    },
+                ],
+                max_output_tokens=max_tokens,
+            )
+
+        response = await asyncio.get_event_loop().run_in_executor(None, _call)
+        return response.output_text
+
+    async def _analyze_text_openai(
+            self,
+            system_prompt: str,
+            user_prompt: str,
+            model: str,
+            api_key: Optional[str],
+            max_tokens: int,
+    ) -> str:
+        """
+        Text-only analysis using OpenAI's Responses API via official SDK.
+        """
+        client = self._get_openai_client(api_key)
+
+        logger.debug(f"Calling OpenAI Responses API (text): {model}")
+
+        response = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: client.responses.create(
+                model=model,
+                input=[
+                    {
+                        "role": "system",
+                        "content": system_prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": user_prompt,
+                    },
+                ],
+                max_output_tokens=max_tokens,
+            )
+        )
+
+        return response.output_text
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # LM Studio Methods (using requests)
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    async def _analyze_image_lmstudio(
+            self,
+            image_path: Path,
+            system_prompt: str,
+            user_prompt: str,
+            url: str,
+            model: str,
+            timeout: int,
+            max_tokens: int,
+            temperature: float,
+    ) -> str:
+        """
+        Analyze image using LM Studio's chat/completions endpoint.
+
+        Uses base64 image encoding inline with the user message.
+        """
+        # Encode image to base64
+        image_data, media_type = self._encode_image_base64(image_path)
+        data_url = f"data:{media_type};base64,{image_data}"
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": [
+                    {"type": "image_url", "image_url": {"url": data_url}},
+                    {"type": "text", "text": user_prompt},
+                ],
+            },
+        ]
+
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": False,
+        }
+
+        endpoint = f"{url.rstrip('/')}/v1/chat/completions"
+        headers = {"Content-Type": "application/json"}
+
+        logger.debug(f"Calling LM Studio: {endpoint} with model {model}")
+
+        # Run blocking request in executor
+        response = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: requests.post(
+                endpoint,
+                json=payload,
+                headers=headers,
+                timeout=timeout,
+            )
+        )
+
+        if response.status_code != 200:
+            error_text = response.text[:500]
+            logger.error(f"LM Studio API error: HTTP {response.status_code} - {error_text}")
+            raise RuntimeError(f"LM Studio API error: HTTP {response.status_code}")
+
+        data = response.json()
+
+        if "choices" not in data:
+            logger.error(f"LM Studio response missing 'choices': {data}")
+            raise RuntimeError(f"Unexpected LM Studio response format from LM Studio")
+
+        return data["choices"][0]["message"]["content"]
+
+    async def _analyze_text_lmstudio(
+            self,
+            system_prompt: str,
+            user_prompt: str,
+            url: str,
+            model: str,
+            timeout: int,
+            max_tokens: int,
+            temperature: float,
+    ) -> str:
+        """
+        Text-only analysis using LM Studio's chat/completions endpoint.
+        """
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ]
+
+        payload = {
+            "model": model,
+            "messages": messages,
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": False,
+        }
+
+        endpoint = f"{url.rstrip('/')}/v1/chat/completions"
+        headers = {"Content-Type": "application/json"}
+
+        logger.debug(f"Calling LM Studio (text): {endpoint} with model {model}")
+
+        response = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: requests.post(
+                endpoint,
+                json=payload,
+                headers=headers,
+                timeout=timeout,
+            )
+        )
+
+        if response.status_code != 200:
+            error_text = response.text[:500]
+            logger.error(f"LM Studio API error: HTTP {response.status_code} - {error_text}")
+            raise RuntimeError(f"LM Studio API error: HTTP {response.status_code}")
+
+        data = response.json()
+
+        if "choices" not in data:
+            logger.error(f"LM Studio response missing 'choices': {data}")
+            raise RuntimeError(f"Unexpected LM Studio response format from LM Studio")
+
+        return data["choices"][0]["message"]["content"]
+
+    # ═══════════════════════════════════════════════════════════════════════════
+    # Public API
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    async def analyze_image(
+            self,
+            image_path: Path,
+            system_prompt: str,
+            user_prompt: str,
+            model: str,
+            url: Optional[str] = None,
+            api_key: Optional[str] = None,
+            provider: ProviderType = "auto",
+            timeout: Optional[int] = None,
+            max_tokens: Optional[int] = None,
+            temperature: Optional[float] = None,
+            **kwargs,
+    ) -> str:
+        """
+        Analyze an image with a VLM.
+
+        Args:
+            image_path: Path to the image file
+            system_prompt: System message for the model
+            user_prompt: User message/question about the image
+            model: Model name (e.g., "gpt-4o", "qwen-vl-7b")
+            url: API endpoint URL (required for LM Studio)
+            api_key: API key (required for OpenAI)
+            provider: "openai", "lmstudio", or "auto" (default: auto-detect)
+            timeout: Request timeout in seconds
+            max_tokens: Maximum response tokens
+            temperature: Sampling temperature
+            **kwargs: Additional parameters (ignored)
+
+        Returns:
+            Model response as string (typically JSON)
+        """
+        timeout = timeout or self.default_timeout
+        max_tokens = max_tokens or self.default_max_tokens
+        temperature = temperature if temperature is not None else self.default_temperature
+
+        # Auto-detect provider if needed
+        if provider == "auto":
+            provider = self._detect_provider(url, api_key)
+
+        logger.info(f"Analyzing image {image_path.name} with {provider}/{model}")
+
+        if provider == "openai":
+            # If api_key is provided explicitly, use it.
+            # Otherwise rely on OpenAI() reading OPENAI_API_KEY from env.
+            return await self._analyze_image_openai(
+                image_path=image_path,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                model=model,
+                api_key=api_key,  # <-- pass through as Optional
+                max_tokens=max_tokens,
+            )
+
+        else:  # lmstudio
+            if not url:
+                raise ValueError("URL required for LM Studio provider")
+
+            return await self._analyze_image_lmstudio(
+                image_path=image_path,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                url=url,
+                model=model,
+                timeout=timeout,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+
+    async def analyze_text(
+            self,
+            system_prompt: str,
+            user_prompt: str,
+            model: str,
+            url: Optional[str] = None,
+            api_key: Optional[str] = None,
+            provider: ProviderType = "auto",
+            timeout: Optional[int] = None,
+            max_tokens: Optional[int] = None,
+            temperature: Optional[float] = None,
+            **kwargs,
+    ) -> str:
+        """
+        Text-only analysis (no image).
+
+        Args:
+            system_prompt: System message for the model
+            user_prompt: User message/question
+            model: Model name
+            url: API endpoint URL (required for LM Studio)
+            api_key: API key (required for OpenAI)
+            provider: "openai", "lmstudio", or "auto"
+            timeout: Request timeout in seconds
+            max_tokens: Maximum response tokens
+            temperature: Sampling temperature
+            **kwargs: Additional parameters (ignored)
+
+        Returns:
+            Model response as string
+        """
+        timeout = timeout or self.default_timeout
+        max_tokens = max_tokens or self.default_max_tokens
+        temperature = temperature if temperature is not None else self.default_temperature
+
+        # Auto-detect provider if needed
+        if provider == "auto":
+            provider = self._detect_provider(url, api_key)
+
+        logger.info(f"Analyzing text with {provider}/{model}")
+
+        if provider == "openai":
+            # If api_key is provided explicitly, use it.
+            # Otherwise rely on OpenAI() reading OPENAI_API_KEY from env.
+            return await self._analyze_text_openai(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                model=model,
+                api_key=api_key,  # <-- pass through as Optional
+                max_tokens=max_tokens,
+            )
+
+        else:  # lmstudio
+            if not url:
+                raise ValueError("URL required for LM Studio provider")
+
+            return await self._analyze_text_lmstudio(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                url=url,
+                model=model,
+                timeout=timeout,
+                max_tokens=max_tokens,
+                temperature=temperature,
+            )
+
+    # Sync wrappers for non-async code
+    def analyze_image_sync(self, **kwargs) -> str:
+        """Synchronous wrapper for analyze_image."""
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(self.analyze_image(**kwargs))
+        finally:
+            loop.close()
+
+    def analyze_text_sync(self, **kwargs) -> str:
+        """Synchronous wrapper for analyze_text."""
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(self.analyze_text(**kwargs))
+        finally:
+            loop.close()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Factory Functions
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def create_vlm_client() -> VLMClient:
+    """Create a VLMClient with default settings."""
+    return VLMClient()
+
+
+def get_model_configs_from_pipeline_config(cfg: Any) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """
+    Extract Qwen and GPT configs from pipeline_config module.
+
+    Returns:
+        (qwen_config, gpt_config) dicts ready for VLMClient
+    """
+    qwen_config = {
+        'url': getattr(cfg, 'LM_STUDIO_URL', 'http://localhost:1234'),
+        'model': getattr(cfg, 'LM_STUDIO_MODEL', 'qwen-vl'),
+        'provider': 'lmstudio',
+    }
+
+    # Support multiple naming conventions for GPT model
+    # Priority: GPT_MODEL > GPT5_MODEL > OPENAI_MODEL > default
+    gpt_model = (
+            getattr(cfg, 'GPT_MODEL', None) or
+            getattr(cfg, 'GPT5_MODEL', None) or
+            getattr(cfg, 'OPENAI_MODEL', None) or
+            os.environ.get('GPT_MODEL') or
+            os.environ.get('GPT5_MODEL') or
+            os.environ.get('OPENAI_MODEL') or
+            'gpt-4o'
+    )
+
+    # Get API key from config or environment
+    api_key = (
+            getattr(cfg, 'OPENAI_API_KEY', None) or
+            os.environ.get('OPENAI_API_KEY', '')
+    )
+
+    gpt_config = {
+        'model': gpt_model,
+        'api_key': api_key,
+        'provider': 'openai',
+    }
+
+    return qwen_config, gpt_config
+
+
+def get_pass_specific_gpt_config(cfg: Any, pass_key: str) -> Dict[str, Any]:
+    """
+    Get GPT config for a specific pass, allowing per-pass model overrides.
+
+    Args:
+        cfg: Pipeline config module
+        pass_key: Pass identifier ('1b', '2a', '4', etc.)
+
+    Returns:
+        Config dict for the specific pass
+    """
+    _, base_gpt_config = get_model_configs_from_pipeline_config(cfg)
+
+    # Check for pass-specific model override
+    pass_model_key = f'GPT_PASS_{pass_key.upper()}_MODEL'
+    pass_model = getattr(cfg, pass_model_key, None)
+
+    if pass_model:
+        return {**base_gpt_config, 'model': pass_model}
+
+    return base_gpt_config

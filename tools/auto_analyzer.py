@@ -4,6 +4,14 @@ Auto-Analyzer for GroundingDINO Pipeline
 -----------------------------------------
 Orchestrates: Scene Classification → Detection → Verification → Property Summary
 Uses settings from pipeline_config.py
+
+Supports multiple detection backends:
+- groundingdino (default): Local GroundingDINO inference
+- dinox: DINO-X API or local script
+
+Supports analysis profiles:
+- standard: All passes use local Qwen via LM Studio
+- premium: Key passes (1b, 2a, 4) use OpenAI GPT-5/GPT-4o
 """
 
 import os
@@ -12,7 +20,7 @@ import json
 import time
 import uuid
 import shutil
-import subprocess
+import asyncio
 import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
@@ -57,6 +65,54 @@ except ImportError:
     PropertySummarizer = None
     print("INFO: property_summarizer.py not found, property summaries will be skipped")
 
+# Import DINO-X client (optional - graceful fallback to legacy mode)
+try:
+    from dinox_client import DINOXClient, create_dinox_client_from_config
+
+    DINOX_CLIENT_AVAILABLE = True
+except ImportError:
+    DINOXClient = None
+    create_dinox_client_from_config = None
+    DINOX_CLIENT_AVAILABLE = False
+    print("INFO: dinox_client.py not found, DINO-X will use legacy script mode only")
+
+# Import VLM client (for direct calls when orchestrator unavailable)
+try:
+    from vlm_client import VLMClient, create_vlm_client, get_model_configs_from_pipeline_config
+
+    VLM_CLIENT_AVAILABLE = True
+except ImportError:
+    VLMClient = None
+    create_vlm_client = None
+    get_model_configs_from_pipeline_config = None
+    VLM_CLIENT_AVAILABLE = False
+
+# Import pass architecture components (optional - graceful fallback)
+try:
+    from pass_config import (
+        SceneClassifierRunOptions,
+        PassToggles,
+        PassModelOverrides,
+        pick_model_for_pass,
+        get_model_config_for_pass,
+    )
+    from scene_classifier_orchestrator import (
+        SceneClassifierOrchestrator,
+        create_orchestrator_from_config,
+    )
+    from scene_classifier_passes import (
+        run_pass_1a_scene_type,
+        run_pass_1b_overall_impression,
+        run_pass_2a_issue_detection,
+        run_pass_3_keyword_extraction,
+    )
+
+    PASS_ARCHITECTURE_AVAILABLE = True
+except ImportError as e:
+    SceneClassifierRunOptions = None
+    PASS_ARCHITECTURE_AVAILABLE = False
+    print(f"INFO: Pass architecture modules not found ({e}), using legacy scene classifier")
+
 # Console encoding safety
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -79,6 +135,15 @@ SEVERITY_RANK = {
     "minor_repair": 1,
     "moderate_repair": 2,
     "full_replacement": 3,
+}
+
+# Valid detection backends (canonical names)
+VALID_BACKENDS = {"groundingdino", "dinox"}
+
+# Aliases for user convenience
+BACKEND_ALIASES = {
+    "grounding-dino": "groundingdino",
+    "dino-x": "dinox",
 }
 
 
@@ -236,7 +301,13 @@ class AutoAnalyzer:
                  max_keywords: int = None,
                  include_conditions: bool = None,
                  skip_verification: bool = None,
-                 debug: bool = None):
+                 debug: bool = None,
+                 detection_backend: Optional[str] = None,
+                 analysis_profile: Optional[str] = None,
+                 # NEW: Pass architecture parameters
+                 pass_toggles: Optional[Dict[str, bool]] = None,
+                 model_overrides: Optional[Dict[str, str]] = None,
+                 use_pass_architecture: Optional[bool] = None):
 
         # Use config defaults if not specified
         self.python_exe = Path(python_exe)
@@ -249,8 +320,183 @@ class AutoAnalyzer:
         self.skip_verification = skip_verification if skip_verification is not None else cfg.SKIP_VERIFICATION
         self.debug = debug if debug is not None else cfg.DEBUG_MODE
 
+        # ✅ Backend selection (CLI arg > cfg/env > default)
+        raw_backend = (
+                detection_backend
+                or getattr(cfg, "DETECTION_BACKEND", None)
+                or "groundingdino"
+        ).strip().lower()
+
+        # Normalize aliases to canonical names
+        raw_backend = BACKEND_ALIASES.get(raw_backend, raw_backend)
+
+        if raw_backend not in VALID_BACKENDS:
+            raise ValueError(f"Unknown detection backend: {raw_backend}")
+
+        self.detection_backend = raw_backend
+
+        # ✅ Analysis profile selection (CLI arg > cfg/env > default)
+        self.analysis_profile = (
+                analysis_profile
+                or getattr(cfg, "ANALYSIS_PROFILE", None)
+                or "standard"
+        ).strip().lower()
+
+        # ✅ Pass architecture configuration
+        self.pass_toggles = pass_toggles or {}
+        self.model_overrides = model_overrides or {}
+
+        # ✅ Initialize VLM client and model configs FIRST (needed for all paths)
+        self.vlm_client = None
+        self.qwen_config = None
+        self.gpt_config = None
+        if VLM_CLIENT_AVAILABLE:
+            try:
+                self.vlm_client = create_vlm_client()
+                self.qwen_config, self.gpt_config = get_model_configs_from_pipeline_config(cfg)
+                gpt_model = self.gpt_config.get('model', 'N/A') if self.gpt_config else 'N/A'
+                logger.info(f"VLM client initialized (GPT model: {gpt_model})")
+            except Exception as e:
+                logger.warning(f"Failed to initialize VLM client: {e}")
+
+        # Determine whether to use pass architecture:
+        # - If explicitly set, use that value
+        # - If premium profile and modules available, auto-enable
+        # - Otherwise, use legacy
+        if use_pass_architecture is not None:
+            self.use_pass_architecture = use_pass_architecture and PASS_ARCHITECTURE_AVAILABLE
+        elif self.analysis_profile == "premium" and PASS_ARCHITECTURE_AVAILABLE:
+            self.use_pass_architecture = True
+            logger.info("Auto-enabling pass architecture for premium profile")
+        else:
+            self.use_pass_architecture = False
+
+        # Initialize pass architecture components if enabled
+        self.orchestrator = None
+        self.run_options = None
+        if self.use_pass_architecture:
+            try:
+                self.run_options = SceneClassifierRunOptions.from_analysis_profile(
+                    self.analysis_profile,
+                    toggles=self.pass_toggles,
+                    model_overrides=self.model_overrides,
+                )
+                self.orchestrator = create_orchestrator_from_config(cfg)
+                logger.info(f"Pass architecture initialized (premium={self.run_options.premium})")
+            except Exception as e:
+                logger.warning(f"Failed to initialize pass architecture: {e}, falling back to direct pass calls")
+                self.use_pass_architecture = False
+
+        # ✅ Initialize DINO-X client if using dinox backend
+        self.dinox_client = None
+        if self.detection_backend == "dinox" and DINOX_CLIENT_AVAILABLE:
+            try:
+                self.dinox_client = create_dinox_client_from_config(cfg)
+                logger.info("DINO-X client initialized")
+            except Exception as e:
+                logger.warning(f"Failed to initialize DINO-X client: {e}")
+
+        # Apply profile-specific overrides
+        self._apply_profile_settings()
+
         # Validate environment
         self._validate_environment()
+
+        logger.info(f"ISSUE_CATALOG_PATH = {ISSUE_CATALOG_PATH}")
+        logger.info(f"ISSUE_CATALOG exists? {ISSUE_CATALOG_PATH.exists()}")
+        logger.info(
+            "Issue catalog counts: defect=%s opportunity=%s",
+            len((ISSUE_CATALOG or {}).get("defect_issues", []) or []),
+            len((ISSUE_CATALOG or {}).get("opportunity_flags", []) or []),
+        )
+
+    def _apply_profile_settings(self):
+        """Apply settings based on analysis profile."""
+        if self.analysis_profile == "premium":
+            # Premium profile: use enhanced settings
+            premium_keywords = getattr(cfg, "PREMIUM_MAX_KEYWORDS", None)
+            if premium_keywords is not None:
+                self.max_keywords = premium_keywords
+
+            # Use premium summary model if configured
+            self.summary_model = getattr(cfg, "PREMIUM_SUMMARY_MODEL", None) or getattr(cfg, "GPT_MODEL", None)
+
+            # Enable stricter verification if configured
+            premium_skip_verify = getattr(cfg, "PREMIUM_SKIP_VERIFICATION", None)
+            if premium_skip_verify is not None:
+                self.skip_verification = premium_skip_verify
+
+            logger.info(f"Using PREMIUM analysis profile (max_keywords={self.max_keywords})")
+        else:
+            # Standard profile: use defaults
+            self.summary_model = getattr(cfg, "SUMMARY_MODEL", None)
+            logger.info(f"Using STANDARD analysis profile (max_keywords={self.max_keywords})")
+
+    def _get_model_config_for_pass(self, pass_key: str) -> Dict[str, Any]:
+        """
+        Get the appropriate model config for a specific pass.
+
+        Args:
+            pass_key: Pass identifier ('1a', '1b', '2a', '2b', '3', '4')
+
+        Returns:
+            Model config dict with 'url', 'model', 'api_key' etc.
+        """
+        # If pass_config module available, use its routing logic
+        if PASS_ARCHITECTURE_AVAILABLE and self.run_options:
+            return get_model_config_for_pass(
+                pass_key=pass_key,
+                options=self.run_options,
+                qwen_config=self.qwen_config or {},
+                gpt5_config=self.gpt_config or {},
+            )
+
+        # Fallback: manual routing based on profile
+        if not self.qwen_config:
+            # No VLM client available, return LM Studio defaults
+            return {
+                'url': getattr(cfg, 'LM_STUDIO_URL', 'http://localhost:1234'),
+                'model': getattr(cfg, 'LM_STUDIO_MODEL', 'qwen-vl'),
+                'provider': 'lmstudio',
+            }
+
+        # Premium uses GPT for passes 1b, 2a, 4
+        if self.analysis_profile == 'premium' and pass_key in ('1b', '2a', '4'):
+            if self.gpt_config and self.gpt_config.get('api_key'):
+                # Check for pass-specific model override
+                return self._get_pass_specific_gpt_config(pass_key)
+            else:
+                logger.warning(f"Premium pass {pass_key} requested but no GPT API key, using Qwen")
+
+        return self.qwen_config
+
+    def _get_pass_specific_gpt_config(self, pass_key: str) -> Dict[str, Any]:
+        """
+        Get GPT config for a specific pass, checking for per-pass model overrides.
+        """
+        base_config = dict(self.gpt_config) if self.gpt_config else {
+            'model': 'gpt-4o',
+            'api_key': os.environ.get('OPENAI_API_KEY', ''),
+            'provider': 'openai',
+        }
+
+        # Check for pass-specific model override in config
+        pass_model_attrs = {
+            '1b': ['GPT_PASS_1B_MODEL', 'OPENAI_PASS1B_MODEL'],
+            '2a': ['GPT_PASS_2A_MODEL', 'OPENAI_PASS2A_MODEL'],
+            '2b': ['GPT_PASS_2B_MODEL', 'OPENAI_PASS2B_MODEL', 'OPENAI_CHIP_MODEL'],
+            '4': ['GPT_PASS_4_MODEL', 'OPENAI_PASS4_MODEL'],
+        }
+
+        attr_names = pass_model_attrs.get(pass_key, [])
+        for attr_name in attr_names:
+            pass_model = getattr(cfg, attr_name, None) or os.environ.get(attr_name)
+            if pass_model:
+                base_config['model'] = pass_model
+                logger.debug(f"Using pass-specific model for {pass_key}: {pass_model}")
+                break
+
+        return base_config
 
     @staticmethod
     def _normalize_label_for_hint(label: Optional[str]) -> str:
@@ -264,18 +510,64 @@ class AutoAnalyzer:
         """Validate that required components are available."""
         required_paths = {
             "Python executable": self.python_exe,
-            "Scene classifier": cfg.TOOLS_DIR / "scene_classifier.py",
-            "GDINO config": cfg.GDINO_CONFIG,
-            "GDINO checkpoint": cfg.GDINO_CHECKPOINT,
-            "GDINO infer script": cfg.GDINO_INFER_SCRIPT
         }
 
+        # Only require GDINO assets if we're using GDINO
+        if self.detection_backend == "groundingdino":
+            required_paths.update({
+                "GDINO config": cfg.GDINO_CONFIG,
+                "GDINO checkpoint": cfg.GDINO_CHECKPOINT,
+                "GDINO infer script": cfg.GDINO_INFER_SCRIPT,
+            })
+
+        # If using DINO-X, validate its requirements
+        elif self.detection_backend == "dinox":
+            dinox_script = getattr(cfg, "DINOX_INFER_SCRIPT", None)
+            api_token = (
+                    getattr(cfg, "DINOX_API_TOKEN", None) or
+                    getattr(cfg, "DINOX_API_KEY", None) or
+                    os.environ.get("DINOX_API_TOKEN") or
+                    os.environ.get("DINOX_API_KEY")
+            )
+
+            if dinox_script:
+                required_paths["DINO-X infer script"] = Path(dinox_script)
+            elif not api_token:
+                raise RuntimeError(
+                    "DINO-X backend selected but neither DINOX_INFER_SCRIPT nor "
+                    "DINOX_API_TOKEN/DINOX_API_KEY is configured."
+                )
+
+        # ✅ Validate premium profile requirements
+        if self.analysis_profile == "premium":
+            api_key = (
+                    getattr(cfg, "OPENAI_API_KEY", None) or
+                    os.environ.get("OPENAI_API_KEY")
+            )
+            if not api_key:
+                logger.warning(
+                    "Premium profile selected but OPENAI_API_KEY is not set. "
+                    "Premium passes will fall back to Qwen."
+                )
+            if not VLM_CLIENT_AVAILABLE:
+                logger.warning(
+                    "Premium profile selected but vlm_client.py is not available. "
+                    "Cannot route to GPT models."
+                )
+            if not PASS_ARCHITECTURE_AVAILABLE:
+                logger.warning(
+                    "Premium profile selected but pass architecture modules not available. "
+                    "Using direct pass calls as fallback."
+                )
+
         if not self.skip_verification:
-            required_paths["Chip verifier"] = cfg.TOOLS_DIR / "chip_verifier.py"
+            chip_verifier = cfg.TOOLS_DIR / "chip_verifier.py"
+            if chip_verifier.exists():
+                required_paths["Chip verifier"] = chip_verifier
 
         missing = []
         for name, path in required_paths.items():
-            if not path.exists():
+            if isinstance(path, Path) and not path.exists():
                 missing.append(f"{name}: {path}")
 
         if missing:
@@ -288,6 +580,8 @@ class AutoAnalyzer:
 
     def _run_command(self, cmd: List[str], cwd: Optional[Path] = None) -> Tuple[int, str, str]:
         """Run a command and capture output."""
+        import subprocess
+
         if self.debug:
             logger.debug(f"Running: {' '.join(str(c) for c in cmd)}")
 
@@ -308,98 +602,265 @@ class AutoAnalyzer:
         """
         Classify the scene type and get keywords for detection.
 
+        ✅ FIXED: Now properly routes through orchestrator or direct pass calls.
+        No more subprocess to non-existent scene_classifier.py.
+
         Returns:
             Tuple of (scene, reasoning, keywords, grounding_prompt, planner_targets,
             planner_hints, scene_payload)
         """
         logger.info(f"Classifying scene: {image_path.name}")
 
-        cmd = [
-            self.python_exe,
-            cfg.TOOLS_DIR / "scene_classifier.py",
-            str(image_path),
-            "--model", cfg.LM_STUDIO_MODEL,
-            "--lm-studio-url", cfg.LM_STUDIO_URL,
-            "--max-keywords", str(self.max_keywords)
-        ]
+        # Priority 1: Use orchestrator if pass architecture is enabled and working
+        if self.use_pass_architecture and self.orchestrator:
+            try:
+                logger.info(f"  Using orchestrator (premium={self.run_options.premium})")
+                return self._classify_scene_with_orchestrator(image_path)
+            except Exception as e:
+                logger.warning(f"  Orchestrator failed: {e}, trying direct pass calls")
 
-        if self.include_conditions:
-            cmd.append("--include-conditions")
+        # Priority 2: Direct pass function calls (works with or without premium)
+        if VLM_CLIENT_AVAILABLE and self.vlm_client:
+            try:
+                logger.info(f"  Using direct pass calls (profile={self.analysis_profile})")
+                return self._classify_scene_direct(image_path)
+            except Exception as e:
+                logger.error(f"  Direct pass calls failed: {e}")
+                # Return error result
+                empty_payload = self._scene_classifier_payload(
+                    None, scene_override="unknown", error=str(e)
+                )
+                return "unknown", str(e), [], "", [], {}, empty_payload
 
-        if self.debug:
-            cmd.append("--debug")
+        # Priority 3: No VLM available - cannot classify
+        logger.error("No scene classification method available (VLM client not initialized)")
+        empty_payload = self._scene_classifier_payload(
+            None, scene_override="unknown", error="No VLM client available"
+        )
+        return "unknown", "No VLM client available", [], "", [], {}, empty_payload
 
-        code, stdout, stderr = self._run_command(cmd)
+    def _classify_scene_with_orchestrator(
+            self, image_path: Path
+    ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str], Dict[str, Any]]:
+        """
+        Classify scene using the pass architecture orchestrator.
+        This runs the full multi-pass pipeline with premium model routing.
+        """
 
-        if code != 0:
-            logger.error(f"Scene classification failed: {stderr}")
-            empty_payload = self._scene_classifier_payload(
-                None, scene_override="unknown", error="Classification failed"
-            )
-            return "unknown", "Classification failed", [], "", [], {}, empty_payload
+        async def run_orchestrator():
+            try:
+                return await self.orchestrator.analyze_image(
+                    image_path=image_path,
+                    options=self.run_options,
+                    issue_catalog=ISSUE_CATALOG,
+                )
+            except TypeError:
+                # Older orchestrator signature
+                return await self.orchestrator.analyze_image(
+                    image_path=image_path,
+                    options=self.run_options,
+                )
 
+        # Run async orchestrator
+        loop = asyncio.new_event_loop()
         try:
-            result = json.loads(stdout)
-            scene = result.get("scene", "unknown")
-            reasoning = result.get("reasoning", "")
-            keywords = result.get("keywords", []) or []
-            prompt = result.get("groundingdino_prompt", "")
-            targets = result.get("targets", []) or []
+            result = loop.run_until_complete(run_orchestrator())
+        finally:
+            loop.close()
 
-            planner_hints: Dict[str, str] = {}
-            for target in targets:
-                hint = str(target.get("roi_hint", "unknown") or "unknown")
-                label_norm = self._normalize_label_for_hint(target.get("label"))
-                if label_norm:
-                    planner_hints[label_norm] = hint
-                for syn in (target.get("synonyms") or []):
-                    syn_norm = self._normalize_label_for_hint(syn)
-                    if syn_norm and syn_norm not in planner_hints:
-                        planner_hints[syn_norm] = hint
+        # Convert orchestrator result to expected tuple format
+        return self._parse_orchestrator_result(result)
 
-            if not prompt and keywords:
-                prompt = ". ".join(keywords) + "."
+    def _classify_scene_direct(
+            self, image_path: Path
+    ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str], Dict[str, Any]]:
+        """
+        Run scene classification using direct pass function calls.
 
-            # Persist the prompt in the scene result for downstream artifacts
-            if not result.get("groundingdino_prompt"):
-                result["groundingdino_prompt"] = prompt
+        ✅ This is the fallback when orchestrator isn't available but VLM client is.
+        Still supports premium routing through _get_model_config_for_pass().
+        """
 
-            # Normalize optional collections so they are always present downstream
-            result.setdefault("targets", targets)
-            result.setdefault("gdino_terms", [])
-            result.setdefault("keywords", keywords)
-            result.setdefault("issues_natural_language", [])
-            result.setdefault("catalog_flags", {})
-            result.setdefault("issue_visual_anchors", [])
+        async def run_passes():
+            results = {
+                'scene': 'unknown',
+                'reasoning': '',
+                'overall_impression': '',
+                'image_summary': '',
+                'keywords': [],
+                'catalog_flags': {},
+                'detected_issues': [],
+            }
+            context = {}
 
-            scene_payload = self._scene_classifier_payload(
-                result, scene_override=scene
-            )
-            keywords = scene_payload.get("keywords", keywords) or []
+            # Pass 1a: Scene Type (always Qwen)
+            model_config_1a = self._get_model_config_for_pass('1a')
+            logger.debug(f"  Pass 1a using model: {model_config_1a.get('model')}")
 
-            return (
-                scene,
-                reasoning,
-                keywords,
-                prompt,
-                targets,
-                planner_hints,
-                scene_payload,
-            )
+            try:
+                pass_1a = await run_pass_1a_scene_type(
+                    image_path=image_path,
+                    vlm_client=self.vlm_client,
+                    model_config=model_config_1a,
+                )
+                results['scene'] = pass_1a.scene
+                results['reasoning'] = pass_1a.reasoning or ''
+                context['scene'] = pass_1a.scene
+            except Exception as e:
+                logger.warning(f"  Pass 1a failed: {e}")
 
-        except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse scene classification: {e}")
-            empty_payload = self._scene_classifier_payload(
-                None, scene_override="unknown", error="Parse error"
-            )
-            return "unknown", "Parse error", [], "", [], {}, empty_payload
+            # Pass 1b: Overall Impression (GPT in premium)
+            model_config_1b = self._get_model_config_for_pass('1b')
+            logger.debug(f"  Pass 1b using model: {model_config_1b.get('model')}")
+
+            try:
+                pass_1b = await run_pass_1b_overall_impression(
+                    image_path=image_path,
+                    vlm_client=self.vlm_client,
+                    model_config=model_config_1b,
+                    context=context,
+                )
+                results['overall_impression'] = pass_1b.overall_impression
+                results['image_summary'] = pass_1b.image_summary or ''
+            except Exception as e:
+                logger.warning(f"  Pass 1b failed: {e}")
+
+            # Pass 2a: Issue Detection (GPT in premium)
+            model_config_2a = self._get_model_config_for_pass('2a')
+            logger.debug(f"  Pass 2a using model: {model_config_2a.get('model')}")
+
+            try:
+                pass_2a = await run_pass_2a_issue_detection(
+                    image_path=image_path,
+                    vlm_client=self.vlm_client,
+                    model_config=model_config_2a,
+                    context=context,
+                    issue_catalog=ISSUE_CATALOG,
+                )
+                results['detected_issues'] = pass_2a.detected_issues
+                results['catalog_flags'] = pass_2a.catalog_flags
+            except Exception as e:
+                logger.warning(f"  Pass 2a failed: {e}")
+
+            # Pass 3: Keyword Extraction (always Qwen)
+            model_config_3 = self._get_model_config_for_pass('3')
+            logger.debug(f"  Pass 3 using model: {model_config_3.get('model')}")
+
+            try:
+                pass_3 = await run_pass_3_keyword_extraction(
+                    image_path=image_path,
+                    vlm_client=self.vlm_client,
+                    model_config=model_config_3,
+                    context=context,
+                    max_keywords=self.max_keywords,
+                )
+                results['keywords'] = pass_3.keywords
+            except Exception as e:
+                logger.warning(f"  Pass 3 failed: {e}")
+
+            return results
+
+        # Run async passes
+        loop = asyncio.new_event_loop()
+        try:
+            results = loop.run_until_complete(run_passes())
+        finally:
+            loop.close()
+
+        return self._parse_direct_results(results)
+
+    def _parse_orchestrator_result(
+            self, result: Any
+    ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str], Dict[str, Any]]:
+        """Parse orchestrator ImageAnalysisResult into the expected tuple format."""
+        # Handle both dataclass and dict results
+        if hasattr(result, 'to_dict'):
+            data = result.to_dict()
+        elif hasattr(result, '__dict__'):
+            data = result.__dict__
+        else:
+            data = dict(result) if isinstance(result, dict) else {}
+
+        scene = data.get("scene", "unknown")
+        reasoning = ""
+        if hasattr(result, 'pass_1a') and result.pass_1a:
+            reasoning = result.pass_1a.reasoning or ""
+
+        keywords = data.get("keywords", []) or []
+
+        # Build grounding prompt from keywords
+        prompt = ". ".join(keywords) + "." if keywords else ""
+
+        # Extract targets if available
+        targets = []
+        planner_hints: Dict[str, str] = {}
+
+        # Build scene payload for backwards compatibility
+        scene_payload = self._scene_classifier_payload(data, scene_override=scene)
+        scene_payload['keywords'] = keywords
+        scene_payload['overall_impression'] = data.get('overall_impression', '')
+        scene_payload['image_summary'] = data.get('image_summary', '')
+        scene_payload['catalog_flags'] = data.get('catalog_flags', {})
+        scene_payload['models_used'] = data.get('models_used', {})
+
+        return (
+            scene,
+            reasoning,
+            keywords,
+            prompt,
+            targets,
+            planner_hints,
+            scene_payload,
+        )
+
+    def _parse_direct_results(
+            self, results: Dict[str, Any]
+    ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str], Dict[str, Any]]:
+        """Parse direct pass call results into the expected tuple format."""
+        scene = results.get('scene', 'unknown')
+        reasoning = results.get('reasoning', '')
+        keywords = results.get('keywords', []) or []
+
+        # Build grounding prompt from keywords
+        prompt = ". ".join(keywords) + "." if keywords else ""
+
+        targets = []
+        planner_hints: Dict[str, str] = {}
+
+        # Build scene payload
+        scene_payload = self._scene_classifier_payload(results, scene_override=scene)
+
+        return (
+            scene,
+            reasoning,
+            keywords,
+            prompt,
+            targets,
+            planner_hints,
+            scene_payload,
+        )
 
     def run_detection(self,
                       image_path: Path,
                       output_dir: Path,
                       text_prompt: str) -> Dict[str, Any]:
+        """Run detection using the selected backend."""
+        backend = self.detection_backend
+
+        if backend == "groundingdino":
+            return self._run_detection_groundingdino(image_path, output_dir, text_prompt)
+
+        if backend == "dinox":
+            return self._run_detection_dinox(image_path, output_dir, text_prompt)
+
+        return {"error": f"Unknown detection backend: {backend}"}
+
+    def _run_detection_groundingdino(self,
+                                     image_path: Path,
+                                     output_dir: Path,
+                                     text_prompt: str) -> Dict[str, Any]:
         """Run GroundingDINO detection on a single image."""
-        logger.info(f"Running detection: {image_path.name}")
+        logger.info(f"Running GroundingDINO detection: {image_path.name}")
 
         cmd = [
             self.python_exe,
@@ -427,10 +888,9 @@ class AutoAnalyzer:
         code, stdout, stderr = self._run_command(cmd)
 
         if code != 0:
-            logger.error(f"Detection failed: {stderr}")
+            logger.error(f"GroundingDINO detection failed: {stderr}")
             return {"error": stderr, "code": code}
 
-        # Load results
         pred_json = output_dir / "pred.json"
         if pred_json.exists():
             with open(pred_json, 'r', encoding='utf-8') as f:
@@ -438,19 +898,142 @@ class AutoAnalyzer:
         else:
             return {"error": "pred.json not produced"}
 
+    def _run_detection_dinox(self,
+                             image_path: Path,
+                             output_dir: Path,
+                             text_prompt: str) -> Dict[str, Any]:
+        """Run DINO-X detection on a single image."""
+        logger.info(f"Running DINO-X detection: {image_path.name}")
+
+        dinox_script = getattr(cfg, "DINOX_INFER_SCRIPT", None)
+
+        # Mode 1: Local script
+        if dinox_script and Path(dinox_script).exists():
+            cmd = [
+                self.python_exe,
+                dinox_script,
+                "--image_path", str(image_path),
+                "--text_prompt", text_prompt,
+                "--output_dir", str(output_dir),
+                "--box_threshold", str(self.box_threshold),
+                "--text_threshold", str(self.text_threshold),
+            ]
+
+            if getattr(cfg, "DINOX_EXTRACT_CHIPS", False):
+                cmd.append("--extract-chips")
+                cmd.extend(["--chip-margin", str(self.chip_margin)])
+
+            if getattr(cfg, "DINOX_CPU_ONLY", cfg.CPU_ONLY):
+                cmd.append("--cpu-only")
+
+            code, stdout, stderr = self._run_command(cmd)
+
+            if code != 0:
+                logger.error(f"DINO-X detection failed: {stderr}")
+                return {"error": stderr, "code": code}
+
+            pred_json = output_dir / "pred.json"
+            if pred_json.exists():
+                with open(pred_json, 'r', encoding='utf-8') as f:
+                    return json.load(f)
+
+            return {"error": "pred.json not produced by DINO-X"}
+
+        # Mode 2: API client
+        elif self.dinox_client:
+            try:
+                dinox_prompt = text_prompt.replace(". ", ".").replace(".", ".").strip(".")
+                logger.info(f"  Using DINO-X API with prompt: {dinox_prompt}")
+
+                result = self.dinox_client.detect(
+                    image_path=image_path,
+                    prompt=dinox_prompt,
+                    bbox_threshold=self.box_threshold,
+                    targets=["bbox"],
+                )
+
+                detections = []
+                for obj in result.objects:
+                    detections.append({
+                        "label": obj.category,
+                        "score": obj.score,
+                        "box": obj.bbox.to_list(),
+                    })
+
+                pred_result = {
+                    "image": str(image_path),
+                    "detections": detections,
+                    "detection_count": len(detections),
+                    "dinox_task_uuid": result.task_uuid,
+                    "processing_time": result.processing_time,
+                }
+
+                try:
+                    with Image.open(image_path) as pil_im:
+                        w, h = pil_im.size
+                        pred_result["size"] = {"width": w, "height": h}
+                except Exception:
+                    pass
+
+                output_dir.mkdir(parents=True, exist_ok=True)
+                pred_json = output_dir / "pred.json"
+                with open(pred_json, 'w', encoding='utf-8') as f:
+                    json.dump(pred_result, f, indent=2)
+
+                logger.info(f"  DINO-X detected {len(detections)} objects in {result.processing_time:.1f}s")
+                return pred_result
+
+            except Exception as e:
+                logger.error(f"DINO-X API detection failed: {e}")
+                return {"error": str(e)}
+
+        # Mode 3: No option available
+        else:
+            api_token = (
+                    getattr(cfg, "DINOX_API_TOKEN", None) or
+                    getattr(cfg, "DINOX_API_KEY", None) or
+                    os.environ.get("DINOX_API_TOKEN") or
+                    os.environ.get("DINOX_API_KEY")
+            )
+
+            if api_token and not DINOX_CLIENT_AVAILABLE:
+                return {
+                    "error": "DINOX_API_TOKEN is set but dinox_client.py is not available."
+                }
+
+            return {
+                "error": "DINO-X backend selected but no detection method available."
+            }
+
     def run_verification(self, output_dir: Path) -> Optional[Dict[str, Any]]:
-        """Run chip verification on detection results."""
+        """
+        Run chip verification on detection results.
+
+        Note: Pass 2b (verification) always uses Qwen even in premium mode
+        because it's high-volume and doesn't benefit much from GPT.
+        """
+        import subprocess
+
         if self.skip_verification:
             return {"skipped": True}
 
+        chip_verifier = cfg.TOOLS_DIR / "chip_verifier.py"
+        if not chip_verifier.exists():
+            logger.warning("chip_verifier.py not found, skipping verification")
+            return {"skipped": True, "reason": "chip_verifier.py not found"}
+
         logger.info(f"Verifying detections in: {output_dir.name}")
 
+        # Get model config for pass 2b - always Qwen even in premium
+        model_config = self._get_model_config_for_pass('2b')
+
+        # Verification always uses LM Studio/Qwen (high volume pass)
         cmd = [
             self.python_exe,
-            cfg.TOOLS_DIR / "chip_verifier.py",
+            chip_verifier,
             str(output_dir),
-            "--model", cfg.LM_STUDIO_MODEL,
-            "--lm-studio-url", cfg.LM_STUDIO_URL,
+            "--model", model_config.get('model', cfg.LM_STUDIO_MODEL),
+            "--lm-studio-url", model_config.get('url', cfg.LM_STUDIO_URL),
             "--max-chips", str(cfg.MAX_CHIPS_PER_DETECTION),
         ]
 
@@ -463,7 +1046,6 @@ class AutoAnalyzer:
             logger.error(f"Verification failed: {stderr}")
             return {"error": stderr, "code": code}
 
-        # Load verification results
         ver_json = output_dir / "verification_results.json"
         if ver_json.exists():
             with open(ver_json, 'r', encoding='utf-8') as f:
@@ -506,7 +1088,7 @@ class AutoAnalyzer:
                     error="No detection prompt generated"
                 )
 
-            # 2. Run detection
+            # 2. Run detection (routed based on backend)
             detection_result = self.run_detection(image_path, output_dir, prompt)
 
             if "error" in detection_result:
@@ -600,7 +1182,7 @@ class AutoAnalyzer:
                         f"  Special cases: {pre_case} → {len(detections)} detections"
                     )
 
-            # --- NMS here (AFTER detection, BEFORE verification) ---
+            # NMS (AFTER detection, BEFORE verification)
             if getattr(cfg, "USE_NMS", True) and detections:
                 pre_nms_count = len(detections)
                 detections = class_aware_nms(
@@ -610,7 +1192,7 @@ class AutoAnalyzer:
                 )
                 logger.info(f"  NMS: {pre_nms_count} → {len(detections)} detections")
 
-            # Optional: enforce per-scene caps (keeps top-K per class)
+            # Optional: enforce per-scene caps
             if getattr(cfg, "USE_SCENE_CAPS", False) and detections:
                 pre_cap_count = len(detections)
                 detections = enforce_scene_caps(
@@ -636,10 +1218,9 @@ class AutoAnalyzer:
                         f"img%={dbg.get('img_frac', 0):.3f}"
                     )
 
-            # Write survivors back so downstream tools (e.g., chip_verifier) see the filtered set
+            # Write survivors back
             detection_result["detections"] = detections
 
-            # Keep top-level counts consistent with filtered detections
             for k in ("count", "num_detections", "detections_count"):
                 if k in detection_result:
                     detection_result[k] = len(detections)
@@ -675,7 +1256,7 @@ class AutoAnalyzer:
                 except Exception as e:
                     logger.warning(f"  Chip pruning failed: {e}")
 
-            # Redraw overlay using filtered detections so pred.jpg matches NMS output
+            # Redraw overlay
             try:
                 nms_overlay = output_dir / "pred_nms.jpg"
                 redraw_overlay(image_path, detections, nms_overlay)
@@ -689,19 +1270,17 @@ class AutoAnalyzer:
                         before_overlay.write_bytes(raw_overlay.read_bytes())
 
                 nms_overlay.replace(raw_overlay)
-
                 logger.info("  Overlay updated with NMS/ROI filtered detections")
             except Exception as e:
                 logger.warning(f"  Failed to redraw overlay: {e}")
 
-            # Finally, the filtered count
             detection_count = len(detections)
 
             # 3. Verify detections (optional)
             verified_count = None
             if not self.skip_verification and detection_count > 0:
                 logger.info(f"  Verifying detections for {Path(image_path).name} in: {Path(output_dir).name}")
-                verification_result = self.run_verification(output_dir)  # ← single call
+                verification_result = self.run_verification(output_dir)
                 if verification_result and "summary" in verification_result:
                     verified_count = verification_result["summary"].get("valid", 0)
                     logger.info(f"  Verified: {verified_count}/{detection_count}")
@@ -741,8 +1320,7 @@ class AutoAnalyzer:
         """Analyze all images for a property."""
         t0 = time.time()
 
-        # Create job directory
-        job_id = time.strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:8]
+        job_id = datetime.utcnow().strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:8]
         job_dir = self.artifacts_root / property_key / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
 
@@ -750,6 +1328,11 @@ class AutoAnalyzer:
         logger.info(f"Property: {property_key}")
         logger.info(f"Job ID: {job_id}")
         logger.info(f"Images: {len(images)}")
+        logger.info(f"Detection Backend: {self.detection_backend}")
+        logger.info(f"Analysis Profile: {self.analysis_profile}")
+        logger.info(f"Pass Architecture: {self.use_pass_architecture}")
+        if self.analysis_profile == "premium" and self.gpt_config:
+            logger.info(f"GPT Model: {self.gpt_config.get('model', 'N/A')}")
         logger.info(f"{'=' * 60}\n")
 
         results = []
@@ -765,15 +1348,17 @@ class AutoAnalyzer:
             result = self.analyze_image(image_path, output_dir)
             results.append(result)
 
-        # Create job summary
         job = PropertyAnalysisJob(
             job_id=job_id,
             property_key=property_key,
-            timestamp=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            timestamp=datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S"),
             results=results,
             artifacts_dir=str(job_dir),
             total_processing_time=time.time() - t0,
             parameters={
+                "detection_backend": self.detection_backend,
+                "analysis_profile": self.analysis_profile,
+                "use_pass_architecture": self.use_pass_architecture,
                 "box_threshold": self.box_threshold,
                 "text_threshold": self.text_threshold,
                 "chip_margin": self.chip_margin,
@@ -798,7 +1383,6 @@ class AutoAnalyzer:
             error: Optional[str] = None,
     ) -> Dict[str, Any]:
         """Normalize scene classifier output so all fields are present."""
-
         payload: Dict[str, Any] = dict(scene_data or {})
 
         if scene_override:
@@ -869,17 +1453,7 @@ class AutoAnalyzer:
             output_path: Optional[Path] = None,
             generate_summary: bool = True
     ) -> Path:
-        """
-        Persist per-photo intelligence (including scene classifier fields).
-
-        Args:
-            job: The completed PropertyAnalysisJob
-            output_path: Where to save photo_intel.json
-            generate_summary: If True, also generate property_summary.json
-
-        Returns:
-            Path to the saved photo_intel.json
-        """
+        """Persist per-photo intelligence (including scene classifier fields)."""
         created_at = datetime.utcnow().isoformat() + "Z"
 
         photos: Dict[str, Any] = {}
@@ -895,7 +1469,13 @@ class AutoAnalyzer:
             "timestamp": job.timestamp,
             "created_at": created_at,
             "artifacts_dir": job.artifacts_dir,
+            "detection_backend": self.detection_backend,
+            "analysis_profile": self.analysis_profile,
+            "used_pass_architecture": self.use_pass_architecture,
+            "pass_toggles": self.pass_toggles if self.pass_toggles else None,
+            "model_overrides": self.model_overrides if self.model_overrides else None,
             "model": getattr(cfg, "LM_STUDIO_MODEL", ""),
+            "gpt_model": self.gpt_config.get('model') if self.gpt_config else None,
             "prompt_version": self._pick_first_metadata(job.results, "prompt_version", ""),
             "scene_policy_version": self._pick_first_metadata(job.results, "scene_policy_version", ""),
             "photos": photos,
@@ -913,7 +1493,6 @@ class AutoAnalyzer:
 
         logger.info(f"Photo intel saved to: {output_path}")
 
-        # Generate property summary if requested
         if generate_summary:
             summary_path = output_path.parent / "property_summary.json"
             self.generate_property_summary(job, photo_intel_path=output_path, output_path=summary_path)
@@ -929,22 +1508,12 @@ class AutoAnalyzer:
         """
         Generate a property-level summary from the analysis results.
 
-        This runs an additional VLM pass to aggregate all per-image issues
-        into a coherent property assessment.
-
-        Args:
-            job: The completed PropertyAnalysisJob
-            photo_intel_path: Path to photo_intel.json (if already saved)
-            output_path: Where to save property_summary.json
-
-        Returns:
-            Path to the saved summary, or None if summarization failed/skipped
+        ✅ FIXED: Now correctly routes to OpenAI when premium.
         """
         if PropertySummarizer is None:
             logger.warning("PropertySummarizer not available, skipping summary generation")
             return None
 
-        # Check config flag
         if not getattr(cfg, "GENERATE_PROPERTY_SUMMARY", True):
             logger.info("Property summary generation disabled in config")
             return None
@@ -954,12 +1523,11 @@ class AutoAnalyzer:
         logger.info(f"{'=' * 60}")
 
         try:
-            # Load photo_intel from file if provided, otherwise build from job
+            # Load photo_intel
             if photo_intel_path and photo_intel_path.exists():
                 with open(photo_intel_path, 'r', encoding='utf-8') as f:
                     photo_intel = json.load(f)
             else:
-                # Build photo_intel structure from job results
                 photos = {}
                 for res in job.results:
                     image_key = Path(res.image_path).name
@@ -971,26 +1539,46 @@ class AutoAnalyzer:
                     "job_id": job.job_id,
                     "timestamp": job.timestamp,
                     "artifacts_dir": job.artifacts_dir,
+                    "detection_backend": self.detection_backend,
+                    "analysis_profile": self.analysis_profile,
                     "photos": photos,
                 }
 
-                # Add renovation_needs if available
                 try:
                     photo_intel["renovation_needs"] = build_renovation_needs(job)
                 except Exception as exc:
                     logger.warning(f"Could not build renovation_needs: {exc}")
 
-            # Create summarizer
-            summarizer = PropertySummarizer(
-                lm_studio_url=cfg.LM_STUDIO_URL,
-                model_name=getattr(cfg, "SUMMARY_MODEL", cfg.LM_STUDIO_MODEL),
-                debug=self.debug
-            )
+            # ✅ Determine model config based on profile
+            gpt_config = self._get_pass_specific_gpt_config('4')  # Pass 4 = property summary
+            api_key = gpt_config.get('api_key') or os.environ.get('OPENAI_API_KEY')
 
-            # Generate summary
+            if self.analysis_profile == "premium" and api_key:
+                # Premium mode: use OpenAI
+                summary_model = gpt_config.get('model', 'gpt-4o')
+                logger.info(f"  Using premium model for summary: {summary_model}")
+
+                # ✅ Pass None for lm_studio_url when using OpenAI
+                summarizer = PropertySummarizer(
+                    lm_studio_url=None,  # Explicitly None for OpenAI mode
+                    model_name=summary_model,
+                    debug=self.debug,
+                    api_key=api_key,
+                    provider='openai',
+                )
+            else:
+                # Standard mode: use LM Studio/Qwen
+                summary_model = self.summary_model or getattr(cfg, "SUMMARY_MODEL", cfg.LM_STUDIO_MODEL)
+                logger.info(f"  Using standard model for summary: {summary_model}")
+
+                summarizer = PropertySummarizer(
+                    lm_studio_url=cfg.LM_STUDIO_URL,
+                    model_name=summary_model,
+                    debug=self.debug,
+                )
+
             summary = summarizer.summarize_property(photo_intel)
 
-            # Save summary
             if output_path is None:
                 output_path = Path(job.artifacts_dir) / "property_summary.json"
 
@@ -1005,6 +1593,11 @@ class AutoAnalyzer:
 
     def create_html_report(self, job: PropertyAnalysisJob, output_path: Path):
         """Generate a simple HTML report."""
+        profile_color = "#9C27B0" if self.analysis_profile == "premium" else "#607D8B"
+        gpt_model_info = ""
+        if self.analysis_profile == "premium" and self.gpt_config:
+            gpt_model_info = f"<p><strong>GPT Model:</strong> {self.gpt_config.get('model', 'N/A')}</p>"
+
         html = f"""<!DOCTYPE html>
 <html>
 <head>
@@ -1019,6 +1612,8 @@ class AutoAnalyzer:
         tr:nth-child(even) {{ background-color: #f2f2f2; }}
         .summary {{ background-color: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0; }}
         .error {{ color: red; }}
+        .backend {{ font-weight: bold; color: #2196F3; }}
+        .profile {{ font-weight: bold; color: {profile_color}; }}
     </style>
 </head>
 <body>
@@ -1029,6 +1624,10 @@ class AutoAnalyzer:
         <p><strong>Property:</strong> {job.property_key}</p>
         <p><strong>Job ID:</strong> {job.job_id}</p>
         <p><strong>Timestamp:</strong> {job.timestamp}</p>
+        <p><strong>Detection Backend:</strong> <span class="backend">{self.detection_backend}</span></p>
+        <p><strong>Analysis Profile:</strong> <span class="profile">{self.analysis_profile.upper()}</span></p>
+        <p><strong>Pass Architecture:</strong> {self.use_pass_architecture}</p>
+        {gpt_model_info}
         <p><strong>Images Processed:</strong> {len(job.results)}</p>
         <p><strong>Total Time:</strong> {job.total_processing_time:.1f} seconds</p>
         <p><strong>Artifacts:</strong> {job.artifacts_dir}</p>

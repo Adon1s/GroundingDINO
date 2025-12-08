@@ -26,30 +26,70 @@ GDINO_INFER_SCRIPT = DEMO_DIR / "inference_on_a_image.py"
 ARTIFACTS_ROOT = PROJECT_ROOT / "artifacts"
 
 # ============================================================================
-# LM STUDIO / VLM SETTINGS
+# LM STUDIO / VLM SETTINGS (Qwen - local)
 # ============================================================================
-LM_STUDIO_URL = "http://169.254.83.107:1234"
-LM_STUDIO_MODEL = "qwen/qwen3-vl-30b"
+LM_STUDIO_URL = os.environ.get("LM_STUDIO_URL", "http://169.254.83.107:1234")
+LM_STUDIO_MODEL = os.environ.get("LM_STUDIO_MODEL", "qwen/qwen3-vl-30b")
+
+# ============================================================================
+# OPENAI / GPT SETTINGS (Premium - cloud)
+# ============================================================================
+# API key (required for premium profile)
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+
+# GPT model configuration - supports multiple naming conventions
+# Priority: GPT5_MODEL > GPT_MODEL > OPENAI_MODEL > default
+GPT_MODEL = (
+    os.environ.get("GPT5_MODEL") or
+    os.environ.get("GPT_MODEL") or
+    os.environ.get("OPENAI_MODEL") or
+    "gpt-5-mini"
+)
+
+# Alias for backward compatibility with vlm_client.py
+OPENAI_MODEL = GPT_MODEL
+
+# Optional: separate model for specific passes (if not set, uses GPT_MODEL)
+GPT_PASS_1B_MODEL = os.environ.get("OPENAI_PASS1B_MODEL") or GPT_MODEL  # Overall impression
+GPT_PASS_2A_MODEL = os.environ.get("OPENAI_PASS2A_MODEL") or GPT_MODEL  # Issue detection
+GPT_PASS_4_MODEL = os.environ.get("OPENAI_PASS4_MODEL") or GPT_MODEL    # Property summary
+
+# ============================================================================
+# ANALYSIS PROFILE SETTINGS
+# ============================================================================
+# Default profile: "standard" (all Qwen) or "premium" (GPT for key passes)
+ANALYSIS_PROFILE = os.environ.get("ANALYSIS_PROFILE", "standard")
+
+# Premium-specific overrides
+PREMIUM_MAX_KEYWORDS = int(os.environ.get("PREMIUM_MAX_KEYWORDS", "30"))
+PREMIUM_SKIP_VERIFICATION = os.environ.get("PREMIUM_SKIP_VERIFICATION", "").lower() == "true"
+
+# Premium summary model (uses GPT by default when premium)
+PREMIUM_SUMMARY_MODEL = os.environ.get("PREMIUM_SUMMARY_MODEL") or GPT_MODEL
 
 # =============================================================================
 # DINO-X Configuration Variables
-# Add these to your pipeline_config.py to enable DINO-X backend support
 # =============================================================================
 
 # ─── Backend Selection ───────────────────────────────────────────────────────
 # Options: "groundingdino" (local) or "dinox" (remote API)
-DETECTION_BACKEND = "groundingdino"  # Default to local GroundingDINO
+DETECTION_BACKEND = os.environ.get("DETECTION_BACKEND", "groundingdino")
 
 # ─── DINO-X API Settings ─────────────────────────────────────────────────────
 # Get your API token from https://cloud.deepdataspace.com/
-DINOX_API_TOKEN = os.environ.get("DINOX_API_TOKEN", "")
+# Supports both DINOX_API_TOKEN and DDS_API_TOKEN for flexibility
+DINOX_API_TOKEN = (
+    os.environ.get("DINOX_API_TOKEN") or
+    os.environ.get("DDS_API_TOKEN") or
+    ""
+)
 
 # API Endpoints (v2 API)
 DINOX_DETECTION_ENDPOINT = "https://api.deepdataspace.com/v2/task/dinox/detection"
 DINOX_STATUS_ENDPOINT = "https://api.deepdataspace.com/v2/task_status"
 
 # Model selection
-DINOX_MODEL = "DINO-X-1.0"
+DINOX_MODEL = os.environ.get("DDS_DETECTOR_MODEL", "DINO-X-1.0")
 
 # Detection targets - what outputs to request from DINO-X
 # Options typically include: "bbox", "mask", "keypoint"
@@ -81,6 +121,11 @@ DINOX_POLL_INTERVAL = 1.0    # Seconds between status polls
 #
 # 4. Programmatic override when creating analyzer:
 #    analyzer = AutoAnalyzer(detection_backend="dinox")
+#
+# 5. Premium profile with GPT-5:
+#    ANALYSIS_PROFILE = "premium"
+#    OPENAI_API_KEY = "sk-..."
+#    GPT5_MODEL = "gpt-5"  # or gpt-4o
 #
 # =============================================================================
 # Notes
@@ -117,7 +162,7 @@ INCLUDE_COMMON = True       # Include common object keywords in prompts
 # ============================================================================
 # VERIFICATION PARAMETERS
 # ============================================================================
-SKIP_VERIFICATION = False   # Set to True to skip chip verification (faster)
+SKIP_VERIFICATION = os.environ.get("SKIP_VERIFICATION", "").lower() == "true"
 MAX_CHIPS_PER_DETECTION = 3 # Number of chips to verify per detection
 
 # Verification thresholds
@@ -136,8 +181,9 @@ CPU_ONLY = False            # Run detection on CPU only (slower)
 # OUTPUT OPTIONS
 # ============================================================================
 GENERATE_HTML_REPORT = True # Create HTML summary report
+GENERATE_PROPERTY_SUMMARY = True  # Generate property-level summary
 SAVE_JSON_SUMMARY = True    # Save JSON summary of results
-DEBUG_MODE = True          # Enable detailed logging
+DEBUG_MODE = os.environ.get("DEBUG_MODE", "true").lower() == "true"
 
 # ============================================================================
 # ROI HINTS

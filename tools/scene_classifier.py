@@ -68,7 +68,7 @@ try:
     LM_STUDIO_URL = cfg.LM_STUDIO_URL
     DEFAULT_MODEL = cfg.LM_STUDIO_MODEL
 except ImportError:
-    LM_STUDIO_URL = os.getenv("LM_STUDIO_URL", "http://100.102.92.1:1234")
+    LM_STUDIO_URL = os.getenv("LM_STUDIO_URL", "http://169.254.83.107:1234")
     DEFAULT_MODEL = os.getenv("LM_STUDIO_MODEL", "qwen/qwen3-vl-30b")
 
 # ── Constants ────────────────────────────────────────────────────────────────
