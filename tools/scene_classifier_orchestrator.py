@@ -6,12 +6,14 @@ and toggle handling.
 
 Usage:
     from scene_classifier_orchestrator import SceneClassifierOrchestrator
-    
+    from vlm_client import create_vlm_client
+
     orchestrator = SceneClassifierOrchestrator(
         qwen_config={'url': '...', 'model': '...'},
         gpt5_config={'url': '...', 'model': '...', 'api_key': '...'},
+        vlm_client=create_vlm_client(),
     )
-    
+
     result = await orchestrator.analyze_image(
         image_path=Path('/path/to/image.jpg'),
         options=SceneClassifierRunOptions(premium=True),
@@ -20,10 +22,16 @@ Usage:
 
 from llm_json import extract_json_object
 import logging
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
 import json
 from typing import Any, Dict, List, Optional
+
+try:
+    import pipeline_config as cfg
+except ImportError:
+    cfg = None
 
 from pass_config import (
     PassKey,
@@ -73,6 +81,7 @@ class ImageAnalysisResult:
     keywords: List[str] = field(default_factory=list)
     catalog_flags: Dict[str, Any] = field(default_factory=dict)
     verified_issues: List[Dict[str, Any]] = field(default_factory=list)
+    issues_natural_language: List[Dict[str, Any]] = field(default_factory=list)
 
     # Metadata
     passes_run: List[str] = field(default_factory=list)
@@ -89,6 +98,7 @@ class ImageAnalysisResult:
             'keywords': self.keywords,
             'catalog_flags': self.catalog_flags,
             'verified_issues': self.verified_issues,
+            'issues_natural_language': self.issues_natural_language,
             'passes_run': self.passes_run,
             'models_used': self.models_used,
             'processing_time': self.processing_time,
@@ -120,7 +130,7 @@ class PropertyAnalysisResult:
 class SceneClassifierOrchestrator:
     """
     Orchestrates scene classification passes with configurable model selection.
-    
+
     Handles:
     - Per-pass enable/disable via toggles
     - Per-pass model selection (Qwen vs GPT-5)
@@ -138,7 +148,7 @@ class SceneClassifierOrchestrator:
     ):
         """
         Initialize the orchestrator.
-        
+
         Args:
             qwen_config: Configuration for Qwen model calls
                          {'url': '...', 'model': '...'}
@@ -154,18 +164,62 @@ class SceneClassifierOrchestrator:
         self.issue_catalog = issue_catalog
         self.max_keywords = max_keywords
 
+    def _attach_openai_token_cap(self, pass_key: PassKey, model_config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Only apply max_tokens for OpenAI calls.
+        Leave LM Studio/Qwen untouched.
+        """
+        # Harden provider detection: infer OpenAI if api_key present but provider missing
+        provider = model_config.get("provider")
+        if provider is None and model_config.get("api_key"):
+            provider = "openai"
+
+        if provider != "openai":
+            return model_config
+
+        key_map = {
+            "1b": "OPENAI_PASS_1B_MAX_TOKENS",
+            "2a": "OPENAI_PASS_2A_MAX_TOKENS",
+            "4": "OPENAI_PASS_4_MAX_TOKENS",
+        }
+
+        attr = key_map.get(str(pass_key))
+        cap = None
+
+        if attr and cfg:
+            cap = getattr(cfg, attr, None) or os.environ.get(attr)
+
+        if cap is None and cfg:
+            cap = getattr(cfg, "OPENAI_DEFAULT_MAX_TOKENS", None) or os.environ.get("OPENAI_DEFAULT_MAX_TOKENS")
+
+        if cap:
+            try:
+                cap_int = int(cap)
+                return {
+                    **model_config,
+                    # Keep this for any internal code that expects it
+                    "max_tokens": cap_int,
+                    # This matches the actual OpenAI Responses payload
+                    "max_output_tokens": cap_int,
+                }
+            except Exception:
+                logger.warning(f"Invalid OpenAI cap for pass {pass_key}: {cap}")
+
+        return model_config
+
     def _get_model_config(
         self,
         pass_key: PassKey,
         options: SceneClassifierRunOptions,
     ) -> Dict[str, Any]:
         """Get the model config for a specific pass."""
-        return get_model_config_for_pass(
+        base = get_model_config_for_pass(
             pass_key=pass_key,
             options=options,
             qwen_config=self.qwen_config,
             gpt5_config=self.gpt5_config,
         )
+        return self._attach_openai_token_cap(pass_key, base)
 
     def _get_model_name(
         self,
@@ -247,9 +301,9 @@ class SceneClassifierOrchestrator:
             result.models_used['1b'] = model_name
 
         # ─────────────────────────────────────────────────────────────────────
-        # Pass 2a: Issue Detection
+        # Pass 2a: Issue Detection (freeform notes)
         # ─────────────────────────────────────────────────────────────────────
-        detected_issues: List[Dict[str, Any]] = []
+        freeform_notes = ""
 
         if toggles['2a']:
             model_config = self._get_model_config('2a', options)
@@ -264,15 +318,16 @@ class SceneClassifierOrchestrator:
                 issue_catalog=resolved_catalog,
             )
 
-            detected_issues = result.pass_2a.detected_issues
-            result.catalog_flags = result.pass_2a.catalog_flags
+            freeform_notes = result.pass_2a.freeform_notes
             result.passes_run.append('2a')
             result.models_used['2a'] = model_name
 
+            logger.debug(f"Pass 2a freeform length (orchestrator): {len(freeform_notes)}")
+
         # ─────────────────────────────────────────────────────────────────────
-        # Pass 2b: Issue Verification
+        # Pass 2b: Freeform to JSON Conversion
         # ─────────────────────────────────────────────────────────────────────
-        if toggles['2b'] and detected_issues:
+        if toggles['2b']:
             model_config = self._get_model_config('2b', options)
             model_name = self._get_model_name('2b', options)
 
@@ -281,15 +336,23 @@ class SceneClassifierOrchestrator:
                 image_path=image_path,
                 vlm_client=self.vlm_client,
                 model_config=model_config,
-                detected_issues=detected_issues,
+                freeform_notes=freeform_notes,
+                context=context,
+                issue_catalog=resolved_catalog,
             )
 
-            result.verified_issues = result.pass_2b.verified_issues
+            # ✅ Store structured output for downstream use
+            result.catalog_flags = result.pass_2b.catalog_flags
+            # Store in both fields for compatibility
+            result.issues_natural_language = result.pass_2b.issues_natural_language
+            result.verified_issues = result.pass_2b.issues_natural_language
             result.passes_run.append('2b')
             result.models_used['2b'] = model_name
-        elif detected_issues:
-            # If 2b disabled, all detected issues are considered verified
-            result.verified_issues = detected_issues
+
+            logger.debug(
+                f"Pass 2b issues={len(result.pass_2b.issues_natural_language)} "
+                f"flags={len(result.pass_2b.catalog_flags)}"
+            )
 
         # ─────────────────────────────────────────────────────────────────────
         # Pass 3: Keyword Extraction
@@ -421,13 +484,13 @@ def create_orchestrator_from_config(
     Returns:
         Configured SceneClassifierOrchestrator
     """
-    from vlm_client import VLMClient, get_model_configs_from_pipeline_config
+    from vlm_client import create_vlm_client, get_model_configs_from_pipeline_config
 
     # Get model configs
     qwen_config, gpt5_config = get_model_configs_from_pipeline_config(config)
 
     # Create VLM client
-    vlm_client = VLMClient()
+    vlm_client = create_vlm_client()
 
     # ✅ Use provided catalog, or load from config path if not provided
     resolved_catalog = issue_catalog

@@ -45,18 +45,16 @@ class Pass1bResult:
 
 @dataclass
 class Pass2aResult:
-    """Result from Pass 2a: Issue Detection."""
-    detected_issues: List[Dict[str, Any]]
-    catalog_flags: Dict[str, Any]
+    """Result from Pass 2a: Issue Detection (freeform notes)."""
+    freeform_notes: str
     raw_response: Optional[str] = None
 
 
 @dataclass
 class Pass2bResult:
-    """Result from Pass 2b: Issue Verification."""
-    verified_issues: List[Dict[str, Any]]
-    rejected_issues: List[Dict[str, Any]]
-    verification_notes: Optional[str] = None
+    """Result from Pass 2b: Freeform to JSON Conversion."""
+    issues_natural_language: List[Dict[str, Any]]
+    catalog_flags: Dict[str, Any]
     raw_response: Optional[str] = None
 
 
@@ -118,20 +116,20 @@ async def run_pass_1a_scene_type(
 ) -> Pass1aResult:
     """
     Pass 1a: Classify the scene type of an image.
-    
+
     This is a fast, focused pass that only determines what type of space
     is shown in the image. Always uses Qwen for speed.
-    
+
     Args:
         image_path: Path to the image file
         vlm_client: VLM client instance
         model_config: Model configuration (url, model name, etc.)
-    
+
     Returns:
         Pass1aResult with scene classification
     """
     logger.debug(f"Pass 1a: Classifying scene type for {image_path.name}")
-    
+
     try:
         response = await vlm_client.analyze_image(
             image_path=image_path,
@@ -139,17 +137,17 @@ async def run_pass_1a_scene_type(
             user_prompt=PASS_1A_USER_PROMPT,
             **model_config,
         )
-        
+
         # Parse JSON response
         result = extract_json_object(response) or {}
-        
+
         return Pass1aResult(
             scene=result.get('scene', 'other'),
             scene_confidence=result.get('confidence'),
             reasoning=result.get('reasoning'),
             raw_response=response,
         )
-        
+
     except json.JSONDecodeError as e:
         logger.warning(f"Pass 1a: Failed to parse JSON response: {e}")
         return Pass1aResult(
@@ -196,24 +194,24 @@ async def run_pass_1b_overall_impression(
 ) -> Pass1bResult:
     """
     Pass 1b: Generate overall impression of the image.
-    
+
     This pass focuses on providing a buyer/investor-friendly impression.
     Uses GPT-5 in premium mode for better reasoning.
-    
+
     Args:
         image_path: Path to the image file
         vlm_client: VLM client instance
         model_config: Model configuration
         context: Optional context from Pass 1a (e.g., {'scene': 'kitchen'})
-    
+
     Returns:
         Pass1bResult with overall impression
     """
     scene = context.get('scene', 'property') if context else 'property'
     user_prompt = PASS_1B_USER_PROMPT_TEMPLATE.format(scene=scene)
-    
+
     logger.debug(f"Pass 1b: Generating impression for {image_path.name} (scene: {scene})")
-    
+
     try:
         response = await vlm_client.analyze_image(
             image_path=image_path,
@@ -221,16 +219,16 @@ async def run_pass_1b_overall_impression(
             user_prompt=user_prompt,
             **model_config,
         )
-        
+
         result = extract_json_object(response) or {}
-        
+
         return Pass1bResult(
             overall_impression=result.get('overall_impression', ''),
             image_summary=result.get('image_summary'),
             notable_features=result.get('notable_features', []),
             raw_response=response,
         )
-        
+
     except json.JSONDecodeError as e:
         logger.warning(f"Pass 1b: Failed to parse JSON response: {e}")
         # Try to extract impression from raw text
@@ -261,65 +259,46 @@ async def run_pass_2a_issue_detection(
     issue_catalog: Optional[Dict[str, Any]] = None,
 ) -> Pass2aResult:
     """
-    Pass 2a: Detect issues and defects in the image.
-    
+    Pass 2a: Detect issues and defects in the image (freeform notes).
+
     Uses GPT-5 in premium mode for better issue detection.
-    
+    Returns freeform text notes - JSON conversion happens in Pass 2b.
+
     Args:
         image_path: Path to the image file
         vlm_client: VLM client instance
         model_config: Model configuration
         context: Optional context from previous passes
-        issue_catalog: Issue catalog for flagging
-    
+        issue_catalog: Issue catalog (not used in 2a, but kept for signature consistency)
+
     Returns:
-        Pass2aResult with detected issues
+        Pass2aResult with freeform notes
     """
-    scene = context.get('scene', 'property') if context else 'property'
-    
-    # Build catalog excerpt for prompt
-    catalog_excerpt = ""
-    if issue_catalog:
-        defects = issue_catalog.get('defect_issues', [])[:10]  # Top 10 for prompt size
-        catalog_excerpt = "\n".join(
-            f"- {d.get('id')}: {d.get('name')}" for d in defects if isinstance(d, dict)
-        )
-    
-    system_prompt = PASS_2A_SYSTEM_PROMPT_TEMPLATE.format(
-        scene=scene,
-        catalog_excerpt=catalog_excerpt or "(no catalog provided)",
-    )
-    
     logger.debug(f"Pass 2a: Detecting issues in {image_path.name}")
-    
+
     try:
         response = await vlm_client.analyze_image(
             image_path=image_path,
-            system_prompt=system_prompt,
+            system_prompt=PASS_2A_SYSTEM_PROMPT_TEMPLATE,
             user_prompt="Analyze this image for any issues, defects, or concerns.",
             **model_config,
         )
-        
-        result = extract_json_object(response) or {}
-        
+
+        # ✅ Do NOT parse JSON. Treat as freeform notes.
+        freeform = (response or "").strip()
+
+        logger.debug(f"Pass 2a freeform length: {len(freeform)} chars")
+
         return Pass2aResult(
-            detected_issues=result.get('detected_issues', []),
-            catalog_flags=result.get('catalog_flags', {}),
+            freeform_notes=freeform,
             raw_response=response,
         )
-        
-    except json.JSONDecodeError as e:
-        logger.warning(f"Pass 2a: Failed to parse JSON response: {e}")
-        return Pass2aResult(
-            detected_issues=[],
-            catalog_flags={},
-            raw_response=str(response) if 'response' in dir() else None,
-        )
+
     except Exception as e:
         logger.error(f"Pass 2a: Error detecting issues: {e}")
         return Pass2aResult(
-            detected_issues=[],
-            catalog_flags={},
+            freeform_notes="",
+            raw_response=None,
         )
 
 
@@ -394,88 +373,101 @@ async def run_pass_2b_issue_verification(
     image_path: Path,
     vlm_client: Any,
     model_config: dict,
-    detected_issues: List[Dict[str, Any]],
+    freeform_notes: str,
+    context: Optional[Dict[str, Any]] = None,
+    issue_catalog: Optional[Dict[str, Any]] = None,
 ) -> Pass2bResult:
     """
-    Pass 2b: Verify detected issues from Pass 2a.
-    
-    Always uses Qwen for speed (high volume verification).
-    
+    Pass 2b: Convert freeform notes from Pass 2a into structured JSON.
+
+    Always uses Qwen for speed (high volume conversion).
+    Note: This is a text-only pass - does not need the image.
+
     Args:
-        image_path: Path to the image file
+        image_path: Path to the image file (kept for signature consistency, not used)
         vlm_client: VLM client instance
         model_config: Model configuration
-        detected_issues: Issues from Pass 2a to verify
-    
+        freeform_notes: Freeform notes from Pass 2a
+        context: Optional context from previous passes
+        issue_catalog: Issue catalog for structured flagging
+
     Returns:
-        Pass2bResult with verified and rejected issues
+        Pass2bResult with issues_natural_language and catalog_flags
     """
-    if not detected_issues:
+    # Build catalog data for prompt (needed for both early return and full run)
+    defect_items = (issue_catalog or {}).get("defect_issues", []) or []
+    opp_items = (issue_catalog or {}).get("opportunity_flags", []) or []
+
+    all_items = []
+    for x in defect_items + opp_items:
+        if isinstance(x, dict) and x.get("id"):
+            all_items.append(x)
+
+    # If no freeform notes, return empty issues but populate catalog_flags with "no"
+    if not freeform_notes or not freeform_notes.strip():
+        empty_flags = {}
+        for item in all_items:
+            issue_id = item["id"]
+            empty_flags[issue_id] = {
+                "present": "no",
+                "severity": "none",
+                "evidence": "",
+            }
         return Pass2bResult(
-            verified_issues=[],
-            rejected_issues=[],
-            verification_notes="No issues to verify",
+            issues_natural_language=[],
+            catalog_flags=empty_flags,
+            raw_response=None,
         )
-    
-    # Format issues for prompt
-    issues_text = "\n".join(
-        f"{i}. {issue.get('description', 'Unknown')} (severity: {issue.get('severity', 'unknown')})"
-        for i, issue in enumerate(detected_issues)
+
+    # Build context for prompt
+    scene = context.get("scene", "property") if context else "property"
+
+    catalog_ids = [i["id"] for i in all_items]
+    catalog_list_str = ", ".join(catalog_ids)
+
+    catalog_text = "\n".join(
+        f"- {i.get('id')}: {i.get('name', '')}"
+        for i in all_items
     )
-    
-    user_prompt = f"Verify these detected issues:\n{issues_text}"
-    
-    logger.debug(f"Pass 2b: Verifying {len(detected_issues)} issues in {image_path.name}")
-    
+
+    # Format the system prompt with all placeholders
+    system_prompt = PASS_2B_SYSTEM_PROMPT.format(
+        scene=scene,
+        catalog_list_str=catalog_list_str or "(none)",
+        freeform_notes=freeform_notes or "(no notes provided)",
+        catalog_text=catalog_text or "(no catalog provided)",
+    )
+
+    logger.debug(f"Pass 2b: Converting freeform notes to JSON for {image_path.name}")
+
     try:
-        response = await vlm_client.analyze_image(
-            image_path=image_path,
-            system_prompt=PASS_2B_SYSTEM_PROMPT,
-            user_prompt=user_prompt,
+        # ✅ Text-only call - does not need the image
+        response = await vlm_client.analyze_text(
+            system_prompt=system_prompt,
+            user_prompt="Convert the notes into the JSON format.",
             **model_config,
         )
-        
+
         result = extract_json_object(response) or {}
-        
-        # Map verified/rejected indices back to full issues
-        verified = []
-        rejected = []
-        
-        for v in result.get('verified', []):
-            idx = v.get('issue_index', -1)
-            if 0 <= idx < len(detected_issues):
-                issue = detected_issues[idx].copy()
-                issue['verification_reason'] = v.get('reason', '')
-                verified.append(issue)
-        
-        for r in result.get('rejected', []):
-            idx = r.get('issue_index', -1)
-            if 0 <= idx < len(detected_issues):
-                issue = detected_issues[idx].copy()
-                issue['rejection_reason'] = r.get('reason', '')
-                rejected.append(issue)
-        
+
         return Pass2bResult(
-            verified_issues=verified,
-            rejected_issues=rejected,
-            verification_notes=result.get('notes'),
+            issues_natural_language=result.get("issues_natural_language", []),
+            catalog_flags=result.get("catalog_flags", {}),
             raw_response=response,
         )
-        
+
     except json.JSONDecodeError as e:
         logger.warning(f"Pass 2b: Failed to parse JSON response: {e}")
-        # Conservative fallback: verify all
         return Pass2bResult(
-            verified_issues=detected_issues,
-            rejected_issues=[],
-            verification_notes=f"Parse error, defaulting to verify all: {e}",
+            issues_natural_language=[],
+            catalog_flags={},
+            raw_response=str(response) if 'response' in dir() else None,
         )
     except Exception as e:
-        logger.error(f"Pass 2b: Error verifying issues: {e}")
+        logger.error(f"Pass 2b: Error converting notes to JSON: {e}")
         return Pass2bResult(
-            verified_issues=detected_issues,
-            rejected_issues=[],
-            verification_notes=f"Error: {e}",
+            issues_natural_language=[],
+            catalog_flags={},
         )
 
 
@@ -513,25 +505,25 @@ async def run_pass_3_keyword_extraction(
 ) -> Pass3Result:
     """
     Pass 3: Extract detection keywords from image.
-    
+
     Always uses Qwen for speed.
-    
+
     Args:
         image_path: Path to the image file
         vlm_client: VLM client instance
         model_config: Model configuration
         context: Optional context from previous passes
         max_keywords: Maximum keywords to return
-    
+
     Returns:
         Pass3Result with extracted keywords
     """
     scene = context.get('scene', 'property') if context else 'property'
-    
+
     user_prompt = f"Extract detection keywords for this {scene} photo. Maximum {max_keywords} keywords."
-    
+
     logger.debug(f"Pass 3: Extracting keywords from {image_path.name}")
-    
+
     try:
         response = await vlm_client.analyze_image(
             image_path=image_path,
@@ -539,17 +531,17 @@ async def run_pass_3_keyword_extraction(
             user_prompt=user_prompt,
             **model_config,
         )
-        
+
         result = extract_json_object(response) or {}
-        
+
         keywords = result.get('keywords', [])[:max_keywords]
-        
+
         return Pass3Result(
             keywords=keywords,
             keyword_categories=result.get('categories'),
             raw_response=response,
         )
-        
+
     except json.JSONDecodeError as e:
         logger.warning(f"Pass 3: Failed to parse JSON response: {e}")
         return Pass3Result(
@@ -588,15 +580,15 @@ async def run_pass_4_property_summary(
 ) -> Pass4Result:
     """
     Pass 4: Generate property-level summary from all image analyses.
-    
+
     Uses GPT-5 in premium mode for better synthesis.
     Note: This pass may not receive images, just aggregated text.
-    
+
     Args:
         vlm_client: VLM client instance
         model_config: Model configuration
         all_results: Aggregated results from all images
-    
+
     Returns:
         Pass4Result with property summary
     """
@@ -607,19 +599,19 @@ async def run_pass_4_property_summary(
         impression = data.get('overall_impression', '')
         issues = data.get('verified_issues', [])
         issue_count = len(issues) if isinstance(issues, list) else 0
-        
+
         images_summary.append(
             f"- {img_key} ({scene}): {impression[:100]}... [{issue_count} issues]"
         )
-    
+
     user_prompt = f"""Synthesize these property photo analyses into an investment summary:
 
 {chr(10).join(images_summary[:20])}  # Limit to 20 images in prompt
 
 Total images analyzed: {len(all_results)}"""
-    
+
     logger.debug(f"Pass 4: Generating property summary from {len(all_results)} images")
-    
+
     try:
         # Note: This may be a text-only call if VLM client supports it
         response = await vlm_client.analyze_text(
@@ -627,16 +619,16 @@ Total images analyzed: {len(all_results)}"""
             user_prompt=user_prompt,
             **model_config,
         )
-        
+
         result = extract_json_object(response) or {}
-        
+
         return Pass4Result(
             property_summary=result.get('property_summary', ''),
             investment_considerations=result.get('investment_considerations', []),
             estimated_condition=result.get('estimated_condition'),
             raw_response=response,
         )
-        
+
     except json.JSONDecodeError as e:
         logger.warning(f"Pass 4: Failed to parse JSON response: {e}")
         return Pass4Result(

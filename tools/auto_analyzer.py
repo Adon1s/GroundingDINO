@@ -104,6 +104,7 @@ try:
         run_pass_1a_scene_type,
         run_pass_1b_overall_impression,
         run_pass_2a_issue_detection,
+        run_pass_2b_issue_verification,
         run_pass_3_keyword_extraction,
     )
 
@@ -124,8 +125,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-default_catalog_path = Path(
-    getattr(cfg, "PROJECT_ROOT", Path(__file__).resolve().parent.parent)
+default_catalog_path = getattr(
+    cfg, "PROJECT_ROOT", Path(__file__).resolve().parent.parent
 ) / "issue_catalog.json"
 ISSUE_CATALOG_PATH = Path(getattr(cfg, "ISSUE_CATALOG_PATH", default_catalog_path))
 ISSUE_CATALOG = load_issue_catalog(ISSUE_CATALOG_PATH)
@@ -419,14 +420,6 @@ class AutoAnalyzer:
         # Validate environment
         self._validate_environment()
 
-        logger.info(f"ISSUE_CATALOG_PATH = {ISSUE_CATALOG_PATH}")
-        logger.info(f"ISSUE_CATALOG exists? {ISSUE_CATALOG_PATH.exists()}")
-        logger.info(
-            "Issue catalog counts: defect=%s opportunity=%s",
-            len((ISSUE_CATALOG or {}).get("defect_issues", []) or []),
-            len((ISSUE_CATALOG or {}).get("opportunity_flags", []) or []),
-        )
-
     def _apply_profile_settings(self):
         """Apply settings based on analysis profile."""
         if self.analysis_profile == "premium":
@@ -461,27 +454,30 @@ class AutoAnalyzer:
         """
         # If pass_config module available, use its routing logic
         if PASS_ARCHITECTURE_AVAILABLE and self.run_options:
-            return get_model_config_for_pass(
+            cfg_for_pass = get_model_config_for_pass(
                 pass_key=pass_key,
                 options=self.run_options,
                 qwen_config=self.qwen_config or {},
                 gpt5_config=self.gpt_config or {},
             )
+            return self._attach_openai_token_cap(pass_key, cfg_for_pass)
 
         # Fallback: manual routing based on profile
         if not self.qwen_config:
             # No VLM client available, return LM Studio defaults
-            return {
+            base = {
                 'url': getattr(cfg, 'LM_STUDIO_URL', 'http://localhost:1234'),
                 'model': getattr(cfg, 'LM_STUDIO_MODEL', 'qwen-vl'),
                 'provider': 'lmstudio',
             }
+            return base  # no OpenAI cap possible here
 
         # Premium uses GPT for passes 1b, 2a, 4
         if self.analysis_profile == 'premium' and pass_key in ('1b', '2a', '4'):
             if self.gpt_config and self.gpt_config.get('api_key'):
                 # Check for pass-specific model override
-                return self._get_pass_specific_gpt_config(pass_key)
+                base = self._get_pass_specific_gpt_config(pass_key)
+                return self._attach_openai_token_cap(pass_key, base)
             else:
                 logger.warning(f"Premium pass {pass_key} requested but no GPT API key, using Qwen")
 
@@ -514,6 +510,54 @@ class AutoAnalyzer:
                 break
 
         return base_config
+
+    def _attach_openai_token_cap(self, pass_key: str, model_config: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Only apply max_tokens for OpenAI calls.
+        Leave LM Studio/Qwen untouched.
+        """
+        if not isinstance(model_config, dict):
+            return model_config
+
+        # Harden provider detection: infer OpenAI if api_key present but provider missing
+        provider = model_config.get("provider")
+        if provider is None and model_config.get("api_key"):
+            provider = "openai"
+
+        if provider != "openai":
+            return model_config
+
+        # Per-pass override keys
+        key_map = {
+            "1b": "OPENAI_PASS_1B_MAX_TOKENS",
+            "2a": "OPENAI_PASS_2A_MAX_TOKENS",
+            "4": "OPENAI_PASS_4_MAX_TOKENS",
+        }
+
+        attr = key_map.get(pass_key)
+        cap = None
+
+        if attr:
+            cap = getattr(cfg, attr, None) or os.environ.get(attr)
+
+        # Fallback if some other pass is routed to OpenAI
+        if cap is None:
+            cap = getattr(cfg, "OPENAI_DEFAULT_MAX_TOKENS", None) or os.environ.get("OPENAI_DEFAULT_MAX_TOKENS")
+
+        if cap:
+            try:
+                cap_int = int(cap)
+                return {
+                    **model_config,
+                    # Keep this for any internal code that expects it
+                    "max_tokens": cap_int,
+                    # This matches the actual OpenAI Responses payload
+                    "max_output_tokens": cap_int,
+                }
+            except Exception:
+                logger.warning(f"Invalid OpenAI max tokens value for pass {pass_key}: {cap}")
+
+        return model_config
 
     @staticmethod
     def _normalize_label_for_hint(label: Optional[str]) -> str:
@@ -707,7 +751,8 @@ class AutoAnalyzer:
                 'image_summary': '',
                 'keywords': [],
                 'catalog_flags': {},
-                'detected_issues': [],
+                'issues_natural_language': [],
+                'verified_issues': [],
             }
             context = {}
 
@@ -743,10 +788,11 @@ class AutoAnalyzer:
             except Exception as e:
                 logger.warning(f"  Pass 1b failed: {e}")
 
-            # Pass 2a: Issue Detection (GPT in premium)
+            # Pass 2a: Issue Detection - freeform notes (GPT in premium)
             model_config_2a = self._get_model_config_for_pass('2a')
             logger.debug(f"  Pass 2a using model: {model_config_2a.get('model')}")
 
+            freeform_notes = ""
             try:
                 pass_2a = await run_pass_2a_issue_detection(
                     image_path=image_path,
@@ -755,10 +801,28 @@ class AutoAnalyzer:
                     context=context,
                     issue_catalog=self.issue_catalog,
                 )
-                results['detected_issues'] = pass_2a.detected_issues
-                results['catalog_flags'] = pass_2a.catalog_flags
+                freeform_notes = pass_2a.freeform_notes
             except Exception as e:
                 logger.warning(f"  Pass 2a failed: {e}")
+
+            # Pass 2b: Freeform to JSON conversion (always Qwen)
+            model_config_2b = self._get_model_config_for_pass('2b')
+            logger.debug(f"  Pass 2b using model: {model_config_2b.get('model')}")
+
+            try:
+                pass_2b = await run_pass_2b_issue_verification(
+                    image_path=image_path,
+                    vlm_client=self.vlm_client,
+                    model_config=model_config_2b,
+                    freeform_notes=freeform_notes,
+                    context=context,
+                    issue_catalog=self.issue_catalog,
+                )
+                results['issues_natural_language'] = pass_2b.issues_natural_language
+                results['catalog_flags'] = pass_2b.catalog_flags
+                results['verified_issues'] = pass_2b.issues_natural_language
+            except Exception as e:
+                logger.warning(f"  Pass 2b failed: {e}")
 
             # Pass 3: Keyword Extraction (always Qwen)
             model_config_3 = self._get_model_config_for_pass('3')
@@ -819,6 +883,8 @@ class AutoAnalyzer:
         scene_payload['overall_impression'] = data.get('overall_impression', '')
         scene_payload['image_summary'] = data.get('image_summary', '')
         scene_payload['catalog_flags'] = data.get('catalog_flags', {})
+        scene_payload['issues_natural_language'] = data.get('issues_natural_language', [])
+        scene_payload['verified_issues'] = data.get('verified_issues', [])
         scene_payload['models_used'] = data.get('models_used', {})
 
         return (
@@ -1415,6 +1481,7 @@ class AutoAnalyzer:
         payload.setdefault("keywords", [])
         payload.setdefault("groundingdino_prompt", "")
         payload.setdefault("issues_natural_language", [])
+        payload.setdefault("verified_issues", [])
         payload.setdefault("catalog_flags", {})
         payload.setdefault("issue_visual_anchors", [])
         payload.setdefault("processing_time", payload.get("processing_time"))
@@ -1445,6 +1512,7 @@ class AutoAnalyzer:
             "keywords": scene_payload.get("keywords", result.keywords_used),
             "groundingdino_prompt": scene_payload.get("groundingdino_prompt", ""),
             "issues_natural_language": scene_payload.get("issues_natural_language", []),
+            "verified_issues": scene_payload.get("verified_issues", []),
             "catalog_flags": scene_payload.get("catalog_flags", {}),
             "issue_visual_anchors": scene_payload.get("issue_visual_anchors", []),
             "scene_classifier": scene_payload,
