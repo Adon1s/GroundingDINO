@@ -250,36 +250,7 @@ async def run_pass_1b_overall_impression(
 # Pass 2a: Issue Detection
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_2A_SYSTEM_PROMPT_TEMPLATE = """You are a property inspector analyzing a {scene} photo for potential issues.
-
-Identify any visible issues, defects, or concerns. For each issue found:
-- Describe what you see
-- Assess severity (minor_repair, moderate_repair, full_replacement)
-- Note the location in the image
-- Flag relevant catalog IDs from the issue catalog
-
-Issue Catalog (use these IDs when applicable):
-{catalog_excerpt}
-
-Respond with ONLY a JSON object:
-{{
-  "detected_issues": [
-    {{
-      "description": "<what you see>",
-      "severity": "<minor_repair|moderate_repair|full_replacement>",
-      "location": "<where in image>",
-      "catalog_ids": ["<id1>", "<id2>"],
-      "confidence": <0.0-1.0>
-    }}
-  ],
-  "catalog_flags": {{
-    "<catalog_id>": {{
-      "present": "yes|no|uncertain",
-      "severity": "<severity>",
-      "evidence": "<brief evidence>"
-    }}
-  }}
-}}"""
+PASS_2A_SYSTEM_PROMPT_TEMPLATE = "What issues do you see that a realtor might want to know about? Dont be overdramatic. There might not be any issues at all"
 
 
 async def run_pass_2a_issue_detection(
@@ -353,31 +324,70 @@ async def run_pass_2a_issue_detection(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 2b: Issue Verification
+# Pass 2b: Freeform Issue json Conversion
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_2B_SYSTEM_PROMPT = """You are a quality control reviewer verifying detected property issues.
+PASS_2B_SYSTEM_PROMPT = """You are a text analysis assistant that structures freeform property inspection notes into a conservative, factual JSON format..
 
-Review each proposed issue and determine if it's valid based on the image.
-Be conservative - only verify issues you can clearly see.
+CONTEXT:
+- Scene type: {scene}
+- Issue catalog IDs: {catalog_list_str}
 
-For each issue:
-- VERIFY if clearly visible and correctly identified
-- REJECT if not visible, misidentified, or a false positive
-- Provide brief justification
+FREEFORM NOTES (from a vision model looking at a property photo):
+---
+{freeform_notes}
+---
 
-Respond with ONLY a JSON object:
-{
-  "verified": [
-    {"issue_index": 0, "reason": "<why verified>"},
-    ...
+ISSUE CATALOG REFERENCE:
+{catalog_text}
+
+YOUR TASK:
+Convert the freeform notes above into structured JSON. Be VERY CONSERVATIVE:
+- Treat the notes as potentially noisy or dramatic.
+- Only create issues for things that would typically require money, time, or a contractor to address (repair, replacement, or significant maintenance).
+- Layout, size, and preference items (e.g. small bedroom, single-car garage, mailbox at curb, houses close together) are NOT issues unless the notes clearly describe a safety concern or defect.
+- Avoid over-interpreting speculative language ("might be water damage", "could be unsafe") unless there is a clearly described visible condition.
+- If the notes say "no issues" or similar, output empty lists and mark all catalog_flags as "no".
+
+OUTPUT FORMAT (strict JSON only, no markdown):
+{{
+  "issues_natural_language": [
+    {{
+      "description": "<string: calm factual description of a visible, concrete issue>",
+      "rough_category": "<cosmetic|moisture|structure|systems|exterior|opportunity>",
+      "location_hint": "<string: where in the photo>"
+    }}
   ],
-  "rejected": [
-    {"issue_index": 1, "reason": "<why rejected>"},
-    ...
-  ],
-  "notes": "<any overall observations>"
-}"""
+  "catalog_flags": {{
+    "<issue_id>": {{
+      "present": "yes|no|uncertain",
+      "severity": "none|minor_repair|moderate_repair|full_replacement",
+      "evidence": "<string or empty>"
+    }}
+  }}
+}}
+
+RULES:
+1. issues_natural_language:
+   - Only include items where there is a clearly visible condition or defect (e.g., staining, damage, heavy wear, missing component, obvious neglect).
+   - Do NOT create issues for normal, expected conditions such as:
+     * a standard-size garage door,
+     * a typical sloped driveway with no visible damage,
+     * a mailbox at the curb or property line,
+     * houses being close together in a subdivision.
+   - Light cosmetic yard care (slightly patchy grass, a few dry spots) should appear at most as a single low-severity cosmetic issue.
+
+2. catalog_flags:
+   - Include EVERY issue_id from the catalog ({catalog_list_str}).
+   - present:
+     * "yes" only if the notes clearly describe that specific issue as visible in the image.
+     * If the notes use words like "may", "might", "could", "potentially", or "possible" without describing an actual visible defect, set present="uncertain" and severity="none".
+     * "no" if the notes explicitly say the issue is not present.
+   - If present is "no" or "uncertain", force severity="none".
+   - Only use "moderate_repair" or "full_replacement" when the notes clearly imply substantial work, not just age or preference.
+   - evidence: short phrase from notes, or empty.
+
+Respond with raw JSON only. No markdown, no backticks, no explanations."""
 
 
 async def run_pass_2b_issue_verification(

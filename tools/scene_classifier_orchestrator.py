@@ -179,14 +179,16 @@ class SceneClassifierOrchestrator:
         self,
         image_path: Path,
         options: Optional[SceneClassifierRunOptions] = None,
+        issue_catalog: Optional[Dict[str, Any]] = None,
     ) -> ImageAnalysisResult:
         """
         Run all enabled passes on a single image.
-        
+
         Args:
             image_path: Path to the image file
             options: Run options (premium, toggles, overrides)
-        
+            issue_catalog: Optional override for issue catalog (caller override > orchestrator default > empty)
+
         Returns:
             ImageAnalysisResult with all pass results
         """
@@ -195,6 +197,9 @@ class SceneClassifierOrchestrator:
 
         options = options or SceneClassifierRunOptions()
         toggles = options.toggles
+
+        # ✅ Resolve catalog: caller override > orchestrator default > empty
+        resolved_catalog = issue_catalog or self.issue_catalog or {}
 
         result = ImageAnalysisResult(image_path=str(image_path))
         context: Dict[str, Any] = {}
@@ -256,7 +261,7 @@ class SceneClassifierOrchestrator:
                 vlm_client=self.vlm_client,
                 model_config=model_config,
                 context=context,
-                issue_catalog=self.issue_catalog,
+                issue_catalog=resolved_catalog,
             )
 
             detected_issues = result.pass_2a.detected_issues
@@ -324,13 +329,13 @@ class SceneClassifierOrchestrator:
     ) -> PropertyAnalysisResult:
         """
         Run analysis on all images for a property, then run Pass 4 summary.
-        
+
         Args:
             property_key: Property identifier
             image_paths: List of image paths to analyze
             options: Run options
             on_progress: Optional callback for progress updates
-        
+
         Returns:
             PropertyAnalysisResult with all image results and property summary
         """
@@ -402,13 +407,17 @@ class SceneClassifierOrchestrator:
 # Factory function for easy instantiation
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def create_orchestrator_from_config(config: Any) -> SceneClassifierOrchestrator:
+def create_orchestrator_from_config(
+    config: Any,
+    issue_catalog: Optional[Dict[str, Any]] = None,
+) -> SceneClassifierOrchestrator:
     """
     Create an orchestrator from a pipeline_config module.
-    
+
     Args:
         config: pipeline_config module with LM_STUDIO_URL, etc.
-    
+        issue_catalog: Optional issue catalog to use (if None, loads from config path)
+
     Returns:
         Configured SceneClassifierOrchestrator
     """
@@ -420,21 +429,22 @@ def create_orchestrator_from_config(config: Any) -> SceneClassifierOrchestrator:
     # Create VLM client
     vlm_client = VLMClient()
 
-    # Load issue catalog if available
-    issue_catalog = None
-    catalog_path = getattr(config, 'ISSUE_CATALOG_PATH', None)
-    if catalog_path:
-        import json
-        try:
-            with open(catalog_path, 'r') as f:
-                issue_catalog = json.load(f)
-        except Exception as e:
-            logger.warning(f"Could not load issue catalog: {e}")
+    # ✅ Use provided catalog, or load from config path if not provided
+    resolved_catalog = issue_catalog
+    if resolved_catalog is None:
+        catalog_path = getattr(config, 'ISSUE_CATALOG_PATH', None)
+        if catalog_path:
+            import json
+            try:
+                with open(catalog_path, 'r') as f:
+                    resolved_catalog = json.load(f)
+            except Exception as e:
+                logger.warning(f"Could not load issue catalog: {e}")
 
     return SceneClassifierOrchestrator(
         qwen_config=qwen_config,
         gpt5_config=gpt5_config,
         vlm_client=vlm_client,
-        issue_catalog=issue_catalog,
+        issue_catalog=resolved_catalog,
         max_keywords=getattr(config, 'MAX_KEYWORDS', 20),
     )

@@ -124,8 +124,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-default_catalog_path = getattr(
-    cfg, "PROJECT_ROOT", Path(__file__).resolve().parent.parent
+default_catalog_path = Path(
+    getattr(cfg, "PROJECT_ROOT", Path(__file__).resolve().parent.parent)
 ) / "issue_catalog.json"
 ISSUE_CATALOG_PATH = Path(getattr(cfg, "ISSUE_CATALOG_PATH", default_catalog_path))
 ISSUE_CATALOG = load_issue_catalog(ISSUE_CATALOG_PATH)
@@ -320,6 +320,19 @@ class AutoAnalyzer:
         self.skip_verification = skip_verification if skip_verification is not None else cfg.SKIP_VERIFICATION
         self.debug = debug if debug is not None else cfg.DEBUG_MODE
 
+        # ✅ Instance-owned issue catalog (avoid relying on module globals)
+        self.issue_catalog_path = ISSUE_CATALOG_PATH
+        self.issue_catalog = ISSUE_CATALOG or {}
+
+        # Helpful sanity logging
+        try:
+            defect_count = len((self.issue_catalog.get("defect_issues", []) or []))
+            opp_count = len((self.issue_catalog.get("opportunity_flags", []) or []))
+            logger.info(f"ISSUE_CATALOG_PATH = {self.issue_catalog_path}")
+            logger.info(f"Issue catalog counts: defect={defect_count} opportunity={opp_count}")
+        except Exception as e:
+            logger.warning(f"Failed to log issue catalog counts: {e}")
+
         # ✅ Backend selection (CLI arg > cfg/env > default)
         raw_backend = (
                 detection_backend
@@ -381,7 +394,11 @@ class AutoAnalyzer:
                     toggles=self.pass_toggles,
                     model_overrides=self.model_overrides,
                 )
-                self.orchestrator = create_orchestrator_from_config(cfg)
+                # ✅ Give orchestrator a default catalog if factory supports it
+                try:
+                    self.orchestrator = create_orchestrator_from_config(cfg, issue_catalog=self.issue_catalog)
+                except TypeError:
+                    self.orchestrator = create_orchestrator_from_config(cfg)
                 logger.info(f"Pass architecture initialized (premium={self.run_options.premium})")
             except Exception as e:
                 logger.warning(f"Failed to initialize pass architecture: {e}, falling back to direct pass calls")
@@ -648,14 +665,15 @@ class AutoAnalyzer:
         """
 
         async def run_orchestrator():
+            # ✅ Prefer new signature that accepts issue_catalog
             try:
                 return await self.orchestrator.analyze_image(
                     image_path=image_path,
                     options=self.run_options,
-                    issue_catalog=ISSUE_CATALOG,
+                    issue_catalog=self.issue_catalog,
                 )
             except TypeError:
-                # Older orchestrator signature
+                # Backward-compatible fallback
                 return await self.orchestrator.analyze_image(
                     image_path=image_path,
                     options=self.run_options,
@@ -735,7 +753,7 @@ class AutoAnalyzer:
                     vlm_client=self.vlm_client,
                     model_config=model_config_2a,
                     context=context,
-                    issue_catalog=ISSUE_CATALOG,
+                    issue_catalog=self.issue_catalog,
                 )
                 results['detected_issues'] = pass_2a.detected_issues
                 results['catalog_flags'] = pass_2a.catalog_flags

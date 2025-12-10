@@ -24,10 +24,20 @@ import logging
 import argparse
 import base64
 from pathlib import Path
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Dict, List, Any, Optional, Tuple, Literal
 from dataclasses import dataclass, asdict, field
 from collections import defaultdict
 import requests
+
+# Import VLMClient for unified LM Studio / OpenAI support
+try:
+    from vlm_client import VLMClient, create_vlm_client
+
+    VLM_CLIENT_AVAILABLE = True
+except ImportError:
+    VLMClient = None
+    create_vlm_client = None
+    VLM_CLIENT_AVAILABLE = False
 
 # Console encoding safety (Windows)
 if hasattr(sys.stdout, "reconfigure"):
@@ -348,61 +358,132 @@ class PropertySummarizer:
 
     def __init__(
             self,
-            lm_studio_url: str = LM_STUDIO_URL,
+            lm_studio_url: Optional[str] = None,
             model_name: str = DEFAULT_MODEL,
-            debug: bool = False
+            debug: bool = False,
+            api_key: Optional[str] = None,
+            provider: Literal["lmstudio", "openai"] = "lmstudio",
+            max_tokens: int = 3000,
+            temperature: float = 0.2,
+            **kwargs,  # future-proof
     ):
-        self.lm_studio_url = lm_studio_url.rstrip('/')
+        # Use provided URL or fall back to default for LM Studio
+        self.lm_studio_url = (lm_studio_url or LM_STUDIO_URL).rstrip('/') if lm_studio_url else LM_STUDIO_URL.rstrip(
+            '/')
         self.model_name = model_name
         self.debug = debug
+        self.api_key = api_key
+        self.provider = provider
+        self.max_tokens = max_tokens
+        self.temperature = temperature
 
         if debug:
             logger.setLevel(logging.DEBUG)
 
+        # Create VLMClient if available
+        self.vlm_client = None
+        if VLM_CLIENT_AVAILABLE:
+            self.vlm_client = VLMClient(
+                default_timeout=120,
+                default_max_tokens=max_tokens,
+                default_temperature=temperature,
+            )
+
         logger.info(f"PropertySummarizer initialized:")
         logger.info(f"  Model: {self.model_name}")
-        logger.info(f"  LM Studio URL: {self.lm_studio_url}")
+        logger.info(f"  Provider: {self.provider}")
+        if self.provider == "lmstudio":
+            logger.info(f"  LM Studio URL: {self.lm_studio_url}")
+        else:
+            logger.info(f"  Using OpenAI API")
+
+    def _call_vlm_unified(
+            self,
+            prompt: str,
+            timeout: int = 60
+    ) -> Tuple[Optional[str], Optional[str]]:
+        """
+        Call VLM with unified routing to LM Studio or OpenAI.
+        Returns (response_text, error_message).
+        """
+        system_prompt = "You are a real estate investment analyst. Respond with valid JSON only."
+
+        # Use VLMClient if available
+        if self.vlm_client:
+            try:
+                if self.provider == "openai":
+                    text = self.vlm_client.analyze_text_sync(
+                        system_prompt=system_prompt,
+                        user_prompt=prompt,
+                        model=self.model_name,
+                        api_key=self.api_key,
+                        provider="openai",
+                        max_tokens=self.max_tokens,
+                        temperature=self.temperature,
+                    )
+                else:
+                    text = self.vlm_client.analyze_text_sync(
+                        system_prompt=system_prompt,
+                        user_prompt=prompt,
+                        model=self.model_name,
+                        url=self.lm_studio_url,
+                        provider="lmstudio",
+                        max_tokens=self.max_tokens,
+                        temperature=self.temperature,
+                    )
+                return text, None
+            except Exception as e:
+                return None, str(e)
+
+        # Fallback to direct requests (LM Studio only)
+        return _call_vlm(prompt, self.model_name, self.lm_studio_url, timeout)
 
     def _collect_issues_from_photo_intel(
             self,
             photo_intel: Dict[str, Any]
     ) -> Tuple[List[IssueItem], Dict[str, int]]:
         """
-        Extract all issues from photo_intel.json.
+        Extract all *verified* issues from photo_intel.json.
         Returns (list of IssueItem, scene_image_counts).
+
+        IMPORTANT:
+        - Only uses `verified_issues`.
+        - If there are no verified_issues, we treat that as "no issues",
+          even if detected_issues/issues_natural_language exist.
         """
         issues: List[IssueItem] = []
         scene_counts: Dict[str, int] = defaultdict(int)
 
-        photos = photo_intel.get("photos", {})
+        photos = photo_intel.get("photos", {}) or {}
 
         for image_name, photo_data in photos.items():
             scene = photo_data.get("scene", "unknown")
             scene_counts[scene] += 1
 
-            # Get issues_natural_language
-            nl_issues = photo_data.get("issues_natural_language", [])
+            # ✅ Only trust verified_issues – detection-only issues are considered "not real"
+            verified = photo_data.get("verified_issues") or []
+            if not isinstance(verified, list):
+                continue
 
-            for issue in nl_issues:
-                if isinstance(issue, dict):
-                    desc = issue.get("description", "")
-                    cat = issue.get("rough_category", "unknown")
-                    loc = issue.get("location_hint", "")
-                elif isinstance(issue, str):
-                    desc = issue
-                    cat = "unknown"
-                    loc = ""
-                else:
+            for v in verified:
+                if not isinstance(v, dict):
                     continue
 
-                if desc:
-                    issues.append(IssueItem(
-                        description=desc,
-                        rough_category=cat,
-                        location_hint=loc,
-                        source_image=image_name,
-                        scene=scene
-                    ))
+                desc = v.get("description", "")
+                if not desc:
+                    continue
+
+                # Some of your verified_issues don't have a category; give a sane default
+                cat = v.get("rough_category") or "defect"
+                loc = v.get("location", "") or v.get("location_hint", "")
+
+                issues.append(IssueItem(
+                    description=desc,
+                    rough_category=cat,
+                    location_hint=loc,
+                    source_image=image_name,
+                    scene=scene,
+                ))
 
         return issues, dict(scene_counts)
 
@@ -448,7 +529,7 @@ class PropertySummarizer:
 
         # Build and send prompt
         prompt = build_room_group_prompt(group_name, issues, image_count)
-        response, error = _call_vlm(prompt, self.model_name, self.lm_studio_url)
+        response, error = self._call_vlm_unified(prompt)
 
         if error:
             logger.error(f"  VLM error for {group_name}: {error}")
@@ -542,7 +623,7 @@ class PropertySummarizer:
             issues_by_category=dict(issues_by_category)
         )
 
-        response, error = _call_vlm(prompt, self.model_name, self.lm_studio_url, timeout=90)
+        response, error = self._call_vlm_unified(prompt, timeout=90)
 
         # Defaults in case of failure
         overall_condition = "fair"
