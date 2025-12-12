@@ -146,12 +146,37 @@ class PropertySummary:
 
 
 # ── Helper Functions ─────────────────────────────────────────────────────────
-def _extract_json(text: str) -> Optional[dict]:
-    """Extract JSON from LLM response, handling markdown fences."""
-    if not text:
+def _extract_json(text: Any) -> Optional[dict]:
+    """
+    Extract JSON from LLM response, handling markdown fences.
+
+    Accepts Any type:
+    - If already a dict, returns it directly
+    - If a list, returns None (don't guess)
+    - Otherwise, casts to str and attempts extraction
+
+    Never throws on bad input; always returns dict or None.
+    """
+    # If already a dict, return directly
+    if isinstance(text, dict):
+        return text
+
+    # If a list, return None (don't guess)
+    if isinstance(text, list):
         return None
 
-    s = text.strip()
+    # Handle None or empty
+    if text is None:
+        return None
+
+    # Cast to string for all other types
+    try:
+        s = str(text).strip()
+    except Exception:
+        return None
+
+    if not s:
+        return None
 
     # Strip markdown code fences
     if s.startswith("```"):
@@ -164,8 +189,12 @@ def _extract_json(text: str) -> Optional[dict]:
 
     # Try direct parse
     try:
-        return json.loads(s)
-    except json.JSONDecodeError:
+        result = json.loads(s)
+        # Ensure we return a dict, not other JSON types
+        if isinstance(result, dict):
+            return result
+        return None
+    except (json.JSONDecodeError, TypeError, ValueError):
         pass
 
     # Fallback: find JSON object bounds
@@ -173,8 +202,11 @@ def _extract_json(text: str) -> Optional[dict]:
     end = s.rfind("}")
     if start != -1 and end != -1 and end > start:
         try:
-            return json.loads(s[start:end + 1])
-        except json.JSONDecodeError:
+            result = json.loads(s[start:end + 1])
+            if isinstance(result, dict):
+                return result
+            return None
+        except (json.JSONDecodeError, TypeError, ValueError):
             return None
 
     return None
@@ -365,6 +397,7 @@ class PropertySummarizer:
             provider: Literal["lmstudio", "openai"] = "lmstudio",
             max_tokens: int = 3000,
             temperature: float = 0.2,
+            max_retries: int = 2,
             **kwargs,  # future-proof
     ):
         # Use provided URL or fall back to default for LM Studio
@@ -376,6 +409,7 @@ class PropertySummarizer:
         self.provider = provider
         self.max_tokens = max_tokens
         self.temperature = temperature
+        self.max_retries = max_retries
 
         if debug:
             logger.setLevel(logging.DEBUG)
@@ -527,12 +561,44 @@ class PropertySummarizer:
 
         logger.info(f"  Summarizing {group_name}: {len(issues)} issues from {image_count} images")
 
-        # Build and send prompt
         prompt = build_room_group_prompt(group_name, issues, image_count)
-        response, error = self._call_vlm_unified(prompt)
+
+        response = None
+        error = None
+        parsed = None
+
+        for attempt in range(1, self.max_retries + 1):
+            response, error = self._call_vlm_unified(prompt)
+
+            if error:
+                logger.warning(
+                    "Room group '%s' attempt %d/%d failed with VLM error: %s",
+                    group_name, attempt, self.max_retries, error,
+                )
+                if attempt < self.max_retries:
+                    time.sleep(1.0 * attempt)
+                    continue
+                break  # out of retries
+
+            parsed = _extract_json(response)
+            if isinstance(parsed, dict):
+                break  # success
+
+            logger.warning(
+                "Room group '%s' attempt %d/%d: JSON parse failed. Raw response (truncated): %s",
+                group_name,
+                attempt,
+                self.max_retries,
+                str(response)[:500],
+            )
+            if attempt < self.max_retries:
+                time.sleep(1.0 * attempt)
+                continue
+            break  # out of retries
 
         if error:
-            logger.error(f"  VLM error for {group_name}: {error}")
+            # final failure: VLM error
+            logger.error(f"  VLM error for {group_name} after {self.max_retries} attempts: {error}")
             return RoomGroupSummary(
                 group_name=group_name,
                 scenes_included=scenes_found,
@@ -544,30 +610,34 @@ class PropertySummarizer:
                 estimated_scope="Unable to assess"
             )
 
-        parsed = _extract_json(response)
-
-        if not parsed:
-            logger.warning(f"  Failed to parse JSON for {group_name}")
+        if isinstance(parsed, dict):
             return RoomGroupSummary(
                 group_name=group_name,
                 scenes_included=scenes_found,
                 image_count=image_count,
                 issue_count=len(issues),
-                summary_text="Multiple issues identified requiring attention.",
-                key_concerns=[issue.description[:100] for issue in issues[:3]],
-                severity_assessment="moderate",
-                estimated_scope="Professional assessment recommended"
+                summary_text=parsed.get("summary_text", ""),
+                key_concerns=parsed.get("key_concerns", []),
+                severity_assessment=parsed.get("severity_assessment", "unknown"),
+                estimated_scope=parsed.get("estimated_scope", "")
             )
 
+        # Final fallback after all retries
+        logger.warning(
+            "Failed to parse JSON for room group '%s' after %d attempts. Last raw response (truncated): %s",
+            group_name,
+            self.max_retries,
+            str(response)[:1000] if response is not None else "<no response>",
+        )
         return RoomGroupSummary(
             group_name=group_name,
             scenes_included=scenes_found,
             image_count=image_count,
             issue_count=len(issues),
-            summary_text=parsed.get("summary_text", ""),
-            key_concerns=parsed.get("key_concerns", []),
-            severity_assessment=parsed.get("severity_assessment", "unknown"),
-            estimated_scope=parsed.get("estimated_scope", "")
+            summary_text="Multiple issues identified requiring attention.",
+            key_concerns=[issue.description[:100] for issue in issues[:3]],
+            severity_assessment="moderate",
+            estimated_scope="Professional assessment recommended"
         )
 
     def summarize_property(
@@ -623,8 +693,6 @@ class PropertySummarizer:
             issues_by_category=dict(issues_by_category)
         )
 
-        response, error = self._call_vlm_unified(prompt, timeout=90)
-
         # Defaults in case of failure
         overall_condition = "fair"
         overall_summary = "Unable to generate comprehensive summary."
@@ -636,22 +704,62 @@ class PropertySummarizer:
         deferred_maintenance = []
         summary_error = None
 
-        if error:
-            logger.error(f"VLM error for property summary: {error}")
-            summary_error = error
-        else:
+        response = None
+        error = None
+        parsed = None
+
+        for attempt in range(1, self.max_retries + 1):
+            logger.info(
+                "Calling VLM for property summary (attempt %d/%d)...",
+                attempt, self.max_retries
+            )
+            response, error = self._call_vlm_unified(prompt, timeout=90)
+
+            if error:
+                logger.warning(
+                    "Property summary attempt %d/%d failed with VLM error: %s",
+                    attempt, self.max_retries, error,
+                )
+                if attempt < self.max_retries:
+                    time.sleep(1.0 * attempt)
+                    continue
+                summary_error = str(error)
+                break
+
             parsed = _extract_json(response)
-            if parsed:
-                overall_condition = parsed.get("overall_condition", overall_condition)
-                overall_summary = parsed.get("overall_summary", overall_summary)
-                investment_verdict = parsed.get("investment_verdict", investment_verdict)
-                investment_rationale = parsed.get("investment_rationale", investment_rationale)
-                renovation_scope = parsed.get("renovation_scope", renovation_scope)
-                renovation_priorities = parsed.get("renovation_priorities", [])
-                risk_flags = parsed.get("risk_flags", [])
-                deferred_maintenance = parsed.get("deferred_maintenance", [])
+            if isinstance(parsed, dict):
+                break  # success
+
+            logger.warning(
+                "Property summary attempt %d/%d: JSON parse failed. Raw response (truncated): %s",
+                attempt,
+                self.max_retries,
+                str(response)[:1000],
+            )
+            if attempt < self.max_retries:
+                time.sleep(1.0 * attempt)
+                continue
+            summary_error = "JSON parse error"
+            break
+
+        if isinstance(parsed, dict):
+            overall_condition = parsed.get("overall_condition", overall_condition)
+            overall_summary = parsed.get("overall_summary", overall_summary)
+            investment_verdict = parsed.get("investment_verdict", investment_verdict)
+            investment_rationale = parsed.get("investment_rationale", investment_rationale)
+            renovation_scope = parsed.get("renovation_scope", renovation_scope)
+            renovation_priorities = parsed.get("renovation_priorities", [])
+            risk_flags = parsed.get("risk_flags", [])
+            deferred_maintenance = parsed.get("deferred_maintenance", [])
+        else:
+            if summary_error:
+                logger.error("Property summary failed after %d attempts: %s", self.max_retries, summary_error)
             else:
-                logger.warning("Failed to parse property summary JSON")
+                logger.warning(
+                    "Property summary parse failed after %d attempts with no explicit error. Last response (truncated): %s",
+                    self.max_retries,
+                    str(response)[:1000] if response is not None else "<no response>",
+                )
                 summary_error = "JSON parse error"
 
         processing_time = time.time() - t0

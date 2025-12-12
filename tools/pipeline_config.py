@@ -43,7 +43,7 @@ GPT_MODEL = (
     os.environ.get("GPT5_MODEL") or
     os.environ.get("GPT_MODEL") or
     os.environ.get("OPENAI_MODEL") or
-    "gpt-5-mini"
+    "gpt-5"
 )
 
 # Alias for backward compatibility with vlm_client.py
