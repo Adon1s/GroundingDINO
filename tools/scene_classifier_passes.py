@@ -170,7 +170,7 @@ async def run_pass_1a_scene_type(
 PASS_1B_SYSTEM_PROMPT = """You are a real estate analyst providing first impressions of property photos.
 
 Given a property photo, provide:
-1. A concise overall impression (1-2 sentences) suitable for a potential buyer/investor
+1. A concise overall impression (1-3 sentences) suitable for a potential buyer/investor
 2. A brief image summary describing what's visible
 3. Notable features worth highlighting
 
@@ -306,67 +306,47 @@ async def run_pass_2a_issue_detection(
 # Pass 2b: Freeform Issue json Conversion
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_2B_SYSTEM_PROMPT = """You are a text analysis assistant that structures freeform property inspection notes into a conservative, factual JSON format..
+PASS_2B_SYSTEM_PROMPT = """You convert noisy property-photo notes into STRICT JSON. Be conservative and high-signal.
 
-CONTEXT:
-- Scene type: {scene}
-- Issue catalog IDs: {catalog_list_str}
+Scene: {scene}
+Catalog IDs: {catalog_list_str}
 
-FREEFORM NOTES (from a vision model looking at a property photo):
----
+Notes:
 {freeform_notes}
----
 
-ISSUE CATALOG REFERENCE:
+Catalog reference:
 {catalog_text}
 
-YOUR TASK:
-Convert the freeform notes above into structured JSON. Be VERY CONSERVATIVE:
-- Treat the notes as potentially noisy or dramatic.
-- Only create issues for things that would typically require money, time, or a contractor to address (repair, replacement, or significant maintenance).
-- Layout, size, and preference items (e.g. small bedroom, single-car garage, mailbox at curb, houses close together) are NOT issues unless the notes clearly describe a safety concern or defect.
-- Avoid over-interpreting speculative language ("might be water damage", "could be unsafe") unless there is a clearly described visible condition.
-- If the notes say "no issues" or similar, output empty lists and mark all catalog_flags as "no".
+Rules:
+- Output ONLY the most important visible defects (0–3 items). Skip tiny cosmetic wear, staging/clutter, preference/layout comments.
+- Do NOT turn “not visible” into “missing” (e.g., smoke detector not seen ≠ missing).
+- Do NOT speculate. If wording is “may/might/could/possible” without a clearly described visible defect → present="uncertain", severity="none".
+- If notes say no issues → issues_natural_language = [] and all catalog_flags present="no", severity="none".
 
-OUTPUT FORMAT (strict JSON only, no markdown):
+Output JSON only (no markdown):
 {{
   "issues_natural_language": [
     {{
-      "description": "<string: calm factual description of a visible, concrete issue>",
-      "rough_category": "<cosmetic|moisture|structure|systems|exterior|opportunity>",
-      "location_hint": "<string: where in the photo>"
+      "description": "calm, factual, only what is visibly described in the notes",
+      "rough_category": "cosmetic|moisture|structure|systems|exterior|opportunity",
+      "location_hint": "where"
     }}
   ],
   "catalog_flags": {{
     "<issue_id>": {{
       "present": "yes|no|uncertain",
       "severity": "none|minor_repair|moderate_repair|full_replacement",
-      "evidence": "<string or empty>"
+      "evidence": "short quote or empty"
     }}
   }}
 }}
 
-RULES:
-1. issues_natural_language:
-   - Only include items where there is a clearly visible condition or defect (e.g., staining, damage, heavy wear, missing component, obvious neglect).
-   - Do NOT create issues for normal, expected conditions such as:
-     * a standard-size garage door,
-     * a typical sloped driveway with no visible damage,
-     * a mailbox at the curb or property line,
-     * houses being close together in a subdivision.
-   - Light cosmetic yard care (slightly patchy grass, a few dry spots) should appear at most as a single low-severity cosmetic issue.
+Catalog_flags requirements:
+- Include EVERY issue_id from {catalog_list_str}.
+- If present != "yes" → severity MUST be "none".
+- Only use moderate_repair/full_replacement when notes clearly imply substantial work.
+"""
 
-2. catalog_flags:
-   - Include EVERY issue_id from the catalog ({catalog_list_str}).
-   - present:
-     * "yes" only if the notes clearly describe that specific issue as visible in the image.
-     * If the notes use words like "may", "might", "could", "potentially", or "possible" without describing an actual visible defect, set present="uncertain" and severity="none".
-     * "no" if the notes explicitly say the issue is not present.
-   - If present is "no" or "uncertain", force severity="none".
-   - Only use "moderate_repair" or "full_replacement" when the notes clearly imply substantial work, not just age or preference.
-   - evidence: short phrase from notes, or empty.
-
-Respond with raw JSON only. No markdown, no backticks, no explanations."""
 
 
 async def run_pass_2b_issue_verification(

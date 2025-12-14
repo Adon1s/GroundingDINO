@@ -73,7 +73,7 @@ SCENE_GROUPS = {
     "exterior": [
         "exterior_front", "exterior_back", "exterior_side",
         "yard", "patio", "deck", "balcony", "driveway",
-        "pool_area", "garden"
+        "pool", "garden", "hvac"
     ],
     "other": ["floor_plan", "aerial_view", "street_view", "unknown"]
 }
