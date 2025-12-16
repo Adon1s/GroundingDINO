@@ -20,7 +20,6 @@ Usage:
     )
 """
 
-from llm_json import extract_json_object
 import logging
 import os
 from dataclasses import dataclass, field
@@ -47,12 +46,14 @@ from pass_config import (
 from scene_classifier_passes import (
     Pass1aResult,
     Pass1bResult,
+    Pass1cResult,
     Pass2aResult,
     Pass2bResult,
     Pass3Result,
     Pass4Result,
     run_pass_1a_scene_type,
-    run_pass_1b_overall_impression,
+    run_pass_1b_positive_notes,
+    run_pass_1c_positive_structuring,
     run_pass_2a_issue_detection,
     run_pass_2b_issue_verification,
     run_pass_3_keyword_extraction,
@@ -70,14 +71,23 @@ class ImageAnalysisResult:
     # Pass results (None if pass was disabled)
     pass_1a: Optional[Pass1aResult] = None
     pass_1b: Optional[Pass1bResult] = None
+    pass_1c: Optional[Pass1cResult] = None
     pass_2a: Optional[Pass2aResult] = None
     pass_2b: Optional[Pass2bResult] = None
     pass_3: Optional[Pass3Result] = None
 
     # Computed/merged fields for backwards compatibility
     scene: str = "other"
+
+    # Structured positives (from 1c)
     overall_impression: str = ""
     image_summary: str = ""
+    notable_features: List[str] = field(default_factory=list)
+
+    # Raw notes (for Pass 4 notes-only summary)
+    positives_notes: str = ""
+    issues_notes: str = ""
+
     keywords: List[str] = field(default_factory=list)
     catalog_flags: Dict[str, Any] = field(default_factory=dict)
     verified_issues: List[Dict[str, Any]] = field(default_factory=list)
@@ -91,17 +101,25 @@ class ImageAnalysisResult:
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
-            'image_path': self.image_path,
-            'scene': self.scene,
-            'overall_impression': self.overall_impression,
-            'image_summary': self.image_summary,
-            'keywords': self.keywords,
-            'catalog_flags': self.catalog_flags,
-            'verified_issues': self.verified_issues,
-            'issues_natural_language': self.issues_natural_language,
-            'passes_run': self.passes_run,
-            'models_used': self.models_used,
-            'processing_time': self.processing_time,
+            "image_path": self.image_path,
+            "scene": self.scene,
+
+            # structured positives (UI + pass3)
+            "overall_impression": self.overall_impression,
+            "image_summary": self.image_summary,
+            "notable_features": self.notable_features,
+
+            # raw notes (pass4)
+            "positives_notes": self.positives_notes,
+            "issues_notes": self.issues_notes,
+
+            "keywords": self.keywords,
+            "catalog_flags": self.catalog_flags,
+            "verified_issues": self.verified_issues,
+            "issues_natural_language": self.issues_natural_language,
+            "passes_run": self.passes_run,
+            "models_used": self.models_used,
+            "processing_time": self.processing_time,
         }
 
 
@@ -114,6 +132,9 @@ class PropertyAnalysisResult:
 
     # Aggregated fields
     property_summary: str = ""
+    investment_considerations: List[str] = field(default_factory=list)
+    estimated_condition: str = ""
+    confidence: Optional[float] = None
     total_issues: int = 0
     total_processing_time: float = 0.0
 
@@ -121,6 +142,9 @@ class PropertyAnalysisResult:
         return {
             'property_key': self.property_key,
             'property_summary': self.property_summary,
+            'investment_considerations': self.investment_considerations,
+            'estimated_condition': self.estimated_condition,
+            'confidence': self.confidence,
             'total_issues': self.total_issues,
             'total_processing_time': self.total_processing_time,
             'images': {r.image_path: r.to_dict() for r in self.image_results},
@@ -179,6 +203,7 @@ class SceneClassifierOrchestrator:
 
         key_map = {
             "1b": "OPENAI_PASS_1B_MAX_TOKENS",
+            "1c": "OPENAI_PASS_1C_MAX_TOKENS",
             "2a": "OPENAI_PASS_2A_MAX_TOKENS",
             "4": "OPENAI_PASS_4_MAX_TOKENS",
         }
@@ -186,11 +211,17 @@ class SceneClassifierOrchestrator:
         attr = key_map.get(str(pass_key))
         cap = None
 
-        if attr and cfg:
-            cap = getattr(cfg, attr, None) or os.environ.get(attr)
+        if attr:
+            if cfg:
+                cap = getattr(cfg, attr, None)
+            if cap is None:
+                cap = os.environ.get(attr)
 
-        if cap is None and cfg:
-            cap = getattr(cfg, "OPENAI_DEFAULT_MAX_TOKENS", None) or os.environ.get("OPENAI_DEFAULT_MAX_TOKENS")
+        if cap is None:
+            if cfg:
+                cap = getattr(cfg, "OPENAI_DEFAULT_MAX_TOKENS", None)
+            if cap is None:
+                cap = os.environ.get("OPENAI_DEFAULT_MAX_TOKENS")
 
         if cap:
             try:
@@ -219,6 +250,18 @@ class SceneClassifierOrchestrator:
             qwen_config=self.qwen_config,
             gpt5_config=self.gpt5_config,
         )
+
+        # If this pass is routed to OpenAI, honor pass-specific model strings from cfg
+        provider = base.get("provider")
+        if provider is None and base.get("api_key"):
+            provider = "openai"
+
+        if provider == "openai" and cfg:
+            attr = f"GPT_PASS_{str(pass_key).upper()}_MODEL"
+            pass_model = getattr(cfg, attr, None)
+            if pass_model:
+                base = {**base, "model": pass_model}
+
         return self._attach_openai_token_cap(pass_key, base)
 
     def _get_model_name(
@@ -281,29 +324,56 @@ class SceneClassifierOrchestrator:
             result.models_used['1a'] = model_name
 
         # ─────────────────────────────────────────────────────────────────────
-        # Pass 1b: Overall Impression
+        # Pass 1b: Positives/Inventory Notes (FREEFORM)
         # ─────────────────────────────────────────────────────────────────────
+        positives_notes = ""
+
         if toggles['1b']:
             model_config = self._get_model_config('1b', options)
             model_name = self._get_model_name('1b', options)
 
             logger.debug(f"Running Pass 1b with {model_name}")
-            result.pass_1b = await run_pass_1b_overall_impression(
+            result.pass_1b = await run_pass_1b_positive_notes(
                 image_path=image_path,
                 vlm_client=self.vlm_client,
                 model_config=model_config,
                 context=context,
             )
 
-            result.overall_impression = result.pass_1b.overall_impression
-            result.image_summary = result.pass_1b.image_summary or ""
+            positives_notes = result.pass_1b.positives_notes
+            result.positives_notes = positives_notes
             result.passes_run.append('1b')
             result.models_used['1b'] = model_name
 
         # ─────────────────────────────────────────────────────────────────────
+        # Pass 1c: Positives Notes -> JSON Structuring (text-only)
+        # ─────────────────────────────────────────────────────────────────────
+        if toggles['1c']:
+            model_config = self._get_model_config('1c', options)
+            model_name = self._get_model_name('1c', options)
+
+            logger.debug(f"Running Pass 1c with {model_name}")
+            result.pass_1c = await run_pass_1c_positive_structuring(
+                vlm_client=self.vlm_client,
+                model_config=model_config,
+                positives_notes=positives_notes,
+            )
+
+            # Back-compat fields for UI
+            result.overall_impression = result.pass_1c.overall_impression or ""
+            result.image_summary = result.pass_1c.image_summary or ""
+            result.notable_features = result.pass_1c.notable_features or []
+
+            # Context for Pass 3
+            context["notable_features"] = result.notable_features
+
+            result.passes_run.append('1c')
+            result.models_used['1c'] = model_name
+
+        # ─────────────────────────────────────────────────────────────────────
         # Pass 2a: Issue Detection (freeform notes)
         # ─────────────────────────────────────────────────────────────────────
-        freeform_notes = ""
+        issues_notes = ""
 
         if toggles['2a']:
             model_config = self._get_model_config('2a', options)
@@ -318,11 +388,12 @@ class SceneClassifierOrchestrator:
                 issue_catalog=resolved_catalog,
             )
 
-            freeform_notes = result.pass_2a.freeform_notes
+            issues_notes = result.pass_2a.issues_notes
+            result.issues_notes = issues_notes
             result.passes_run.append('2a')
             result.models_used['2a'] = model_name
 
-            logger.debug(f"Pass 2a freeform length (orchestrator): {len(freeform_notes)}")
+            logger.debug(f"Pass 2a freeform length (orchestrator): {len(issues_notes)}")
 
         # ─────────────────────────────────────────────────────────────────────
         # Pass 2b: Freeform to JSON Conversion
@@ -336,7 +407,7 @@ class SceneClassifierOrchestrator:
                 image_path=image_path,
                 vlm_client=self.vlm_client,
                 model_config=model_config,
-                freeform_notes=freeform_notes,
+                freeform_notes=issues_notes,
                 context=context,
                 issue_catalog=resolved_catalog,
             )
@@ -346,6 +417,10 @@ class SceneClassifierOrchestrator:
             # Store in both fields for compatibility
             result.issues_natural_language = result.pass_2b.issues_natural_language
             result.verified_issues = result.pass_2b.issues_natural_language
+
+            # Context for Pass 3
+            context["issues_natural_language"] = result.issues_natural_language
+
             result.passes_run.append('2b')
             result.models_used['2b'] = model_name
 
@@ -355,15 +430,19 @@ class SceneClassifierOrchestrator:
             )
 
         # ─────────────────────────────────────────────────────────────────────
-        # Pass 3: Keyword Extraction
+        # Pass 3: Keyword Extraction (text-only, from structured facts)
         # ─────────────────────────────────────────────────────────────────────
         if toggles['3']:
             model_config = self._get_model_config('3', options)
             model_name = self._get_model_name('3', options)
 
+            # ensure context contains what Pass 3 expects
+            context.setdefault("scene", result.scene)
+            context.setdefault("notable_features", result.notable_features)
+            context.setdefault("issues_natural_language", result.issues_natural_language)
+
             logger.debug(f"Running Pass 3 with {model_name}")
             result.pass_3 = await run_pass_3_keyword_extraction(
-                image_path=image_path,
                 vlm_client=self.vlm_client,
                 model_config=model_config,
                 context=context,
@@ -447,6 +526,9 @@ class SceneClassifierOrchestrator:
             )
 
             result.property_summary = result.pass_4.property_summary
+            result.investment_considerations = result.pass_4.investment_considerations or []
+            result.estimated_condition = result.pass_4.estimated_condition or ""
+            result.confidence = getattr(result.pass_4, "confidence", None)
 
         result.total_processing_time = time.time() - start_time
 

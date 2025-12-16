@@ -25,6 +25,9 @@ GDINO_INFER_SCRIPT = DEMO_DIR / "inference_on_a_image.py"
 # Output directory
 ARTIFACTS_ROOT = PROJECT_ROOT / "artifacts"
 
+# Issue catalog path
+ISSUE_CATALOG_PATH = TOOLS_DIR / "issue_catalog.json"
+
 # ============================================================================
 # LM STUDIO / VLM SETTINGS (Qwen - local)
 # ============================================================================
@@ -49,10 +52,18 @@ GPT_MODEL = (
 # Alias for backward compatibility with vlm_client.py
 OPENAI_MODEL = GPT_MODEL
 
+# Helper to check multiple env var names
+def _env_any(*keys: str) -> str:
+    for k in keys:
+        v = os.environ.get(k)
+        if v:
+            return v
+    return ""
+
 # Optional: separate model for specific passes (if not set, uses GPT_MODEL)
-GPT_PASS_1B_MODEL = os.environ.get("OPENAI_PASS1B_MODEL") or GPT_MODEL  # Overall impression
-GPT_PASS_2A_MODEL = os.environ.get("OPENAI_PASS2A_MODEL") or GPT_MODEL  # Issue detection
-GPT_PASS_4_MODEL = os.environ.get("OPENAI_PASS4_MODEL") or GPT_MODEL    # Property summary
+GPT_PASS_1B_MODEL = _env_any("OPENAI_PASS_1B_MODEL", "OPENAI_PASS1B_MODEL") or GPT_MODEL  # Overall impression
+GPT_PASS_2A_MODEL = _env_any("OPENAI_PASS_2A_MODEL", "OPENAI_PASS2A_MODEL") or GPT_MODEL  # Issue detection
+GPT_PASS_4_MODEL  = _env_any("OPENAI_PASS_4_MODEL",  "OPENAI_PASS4_MODEL")  or GPT_MODEL  # Property summary
 
 # ============================================================================
 # ANALYSIS PROFILE SETTINGS
@@ -65,7 +76,30 @@ PREMIUM_MAX_KEYWORDS = int(os.environ.get("PREMIUM_MAX_KEYWORDS", "30"))
 PREMIUM_SKIP_VERIFICATION = os.environ.get("PREMIUM_SKIP_VERIFICATION", "").lower() == "true"
 
 # Premium summary model (uses GPT by default when premium)
-PREMIUM_SUMMARY_MODEL = os.environ.get("PREMIUM_SUMMARY_MODEL") or GPT_MODEL
+PREMIUM_SUMMARY_MODEL = os.environ.get("PREMIUM_SUMMARY_MODEL") or GPT_PASS_4_MODEL
+
+# ============================================================================
+# OPENAI TOKEN CAPS
+# ============================================================================
+OPENAI_DEFAULT_MAX_TOKENS = int(os.environ.get("OPENAI_DEFAULT_MAX_TOKENS", "600"))
+
+# Optional per-pass caps (leave None if unset)
+OPENAI_PASS_1B_MAX_TOKENS = os.environ.get("OPENAI_PASS_1B_MAX_TOKENS")
+OPENAI_PASS_1C_MAX_TOKENS = os.environ.get("OPENAI_PASS_1C_MAX_TOKENS")
+OPENAI_PASS_2A_MAX_TOKENS = os.environ.get("OPENAI_PASS_2A_MAX_TOKENS")
+OPENAI_PASS_4_MAX_TOKENS  = os.environ.get("OPENAI_PASS_4_MAX_TOKENS")
+
+# Normalize to ints if present
+def _to_int_or_none(v):
+    try:
+        return int(v) if v is not None and str(v).strip() != "" else None
+    except Exception:
+        return None
+
+OPENAI_PASS_1B_MAX_TOKENS = _to_int_or_none(OPENAI_PASS_1B_MAX_TOKENS)
+OPENAI_PASS_1C_MAX_TOKENS = _to_int_or_none(OPENAI_PASS_1C_MAX_TOKENS)
+OPENAI_PASS_2A_MAX_TOKENS = _to_int_or_none(OPENAI_PASS_2A_MAX_TOKENS)
+OPENAI_PASS_4_MAX_TOKENS  = _to_int_or_none(OPENAI_PASS_4_MAX_TOKENS)
 
 # =============================================================================
 # DINO-X Configuration Variables
@@ -163,6 +197,11 @@ INCLUDE_COMMON = True       # Include common object keywords in prompts
 # VERIFICATION PARAMETERS
 # ============================================================================
 SKIP_VERIFICATION = os.environ.get("SKIP_VERIFICATION", "").lower() == "true"
+
+# DINO-X does not produce chips in API mode, so verification must be skipped.
+if str(DETECTION_BACKEND).lower() == "dinox":
+    SKIP_VERIFICATION = True
+
 MAX_CHIPS_PER_DETECTION = 3 # Number of chips to verify per detection
 
 # Verification thresholds

@@ -4,10 +4,11 @@ Scene Classifier Pass Implementations
 Individual pass functions for the scene classification pipeline.
 
 Pass 1a: Scene Type Classification (fast, always Qwen)
-Pass 1b: Overall Impression (premium uses GPT-5)
+Pass 1b: Positives/Inventory Notes - FREEFORM (premium uses GPT-5)
+Pass 1c: Positives Notes → JSON Structuring (text-only)
 Pass 2a: Issue Detection (premium uses GPT-5)
 Pass 2b: Issue Verification (high volume, always Qwen)
-Pass 3:  Keyword Extraction (always Qwen)
+Pass 3:  Keyword Extraction (text-only, from structured facts)
 Pass 4:  Property Summary (premium uses GPT-5)
 """
 
@@ -36,7 +37,14 @@ class Pass1aResult:
 
 @dataclass
 class Pass1bResult:
-    """Result from Pass 1b: Overall Impression."""
+    """Result from Pass 1b: Positives/Inventory FREEFORM notes."""
+    positives_notes: str
+    raw_response: Optional[str] = None
+
+
+@dataclass
+class Pass1cResult:
+    """Result from Pass 1c: Positives notes structured into JSON."""
     overall_impression: str
     image_summary: Optional[str] = None
     notable_features: Optional[List[str]] = None
@@ -46,7 +54,7 @@ class Pass1bResult:
 @dataclass
 class Pass2aResult:
     """Result from Pass 2a: Issue Detection (freeform notes)."""
-    freeform_notes: str
+    issues_notes: str
     raw_response: Optional[str] = None
 
 
@@ -72,11 +80,12 @@ class Pass4Result:
     property_summary: str
     investment_considerations: Optional[List[str]] = None
     estimated_condition: Optional[str] = None
+    confidence: Optional[float] = None
     raw_response: Optional[str] = None
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 1a: Scene Type Classification
+# Pass 1a: Scene Type Classification (UNCHANGED)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 PASS_1A_SYSTEM_PROMPT = """You are a real estate image classifier. Your task is to identify the scene type shown in a property photo.
@@ -148,13 +157,6 @@ async def run_pass_1a_scene_type(
             raw_response=response,
         )
 
-    except json.JSONDecodeError as e:
-        logger.warning(f"Pass 1a: Failed to parse JSON response: {e}")
-        return Pass1aResult(
-            scene='other',
-            reasoning=f"Parse error: {e}",
-            raw_response=str(response) if 'response' in dir() else None,
-        )
     except Exception as e:
         logger.error(f"Pass 1a: Error classifying scene: {e}")
         return Pass1aResult(
@@ -164,39 +166,34 @@ async def run_pass_1a_scene_type(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 1b: Overall Impression
+# Pass 1b: Positives/Inventory Notes (FREEFORM - NEW)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_1B_SYSTEM_PROMPT = """You are a real estate analyst providing first impressions of property photos.
+PASS_1B_SYSTEM_PROMPT = "What positive features or upgrades do you see in this photo that a realtor might want to highlight? Only mention things that are clearly visible. There might not be any positives at all"
 
-Given a property photo, provide:
-1. A concise overall impression (1-3 sentences) suitable for a potential buyer/investor
-2. A brief image summary describing what's visible
-3. Notable features worth highlighting
+PASS_1B_USER_PROMPT_TEMPLATE = """Write positives/inventory notes for this {scene} photo in this exact format:
 
-Consider: condition, style, quality, notable features, potential concerns.
-
-Respond with ONLY a JSON object:
-{
-  "overall_impression": "<buyer-focused impression>",
-  "image_summary": "<factual description of what's visible>",
-  "notable_features": ["<feature1>", "<feature2>", ...]
-}"""
-
-PASS_1B_USER_PROMPT_TEMPLATE = """Provide your overall impression of this {scene} photo."""
+IMPRESSION: <1-2 conservative sentences>
+SUMMARY: <1 factual sentence describing what's visible>
+FEATURES:
+- <feature>
+- <feature>
+(If none, write FEATURES: - none)
+"""
 
 
-async def run_pass_1b_overall_impression(
+async def run_pass_1b_positive_notes(
     image_path: Path,
     vlm_client: Any,
     model_config: dict,
     context: Optional[Dict[str, Any]] = None,
 ) -> Pass1bResult:
     """
-    Pass 1b: Generate overall impression of the image.
+    Pass 1b: Generate freeform positives/inventory notes for the image.
 
-    This pass focuses on providing a buyer/investor-friendly impression.
+    This pass focuses on identifying positive features visible in the photo.
     Uses GPT-5 in premium mode for better reasoning.
+    Output is plain text (no JSON parsing).
 
     Args:
         image_path: Path to the image file
@@ -205,12 +202,12 @@ async def run_pass_1b_overall_impression(
         context: Optional context from Pass 1a (e.g., {'scene': 'kitchen'})
 
     Returns:
-        Pass1bResult with overall impression
+        Pass1bResult with freeform positives notes
     """
     scene = context.get('scene', 'property') if context else 'property'
     user_prompt = PASS_1B_USER_PROMPT_TEMPLATE.format(scene=scene)
 
-    logger.debug(f"Pass 1b: Generating impression for {image_path.name} (scene: {scene})")
+    logger.debug(f"Pass 1b: Generating positives notes for {image_path.name} (scene: {scene})")
 
     try:
         response = await vlm_client.analyze_image(
@@ -220,35 +217,119 @@ async def run_pass_1b_overall_impression(
             **model_config,
         )
 
-        result = extract_json_object(response) or {}
+        notes = (response or "").strip()
 
         return Pass1bResult(
-            overall_impression=result.get('overall_impression', ''),
-            image_summary=result.get('image_summary'),
-            notable_features=result.get('notable_features', []),
+            positives_notes=notes,
             raw_response=response,
         )
 
-    except json.JSONDecodeError as e:
-        logger.warning(f"Pass 1b: Failed to parse JSON response: {e}")
-        # Try to extract impression from raw text
-        raw = str(response) if 'response' in dir() else ''
-        return Pass1bResult(
-            overall_impression=raw[:200] if raw else "Unable to generate impression",
-            raw_response=raw,
-        )
     except Exception as e:
-        logger.error(f"Pass 1b: Error generating impression: {e}")
+        logger.error(f"Pass 1b: Error generating positives notes: {e}")
         return Pass1bResult(
-            overall_impression=f"Error generating impression: {e}",
+            positives_notes="",
+            raw_response=None,
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 2a: Issue Detection
+# Pass 1c: Positives Notes → JSON Structuring (NEW)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_2A_SYSTEM_PROMPT_TEMPLATE = "What issues do you see that a realtor might want to know about? Dont be overdramatic. There might not be any issues at all"
+PASS_1C_SYSTEM_PROMPT = """You convert FREEFORM positives/inventory notes about a real estate photo into STRICT JSON.
+
+INPUT NOTES:
+---
+{positives_notes}
+---
+
+Rules:
+- Use ONLY what is stated in the notes. Do not add new features or claims.
+- Keep language conservative and factual.
+- If the notes do not contain enough information for overall_impression or image_summary, output "" for that field (do not infer).
+- If the notes indicate there are no positives, output an empty notable_features list.
+- notable_features must be a list of short strings (2–10 words each), deduplicated.
+
+Output JSON only (no markdown):
+{{
+  "overall_impression": "<1-2 conservative sentences>",
+  "image_summary": "<1-2 factual sentences>",
+  "notable_features": ["<feature1>", "<feature2>", ...]
+}}
+"""
+
+PASS_1C_USER_PROMPT = "Convert the notes into the JSON format."
+
+
+async def run_pass_1c_positive_structuring(
+    vlm_client: Any,
+    model_config: dict,
+    positives_notes: str,
+) -> Pass1cResult:
+    """
+    Pass 1c: Convert freeform positives notes to structured JSON.
+
+    This is a text-only pass that structures the freeform notes from Pass 1b.
+
+    Args:
+        vlm_client: VLM client instance
+        model_config: Model configuration
+        positives_notes: Freeform notes from Pass 1b
+
+    Returns:
+        Pass1cResult with structured positives data
+    """
+    logger.debug("Pass 1c: Converting positives notes to JSON")
+
+    if not positives_notes or not positives_notes.strip():
+        return Pass1cResult(
+            overall_impression="",
+            image_summary="",
+            notable_features=[],
+            raw_response=None,
+        )
+
+    system_prompt = PASS_1C_SYSTEM_PROMPT.format(positives_notes=positives_notes)
+
+    try:
+        response = await vlm_client.analyze_text(
+            system_prompt=system_prompt,
+            user_prompt=PASS_1C_USER_PROMPT,
+            **model_config,
+        )
+
+        result = extract_json_object(response) or {}
+
+        nf = result.get("notable_features") or []
+        if isinstance(nf, str):
+            nf = [nf]
+        elif not isinstance(nf, list):
+            nf = []
+        nf = [str(x).strip() for x in nf if str(x).strip()]
+        nf = list(dict.fromkeys(nf))  # preserve order, dedupe
+
+        return Pass1cResult(
+            overall_impression=result.get("overall_impression", ""),
+            image_summary=result.get("image_summary", ""),
+            notable_features=nf,
+            raw_response=response,
+        )
+
+    except Exception as e:
+        logger.error(f"Pass 1c: Error converting positives notes to JSON: {e}")
+        return Pass1cResult(
+            overall_impression="",
+            image_summary="",
+            notable_features=[],
+            raw_response=None,
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Pass 2a: Issue Detection (UNCHANGED)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+PASS_2A_SYSTEM_PROMPT = "What issues do you see that a realtor might want to know about? Dont be overdramatic. There might not be any issues at all"
 
 
 async def run_pass_2a_issue_detection(
@@ -279,7 +360,7 @@ async def run_pass_2a_issue_detection(
     try:
         response = await vlm_client.analyze_image(
             image_path=image_path,
-            system_prompt=PASS_2A_SYSTEM_PROMPT_TEMPLATE,
+            system_prompt=PASS_2A_SYSTEM_PROMPT,
             user_prompt="Analyze this image for any issues, defects, or concerns.",
             **model_config,
         )
@@ -290,20 +371,20 @@ async def run_pass_2a_issue_detection(
         logger.debug(f"Pass 2a freeform length: {len(freeform)} chars")
 
         return Pass2aResult(
-            freeform_notes=freeform,
+            issues_notes=freeform,
             raw_response=response,
         )
 
     except Exception as e:
         logger.error(f"Pass 2a: Error detecting issues: {e}")
         return Pass2aResult(
-            freeform_notes="",
+            issues_notes="",
             raw_response=None,
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 2b: Freeform Issue json Conversion
+# Pass 2b: Freeform Issue JSON Conversion (UNCHANGED)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 PASS_2B_SYSTEM_PROMPT = """You convert noisy property-photo notes into STRICT JSON. Be conservative and high-signal.
@@ -318,9 +399,9 @@ Catalog reference:
 {catalog_text}
 
 Rules:
-- Output ONLY the most important visible defects (0–3 items). Skip tiny cosmetic wear, staging/clutter, preference/layout comments.
-- Do NOT turn “not visible” into “missing” (e.g., smoke detector not seen ≠ missing).
-- Do NOT speculate. If wording is “may/might/could/possible” without a clearly described visible defect → present="uncertain", severity="none".
+- Output ONLY the most important visible defects (0–3 items). Skip tiny cosmetic wear, staging/clutter, preference/layout, dont worry about GFCI outlets.
+- Do NOT turn "not visible" into "missing" (e.g., smoke detector not seen ≠ missing).
+- Do NOT speculate. If wording is "may/might/could/possible" without a clearly described visible defect → present="uncertain", severity="none".
 - If notes say no issues → issues_natural_language = [] and all catalog_flags present="no", severity="none".
 
 Output JSON only (no markdown):
@@ -346,7 +427,6 @@ Catalog_flags requirements:
 - If present != "yes" → severity MUST be "none".
 - Only use moderate_repair/full_replacement when notes clearly imply substantial work.
 """
-
 
 
 async def run_pass_2b_issue_verification(
@@ -436,13 +516,6 @@ async def run_pass_2b_issue_verification(
             raw_response=response,
         )
 
-    except json.JSONDecodeError as e:
-        logger.warning(f"Pass 2b: Failed to parse JSON response: {e}")
-        return Pass2bResult(
-            issues_natural_language=[],
-            catalog_flags={},
-            raw_response=str(response) if 'response' in dir() else None,
-        )
     except Exception as e:
         logger.error(f"Pass 2b: Error converting notes to JSON: {e}")
         return Pass2bResult(
@@ -452,105 +525,117 @@ async def run_pass_2b_issue_verification(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 3: Keyword Extraction
+# Pass 3: Keyword Extraction (UPDATED - text-only from structured facts)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_3_SYSTEM_PROMPT = """You are extracting search keywords from a real estate property photo.
+PASS_3_SYSTEM_PROMPT = """You generate object-detection keywords for a real estate photo using ONLY provided extracted facts.
 
-Generate keywords that would help detect objects and features in this image.
-Focus on:
-- Structural elements (walls, floors, ceilings, windows, doors)
-- Fixtures (cabinets, counters, appliances, lighting)
-- Condition indicators (stains, cracks, damage, wear)
-- Style/quality markers (modern, dated, luxury, basic)
+Scene: {scene}
 
-Respond with ONLY a JSON object:
-{
+Positives (visible features):
+{notable_features_json}
+
+Issues (visible concerns):
+{issues_json}
+
+Rules:
+- Keywords must be visually detectable objects/materials (1–4 words).
+- No speculation and no code/safety claims.
+- Deduplicate and keep high-signal. Max 20 keywords.
+
+Output JSON only:
+{{
   "keywords": ["<keyword1>", "<keyword2>", ...],
-  "categories": {
+  "categories": {{
     "structural": ["<kw>", ...],
     "fixtures": ["<kw>", ...],
     "condition": ["<kw>", ...],
     "style": ["<kw>", ...]
-  }
-}"""
+  }}
+}}
+"""
+
+PASS_3_USER_PROMPT = "Generate detection keywords."
 
 
 async def run_pass_3_keyword_extraction(
-    image_path: Path,
     vlm_client: Any,
     model_config: dict,
     context: Optional[Dict[str, Any]] = None,
     max_keywords: int = 20,
 ) -> Pass3Result:
     """
-    Pass 3: Extract detection keywords from image.
+    Pass 3: Generate detection keywords from structured facts (text-only).
 
     Always uses Qwen for speed.
+    Note: This is now a text-only pass that uses structured outputs from
+    previous passes instead of re-analyzing the image.
 
     Args:
-        image_path: Path to the image file
         vlm_client: VLM client instance
         model_config: Model configuration
-        context: Optional context from previous passes
+        context: Context containing 'scene', 'notable_features', 'issues_natural_language'
         max_keywords: Maximum keywords to return
 
     Returns:
         Pass3Result with extracted keywords
     """
-    scene = context.get('scene', 'property') if context else 'property'
+    scene = context.get("scene", "property") if context else "property"
+    notable_features = context.get("notable_features", []) if context else []
+    issues = context.get("issues_natural_language", []) if context else []
 
-    user_prompt = f"Extract detection keywords for this {scene} photo. Maximum {max_keywords} keywords."
+    system_prompt = PASS_3_SYSTEM_PROMPT.format(
+        scene=scene,
+        notable_features_json=json.dumps(notable_features, ensure_ascii=False),
+        issues_json=json.dumps(issues, ensure_ascii=False),
+    )
 
-    logger.debug(f"Pass 3: Extracting keywords from {image_path.name}")
+    logger.debug("Pass 3: Generating keywords from structured facts (text-only)")
 
     try:
-        response = await vlm_client.analyze_image(
-            image_path=image_path,
-            system_prompt=PASS_3_SYSTEM_PROMPT,
-            user_prompt=user_prompt,
+        response = await vlm_client.analyze_text(
+            system_prompt=system_prompt,
+            user_prompt=PASS_3_USER_PROMPT,
             **model_config,
         )
 
         result = extract_json_object(response) or {}
-
-        keywords = result.get('keywords', [])[:max_keywords]
+        keywords = (result.get("keywords") or [])[:max_keywords]
 
         return Pass3Result(
             keywords=keywords,
-            keyword_categories=result.get('categories'),
+            keyword_categories=result.get("categories"),
             raw_response=response,
         )
 
-    except json.JSONDecodeError as e:
-        logger.warning(f"Pass 3: Failed to parse JSON response: {e}")
-        return Pass3Result(
-            keywords=[],
-            raw_response=str(response) if 'response' in dir() else None,
-        )
     except Exception as e:
         logger.error(f"Pass 3: Error extracting keywords: {e}")
-        return Pass3Result(keywords=[])
+        return Pass3Result(keywords=[], raw_response=None)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 4: Property Summary (aggregation pass)
+# Pass 4: Property Summary (UPDATED - uses freeform notes only)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_4_SYSTEM_PROMPT = """You are a real estate investment analyst synthesizing property photo analysis.
+PASS_4_SYSTEM_PROMPT = """You are a real estate investment analyst synthesizing property photo notes.
 
-Given the analysis results from multiple property photos, create:
-1. A cohesive property summary suitable for investors
-2. Key investment considerations
-3. Overall condition assessment
+You will be given:
+- POSITIVES NOTES: freeform positives/inventory notes from multiple photos
+- ISSUES NOTES: freeform issues/concerns notes from multiple photos
+
+Rules:
+- Use ONLY what is explicitly stated in the notes. Do not add new features, issues, or assumptions.
+- Keep it balanced: strengths + risks.
+- Be conservative; avoid strong claims unless clearly supported by the notes.
 
 Respond with ONLY a JSON object:
 {
-  "property_summary": "<2-3 sentence investment-focused summary>",
-  "investment_considerations": ["<point1>", "<point2>", ...],
+  "property_summary": "<2-3 sentence investment-focused summary grounded in the notes>",
+  "investment_considerations": ["<fact-based point1>", "<fact-based point2>", ...],
   "estimated_condition": "excellent|good|fair|poor",
   "confidence": <0.0-1.0>
-}"""
+}
+"""
 
 
 async def run_pass_4_property_summary(
@@ -562,38 +647,43 @@ async def run_pass_4_property_summary(
     Pass 4: Generate property-level summary from all image analyses.
 
     Uses GPT-5 in premium mode for better synthesis.
-    Note: This pass may not receive images, just aggregated text.
+    This pass uses freeform notes from Pass 1b (positives) and Pass 2a (issues).
 
     Args:
         vlm_client: VLM client instance
         model_config: Model configuration
-        all_results: Aggregated results from all images
+        all_results: Aggregated results from all images, containing:
+            - 'scene': scene type
+            - 'positives_notes': freeform notes from Pass 1b
+            - 'issues_notes': freeform notes from Pass 2a
 
     Returns:
         Pass4Result with property summary
     """
-    # Format aggregated data for prompt
-    images_summary = []
-    for img_key, data in all_results.items():
-        scene = data.get('scene', 'unknown')
-        impression = data.get('overall_impression', '')
-        issues = data.get('verified_issues', [])
-        issue_count = len(issues) if isinstance(issues, list) else 0
+    positives_blocks = []
+    issues_blocks = []
 
-        images_summary.append(
-            f"- {img_key} ({scene}): {impression[:100]}... [{issue_count} issues]"
-        )
+    for img_key, data in list(all_results.items())[:20]:
+        scene = data.get("scene", "unknown")
+        pos = (data.get("positives_notes") or "").strip()
+        neg = (data.get("issues_notes") or "").strip()
 
-    user_prompt = f"""Synthesize these property photo analyses into an investment summary:
+        if pos:
+            positives_blocks.append(f"- {img_key} ({scene}): {pos}")
+        if neg:
+            issues_blocks.append(f"- {img_key} ({scene}): {neg}")
 
-{chr(10).join(images_summary[:20])}  # Limit to 20 images in prompt
+    user_prompt = (
+        "POSITIVES NOTES:\n---\n"
+        + "\n".join(positives_blocks) + "\n---\n\n"
+        + "ISSUES NOTES:\n---\n"
+        + "\n".join(issues_blocks) + "\n---\n"
+        + f"\nTotal images analyzed: {len(all_results)}"
+    )
 
-Total images analyzed: {len(all_results)}"""
-
-    logger.debug(f"Pass 4: Generating property summary from {len(all_results)} images")
+    logger.debug(f"Pass 4: Generating property summary from freeform notes ({len(all_results)} images)")
 
     try:
-        # Note: This may be a text-only call if VLM client supports it
         response = await vlm_client.analyze_text(
             system_prompt=PASS_4_SYSTEM_PROMPT,
             user_prompt=user_prompt,
@@ -603,20 +693,13 @@ Total images analyzed: {len(all_results)}"""
         result = extract_json_object(response) or {}
 
         return Pass4Result(
-            property_summary=result.get('property_summary', ''),
-            investment_considerations=result.get('investment_considerations', []),
-            estimated_condition=result.get('estimated_condition'),
+            property_summary=result.get("property_summary", ""),
+            investment_considerations=result.get("investment_considerations", []),
+            estimated_condition=result.get("estimated_condition"),
+            confidence=result.get("confidence"),
             raw_response=response,
         )
 
-    except json.JSONDecodeError as e:
-        logger.warning(f"Pass 4: Failed to parse JSON response: {e}")
-        return Pass4Result(
-            property_summary="Unable to generate summary",
-            raw_response=str(response) if 'response' in dir() else None,
-        )
     except Exception as e:
         logger.error(f"Pass 4: Error generating summary: {e}")
-        return Pass4Result(
-            property_summary=f"Error generating summary: {e}",
-        )
+        return Pass4Result(property_summary="", raw_response=None)

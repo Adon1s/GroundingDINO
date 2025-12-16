@@ -495,7 +495,10 @@ class PropertySummarizer:
             scene_counts[scene] += 1
 
             # ✅ Only trust verified_issues – detection-only issues are considered "not real"
-            verified = photo_data.get("verified_issues") or []
+            # Fallback to issues_natural_language if verified_issues isn't populated
+            verified = photo_data.get("verified_issues")
+            if not verified:
+                verified = photo_data.get("issues_natural_language") or []
             if not isinstance(verified, list):
                 continue
 

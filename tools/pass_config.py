@@ -5,10 +5,11 @@ Defines pass toggles, model selection, and premium routing logic.
 
 Pass Overview:
 - 1a: Scene type classification (always Qwen - fast/cheap)
-- 1b: Overall impression (GPT-5 when premium)
+- 1b: Positives/inventory notes - freeform (GPT-5 when premium)
+- 1c: Positives notes -> JSON structuring (always Qwen - text-only)
 - 2a: Issue detection (GPT-5 when premium)
 - 2b: Issue verification (always Qwen - high volume)
-- 3:  Keyword extraction (always Qwen)
+- 3:  Keyword extraction (always Qwen - text-only)
 - 4:  Property summary (GPT-5 when premium)
 """
 
@@ -16,22 +17,23 @@ from dataclasses import dataclass, field
 from typing import Dict, Literal, Optional
 
 # Type definitions
-PassKey = Literal['1a', '1b', '2a', '2b', '3', '4']
+PassKey = Literal['1a', '1b', '1c', '2a', '2b', '3', '4']
 ModelName = Literal['qwen', 'gpt5']
 
-# All valid pass keys
-ALL_PASSES: tuple[PassKey, ...] = ('1a', '1b', '2a', '2b', '3', '4')
+# All valid pass keys (in execution order)
+ALL_PASSES: tuple[PassKey, ...] = ('1a', '1b', '1c', '2a', '2b', '3', '4')
 
 
 @dataclass
 class PassToggles:
     """Enable/disable individual passes."""
     pass_1a: bool = True  # Scene type classification
-    pass_1b: bool = True  # Overall impression
+    pass_1b: bool = True  # Positives/inventory notes (freeform)
+    pass_1c: bool = True  # Positives notes -> JSON structuring
     pass_2a: bool = True  # Issue detection
     pass_2b: bool = True  # Issue verification
-    pass_3: bool = True  # Keyword extraction
-    pass_4: bool = True  # Property summary (often skipped in standard)
+    pass_3: bool = True   # Keyword extraction
+    pass_4: bool = True   # Property summary (often skipped in standard)
 
     def __getitem__(self, key: PassKey) -> bool:
         return getattr(self, f'pass_{key}')
@@ -43,6 +45,7 @@ class PassToggles:
         return {
             '1a': self.pass_1a,
             '1b': self.pass_1b,
+            '1c': self.pass_1c,
             '2a': self.pass_2a,
             '2b': self.pass_2b,
             '3': self.pass_3,
@@ -56,6 +59,7 @@ class PassToggles:
         return cls(
             pass_1a=d.get('1a', True),
             pass_1b=d.get('1b', True),
+            pass_1c=d.get('1c', True),
             pass_2a=d.get('2a', True),
             pass_2b=d.get('2b', True),
             pass_3=d.get('3', True),
@@ -68,6 +72,7 @@ class PassModelOverrides:
     """Override model selection for specific passes (dev/testing)."""
     model_1a: Optional[ModelName] = None
     model_1b: Optional[ModelName] = None
+    model_1c: Optional[ModelName] = None
     model_2a: Optional[ModelName] = None
     model_2b: Optional[ModelName] = None
     model_3: Optional[ModelName] = None
@@ -83,6 +88,7 @@ class PassModelOverrides:
         return {
             '1a': self.model_1a,
             '1b': self.model_1b,
+            '1c': self.model_1c,
             '2a': self.model_2a,
             '2b': self.model_2b,
             '3': self.model_3,
@@ -102,6 +108,7 @@ class PassModelOverrides:
         return cls(
             model_1a=to_model(d.get('1a')),
             model_1b=to_model(d.get('1b')),
+            model_1c=to_model(d.get('1c')),
             model_2a=to_model(d.get('2a')),
             model_2b=to_model(d.get('2b')),
             model_3=to_model(d.get('3')),
@@ -137,15 +144,17 @@ class SceneClassifierRunOptions:
 
 # Premium model mapping (when premium=True)
 # - 1a stays Qwen (scene type is simple/fast)
-# - 1b uses GPT-5 (overall impression benefits from reasoning)
+# - 1b uses GPT-5 (positives notes benefit from reasoning)
+# - 1c stays Qwen (purely structuring, high-volume, text-only)
 # - 2a uses GPT-5 (issue detection needs strong vision)
 # - 2b stays Qwen (verification is high-volume)
-# - 3 stays Qwen (keyword extraction is straightforward)
+# - 3 stays Qwen (keyword extraction is straightforward, text-only)
 # - 4 uses GPT-5 (property summary is user-facing)
 
 PREMIUM_MODEL_MAP: Dict[PassKey, ModelName] = {
     '1a': 'qwen',
     '1b': 'gpt5',
+    '1c': 'qwen',
     '2a': 'gpt5',
     '2b': 'qwen',
     '3': 'qwen',
@@ -155,6 +164,7 @@ PREMIUM_MODEL_MAP: Dict[PassKey, ModelName] = {
 STANDARD_MODEL_MAP: Dict[PassKey, ModelName] = {
     '1a': 'qwen',
     '1b': 'qwen',
+    '1c': 'qwen',
     '2a': 'qwen',
     '2b': 'qwen',
     '3': 'qwen',
@@ -176,7 +186,7 @@ def pick_model_for_pass(
     3. Standard mapping (always Qwen)
 
     Args:
-        pass_key: Which pass ('1a', '1b', '2a', '2b', '3', '4')
+        pass_key: Which pass ('1a', '1b', '1c', '2a', '2b', '3', '4')
         premium: Whether premium analysis is enabled
         overrides: Optional per-pass model overrides
 
@@ -224,7 +234,8 @@ def get_model_config_for_pass(
 
 PASS_DESCRIPTIONS: Dict[PassKey, str] = {
     '1a': 'Scene Type Classification',
-    '1b': 'Overall Impression',
+    '1b': 'Positives/Inventory Notes (freeform)',
+    '1c': 'Positives Notes → JSON Structuring',
     '2a': 'Issue Detection',
     '2b': 'Issue Verification',
     '3': 'Keyword Extraction',

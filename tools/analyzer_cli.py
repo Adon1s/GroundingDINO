@@ -19,15 +19,22 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-# The full pipeline lives in the GroundingDINO repo. This CLI expects to be
-# placed alongside the existing auto_analyzer.py / pipeline_config.py modules
-# and reuses the AutoAnalyzer class exported there.
+# Import config first. IMPORTANT: delay importing auto_analyzer until AFTER env overrides
 try:
-    from auto_analyzer import AutoAnalyzer  # type: ignore
     import pipeline_config as cfg  # type: ignore
 except Exception as exc:  # pragma: no cover - external dependency
-    print(f"Failed to import pipeline modules: {exc}", file=sys.stderr)
+    print(f"Failed to import pipeline_config: {exc}", file=sys.stderr)
     sys.exit(1)
+
+
+def _import_auto_analyzer():
+    try:
+        from auto_analyzer import AutoAnalyzer  # type: ignore
+        return AutoAnalyzer
+    except Exception as exc:
+        print(f"Failed to import auto_analyzer: {exc}", file=sys.stderr)
+        raise
+
 
 # Optional: import pass config if available (for new architecture)
 try:
@@ -47,6 +54,7 @@ PATH_OVERRIDE_KEYS = {
     "SCENE_CLASSIFIER_PY",
     "CHIP_VERIFIER_PY",
     "ANALYZER_CLI",
+    "ISSUE_CATALOG_PATH",
 }
 
 # Environment variable keys that should be passed as-is (strings)
@@ -63,6 +71,9 @@ STRING_OVERRIDE_KEYS = {
     "OPENAI_PASS1B_MODEL",
     "OPENAI_PASS2A_MODEL",
     "OPENAI_PASS4_MODEL",
+    "OPENAI_PASS_1B_MODEL",
+    "OPENAI_PASS_2A_MODEL",
+    "OPENAI_PASS_4_MODEL",
     "OPENAI_CHIP_MODEL",
 
     # GPT naming alternatives (some apps use GPT5_ prefix)
@@ -83,17 +94,15 @@ STRING_OVERRIDE_KEYS = {
     "DDS_REGION",
     "DDS_DETECTOR_MODEL",
 
-    # Premium-specific
-    "PREMIUM_MAX_KEYWORDS",
+    # Premium-specific (string only - typed handled separately)
     "PREMIUM_SUMMARY_MODEL",
-    "PREMIUM_SKIP_VERIFICATION",
 
     # Summary model
     "SUMMARY_MODEL",
 }
 
 # All passes for CLI argument generation
-ALL_PASSES = ['1a', '1b', '2a', '2b', '3', '4']
+ALL_PASSES = ['1a', '1b', '1c', '2a', '2b', '3', '4']
 
 
 def _apply_env_overrides() -> None:
@@ -130,6 +139,53 @@ def _apply_env_overrides() -> None:
         setattr(cfg, "GPT5_MODEL", gpt_model)
         setattr(cfg, "OPENAI_MODEL", gpt_model)
         logger.debug("GPT model unified to: %s", gpt_model)
+
+    # Ensure pass-specific GPT model vars are materialized on cfg
+    def _first(*keys: str) -> Optional[str]:
+        for k in keys:
+            v = os.environ.get(k)
+            if v:
+                return v
+        return None
+
+    p1b = _first("OPENAI_PASS_1B_MODEL", "OPENAI_PASS1B_MODEL")
+    p2a = _first("OPENAI_PASS_2A_MODEL", "OPENAI_PASS2A_MODEL")
+    p4  = _first("OPENAI_PASS_4_MODEL",  "OPENAI_PASS4_MODEL")
+
+    if p1b:
+        setattr(cfg, "GPT_PASS_1B_MODEL", p1b)
+    if p2a:
+        setattr(cfg, "GPT_PASS_2A_MODEL", p2a)
+    if p4:
+        setattr(cfg, "GPT_PASS_4_MODEL", p4)
+
+    # If premium summary model is set explicitly, honor it too
+    prem_sum = os.environ.get("PREMIUM_SUMMARY_MODEL")
+    if prem_sum:
+        setattr(cfg, "PREMIUM_SUMMARY_MODEL", prem_sum)
+
+    # Typed overrides (avoid turning ints/bools into strings on cfg)
+    def _to_int_or_none(v: Optional[str]) -> Optional[int]:
+        try:
+            return int(v) if v is not None and v.strip() != "" else None
+        except Exception:
+            return None
+
+    def _to_bool(v: Optional[str]) -> bool:
+        return (v or "").strip().lower() in ("1", "true", "yes", "y", "on")
+
+    if os.environ.get("PREMIUM_MAX_KEYWORDS"):
+        setattr(cfg, "PREMIUM_MAX_KEYWORDS", int(os.environ["PREMIUM_MAX_KEYWORDS"]))
+
+    if os.environ.get("PREMIUM_SKIP_VERIFICATION") is not None:
+        setattr(cfg, "PREMIUM_SKIP_VERIFICATION", _to_bool(os.environ.get("PREMIUM_SKIP_VERIFICATION")))
+
+    if os.environ.get("OPENAI_DEFAULT_MAX_TOKENS"):
+        setattr(cfg, "OPENAI_DEFAULT_MAX_TOKENS", int(os.environ["OPENAI_DEFAULT_MAX_TOKENS"]))
+
+    for k in ("OPENAI_PASS_1B_MAX_TOKENS", "OPENAI_PASS_1C_MAX_TOKENS", "OPENAI_PASS_2A_MAX_TOKENS", "OPENAI_PASS_4_MAX_TOKENS"):
+        if os.environ.get(k) is not None:
+            setattr(cfg, k, _to_int_or_none(os.environ.get(k)))
 
 
 def _parse_args() -> argparse.Namespace:
@@ -219,6 +275,7 @@ Pass Control Examples:
         default=None,
         help="Force use of legacy scene classifier instead of pass architecture",
     )
+
     parser.add_argument(
         "--enable-pass-architecture",
         dest="use_pass_architecture",
@@ -406,6 +463,18 @@ def _log_config_summary() -> None:
     logger.info(f"OPENAI_API_KEY: {api_key_status}")
     logger.info(f"GPT_MODEL: {getattr(cfg, 'GPT_MODEL', 'NOT SET')}")
 
+    # Pass-specific models
+    logger.info(f"GPT_PASS_1B_MODEL: {getattr(cfg, 'GPT_PASS_1B_MODEL', 'NOT SET')}")
+    logger.info(f"GPT_PASS_2A_MODEL: {getattr(cfg, 'GPT_PASS_2A_MODEL', 'NOT SET')}")
+    logger.info(f"GPT_PASS_4_MODEL:  {getattr(cfg, 'GPT_PASS_4_MODEL',  'NOT SET')}")
+    logger.info(f"OPENAI_BASE_URL:   {getattr(cfg, 'OPENAI_BASE_URL', os.environ.get('OPENAI_BASE_URL', '')) or 'DEFAULT'}")
+
+    # Token caps
+    logger.info(f"OPENAI_DEFAULT_MAX_TOKENS: {getattr(cfg, 'OPENAI_DEFAULT_MAX_TOKENS', os.environ.get('OPENAI_DEFAULT_MAX_TOKENS', '')) or 'NOT SET'}")
+    logger.info(f"OPENAI_PASS_1B_MAX_TOKENS: {getattr(cfg, 'OPENAI_PASS_1B_MAX_TOKENS', os.environ.get('OPENAI_PASS_1B_MAX_TOKENS', '')) or 'NOT SET'}")
+    logger.info(f"OPENAI_PASS_2A_MAX_TOKENS: {getattr(cfg, 'OPENAI_PASS_2A_MAX_TOKENS', os.environ.get('OPENAI_PASS_2A_MAX_TOKENS', '')) or 'NOT SET'}")
+    logger.info(f"OPENAI_PASS_4_MAX_TOKENS:  {getattr(cfg, 'OPENAI_PASS_4_MAX_TOKENS',  os.environ.get('OPENAI_PASS_4_MAX_TOKENS',  '')) or 'NOT SET'}")
+
     # Detection backend
     logger.info(f"DETECTION_BACKEND: {getattr(cfg, 'DETECTION_BACKEND', 'groundingdino')}")
 
@@ -424,11 +493,9 @@ def main() -> int:
         format="%(asctime)s - %(levelname)s - %(message)s",
         stream=sys.stderr,
     )
-
-    logging.basicConfig(level=logging.DEBUG)
     install_payload_redactor()
 
-    # ✅ CRITICAL: Apply environment overrides BEFORE using config
+    # ✅ CRITICAL: Apply environment overrides BEFORE importing auto_analyzer
     _apply_env_overrides()
 
     # Log configuration for debugging
@@ -478,6 +545,9 @@ def main() -> int:
 
     # Filter out None values to let AutoAnalyzer use its defaults
     analyzer_kwargs = {k: v for k, v in analyzer_kwargs.items() if v is not None}
+
+    # Import AutoAnalyzer AFTER env overrides have been applied
+    AutoAnalyzer = _import_auto_analyzer()
 
     try:
         analyzer = AutoAnalyzer(**analyzer_kwargs)

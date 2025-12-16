@@ -102,10 +102,12 @@ try:
     )
     from scene_classifier_passes import (
         run_pass_1a_scene_type,
-        run_pass_1b_overall_impression,
+        run_pass_1b_positive_notes,
+        run_pass_1c_positive_structuring,
         run_pass_2a_issue_detection,
         run_pass_2b_issue_verification,
         run_pass_3_keyword_extraction,
+        run_pass_4_property_summary,
     )
 
     PASS_ARCHITECTURE_AVAILABLE = True
@@ -200,20 +202,25 @@ def _parse_catalog_flag(flag: Any) -> Tuple[str, str, str]:
     return present, severity, evidence
 
 
-def build_renovation_needs(job: "PropertyAnalysisJob") -> Dict[str, Any]:
+def build_renovation_needs(job: "PropertyAnalysisJob", issue_catalog: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """
     Aggregate per-photo catalog_flags + severity into a property-level
     renovation_needs structure.
+
+    Args:
+        job: PropertyAnalysisJob with results
+        issue_catalog: Issue catalog to use (defaults to module global ISSUE_CATALOG)
     """
+    catalog = issue_catalog or ISSUE_CATALOG or {}
 
     issue_meta: Dict[str, Dict[str, str]] = {}
-    for item in ISSUE_CATALOG.get("defect_issues", []) or []:
+    for item in catalog.get("defect_issues", []) or []:
         if isinstance(item, dict) and item.get("id"):
             issue_meta[item["id"]] = {
                 "name": item.get("name", item["id"]),
                 "category": item.get("category", "unknown"),
             }
-    for item in ISSUE_CATALOG.get("opportunity_flags", []) or []:
+    for item in catalog.get("opportunity_flags", []) or []:
         if isinstance(item, dict) and item.get("id"):
             issue_meta[item["id"]] = {
                 "name": item.get("name", item["id"]),
@@ -749,6 +756,9 @@ class AutoAnalyzer:
                 'reasoning': '',
                 'overall_impression': '',
                 'image_summary': '',
+                'notable_features': [],
+                'positives_notes': '',
+                'issues_notes': '',
                 'keywords': [],
                 'catalog_flags': {},
                 'issues_natural_language': [],
@@ -772,21 +782,39 @@ class AutoAnalyzer:
             except Exception as e:
                 logger.warning(f"  Pass 1a failed: {e}")
 
-            # Pass 1b: Overall Impression (GPT in premium)
+            # Pass 1b: Positives/Inventory notes (FREEFORM; GPT in premium)
             model_config_1b = self._get_model_config_for_pass('1b')
             logger.debug(f"  Pass 1b using model: {model_config_1b.get('model')}")
 
+            positives_notes = ""
             try:
-                pass_1b = await run_pass_1b_overall_impression(
+                pass_1b = await run_pass_1b_positive_notes(
                     image_path=image_path,
                     vlm_client=self.vlm_client,
                     model_config=model_config_1b,
                     context=context,
                 )
-                results['overall_impression'] = pass_1b.overall_impression
-                results['image_summary'] = pass_1b.image_summary or ''
+                positives_notes = pass_1b.positives_notes
+                results['positives_notes'] = positives_notes
             except Exception as e:
                 logger.warning(f"  Pass 1b failed: {e}")
+
+            # Pass 1c: Positives notes -> JSON structuring (text-only)
+            model_config_1c = self._get_model_config_for_pass('1c')
+            logger.debug(f"  Pass 1c using model: {model_config_1c.get('model')}")
+
+            try:
+                pass_1c = await run_pass_1c_positive_structuring(
+                    vlm_client=self.vlm_client,
+                    model_config=model_config_1c,
+                    positives_notes=positives_notes,
+                )
+                results['overall_impression'] = pass_1c.overall_impression or ""
+                results['image_summary'] = pass_1c.image_summary or ""
+                results['notable_features'] = pass_1c.notable_features or []
+                context['notable_features'] = results['notable_features']
+            except Exception as e:
+                logger.warning(f"  Pass 1c failed: {e}")
 
             # Pass 2a: Issue Detection - freeform notes (GPT in premium)
             model_config_2a = self._get_model_config_for_pass('2a')
@@ -801,7 +829,8 @@ class AutoAnalyzer:
                     context=context,
                     issue_catalog=self.issue_catalog,
                 )
-                freeform_notes = pass_2a.freeform_notes
+                freeform_notes = pass_2a.issues_notes
+                results['issues_notes'] = freeform_notes
             except Exception as e:
                 logger.warning(f"  Pass 2a failed: {e}")
 
@@ -821,16 +850,21 @@ class AutoAnalyzer:
                 results['issues_natural_language'] = pass_2b.issues_natural_language
                 results['catalog_flags'] = pass_2b.catalog_flags
                 results['verified_issues'] = pass_2b.issues_natural_language
+                context['issues_natural_language'] = results['issues_natural_language']
             except Exception as e:
                 logger.warning(f"  Pass 2b failed: {e}")
 
-            # Pass 3: Keyword Extraction (always Qwen)
+            # Pass 3: Keyword Extraction (text-only, always Qwen)
             model_config_3 = self._get_model_config_for_pass('3')
             logger.debug(f"  Pass 3 using model: {model_config_3.get('model')}")
 
             try:
+                # Ensure Pass 3 context matches new Pass 3 prompt (structured facts only)
+                context.setdefault("scene", results.get("scene", "property"))
+                context.setdefault("notable_features", results.get("notable_features", []))
+                context.setdefault("issues_natural_language", results.get("issues_natural_language", []))
+
                 pass_3 = await run_pass_3_keyword_extraction(
-                    image_path=image_path,
                     vlm_client=self.vlm_client,
                     model_config=model_config_3,
                     context=context,
@@ -882,6 +916,10 @@ class AutoAnalyzer:
         scene_payload['keywords'] = keywords
         scene_payload['overall_impression'] = data.get('overall_impression', '')
         scene_payload['image_summary'] = data.get('image_summary', '')
+        scene_payload['notable_features'] = data.get('notable_features', []) or []
+        scene_payload['positives_notes'] = data.get('positives_notes', '') or ""
+        scene_payload['issues_notes'] = data.get('issues_notes', '') or ""
+        scene_payload['groundingdino_prompt'] = prompt
         scene_payload['catalog_flags'] = data.get('catalog_flags', {})
         scene_payload['issues_natural_language'] = data.get('issues_natural_language', [])
         scene_payload['verified_issues'] = data.get('verified_issues', [])
@@ -913,6 +951,10 @@ class AutoAnalyzer:
 
         # Build scene payload
         scene_payload = self._scene_classifier_payload(results, scene_override=scene)
+        scene_payload['notable_features'] = results.get('notable_features', []) or []
+        scene_payload['positives_notes'] = results.get('positives_notes', '') or ""
+        scene_payload['issues_notes'] = results.get('issues_notes', '') or ""
+        scene_payload['groundingdino_prompt'] = prompt
 
         return (
             scene,
@@ -1204,6 +1246,7 @@ class AutoAnalyzer:
 
             if (
                     getattr(cfg, "ROI_HINTS_ENABLED", False)
+                    and planner_hints  # Skip if planner_hints is empty
                     and detections
                     and img_w > 0
                     and img_h > 0
@@ -1475,6 +1518,10 @@ class AutoAnalyzer:
         payload.setdefault("scene", "unknown")
         payload.setdefault("is_staged", None)
         payload.setdefault("overall_impression", "")
+        payload.setdefault("image_summary", "")
+        payload.setdefault("notable_features", [])
+        payload.setdefault("positives_notes", "")
+        payload.setdefault("issues_notes", "")
         payload.setdefault("reasoning", "" if error is None else error)
         payload.setdefault("targets", [])
         payload.setdefault("gdino_terms", [])
@@ -1487,7 +1534,6 @@ class AutoAnalyzer:
         payload.setdefault("processing_time", payload.get("processing_time"))
         payload.setdefault("prompt_version", payload.get("prompt_version", ""))
         payload.setdefault("scene_policy_version", payload.get("scene_policy_version", ""))
-        payload.setdefault("image_summary", payload.get("image_summary", ""))
         payload.setdefault("image", payload.get("image"))
 
         if error and not payload.get("error"):
@@ -1568,7 +1614,7 @@ class AutoAnalyzer:
         }
 
         try:
-            photo_intel["renovation_needs"] = build_renovation_needs(job)
+            photo_intel["renovation_needs"] = build_renovation_needs(job, issue_catalog=self.issue_catalog)
         except Exception as exc:
             logger.error(f"Failed to build renovation_needs: {exc}", exc_info=True)
 
@@ -1594,12 +1640,10 @@ class AutoAnalyzer:
         """
         Generate a property-level summary from the analysis results.
 
-        ✅ FIXED: Now correctly routes to OpenAI when premium.
+        Priority:
+        1. Use Pass 4 (run_pass_4_property_summary) if VLM client available
+        2. Fall back to PropertySummarizer if Pass 4 can't run
         """
-        if PropertySummarizer is None:
-            logger.warning("PropertySummarizer not available, skipping summary generation")
-            return None
-
         if not getattr(cfg, "GENERATE_PROPERTY_SUMMARY", True):
             logger.info("Property summary generation disabled in config")
             return None
@@ -1607,6 +1651,73 @@ class AutoAnalyzer:
         logger.info(f"\n{'=' * 60}")
         logger.info("Generating Property Summary...")
         logger.info(f"{'=' * 60}")
+
+        if output_path is None:
+            output_path = Path(job.artifacts_dir) / "property_summary.json"
+
+        # Build all_results from job for Pass 4
+        all_results = {}
+        for res in job.results:
+            image_key = Path(res.image_path).name
+            payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
+            all_results[image_key] = payload
+
+        # Priority 1: Try Pass 4 if VLM client is available
+        if VLM_CLIENT_AVAILABLE and self.vlm_client and PASS_ARCHITECTURE_AVAILABLE:
+            try:
+                logger.info("  Using Pass 4 (run_pass_4_property_summary)")
+                model_config_4 = self._get_model_config_for_pass('4')
+                logger.info(f"  Model: {model_config_4.get('model')}")
+
+                async def run_pass4():
+                    return await run_pass_4_property_summary(
+                        vlm_client=self.vlm_client,
+                        model_config=model_config_4,
+                        all_results=all_results,
+                    )
+
+                loop = asyncio.new_event_loop()
+                try:
+                    pass_4_result = loop.run_until_complete(run_pass4())
+                finally:
+                    loop.close()
+
+                # Build summary dict matching expected schema
+                summary_data = {
+                    "property_key": job.property_key,
+                    "job_id": job.job_id,
+                    "timestamp": job.timestamp,
+                    "created_at": datetime.utcnow().isoformat() + "Z",
+                    "summary_version": "pass4_v1",
+                    "analysis_profile": self.analysis_profile,
+                    "property_summary": pass_4_result.property_summary or "",
+                    "investment_considerations": pass_4_result.investment_considerations or [],
+                    "estimated_condition": pass_4_result.estimated_condition or "",
+                    "confidence": getattr(pass_4_result, "confidence", None),
+                    "total_images_analyzed": len(job.results),
+                    "model_used": model_config_4.get('model', ''),
+                }
+
+                # Add renovation_needs if available
+                try:
+                    summary_data["renovation_needs"] = build_renovation_needs(job, issue_catalog=self.issue_catalog)
+                except Exception as exc:
+                    logger.warning(f"Could not build renovation_needs: {exc}")
+
+                output_path.parent.mkdir(parents=True, exist_ok=True)
+                with open(output_path, "w", encoding="utf-8") as f:
+                    json.dump(summary_data, f, indent=2, ensure_ascii=False)
+
+                logger.info(f"Property summary saved to: {output_path}")
+                return output_path
+
+            except Exception as e:
+                logger.warning(f"Pass 4 failed: {e}, falling back to PropertySummarizer")
+
+        # Priority 2: Fall back to PropertySummarizer
+        if PropertySummarizer is None:
+            logger.warning("PropertySummarizer not available, skipping summary generation")
+            return None
 
         try:
             # Load photo_intel
@@ -1631,7 +1742,7 @@ class AutoAnalyzer:
                 }
 
                 try:
-                    photo_intel["renovation_needs"] = build_renovation_needs(job)
+                    photo_intel["renovation_needs"] = build_renovation_needs(job, issue_catalog=self.issue_catalog)
                 except Exception as exc:
                     logger.warning(f"Could not build renovation_needs: {exc}")
 
@@ -1664,9 +1775,6 @@ class AutoAnalyzer:
                 )
 
             summary = summarizer.summarize_property(photo_intel)
-
-            if output_path is None:
-                output_path = Path(job.artifacts_dir) / "property_summary.json"
 
             PropertySummarizer.save_summary(summary, output_path)
 

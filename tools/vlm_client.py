@@ -85,11 +85,21 @@ class VLMClient:
         self._file_cache: Dict[str, str] = {}
 
     def _detect_provider(self, url: Optional[str], api_key: Optional[str]) -> ProviderType:
-        """Auto-detect provider based on URL and API key."""
-        env_key = os.environ.get("OPENAI_API_KEY")
-        key = api_key or env_key
+        """
+        Auto-detect provider.
+        - If URL looks local → LM Studio
+        - Else if key exists → OpenAI
+        - Else → LM Studio
+        """
+        key = api_key or os.environ.get("OPENAI_API_KEY")
+        u = (url or "").lower().strip()
 
-        if key and (not url or "openai.com" in (url or "")):
+        # Strong LM Studio signals
+        is_local = any(x in u for x in ("localhost", "127.0.0.1", "0.0.0.0", "169.254.", ".local"))
+
+        if url and is_local:
+            return "lmstudio"
+        if key:
             return "openai"
         return "lmstudio"
 
@@ -435,6 +445,15 @@ class VLMClient:
         Returns:
             Model response as string (typically JSON)
         """
+        # Accept either name from callers (orchestrator may provide max_output_tokens)
+        if max_tokens is None:
+            mo = kwargs.get("max_output_tokens")
+            if mo is not None:
+                try:
+                    max_tokens = int(mo)
+                except Exception:
+                    pass
+
         timeout = timeout or self.default_timeout
         max_tokens = max_tokens or self.default_max_tokens
         temperature = temperature if temperature is not None else self.default_temperature
@@ -503,6 +522,15 @@ class VLMClient:
         Returns:
             Model response as string
         """
+        # Accept either name from callers (orchestrator may provide max_output_tokens)
+        if max_tokens is None:
+            mo = kwargs.get("max_output_tokens")
+            if mo is not None:
+                try:
+                    max_tokens = int(mo)
+                except Exception:
+                    pass
+
         timeout = timeout or self.default_timeout
         max_tokens = max_tokens or self.default_max_tokens
         temperature = temperature if temperature is not None else self.default_temperature
@@ -542,6 +570,7 @@ class VLMClient:
     def analyze_image_sync(self, **kwargs) -> str:
         """Synchronous wrapper for analyze_image."""
         loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
             return loop.run_until_complete(self.analyze_image(**kwargs))
         finally:
@@ -550,6 +579,7 @@ class VLMClient:
     def analyze_text_sync(self, **kwargs) -> str:
         """Synchronous wrapper for analyze_text."""
         loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
         try:
             return loop.run_until_complete(self.analyze_text(**kwargs))
         finally:
