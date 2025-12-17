@@ -399,7 +399,7 @@ Catalog reference:
 {catalog_text}
 
 Rules:
-- Output ONLY the most important visible defects (0–3 items). Skip tiny cosmetic wear, staging/clutter, preference/layout, dont worry about GFCI outlets.
+- Output ONLY the most important visible defects.
 - Do NOT turn "not visible" into "missing" (e.g., smoke detector not seen ≠ missing).
 - Do NOT speculate. If wording is "may/might/could/possible" without a clearly described visible defect → present="uncertain", severity="none".
 - If notes say no issues → issues_natural_language = [] and all catalog_flags present="no", severity="none".

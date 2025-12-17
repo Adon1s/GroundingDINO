@@ -149,6 +149,23 @@ BACKEND_ALIASES = {
     "dino-x": "dinox",
 }
 
+# Room grouping map for UI aggregation
+SCENE_GROUPS_UI = {
+    "kitchen": ["kitchen", "pantry"],
+    "bathroom": ["bathroom"],
+    "bedroom": ["bedroom", "closet"],
+    "living_areas": ["living_room", "dining_room", "home_office", "hallway", "stairway"],
+    "utility": ["laundry_room", "basement", "attic", "garage", "hvac"],
+    "exterior": ["exterior_front", "exterior_back", "exterior_side", "yard", "patio", "deck", "balcony", "driveway", "pool", "garden"],
+    "other": ["roof", "other", "unknown", "floor_plan", "aerial_view", "street_view"],
+}
+
+# Reverse lookup: scene -> group
+SCENE_TO_GROUP_UI = {}
+for _group, _scenes in SCENE_GROUPS_UI.items():
+    for _scene in _scenes:
+        SCENE_TO_GROUP_UI[_scene] = _group
+
 
 # ── Data Classes ─────────────────────────────────────────────────────────────
 @dataclass
@@ -1588,11 +1605,83 @@ class AutoAnalyzer:
         """Persist per-photo intelligence (including scene classifier fields)."""
         created_at = datetime.utcnow().isoformat() + "Z"
 
+        def _safe_list(x):
+            """Ensure x is a list."""
+            return x if isinstance(x, list) else []
+
         photos: Dict[str, Any] = {}
         for res in job.results:
             image_key = Path(res.image_path).name
             payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
-            photos[image_key] = {"image_path": res.image_path, **payload}
+
+            # Build canonical "passes" view for UI
+            passes = {
+                "1b": {"positives_notes": payload.get("positives_notes", "")},
+                "1c": {
+                    "overall_impression": payload.get("overall_impression", ""),
+                    "image_summary": payload.get("image_summary", ""),
+                    "notable_features": payload.get("notable_features", []) or [],
+                },
+                "2a": {"issues_notes": payload.get("issues_notes", "")},
+                "2b": {
+                    "issues_natural_language": payload.get("issues_natural_language", []) or [],
+                    "catalog_flags": payload.get("catalog_flags", {}) or {},
+                },
+            }
+
+            # Keep flat fields for backwards compatibility, but UI should read passes
+            photos[image_key] = {
+                "image_path": res.image_path,
+                "scene": payload.get("scene", res.scene),
+                **payload,
+                "passes": passes,
+            }
+
+        # Build room_groups aggregation
+        room_groups: Dict[str, Any] = {}
+
+        for img_key, p in photos.items():
+            scene = (p.get("scene") or "unknown").strip()
+            group = SCENE_TO_GROUP_UI.get(scene, "other")
+
+            g = room_groups.setdefault(group, {
+                "scenes_included": SCENE_GROUPS_UI.get(group, []),
+                "image_keys": [],
+                "image_count": 0,
+                "positives": {"notes": [], "notable_features": []},
+                "issues": {"notes": [], "issues_natural_language": []},
+            })
+
+            g["image_keys"].append(img_key)
+            g["image_count"] += 1
+
+            passes = p.get("passes", {}) or {}
+
+            # Positives
+            pos_notes = ((passes.get("1b", {}) or {}).get("positives_notes") or "").strip()
+            if pos_notes:
+                g["positives"]["notes"].append(pos_notes)
+
+            nf = _safe_list((passes.get("1c", {}) or {}).get("notable_features"))
+            for feat in nf:
+                s = str(feat).strip()
+                if s and s not in g["positives"]["notable_features"]:
+                    g["positives"]["notable_features"].append(s)
+
+            # Issues
+            issue_notes = ((passes.get("2a", {}) or {}).get("issues_notes") or "").strip()
+            if issue_notes:
+                g["issues"]["notes"].append(issue_notes)
+
+            issues = _safe_list((passes.get("2b", {}) or {}).get("issues_natural_language"))
+            for it in issues:
+                if isinstance(it, dict) and it.get("description"):
+                    g["issues"]["issues_natural_language"].append({
+                        "source_image": img_key,
+                        "description": it.get("description", ""),
+                        "rough_category": it.get("rough_category", ""),
+                        "location_hint": it.get("location_hint", ""),
+                    })
 
         photo_intel = {
             "run_id": job.job_id,
@@ -1611,6 +1700,7 @@ class AutoAnalyzer:
             "prompt_version": self._pick_first_metadata(job.results, "prompt_version", ""),
             "scene_policy_version": self._pick_first_metadata(job.results, "scene_policy_version", ""),
             "photos": photos,
+            "room_groups": room_groups,
         }
 
         try:
@@ -1631,6 +1721,7 @@ class AutoAnalyzer:
 
         return output_path
 
+
     def generate_property_summary(
             self,
             job: PropertyAnalysisJob,
@@ -1638,11 +1729,10 @@ class AutoAnalyzer:
             output_path: Optional[Path] = None
     ) -> Optional[Path]:
         """
-        Generate a property-level summary from the analysis results.
+        Generate a property-level summary from the analysis results using Pass 4.
 
-        Priority:
-        1. Use Pass 4 (run_pass_4_property_summary) if VLM client available
-        2. Fall back to PropertySummarizer if Pass 4 can't run
+        Always writes property_summary.json and embeds property_pass4 into photo_intel.json,
+        even on failure (with error field and empty values) so the UI has consistent structure.
         """
         if not getattr(cfg, "GENERATE_PROPERTY_SUMMARY", True):
             logger.info("Property summary generation disabled in config")
@@ -1662,12 +1752,21 @@ class AutoAnalyzer:
             payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
             all_results[image_key] = payload
 
-        # Priority 1: Try Pass 4 if VLM client is available
+        # Initialize with empty/error values
+        property_summary = ""
+        investment_considerations = []
+        estimated_condition = ""
+        confidence = None
+        error_msg = None
+        model_used = ""
+
+        # Try Pass 4 if VLM client is available
         if VLM_CLIENT_AVAILABLE and self.vlm_client and PASS_ARCHITECTURE_AVAILABLE:
             try:
                 logger.info("  Using Pass 4 (run_pass_4_property_summary)")
                 model_config_4 = self._get_model_config_for_pass('4')
-                logger.info(f"  Model: {model_config_4.get('model')}")
+                model_used = model_config_4.get('model', '')
+                logger.info(f"  Model: {model_used}")
 
                 async def run_pass4():
                     return await run_pass_4_property_summary(
@@ -1682,108 +1781,81 @@ class AutoAnalyzer:
                 finally:
                     loop.close()
 
-                # Build summary dict matching expected schema
-                summary_data = {
-                    "property_key": job.property_key,
-                    "job_id": job.job_id,
-                    "timestamp": job.timestamp,
-                    "created_at": datetime.utcnow().isoformat() + "Z",
-                    "summary_version": "pass4_v1",
-                    "analysis_profile": self.analysis_profile,
-                    "property_summary": pass_4_result.property_summary or "",
-                    "investment_considerations": pass_4_result.investment_considerations or [],
-                    "estimated_condition": pass_4_result.estimated_condition or "",
-                    "confidence": getattr(pass_4_result, "confidence", None),
-                    "total_images_analyzed": len(job.results),
-                    "model_used": model_config_4.get('model', ''),
-                }
+                # Extract successful results
+                property_summary = pass_4_result.property_summary or ""
+                investment_considerations = pass_4_result.investment_considerations or []
+                estimated_condition = pass_4_result.estimated_condition or ""
+                confidence = getattr(pass_4_result, "confidence", None)
 
-                # Add renovation_needs if available
-                try:
-                    summary_data["renovation_needs"] = build_renovation_needs(job, issue_catalog=self.issue_catalog)
-                except Exception as exc:
-                    logger.warning(f"Could not build renovation_needs: {exc}")
-
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                with open(output_path, "w", encoding="utf-8") as f:
-                    json.dump(summary_data, f, indent=2, ensure_ascii=False)
-
-                logger.info(f"Property summary saved to: {output_path}")
-                return output_path
+                logger.info("  Pass 4 completed successfully")
 
             except Exception as e:
-                logger.warning(f"Pass 4 failed: {e}, falling back to PropertySummarizer")
+                error_msg = f"Pass 4 failed: {e}"
+                logger.error(error_msg, exc_info=True)
+        else:
+            # VLM client or pass architecture not available
+            missing = []
+            if not VLM_CLIENT_AVAILABLE:
+                missing.append("VLM client")
+            if not self.vlm_client:
+                missing.append("vlm_client instance")
+            if not PASS_ARCHITECTURE_AVAILABLE:
+                missing.append("pass architecture")
+            error_msg = f"Pass 4 unavailable: missing {', '.join(missing)}"
+            logger.warning(error_msg)
 
-        # Priority 2: Fall back to PropertySummarizer
-        if PropertySummarizer is None:
-            logger.warning("PropertySummarizer not available, skipping summary generation")
-            return None
+        # Build summary dict - always write even on failure
+        summary_data = {
+            "property_key": job.property_key,
+            "job_id": job.job_id,
+            "timestamp": job.timestamp,
+            "created_at": datetime.utcnow().isoformat() + "Z",
+            "summary_version": "pass4_v1",
+            "analysis_profile": self.analysis_profile,
+            "property_summary": property_summary,
+            "investment_considerations": investment_considerations,
+            "estimated_condition": estimated_condition,
+            "confidence": confidence,
+            "total_images_analyzed": len(job.results),
+            "model_used": model_used,
+            "error": error_msg,
+        }
 
+        # Add renovation_needs if available
         try:
-            # Load photo_intel
-            if photo_intel_path and photo_intel_path.exists():
+            summary_data["renovation_needs"] = build_renovation_needs(job, issue_catalog=self.issue_catalog)
+        except Exception as exc:
+            logger.warning(f"Could not build renovation_needs: {exc}")
+
+        # Write property_summary.json
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(summary_data, f, indent=2, ensure_ascii=False)
+
+        logger.info(f"Property summary saved to: {output_path}")
+
+        # Embed Pass 4 output into photo_intel.json so UI has single payload
+        if photo_intel_path and photo_intel_path.exists():
+            try:
                 with open(photo_intel_path, 'r', encoding='utf-8') as f:
                     photo_intel = json.load(f)
-            else:
-                photos = {}
-                for res in job.results:
-                    image_key = Path(res.image_path).name
-                    payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
-                    photos[image_key] = {"image_path": res.image_path, **payload}
 
-                photo_intel = {
-                    "property_key": job.property_key,
-                    "job_id": job.job_id,
-                    "timestamp": job.timestamp,
-                    "artifacts_dir": job.artifacts_dir,
-                    "detection_backend": self.detection_backend,
-                    "analysis_profile": self.analysis_profile,
-                    "photos": photos,
+                photo_intel["property_pass4"] = {
+                    "property_summary": property_summary,
+                    "investment_considerations": investment_considerations,
+                    "estimated_condition": estimated_condition,
+                    "confidence": confidence,
+                    "error": error_msg,
                 }
 
-                try:
-                    photo_intel["renovation_needs"] = build_renovation_needs(job, issue_catalog=self.issue_catalog)
-                except Exception as exc:
-                    logger.warning(f"Could not build renovation_needs: {exc}")
+                with open(photo_intel_path, "w", encoding="utf-8") as f:
+                    json.dump(photo_intel, f, indent=2, ensure_ascii=False)
 
-            # ✅ Determine model config based on profile
-            gpt_config = self._get_pass_specific_gpt_config('4')  # Pass 4 = property summary
-            api_key = gpt_config.get('api_key') or os.environ.get('OPENAI_API_KEY')
+                logger.info(f"Pass 4 output embedded into: {photo_intel_path}")
+            except Exception as exc:
+                logger.warning(f"Could not embed property_pass4 into photo_intel.json: {exc}")
 
-            if self.analysis_profile == "premium" and api_key:
-                # Premium mode: use OpenAI
-                summary_model = gpt_config.get('model', 'gpt-4o')
-                logger.info(f"  Using premium model for summary: {summary_model}")
-
-                # ✅ Pass None for lm_studio_url when using OpenAI
-                summarizer = PropertySummarizer(
-                    lm_studio_url=None,  # Explicitly None for OpenAI mode
-                    model_name=summary_model,
-                    debug=self.debug,
-                    api_key=api_key,
-                    provider='openai',
-                )
-            else:
-                # Standard mode: use LM Studio/Qwen
-                summary_model = self.summary_model or getattr(cfg, "SUMMARY_MODEL", cfg.LM_STUDIO_MODEL)
-                logger.info(f"  Using standard model for summary: {summary_model}")
-
-                summarizer = PropertySummarizer(
-                    lm_studio_url=cfg.LM_STUDIO_URL,
-                    model_name=summary_model,
-                    debug=self.debug,
-                )
-
-            summary = summarizer.summarize_property(photo_intel)
-
-            PropertySummarizer.save_summary(summary, output_path)
-
-            logger.info(f"Property summary saved to: {output_path}")
-            return output_path
-
-        except Exception as e:
-            logger.error(f"Failed to generate property summary: {e}", exc_info=True)
-            return None
+        return output_path
 
     def create_html_report(self, job: PropertyAnalysisJob, output_path: Path):
         """Generate a simple HTML report."""
