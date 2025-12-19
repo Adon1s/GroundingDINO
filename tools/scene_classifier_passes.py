@@ -4,12 +4,12 @@ Scene Classifier Pass Implementations
 Individual pass functions for the scene classification pipeline.
 
 Pass 1a: Scene Type Classification (fast, always Qwen)
-Pass 1b: Positives/Inventory Notes - FREEFORM (premium uses GPT-5)
+Pass 1b: Positives/Inventory Notes - FREEFORM (premium uses GPT-5.2)
 Pass 1c: Positives Notes → JSON Structuring (text-only)
-Pass 2a: Issue Detection (premium uses GPT-5)
+Pass 2a: Issue Detection (premium uses GPT-5.2)
 Pass 2b: Issue Verification (high volume, always Qwen)
 Pass 3:  Keyword Extraction (text-only, from structured facts)
-Pass 4:  Property Summary (premium uses GPT-5)
+Pass 4:  Property Summary (premium uses GPT-5.2)
 """
 
 from llm_json import extract_json_object
@@ -703,3 +703,238 @@ async def run_pass_4_property_summary(
     except Exception as e:
         logger.error(f"Pass 4: Error generating summary: {e}")
         return Pass4Result(property_summary="", raw_response=None)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Scene grouping helpers (needed by orchestrator + pass 4a/4b)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+SCENE_GROUPS_UI: Dict[str, List[str]] = {
+    "kitchen": ["kitchen", "pantry"],
+    "bathroom": ["bathroom"],
+    "bedroom": ["bedroom", "closet"],
+    "living_areas": ["living_room", "dining_room", "home_office", "hallway", "stairway"],
+    "utility": ["laundry_room", "basement", "attic", "garage", "hvac"],
+    "exterior": ["exterior_front", "exterior_back", "exterior_side", "yard", "patio", "deck", "balcony", "driveway", "pool", "garden"],
+    "other": ["roof", "other", "unknown", "floor_plan", "aerial_view", "street_view"],
+}
+
+# Reverse lookup: scene -> group
+SCENE_TO_GROUP: Dict[str, str] = {}
+for _group, _scenes in SCENE_GROUPS_UI.items():
+    for _scene in _scenes:
+        SCENE_TO_GROUP[_scene] = _group
+
+
+@dataclass
+class Pass4aRoomSummariesResult:
+    """Result from Pass 4a: Room-group summaries + issue counts."""
+    room_summaries: Dict[str, str]
+    issues_by_category: Dict[str, int]
+    total_issues_found: int
+    raw_response: Optional[str] = None
+
+
+@dataclass
+class Pass4bLegacyCardResult:
+    """Result from Pass 4b: UI card fields (legacy)."""
+    overall_condition: str
+    overall_summary: str
+    investment_verdict: str
+    investment_rationale: str
+    renovation_scope: str
+    renovation_priorities: List[str]
+    risk_flags: List[str]
+    deferred_maintenance: List[str]
+    raw_response: Optional[str] = None
+
+
+PASS_4A_SYSTEM_PROMPT = """You generate conservative room-group summaries for a property photo analysis.
+
+You will receive per-photo extracted facts (scene, positives, issues).
+Rules:
+- Be factual, conservative, and brief.
+- Do NOT add new issues or features.
+- If there is no evidence for a room group, output an empty string for that group.
+
+Return ONLY JSON:
+{
+  "room_summaries": {
+    "kitchen": "<1-3 sentences or ''>",
+    "bathroom": "<1-3 sentences or ''>",
+    "bedroom": "<1-3 sentences or ''>",
+    "living_areas": "<1-3 sentences or ''>",
+    "utility": "<1-3 sentences or ''>",
+    "exterior": "<1-3 sentences or ''>",
+    "other": "<1-3 sentences or ''>"
+  }
+}
+"""
+
+PASS_4B_SYSTEM_PROMPT = """You generate concise UI card fields for a property analysis.
+
+Rules:
+- Conservative, buyer/investor-friendly.
+- Use ONLY what is provided. Do not invent issues/features.
+- Keep it short.
+
+Return ONLY JSON:
+{
+  "overall_condition": "excellent|good|fair|poor",
+  "overall_summary": "<1-3 sentences>",
+  "investment_verdict": "buy|maybe|pass",
+  "investment_rationale": "<1-3 sentences>",
+  "renovation_scope": "light|moderate|heavy",
+  "renovation_priorities": ["<short>", "..."],
+  "risk_flags": ["<short>", "..."],
+  "deferred_maintenance": ["<short>", "..."]
+}
+"""
+
+
+def _coerce_list(x: Any) -> List[str]:
+    if x is None:
+        return []
+    if isinstance(x, list):
+        return [str(v).strip() for v in x if str(v).strip()]
+    if isinstance(x, str):
+        s = x.strip()
+        return [s] if s else []
+    return []
+
+
+def _collect_issues(all_results: Dict[str, Any]) -> List[Dict[str, Any]]:
+    out: List[Dict[str, Any]] = []
+    for _, payload in (all_results or {}).items():
+        issues = (payload or {}).get("issues_natural_language") or []
+        if isinstance(issues, list):
+            for it in issues:
+                if isinstance(it, dict):
+                    out.append(it)
+    return out
+
+
+async def run_pass_4a_room_summaries(
+    vlm_client: Any,
+    model_config: dict,
+    all_results: Dict[str, Any],
+    scene_counts: Optional[Dict[str, int]] = None,
+) -> Pass4aRoomSummariesResult:
+    """
+    Pass 4a: Produce room-group summaries and deterministic issue counts.
+    """
+    # Deterministic counts (don't make the model do bookkeeping)
+    issues = _collect_issues(all_results)
+    issues_by_category: Dict[str, int] = {}
+    for it in issues:
+        cat = str(it.get("rough_category") or "other").strip() or "other"
+        issues_by_category[cat] = issues_by_category.get(cat, 0) + 1
+    total_issues_found = len(issues)
+
+    # Build compact, grouped input
+    groups: Dict[str, List[str]] = {k: [] for k in SCENE_GROUPS_UI.keys()}
+    for img_key, data in (all_results or {}).items():
+        scene = str((data or {}).get("scene") or "unknown").strip()
+        group = SCENE_TO_GROUP.get(scene, "other")
+
+        pos = str((data or {}).get("positives_notes") or "").strip()
+        neg = str((data or {}).get("issues_notes") or "").strip()
+
+        if pos:
+            groups[group].append(f"- {img_key} ({scene}) POS: {pos}")
+        if neg:
+            groups[group].append(f"- {img_key} ({scene}) ISSUES: {neg}")
+
+    # Keep prompts bounded
+    for g in groups:
+        groups[g] = groups[g][:30]
+
+    user_payload = {
+        "scene_counts": scene_counts or {},
+        "grouped_notes": groups,
+        "total_images_analyzed": len(all_results or {}),
+        "total_issues_found": total_issues_found,
+        "issues_by_category": issues_by_category,
+    }
+
+    try:
+        response = await vlm_client.analyze_text(
+            system_prompt=PASS_4A_SYSTEM_PROMPT,
+            user_prompt=json.dumps(user_payload, ensure_ascii=False),
+            **model_config,
+        )
+        result = extract_json_object(response) or {}
+        rs = result.get("room_summaries") if isinstance(result.get("room_summaries"), dict) else {}
+
+        # Ensure all keys exist
+        room_summaries: Dict[str, str] = {}
+        for k in SCENE_GROUPS_UI.keys():
+            v = rs.get(k, "")
+            room_summaries[k] = str(v).strip() if isinstance(v, str) else ""
+
+        return Pass4aRoomSummariesResult(
+            room_summaries=room_summaries,
+            issues_by_category=issues_by_category,
+            total_issues_found=total_issues_found,
+            raw_response=response,
+        )
+    except Exception as e:
+        logger.error(f"Pass 4a: Error generating room summaries: {e}")
+        return Pass4aRoomSummariesResult(
+            room_summaries={k: "" for k in SCENE_GROUPS_UI.keys()},
+            issues_by_category=issues_by_category,
+            total_issues_found=total_issues_found,
+            raw_response=None,
+        )
+
+
+async def run_pass_4b_property_card_fields(
+    vlm_client: Any,
+    model_config: dict,
+    room_summaries: Dict[str, Any],
+    total_issues_found: int,
+    total_images_analyzed: int,
+    issues_by_category: Dict[str, int],
+) -> Pass4bLegacyCardResult:
+    """
+    Pass 4b: Generate legacy UI card fields from room summaries + totals.
+    """
+    user_payload = {
+        "room_summaries": room_summaries or {},
+        "total_issues_found": int(total_issues_found or 0),
+        "total_images_analyzed": int(total_images_analyzed or 0),
+        "issues_by_category": issues_by_category or {},
+    }
+
+    try:
+        response = await vlm_client.analyze_text(
+            system_prompt=PASS_4B_SYSTEM_PROMPT,
+            user_prompt=json.dumps(user_payload, ensure_ascii=False),
+            **model_config,
+        )
+        result = extract_json_object(response) or {}
+
+        return Pass4bLegacyCardResult(
+            overall_condition=str(result.get("overall_condition") or "").strip(),
+            overall_summary=str(result.get("overall_summary") or "").strip(),
+            investment_verdict=str(result.get("investment_verdict") or "").strip(),
+            investment_rationale=str(result.get("investment_rationale") or "").strip(),
+            renovation_scope=str(result.get("renovation_scope") or "").strip(),
+            renovation_priorities=_coerce_list(result.get("renovation_priorities")),
+            risk_flags=_coerce_list(result.get("risk_flags")),
+            deferred_maintenance=_coerce_list(result.get("deferred_maintenance")),
+            raw_response=response,
+        )
+    except Exception as e:
+        logger.error(f"Pass 4b: Error generating UI card fields: {e}")
+        return Pass4bLegacyCardResult(
+            overall_condition="",
+            overall_summary="",
+            investment_verdict="",
+            investment_rationale="",
+            renovation_scope="",
+            renovation_priorities=[],
+            risk_flags=[],
+            deferred_maintenance=[],
+            raw_response=None,
+        )

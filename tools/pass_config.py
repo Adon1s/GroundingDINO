@@ -14,14 +14,14 @@ Pass Overview:
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Literal, Optional
+from typing import Dict, Literal, Optional, TypeAlias
 
 # Type definitions
-PassKey = Literal['1a', '1b', '1c', '2a', '2b', '3', '4']
+PassKey: TypeAlias = Literal['1a', '1b', '1c', '2a', '2b', '3', '4', '4a', '4b']
 ModelName = Literal['qwen', 'gpt5']
 
 # All valid pass keys (in execution order)
-ALL_PASSES: tuple[PassKey, ...] = ('1a', '1b', '1c', '2a', '2b', '3', '4')
+ALL_PASSES: tuple[PassKey, ...] = ('1a', '1b', '1c', '2a', '2b', '3', '4', '4a', '4b')
 
 
 @dataclass
@@ -32,8 +32,10 @@ class PassToggles:
     pass_1c: bool = True  # Positives notes -> JSON structuring
     pass_2a: bool = True  # Issue detection
     pass_2b: bool = True  # Issue verification
-    pass_3: bool = True   # Keyword extraction
-    pass_4: bool = True   # Property summary (often skipped in standard)
+    pass_3: bool = True  # Keyword extraction
+    pass_4: bool = True  # Property summary (often skipped in standard)
+    pass_4a: bool = True  # Room summaries
+    pass_4b: bool = True  # Property card fields
 
     def __getitem__(self, key: PassKey) -> bool:
         return getattr(self, f'pass_{key}')
@@ -50,6 +52,8 @@ class PassToggles:
             '2b': self.pass_2b,
             '3': self.pass_3,
             '4': self.pass_4,
+            '4a': self.pass_4a,
+            '4b': self.pass_4b,
         }
 
     @classmethod
@@ -64,6 +68,8 @@ class PassToggles:
             pass_2b=d.get('2b', True),
             pass_3=d.get('3', True),
             pass_4=d.get('4', True),
+            pass_4a=d.get('4a', True),
+            pass_4b=d.get('4b', True),
         )
 
 
@@ -77,6 +83,8 @@ class PassModelOverrides:
     model_2b: Optional[ModelName] = None
     model_3: Optional[ModelName] = None
     model_4: Optional[ModelName] = None
+    model_4a: Optional[ModelName] = None
+    model_4b: Optional[ModelName] = None
 
     def __getitem__(self, key: PassKey) -> Optional[ModelName]:
         return getattr(self, f'model_{key}')
@@ -93,6 +101,8 @@ class PassModelOverrides:
             '2b': self.model_2b,
             '3': self.model_3,
             '4': self.model_4,
+            '4a': self.model_4a,
+            '4b': self.model_4b,
         }
 
     @classmethod
@@ -113,6 +123,8 @@ class PassModelOverrides:
             model_2b=to_model(d.get('2b')),
             model_3=to_model(d.get('3')),
             model_4=to_model(d.get('4')),
+            model_4a=to_model(d.get('4a')),
+            model_4b=to_model(d.get('4b')),
         )
 
 
@@ -157,8 +169,10 @@ PREMIUM_MODEL_MAP: Dict[PassKey, ModelName] = {
     '1c': 'qwen',
     '2a': 'gpt5',
     '2b': 'qwen',
-    '3': 'qwen',
+    '3': 'gpt5',
     '4': 'gpt5',
+    '4a': 'gpt5',
+    '4b': 'gpt5',
 }
 
 STANDARD_MODEL_MAP: Dict[PassKey, ModelName] = {
@@ -169,6 +183,8 @@ STANDARD_MODEL_MAP: Dict[PassKey, ModelName] = {
     '2b': 'qwen',
     '3': 'qwen',
     '4': 'qwen',
+    '4a': 'qwen',
+    '4b': 'qwen',
 }
 
 
@@ -240,6 +256,8 @@ PASS_DESCRIPTIONS: Dict[PassKey, str] = {
     '2b': 'Issue Verification',
     '3': 'Keyword Extraction',
     '4': 'Property Summary',
+    '4a': 'Room Summaries',
+    '4b': 'Property Card Fields',
 }
 
 

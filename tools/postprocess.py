@@ -48,10 +48,10 @@ def is_box_fully_contained(inner, outer, eps: float = 0.0) -> bool:
     ix1, iy1, ix2, iy2 = _sanitize_box_xyxy(inner)
     ox1, oy1, ox2, oy2 = _sanitize_box_xyxy(outer)
     return (
-        ix1 >= ox1 - eps
-        and iy1 >= oy1 - eps
-        and ix2 <= ox2 + eps
-        and iy2 <= oy2 + eps
+            ix1 >= ox1 - eps
+            and iy1 >= oy1 - eps
+            and ix2 <= ox2 + eps
+            and iy2 <= oy2 + eps
     )
 
 
@@ -62,6 +62,10 @@ def roi_zone_rect(roi_hint, W, H):
         'bottom_left' | 'bottom_center' | 'bottom_right'
     to pixel XYXY. Unknown -> whole image.
     """
+    if roi_hint in ("center", "mid_center"):
+        # middle cell of the 3x3 grid
+        return (W / 3.0, H / 3.0, 2 * W / 3.0, 2 * H / 3.0)
+
     rows = {"top": (0.0, H / 3.0), "mid": (H / 3.0, 2 * H / 3.0), "bottom": (2 * H / 3.0, float(H))}
     cols = {"left": (0.0, W / 3.0), "center": (W / 3.0, 2 * W / 3.0), "right": (2 * W / 3.0, float(W))}
     try:
@@ -117,16 +121,16 @@ def roi_majority_zone(box, W, H):
 
 
 def apply_roi_hint_bonus_overlap(
-    dets,
-    roi_hint,
-    W,
-    H,
-    full_bonus=0.06,
-    half_bonus=0.03,
-    penalty=0.03,
-    hi=0.40,
-    lo=0.10,
-    attach_debug=True,
+        dets,
+        roi_hint,
+        W,
+        H,
+        full_bonus=0.06,
+        half_bonus=0.03,
+        penalty=0.03,
+        hi=0.40,
+        lo=0.10,
+        attach_debug=True,
 ):
     """
     - If detection overlaps hinted zone > hi: +full_bonus
@@ -137,7 +141,10 @@ def apply_roi_hint_bonus_overlap(
     if not dets or not roi_hint or roi_hint == "unknown":
         if dets and attach_debug:
             for d in dets:
-                b = clamp_box_to_image(d["bbox_xyxy"], W, H)
+                try:
+                    b = clamp_box_to_image(_to_xyxy(d), W, H)
+                except Exception:
+                    continue
                 mz, mr = roi_majority_zone(b, W, H)
                 d.setdefault("roi_debug", {})["majority_zone"] = mz
                 d["roi_debug"]["majority_r"] = mr
@@ -146,7 +153,14 @@ def apply_roi_hint_bonus_overlap(
         return dets
 
     for d in dets:
-        x1, y1, x2, y2 = clamp_box_to_image(d["bbox_xyxy"], W, H)
+        try:
+            x1, y1, x2, y2 = clamp_box_to_image(_to_xyxy(d), W, H)
+        except Exception:
+            if attach_debug:
+                dbg = d.setdefault("roi_debug", {})
+                dbg["hint"] = roi_hint
+                dbg["adj"] = "parse_fail"
+            continue
         box = (x1, y1, x2, y2)
 
         img_frac = box_area_pct_of_image(box, W, H)
@@ -163,10 +177,10 @@ def apply_roi_hint_bonus_overlap(
         else:
             cz = _zone_of_center(box, W, H)
             opp = (
-                ("top" in roi_hint and cz.startswith("bottom"))
-                or ("bottom" in roi_hint and cz.startswith("top"))
-                or (roi_hint.endswith("left") and cz.endswith("right"))
-                or (roi_hint.endswith("right") and cz.endswith("left"))
+                    ("top" in roi_hint and cz.startswith("bottom"))
+                    or ("bottom" in roi_hint and cz.startswith("top"))
+                    or (roi_hint.endswith("left") and cz.endswith("right"))
+                    or (roi_hint.endswith("right") and cz.endswith("left"))
             )
             if opp:
                 d["score"] = float(d.get("score", 0.0)) - penalty
@@ -181,7 +195,6 @@ def apply_roi_hint_bonus_overlap(
             dbg["majority_zone"] = mz
             dbg["majority_r"] = mr
     return dets
-
 
 
 def _to_xyxy(det: Dict) -> Tuple[float, float, float, float]:
@@ -295,9 +308,9 @@ def enforce_scene_caps(dets: List[Dict], scene: str,
 
 
 def drop_detections_inside_mirrors(
-    dets: List[Dict],
-    mirror_labels: Optional[List[str]] = None,
-    containment_eps: float = 0.0,
+        dets: List[Dict],
+        mirror_labels: Optional[List[str]] = None,
+        containment_eps: float = 0.0,
 ) -> List[Dict]:
     """
     Remove any detection completely contained inside a mirror detection.
@@ -349,8 +362,8 @@ def drop_detections_inside_mirrors(
     dropped_mirror_ids = set()
     for det, box in mirror_entries:
         if any(
-            is_box_fully_contained(box, keep_box, containment_eps)
-            for _, keep_box in active_mirrors
+                is_box_fully_contained(box, keep_box, containment_eps)
+                for _, keep_box in active_mirrors
         ):
             dropped_mirror_ids.add(id(det))
             continue
@@ -384,9 +397,9 @@ def drop_detections_inside_mirrors(
 
 
 def drop_nested_fixtures(
-    dets: List[Dict],
-    fixture_labels: Optional[List[str]] = None,
-    containment_eps: float = 0.0,
+        dets: List[Dict],
+        fixture_labels: Optional[List[str]] = None,
+        containment_eps: float = 0.0,
 ) -> List[Dict]:
     """
     Remove fixture detections that are fully contained in larger fixtures.
@@ -442,8 +455,8 @@ def drop_nested_fixtures(
     dropped_fixture_ids = set()
     for det, box in fixture_entries:
         if any(
-            is_box_fully_contained(box, keep_box, containment_eps)
-            for _, keep_box in active_fixtures
+                is_box_fully_contained(box, keep_box, containment_eps)
+                for _, keep_box in active_fixtures
         ):
             dropped_fixture_ids.add(id(det))
             continue
@@ -466,9 +479,9 @@ def drop_nested_fixtures(
 
 
 def apply_special_case_filters(
-    dets: List[Dict],
-    image_size: Optional[Tuple[int, int]] = None,
-    config: Optional[Dict[str, Dict]] = None,
+        dets: List[Dict],
+        image_size: Optional[Tuple[int, int]] = None,
+        config: Optional[Dict[str, Dict]] = None,
 ) -> List[Dict]:
     """Run any configured special-case filters over the detections."""
 
@@ -489,7 +502,7 @@ def apply_special_case_filters(
         survivors = drop_nested_fixtures(
             survivors,
             fixture_labels=fixture_cfg.get("fixture_labels")
-            or ["light_fixture", "vanity_light", "ceiling_light"],
+                           or ["light_fixture", "vanity_light", "ceiling_light"],
             containment_eps=float(fixture_cfg.get("containment_eps", 0.0)),
         )
 

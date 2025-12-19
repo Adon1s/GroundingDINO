@@ -46,7 +46,7 @@ GPT_MODEL = (
     os.environ.get("GPT5_MODEL") or
     os.environ.get("GPT_MODEL") or
     os.environ.get("OPENAI_MODEL") or
-    "gpt-5"
+    "gpt-5.2"
 )
 
 # Alias for backward compatibility with vlm_client.py
@@ -159,7 +159,7 @@ DINOX_POLL_INTERVAL = 1.0    # Seconds between status polls
 # 5. Premium profile with GPT-5:
 #    ANALYSIS_PROFILE = "premium"
 #    OPENAI_API_KEY = "sk-..."
-#    GPT5_MODEL = "gpt-5"  # or gpt-4o
+#    GPT5_MODEL = "gpt-5.2"  # or gpt-4o
 #
 # =============================================================================
 # Notes
@@ -236,6 +236,67 @@ ROI_PENALTY    = 0.03      # subtract if clearly opposite zone and overlap < ROI
 
 ROI_OVERLAP_HI = 0.40      # fraction of detection area inside hinted zone for full bonus
 ROI_OVERLAP_LO = 0.10      # fraction for half bonus lower bound
+
+# Map of {scene OR scene-group: {normalized_label: zone}}
+# Labels should be written naturally ("light fixture", not "light_fixture")
+ROI_HINTS_BY_SCENE = {
+    # Scene-group keys (these match your SCENE_GROUPS_UI keys in auto_analyzer)
+    "kitchen": {
+        "sink": "bottom_center",
+        "faucet": "bottom_center",
+        "range": "center",
+        "stove": "center",
+        "oven": "center",
+        "dishwasher": "bottom_right",
+        "refrigerator": "mid_left",
+        "cabinet": "top_center",
+        "countertop": "center",
+        "microwave": "top_right",
+    },
+    "bathroom": {
+        "toilet": "bottom_center",
+        "sink": "bottom_center",
+        "vanity": "bottom_center",
+        "mirror": "top_center",
+        "bathtub": "mid_right",
+        "shower": "mid_right",
+        "faucet": "bottom_center",
+        "light fixture": "top_center",
+    },
+    "living_areas": {
+        "sofa": "bottom_center",
+        "couch": "bottom_center",
+        "tv": "center",
+        "fireplace": "center",
+        "ceiling fan": "top_center",
+        "light fixture": "top_center",
+        "window": "top_center",
+        "door": "mid_left",
+    },
+    "bedroom": {
+        "bed": "bottom_center",
+        "window": "top_center",
+        "closet": "mid_right",
+        "dresser": "bottom_right",
+        "door": "mid_left",
+    },
+    "exterior": {
+        "roof": "top_center",
+        "front door": "center",
+        "garage door": "mid_left",
+        "driveway": "bottom_center",
+        "yard": "bottom_center",
+        "lawn": "bottom_center",
+        "deck": "bottom_center",
+        "patio": "bottom_center",
+    },
+    "default": {
+        # safe fallbacks
+        "window": "top_center",
+        "door": "mid_left",
+        "light fixture": "top_center",
+    },
+}
 
 # ============================================================================
 # SPECIAL CASE FILTERS

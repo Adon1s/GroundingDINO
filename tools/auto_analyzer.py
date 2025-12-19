@@ -94,7 +94,7 @@ try:
         PassToggles,
         PassModelOverrides,
         pick_model_for_pass,
-        get_model_config_for_pass,
+        get_model_config_for_pass, PassKey,
     )
     from scene_classifier_orchestrator import (
         SceneClassifierOrchestrator,
@@ -108,6 +108,11 @@ try:
         run_pass_2b_issue_verification,
         run_pass_3_keyword_extraction,
         run_pass_4_property_summary,
+        run_pass_4a_room_summaries,
+        run_pass_4b_property_card_fields,
+        Pass4aRoomSummariesResult,
+        Pass4bLegacyCardResult,
+        SCENE_TO_GROUP,
     )
 
     PASS_ARCHITECTURE_AVAILABLE = True
@@ -156,7 +161,8 @@ SCENE_GROUPS_UI = {
     "bedroom": ["bedroom", "closet"],
     "living_areas": ["living_room", "dining_room", "home_office", "hallway", "stairway"],
     "utility": ["laundry_room", "basement", "attic", "garage", "hvac"],
-    "exterior": ["exterior_front", "exterior_back", "exterior_side", "yard", "patio", "deck", "balcony", "driveway", "pool", "garden"],
+    "exterior": ["exterior_front", "exterior_back", "exterior_side", "yard", "patio", "deck", "balcony", "driveway",
+                 "pool", "garden"],
     "other": ["roof", "other", "unknown", "floor_plan", "aerial_view", "street_view"],
 }
 
@@ -219,7 +225,8 @@ def _parse_catalog_flag(flag: Any) -> Tuple[str, str, str]:
     return present, severity, evidence
 
 
-def build_renovation_needs(job: "PropertyAnalysisJob", issue_catalog: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+def build_renovation_needs(job: "PropertyAnalysisJob", issue_catalog: Optional[Dict[str, Any]] = None) -> Dict[
+    str, Any]:
     """
     Aggregate per-photo catalog_flags + severity into a property-level
     renovation_needs structure.
@@ -399,15 +406,13 @@ class AutoAnalyzer:
 
         # Determine whether to use pass architecture:
         # - If explicitly set, use that value
-        # - If premium profile and modules available, auto-enable
-        # - Otherwise, use legacy
+        # - Otherwise, auto-enable if modules available (both standard and premium)
         if use_pass_architecture is not None:
-            self.use_pass_architecture = use_pass_architecture and PASS_ARCHITECTURE_AVAILABLE
-        elif self.analysis_profile == "premium" and PASS_ARCHITECTURE_AVAILABLE:
-            self.use_pass_architecture = True
-            logger.info("Auto-enabling pass architecture for premium profile")
+            self.use_pass_architecture = bool(use_pass_architecture) and PASS_ARCHITECTURE_AVAILABLE
         else:
-            self.use_pass_architecture = False
+            self.use_pass_architecture = PASS_ARCHITECTURE_AVAILABLE
+            if self.use_pass_architecture:
+                logger.info("Auto-enabling pass architecture (modules available)")
 
         # Initialize pass architecture components if enabled
         self.orchestrator = None
@@ -466,12 +471,12 @@ class AutoAnalyzer:
             self.summary_model = getattr(cfg, "SUMMARY_MODEL", None)
             logger.info(f"Using STANDARD analysis profile (max_keywords={self.max_keywords})")
 
-    def _get_model_config_for_pass(self, pass_key: str) -> Dict[str, Any]:
+    def _get_model_config_for_pass(self, pass_key: PassKey) -> Dict[str, Any]:
         """
         Get the appropriate model config for a specific pass.
 
         Args:
-            pass_key: Pass identifier ('1a', '1b', '2a', '2b', '3', '4')
+            pass_key: Pass identifier ('1a', '1b', '1c', '2a', '2b', '3', '4', '4a', '4b')
 
         Returns:
             Model config dict with 'url', 'model', 'api_key' etc.
@@ -591,6 +596,47 @@ class AutoAnalyzer:
         s = s.replace("-", " ").replace("_", " ")
         return " ".join(s.split())
 
+    def _get_roi_hint_map_for_scene(self, scene: str) -> Dict[str, str]:
+        """Get ROI hint mapping for a given scene."""
+        m = getattr(cfg, "ROI_HINTS_BY_SCENE", None)
+        if not isinstance(m, dict):
+            return {}
+
+        # Prefer exact scene key, then group key, then default
+        keys = [scene]
+        group = SCENE_TO_GROUP_UI.get(scene)
+        if group:
+            keys.append(group)
+        keys.append("default")
+
+        scene_map = {}
+        for k in keys:
+            v = m.get(k)
+            if isinstance(v, dict) and v:
+                scene_map = v
+                break
+
+        # Normalize mapping keys to match _normalize_label_for_hint usage
+        out = {}
+        for lbl, zone in (scene_map or {}).items():
+            nl = self._normalize_label_for_hint(lbl)
+            if nl and zone:
+                out[nl] = str(zone).strip().lower()
+        return out
+
+    def _maybe_backfill_planner_hints(
+            self,
+            scene: str,
+            planner_hints: Optional[Dict[str, str]],
+    ) -> Dict[str, str]:
+        """Backfill planner hints from config if not already present."""
+        if not getattr(cfg, "ROI_HINTS_ENABLED", False):
+            return planner_hints or {}
+        existing = dict(planner_hints or {})
+        if existing:
+            return existing
+        return self._get_roi_hint_map_for_scene(scene)
+
     def _validate_environment(self):
         """Validate that required components are available."""
         required_paths = {
@@ -700,7 +746,12 @@ class AutoAnalyzer:
         if self.use_pass_architecture and self.orchestrator:
             try:
                 logger.info(f"  Using orchestrator (premium={self.run_options.premium})")
-                return self._classify_scene_with_orchestrator(image_path)
+                out = self._classify_scene_with_orchestrator(image_path)
+                scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload = out
+                planner_hints = self._maybe_backfill_planner_hints(scene, planner_hints)
+                if isinstance(payload, dict):
+                    payload["planner_hints"] = planner_hints
+                return (scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload)
             except Exception as e:
                 logger.warning(f"  Orchestrator failed: {e}, trying direct pass calls")
 
@@ -708,7 +759,12 @@ class AutoAnalyzer:
         if VLM_CLIENT_AVAILABLE and self.vlm_client:
             try:
                 logger.info(f"  Using direct pass calls (profile={self.analysis_profile})")
-                return self._classify_scene_direct(image_path)
+                out = self._classify_scene_direct(image_path)
+                scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload = out
+                planner_hints = self._maybe_backfill_planner_hints(scene, planner_hints)
+                if isinstance(payload, dict):
+                    payload["planner_hints"] = planner_hints
+                return (scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload)
             except Exception as e:
                 logger.error(f"  Direct pass calls failed: {e}")
                 # Return error result
@@ -780,12 +836,15 @@ class AutoAnalyzer:
                 'catalog_flags': {},
                 'issues_natural_language': [],
                 'verified_issues': [],
+                'passes': {},  # Store per-pass outputs
+                'models_used': {},  # Track which model was used for each pass
             }
             context = {}
 
             # Pass 1a: Scene Type (always Qwen)
             model_config_1a = self._get_model_config_for_pass('1a')
             logger.debug(f"  Pass 1a using model: {model_config_1a.get('model')}")
+            results['models_used']['1a'] = model_config_1a.get('model')
 
             try:
                 pass_1a = await run_pass_1a_scene_type(
@@ -796,12 +855,20 @@ class AutoAnalyzer:
                 results['scene'] = pass_1a.scene
                 results['reasoning'] = pass_1a.reasoning or ''
                 context['scene'] = pass_1a.scene
+
+                # Store Pass 1a output
+                results['passes']['1a'] = {
+                    'scene': pass_1a.scene,
+                    'confidence': pass_1a.scene_confidence,
+                    'reasoning': pass_1a.reasoning,
+                }
             except Exception as e:
                 logger.warning(f"  Pass 1a failed: {e}")
 
             # Pass 1b: Positives/Inventory notes (FREEFORM; GPT in premium)
             model_config_1b = self._get_model_config_for_pass('1b')
             logger.debug(f"  Pass 1b using model: {model_config_1b.get('model')}")
+            results['models_used']['1b'] = model_config_1b.get('model')
 
             positives_notes = ""
             try:
@@ -813,12 +880,18 @@ class AutoAnalyzer:
                 )
                 positives_notes = pass_1b.positives_notes
                 results['positives_notes'] = positives_notes
+
+                # Store Pass 1b output
+                results['passes']['1b'] = {
+                    'positives_notes': positives_notes,
+                }
             except Exception as e:
                 logger.warning(f"  Pass 1b failed: {e}")
 
             # Pass 1c: Positives notes -> JSON structuring (text-only)
             model_config_1c = self._get_model_config_for_pass('1c')
             logger.debug(f"  Pass 1c using model: {model_config_1c.get('model')}")
+            results['models_used']['1c'] = model_config_1c.get('model')
 
             try:
                 pass_1c = await run_pass_1c_positive_structuring(
@@ -830,12 +903,20 @@ class AutoAnalyzer:
                 results['image_summary'] = pass_1c.image_summary or ""
                 results['notable_features'] = pass_1c.notable_features or []
                 context['notable_features'] = results['notable_features']
+
+                # Store Pass 1c output
+                results['passes']['1c'] = {
+                    'overall_impression': results['overall_impression'],
+                    'image_summary': results['image_summary'],
+                    'notable_features': results['notable_features'],
+                }
             except Exception as e:
                 logger.warning(f"  Pass 1c failed: {e}")
 
             # Pass 2a: Issue Detection - freeform notes (GPT in premium)
             model_config_2a = self._get_model_config_for_pass('2a')
             logger.debug(f"  Pass 2a using model: {model_config_2a.get('model')}")
+            results['models_used']['2a'] = model_config_2a.get('model')
 
             freeform_notes = ""
             try:
@@ -848,12 +929,18 @@ class AutoAnalyzer:
                 )
                 freeform_notes = pass_2a.issues_notes
                 results['issues_notes'] = freeform_notes
+
+                # Store Pass 2a output
+                results['passes']['2a'] = {
+                    'issues_notes': freeform_notes,
+                }
             except Exception as e:
                 logger.warning(f"  Pass 2a failed: {e}")
 
             # Pass 2b: Freeform to JSON conversion (always Qwen)
             model_config_2b = self._get_model_config_for_pass('2b')
             logger.debug(f"  Pass 2b using model: {model_config_2b.get('model')}")
+            results['models_used']['2b'] = model_config_2b.get('model')
 
             try:
                 pass_2b = await run_pass_2b_issue_verification(
@@ -868,12 +955,19 @@ class AutoAnalyzer:
                 results['catalog_flags'] = pass_2b.catalog_flags
                 results['verified_issues'] = pass_2b.issues_natural_language
                 context['issues_natural_language'] = results['issues_natural_language']
+
+                # Store Pass 2b output
+                results['passes']['2b'] = {
+                    'issues_natural_language': results['issues_natural_language'],
+                    'catalog_flags': results['catalog_flags'],
+                }
             except Exception as e:
                 logger.warning(f"  Pass 2b failed: {e}")
 
             # Pass 3: Keyword Extraction (text-only, always Qwen)
             model_config_3 = self._get_model_config_for_pass('3')
             logger.debug(f"  Pass 3 using model: {model_config_3.get('model')}")
+            results['models_used']['3'] = model_config_3.get('model')
 
             try:
                 # Ensure Pass 3 context matches new Pass 3 prompt (structured facts only)
@@ -888,6 +982,12 @@ class AutoAnalyzer:
                     max_keywords=self.max_keywords,
                 )
                 results['keywords'] = pass_3.keywords
+
+                # Store Pass 3 output
+                results['passes']['3'] = {
+                    'keywords': pass_3.keywords,
+                    'categories': pass_3.keyword_categories,
+                }
             except Exception as e:
                 logger.warning(f"  Pass 3 failed: {e}")
 
@@ -916,8 +1016,10 @@ class AutoAnalyzer:
 
         scene = data.get("scene", "unknown")
         reasoning = ""
+        confidence = None
         if hasattr(result, 'pass_1a') and result.pass_1a:
             reasoning = result.pass_1a.reasoning or ""
+            confidence = getattr(result.pass_1a, 'scene_confidence', None)
 
         keywords = data.get("keywords", []) or []
 
@@ -941,6 +1043,30 @@ class AutoAnalyzer:
         scene_payload['issues_natural_language'] = data.get('issues_natural_language', [])
         scene_payload['verified_issues'] = data.get('verified_issues', [])
         scene_payload['models_used'] = data.get('models_used', {})
+
+        # Build passes dict for consistent schema
+        scene_payload['passes'] = {
+            "1a": {
+                "scene": scene,
+                "confidence": confidence,
+                "reasoning": reasoning,
+            },
+            "1b": {"positives_notes": scene_payload.get("positives_notes", "")},
+            "1c": {
+                "overall_impression": scene_payload.get("overall_impression", ""),
+                "image_summary": scene_payload.get("image_summary", ""),
+                "notable_features": scene_payload.get("notable_features", []),
+            },
+            "2a": {"issues_notes": scene_payload.get("issues_notes", "")},
+            "2b": {
+                "issues_natural_language": scene_payload.get("issues_natural_language", []),
+                "catalog_flags": scene_payload.get("catalog_flags", {}),
+            },
+            "3": {
+                "keywords": keywords,
+                "categories": data.get("keyword_categories"),
+            },
+        }
 
         return (
             scene,
@@ -972,6 +1098,14 @@ class AutoAnalyzer:
         scene_payload['positives_notes'] = results.get('positives_notes', '') or ""
         scene_payload['issues_notes'] = results.get('issues_notes', '') or ""
         scene_payload['groundingdino_prompt'] = prompt
+
+        # Include passes dict if present
+        if results.get('passes'):
+            scene_payload['passes'] = results['passes']
+
+        # Include models_used if present
+        if results.get('models_used'):
+            scene_payload['models_used'] = results['models_used']
 
         return (
             scene,
@@ -1614,20 +1748,33 @@ class AutoAnalyzer:
             image_key = Path(res.image_path).name
             payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
 
-            # Build canonical "passes" view for UI
-            passes = {
-                "1b": {"positives_notes": payload.get("positives_notes", "")},
-                "1c": {
-                    "overall_impression": payload.get("overall_impression", ""),
-                    "image_summary": payload.get("image_summary", ""),
-                    "notable_features": payload.get("notable_features", []) or [],
-                },
-                "2a": {"issues_notes": payload.get("issues_notes", "")},
-                "2b": {
-                    "issues_natural_language": payload.get("issues_natural_language", []) or [],
-                    "catalog_flags": payload.get("catalog_flags", {}) or {},
-                },
-            }
+            # Use passes from payload if present (from _classify_scene_direct),
+            # otherwise reconstruct for backwards compatibility (legacy runs)
+            passes = payload.get("passes", None)
+            if passes is None:
+                # Fallback: reconstruct passes from flat fields (legacy runs only)
+                passes = {
+                    "1a": {
+                        "scene": payload.get("scene", "unknown"),
+                        "confidence": payload.get("scene_confidence"),
+                        "reasoning": payload.get("reasoning", ""),
+                    },
+                    "1b": {"positives_notes": payload.get("positives_notes", "")},
+                    "1c": {
+                        "overall_impression": payload.get("overall_impression", ""),
+                        "image_summary": payload.get("image_summary", ""),
+                        "notable_features": payload.get("notable_features", []) or [],
+                    },
+                    "2a": {"issues_notes": payload.get("issues_notes", "")},
+                    "2b": {
+                        "issues_natural_language": payload.get("issues_natural_language", []) or [],
+                        "catalog_flags": payload.get("catalog_flags", {}) or {},
+                    },
+                    "3": {
+                        "keywords": payload.get("keywords", []) or [],
+                        "categories": payload.get("keyword_categories"),
+                    },
+                }
 
             # Keep flat fields for backwards compatibility, but UI should read passes
             photos[image_key] = {
@@ -1721,7 +1868,6 @@ class AutoAnalyzer:
 
         return output_path
 
-
     def generate_property_summary(
             self,
             job: PropertyAnalysisJob,
@@ -1729,7 +1875,7 @@ class AutoAnalyzer:
             output_path: Optional[Path] = None
     ) -> Optional[Path]:
         """
-        Generate a property-level summary from the analysis results using Pass 4.
+        Generate a property-level summary from the analysis results using Pass 4, 4a, and 4b.
 
         Always writes property_summary.json and embeds property_pass4 into photo_intel.json,
         even on failure (with error field and empty values) so the UI has consistent structure.
@@ -1747,12 +1893,16 @@ class AutoAnalyzer:
 
         # Build all_results from job for Pass 4
         all_results = {}
+        scene_counts: Dict[str, int] = {}
         for res in job.results:
             image_key = Path(res.image_path).name
             payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
             all_results[image_key] = payload
+            # Count scenes
+            scene = payload.get("scene", "unknown")
+            scene_counts[scene] = scene_counts.get(scene, 0) + 1
 
-        # Initialize with empty/error values
+        # Initialize with empty/error values for Pass 4
         property_summary = ""
         investment_considerations = []
         estimated_condition = ""
@@ -1760,8 +1910,33 @@ class AutoAnalyzer:
         error_msg = None
         model_used = ""
 
+        # Initialize Pass 4a/4b outputs with defaults
+        room_summaries: Dict[str, Any] = {}
+        issues_by_category: Dict[str, int] = {}
+        total_issues_found = 0
+
+        # Legacy UI card fields (from Pass 4b)
+        overall_condition = ""
+        overall_summary = ""
+        investment_verdict = ""
+        investment_rationale = ""
+        renovation_scope = ""
+        renovation_priorities: List[str] = []
+        risk_flags: List[str] = []
+        deferred_maintenance: List[str] = []
+
+        errors: Dict[str, str] = {}
+
+        logger.warning(
+            f"Pass4 gate: VLM_CLIENT_AVAILABLE={VLM_CLIENT_AVAILABLE} "
+            f"vlm_client={bool(self.vlm_client)} "
+            f"PASS_ARCHITECTURE_AVAILABLE={PASS_ARCHITECTURE_AVAILABLE} "
+            f"auto_analyzer_file={__file__}"
+        )
+
         # Try Pass 4 if VLM client is available
         if VLM_CLIENT_AVAILABLE and self.vlm_client and PASS_ARCHITECTURE_AVAILABLE:
+            # --- Pass 4 (original property summary) ---
             try:
                 logger.info("  Using Pass 4 (run_pass_4_property_summary)")
                 model_config_4 = self._get_model_config_for_pass('4')
@@ -1790,8 +1965,76 @@ class AutoAnalyzer:
                 logger.info("  Pass 4 completed successfully")
 
             except Exception as e:
-                error_msg = f"Pass 4 failed: {e}"
-                logger.error(error_msg, exc_info=True)
+                errors["pass4"] = f"Pass 4 failed: {e}"
+                logger.error(errors["pass4"], exc_info=True)
+
+            # --- Pass 4a (room summaries aggregation) ---
+            try:
+                logger.info("  Using Pass 4a (run_pass_4a_room_summaries)")
+                model_config_4a = self._get_model_config_for_pass('4a')
+                logger.info(f"  Model: {model_config_4a.get('model', '')}")
+
+                async def run_pass4a():
+                    return await run_pass_4a_room_summaries(
+                        vlm_client=self.vlm_client,
+                        model_config=model_config_4a,
+                        all_results=all_results,
+                        scene_counts=scene_counts,
+                    )
+
+                loop = asyncio.new_event_loop()
+                try:
+                    pass_4a_result = loop.run_until_complete(run_pass4a())
+                finally:
+                    loop.close()
+
+                room_summaries = pass_4a_result.room_summaries or {}
+                issues_by_category = pass_4a_result.issues_by_category or {}
+                total_issues_found = pass_4a_result.total_issues_found
+
+                logger.info(f"  Pass 4a completed: {len(room_summaries)} room groups, {total_issues_found} issues")
+
+            except Exception as e:
+                errors["pass4a"] = f"Pass 4a failed: {e}"
+                logger.error(errors["pass4a"], exc_info=True)
+
+            # --- Pass 4b (legacy UI card fields) ---
+            try:
+                logger.info("  Using Pass 4b (run_pass_4b_property_card_fields)")
+                model_config_4b = self._get_model_config_for_pass('4b')
+                logger.info(f"  Model: {model_config_4b.get('model', '')}")
+
+                async def run_pass4b():
+                    return await run_pass_4b_property_card_fields(
+                        vlm_client=self.vlm_client,
+                        model_config=model_config_4b,
+                        room_summaries=room_summaries,
+                        total_issues_found=total_issues_found,
+                        total_images_analyzed=len(all_results),
+                        issues_by_category=issues_by_category,
+                    )
+
+                loop = asyncio.new_event_loop()
+                try:
+                    pass_4b_result = loop.run_until_complete(run_pass4b())
+                finally:
+                    loop.close()
+
+                overall_condition = pass_4b_result.overall_condition or ""
+                overall_summary = pass_4b_result.overall_summary or ""
+                investment_verdict = pass_4b_result.investment_verdict or ""
+                investment_rationale = pass_4b_result.investment_rationale or ""
+                renovation_scope = pass_4b_result.renovation_scope or ""
+                renovation_priorities = pass_4b_result.renovation_priorities or []
+                risk_flags = pass_4b_result.risk_flags or []
+                deferred_maintenance = pass_4b_result.deferred_maintenance or []
+
+                logger.info("  Pass 4b completed successfully")
+
+            except Exception as e:
+                errors["pass4b"] = f"Pass 4b failed: {e}"
+                logger.error(errors["pass4b"], exc_info=True)
+
         else:
             # VLM client or pass architecture not available
             missing = []
@@ -1801,24 +2044,49 @@ class AutoAnalyzer:
                 missing.append("vlm_client instance")
             if not PASS_ARCHITECTURE_AVAILABLE:
                 missing.append("pass architecture")
-            error_msg = f"Pass 4 unavailable: missing {', '.join(missing)}"
+            error_msg = f"Passes unavailable: missing {', '.join(missing)}"
             logger.warning(error_msg)
 
+        # Combine errors
+        if errors:
+            error_msg = "; ".join(errors.values())
+
         # Build summary dict - always write even on failure
+        # Includes both Pass 4 fields AND legacy UI fields from 4a/4b
         summary_data = {
             "property_key": job.property_key,
             "job_id": job.job_id,
             "timestamp": job.timestamp,
             "created_at": datetime.utcnow().isoformat() + "Z",
-            "summary_version": "pass4_v1",
+            "summary_version": "pass4_v2",
             "analysis_profile": self.analysis_profile,
+
+            # Pass 4 fields (original)
             "property_summary": property_summary,
             "investment_considerations": investment_considerations,
             "estimated_condition": estimated_condition,
             "confidence": confidence,
+
+            # Pass 4a fields (room summaries)
+            "room_summaries": room_summaries,
+            "issues_by_category": issues_by_category,
+            "total_issues_found": total_issues_found,
+
+            # Pass 4b fields (legacy UI card)
+            "overall_condition": overall_condition,
+            "overall_summary": overall_summary,
+            "investment_verdict": investment_verdict,
+            "investment_rationale": investment_rationale,
+            "renovation_scope": renovation_scope,
+            "renovation_priorities": renovation_priorities,
+            "risk_flags": risk_flags,
+            "deferred_maintenance": deferred_maintenance,
+
+            # Metadata
             "total_images_analyzed": len(job.results),
             "model_used": model_used,
             "error": error_msg,
+            "errors": errors if errors else None,
         }
 
         # Add renovation_needs if available
@@ -1845,13 +2113,35 @@ class AutoAnalyzer:
                     "investment_considerations": investment_considerations,
                     "estimated_condition": estimated_condition,
                     "confidence": confidence,
-                    "error": error_msg,
+                    "error": errors.get("pass4"),
                 }
+
+                photo_intel["property_pass4a"] = {
+                    "room_summaries": room_summaries,
+                    "issues_by_category": issues_by_category,
+                    "total_issues_found": total_issues_found,
+                    "error": errors.get("pass4a"),
+                }
+
+                photo_intel["property_pass4b"] = {
+                    "overall_condition": overall_condition,
+                    "overall_summary": overall_summary,
+                    "investment_verdict": investment_verdict,
+                    "investment_rationale": investment_rationale,
+                    "renovation_scope": renovation_scope,
+                    "renovation_priorities": renovation_priorities,
+                    "risk_flags": risk_flags,
+                    "deferred_maintenance": deferred_maintenance,
+                    "error": errors.get("pass4b"),
+                }
+
+                # Also embed full summary for convenience
+                photo_intel["property_summary"] = summary_data
 
                 with open(photo_intel_path, "w", encoding="utf-8") as f:
                     json.dump(photo_intel, f, indent=2, ensure_ascii=False)
 
-                logger.info(f"Pass 4 output embedded into: {photo_intel_path}")
+                logger.info(f"Pass 4/4a/4b outputs embedded into: {photo_intel_path}")
             except Exception as exc:
                 logger.warning(f"Could not embed property_pass4 into photo_intel.json: {exc}")
 
