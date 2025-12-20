@@ -19,6 +19,10 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 # Import config first. IMPORTANT: delay importing auto_analyzer until AFTER env overrides
 try:
     import pipeline_config as cfg  # type: ignore

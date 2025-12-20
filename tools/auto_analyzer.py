@@ -32,6 +32,10 @@ from PIL import Image
 from run_pipeline import redraw_overlay
 from scene_classifier import load_issue_catalog
 
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 # Import configuration
 try:
     import pipeline_config as cfg
@@ -75,6 +79,14 @@ except ImportError:
     create_dinox_client_from_config = None
     DINOX_CLIENT_AVAILABLE = False
     print("INFO: dinox_client.py not found, DINO-X will use legacy script mode only")
+
+# Embeddings catalog matcher (optional)
+try:
+    from catalog_embeddings import CatalogEmbedMatcher
+    EMBEDDINGS_MATCHER_AVAILABLE = True
+except Exception:
+    CatalogEmbedMatcher = None
+    EMBEDDINGS_MATCHER_AVAILABLE = False
 
 # Import VLM client (for direct calls when orchestrator unavailable)
 try:
@@ -364,6 +376,26 @@ class AutoAnalyzer:
             logger.info(f"Issue catalog counts: defect={defect_count} opportunity={opp_count}")
         except Exception as e:
             logger.warning(f"Failed to log issue catalog counts: {e}")
+
+        # ── Embeddings-based catalog matcher (optional) ─────────────────────
+        self.catalog_matcher = None
+        if getattr(cfg, "USE_EMBEDDINGS_CATALOG", False) and EMBEDDINGS_MATCHER_AVAILABLE:
+            try:
+                self.catalog_matcher = CatalogEmbedMatcher(
+                    issue_catalog=self.issue_catalog,
+                    model_name=getattr(cfg, "EMBEDDINGS_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2"),
+                    topk=getattr(cfg, "EMBEDDINGS_TOPK", 5),
+                    threshold_defect=getattr(cfg, "EMBEDDINGS_THRESHOLD_DEFECT", 0.58),
+                    threshold_opportunity=getattr(cfg, "EMBEDDINGS_THRESHOLD_OPPORTUNITY", 0.56),
+                    route_by_rough_category=getattr(cfg, "EMBEDDINGS_ROUTE_BY_ROUGH_CATEGORY", True),
+                    trust_remote_code=bool(getattr(cfg, "EMBEDDINGS_TRUST_REMOTE_CODE", False)),
+                    device=str(getattr(cfg, "EMBEDDINGS_DEVICE", "cpu")),
+                )
+                logger.info("Embeddings catalog matcher initialized")
+                logger.info(f"Embeddings model device: {getattr(self.catalog_matcher, 'device', 'unknown')}")
+            except Exception as e:
+                logger.warning(f"Failed to init embeddings catalog matcher: {e}")
+                self.catalog_matcher = None
 
         # ✅ Backend selection (CLI arg > cfg/env > default)
         raw_backend = (
@@ -751,6 +783,7 @@ class AutoAnalyzer:
                 planner_hints = self._maybe_backfill_planner_hints(scene, planner_hints)
                 if isinstance(payload, dict):
                     payload["planner_hints"] = planner_hints
+                    payload = self._maybe_apply_embeddings_catalog(payload)
                 return (scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload)
             except Exception as e:
                 logger.warning(f"  Orchestrator failed: {e}, trying direct pass calls")
@@ -764,6 +797,7 @@ class AutoAnalyzer:
                 planner_hints = self._maybe_backfill_planner_hints(scene, planner_hints)
                 if isinstance(payload, dict):
                     payload["planner_hints"] = planner_hints
+                    payload = self._maybe_apply_embeddings_catalog(payload)
                 return (scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload)
             except Exception as e:
                 logger.error(f"  Direct pass calls failed: {e}")
@@ -1653,6 +1687,57 @@ class AutoAnalyzer:
         logger.info("=" * 60)
 
         return job
+
+    def _maybe_apply_embeddings_catalog(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Backfill/override catalog_flags using embeddings based on issues_natural_language.
+        Keeps your downstream renovation_needs + UI schema intact.
+        """
+        if not isinstance(payload, dict):
+            return payload
+        if not self.catalog_matcher:
+            return payload
+        if not getattr(cfg, "USE_EMBEDDINGS_CATALOG", False):
+            return payload
+
+        override = bool(getattr(cfg, "EMBEDDINGS_OVERRIDE_EXISTING_FLAGS", True))
+        attach = bool(getattr(cfg, "EMBEDDINGS_ATTACH_CANDIDATES", True))
+
+        # Prefer issues from passes["2b"], fallback to flat field
+        passes = payload.get("passes") if isinstance(payload.get("passes"), dict) else {}
+        issues = None
+        if isinstance(passes, dict):
+            p2b = passes.get("2b") if isinstance(passes.get("2b"), dict) else {}
+            issues = p2b.get("issues_natural_language")
+
+        if issues is None:
+            issues = payload.get("issues_natural_language")
+
+        if not isinstance(issues, list) or not issues:
+            return payload
+
+        existing = payload.get("catalog_flags") or {}
+        if existing and not override:
+            return payload
+
+        flags = self.catalog_matcher.build_catalog_flags_and_annotate(
+            issues_natural_language=issues,
+            attach_candidates=attach,
+        )
+
+        payload["catalog_flags"] = flags
+
+        # Keep passes schema consistent too
+        if isinstance(passes, dict):
+            p2b = passes.setdefault("2b", {})
+            if isinstance(p2b, dict):
+                p2b["issues_natural_language"] = issues  # (may now have annotations)
+                p2b["catalog_flags"] = flags
+
+        # Also keep flat field in sync (your save_photo_intel reads both)
+        payload["issues_natural_language"] = issues
+
+        return payload
 
     @staticmethod
     def _scene_classifier_payload(

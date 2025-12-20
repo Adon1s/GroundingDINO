@@ -58,7 +58,22 @@ def extract_json(text: str) -> Optional[Any]:
     return None
 
 
-def extract_json_object(text: str) -> Optional[Dict[str, Any]]:
-    """Like extract_json, but guarantees a dict or returns None."""
-    data = extract_json(text)
-    return data if isinstance(data, dict) else None
+import json, re
+
+def extract_json_object(text: str) -> dict:
+    if not text:
+        raise ValueError("empty model response")
+
+    # ```json ... ```
+    m = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", text, re.DOTALL | re.IGNORECASE)
+    if m:
+        return json.loads(m.group(1))
+
+    # first {...} block
+    i = text.find("{")
+    j = text.rfind("}")
+    if i != -1 and j != -1 and j > i:
+        return json.loads(text[i:j+1])
+
+    raise ValueError("no JSON object found in model response")
+

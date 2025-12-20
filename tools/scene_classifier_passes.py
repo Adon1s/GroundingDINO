@@ -12,7 +12,7 @@ Pass 3:  Keyword Extraction (text-only, from structured facts)
 Pass 4:  Property Summary (premium uses GPT-5.2)
 """
 
-from llm_json import extract_json_object
+from tools.llm_json import extract_json_object
 import json
 import logging
 from dataclasses import dataclass
@@ -119,9 +119,9 @@ PASS_1A_USER_PROMPT = "Classify the scene type in this real estate photo."
 
 
 async def run_pass_1a_scene_type(
-    image_path: Path,
-    vlm_client: Any,
-    model_config: dict,
+        image_path: Path,
+        vlm_client: Any,
+        model_config: dict,
 ) -> Pass1aResult:
     """
     Pass 1a: Classify the scene type of an image.
@@ -169,43 +169,47 @@ async def run_pass_1a_scene_type(
 # Pass 1b: Positives/Inventory Notes (FREEFORM - NEW)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_1B_SYSTEM_PROMPT = "What positive features or upgrades do you see in this photo that a realtor might want to highlight? Only mention things that are clearly visible. There might not be any positives at all"
+PASS_1B_SYSTEM_PROMPT = "You are a real estate photo analyst"
 
-PASS_1B_USER_PROMPT_TEMPLATE = """Write positives/inventory notes for this {scene} photo in this exact format:
-
-IMPRESSION: <1-2 conservative sentences>
-SUMMARY: <1 factual sentence describing what's visible>
-FEATURES:
-- <feature>
-- <feature>
-(If none, write FEATURES: - none)
-"""
+PASS_1B_USER_PROMPT_TEMPLATE = "What positive features or upgrades do you see in this photo that a realtor might want to highlight? Only mention things that are clearly visible. There might not be any positives at all. If none, reply: none"
 
 
 async def run_pass_1b_positive_notes(
-    image_path: Path,
-    vlm_client: Any,
-    model_config: dict,
-    context: Optional[Dict[str, Any]] = None,
+        image_path: Path,
+        vlm_client: Any,
+        model_config: dict,
+        context: Optional[Dict[str, Any]] = None,
 ) -> Pass1bResult:
     """
-    Pass 1b: Generate freeform positives/inventory notes for the image.
+    Pass 1b: Extract freeform positive features from a property photo.
 
-    This pass focuses on identifying positive features visible in the photo.
-    Uses GPT-5 in premium mode for better reasoning.
-    Output is plain text (no JSON parsing).
+    This pass asks a vision-language model to identify any clearly visible
+    positive features or upgrades that a realtor might want to highlight.
+    The output is intentionally unstructured, plain text and may be:
+      - a short list of features,
+      - a brief sentence or two, or
+      - the literal string "none" if no positives are visible.
+
+    No formatting, categorization, or inference is required or expected here.
+    All structuring and normalization is handled downstream in Pass 1c.
+
+    The scene type (from Pass 1a) may be provided for context, but this pass
+    does not enforce scene-specific formatting or content.
 
     Args:
-        image_path: Path to the image file
-        vlm_client: VLM client instance
-        model_config: Model configuration
-        context: Optional context from Pass 1a (e.g., {'scene': 'kitchen'})
+        image_path: Path to the image file being analyzed.
+        vlm_client: Vision-language model client used to analyze the image.
+        model_config: Model configuration (provider, model name, token limits, etc.).
+        context: Optional context from earlier passes (e.g., {'scene': 'kitchen'}).
 
     Returns:
-        Pass1bResult with freeform positives notes
+        Pass1bResult containing:
+            - positives_notes: Freeform text describing visible positive features,
+              or "none" if no positives are present.
+            - raw_response: The raw model response text.
     """
     scene = context.get('scene', 'property') if context else 'property'
-    user_prompt = PASS_1B_USER_PROMPT_TEMPLATE.format(scene=scene)
+    user_prompt = PASS_1B_USER_PROMPT_TEMPLATE
 
     logger.debug(f"Pass 1b: Generating positives notes for {image_path.name} (scene: {scene})")
 
@@ -246,15 +250,18 @@ INPUT NOTES:
 Rules:
 - Use ONLY what is stated in the notes. Do not add new features or claims.
 - Keep language conservative and factual.
-- If the notes do not contain enough information for overall_impression or image_summary, output "" for that field (do not infer).
-- If the notes indicate there are no positives, output an empty notable_features list.
+- If the notes are only a list of features (or very short), it is OK to output "" for overall_impression and image_summary.
+- If notes indicate there are no positives (e.g., "none"), output:
+  - overall_impression = ""
+  - image_summary = ""
+  - notable_features = []
 - notable_features must be a list of short strings (2–10 words each), deduplicated.
 
-Output JSON only (no markdown):
+Respond with ONLY a JSON object:
 {{
-  "overall_impression": "<1-2 conservative sentences>",
-  "image_summary": "<1-2 factual sentences>",
-  "notable_features": ["<feature1>", "<feature2>", ...]
+  "overall_impression": "...",
+  "image_summary": "...",
+  "notable_features": ["..."]
 }}
 """
 
@@ -262,9 +269,9 @@ PASS_1C_USER_PROMPT = "Convert the notes into the JSON format."
 
 
 async def run_pass_1c_positive_structuring(
-    vlm_client: Any,
-    model_config: dict,
-    positives_notes: str,
+        vlm_client: Any,
+        model_config: dict,
+        positives_notes: str,
 ) -> Pass1cResult:
     """
     Pass 1c: Convert freeform positives notes to structured JSON.
@@ -333,11 +340,11 @@ PASS_2A_SYSTEM_PROMPT = "What issues do you see that a realtor might want to kno
 
 
 async def run_pass_2a_issue_detection(
-    image_path: Path,
-    vlm_client: Any,
-    model_config: dict,
-    context: Optional[Dict[str, Any]] = None,
-    issue_catalog: Optional[Dict[str, Any]] = None,
+        image_path: Path,
+        vlm_client: Any,
+        model_config: dict,
+        context: Optional[Dict[str, Any]] = None,
+        issue_catalog: Optional[Dict[str, Any]] = None,
 ) -> Pass2aResult:
     """
     Pass 2a: Detect issues and defects in the image (freeform notes).
@@ -387,55 +394,53 @@ async def run_pass_2a_issue_detection(
 # Pass 2b: Freeform Issue JSON Conversion (UNCHANGED)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_2B_SYSTEM_PROMPT = """You convert noisy property-photo notes into STRICT JSON. Be conservative and high-signal.
+PASS_2B_SYSTEM_PROMPT = """You convert noisy property-photo notes into STRICT, conservative JSON describing only clearly visible issues.
 
-Scene: {scene}
-Catalog IDs: {catalog_list_str}
-
-Notes:
+FREEFORM NOTES (from a vision model analyzing a property photo):
+---
 {freeform_notes}
+---
 
-Catalog reference:
-{catalog_text}
+RULES:
+- Be conservative and factual.
+- Only describe issues that are explicitly mentioned or clearly visible in the notes.
+- Do NOT speculate or infer hidden problems.
+- Do NOT escalate language.
+- If wording includes "may", "might", "could", or "possible" without a clearly described visible defect:
+  - Either omit the issue entirely, OR
+  - Include it with neutral wording that reflects uncertainty.
+- Do NOT turn "not visible" into "missing"
+  (e.g., "smoke detector not visible" ≠ "missing smoke detector").
+- If the notes indicate no issues, return an empty list.
 
-Rules:
-- Output ONLY the most important visible defects.
-- Do NOT turn "not visible" into "missing" (e.g., smoke detector not seen ≠ missing).
-- Do NOT speculate. If wording is "may/might/could/possible" without a clearly described visible defect → present="uncertain", severity="none".
-- If notes say no issues → issues_natural_language = [] and all catalog_flags present="no", severity="none".
+SEVERITY GUIDANCE (implicit, via wording only):
+- Cosmetic / minor wear → describe plainly, without urgency.
+- Moderate issues → only if notes clearly describe damage or malfunction.
+- Major issues → only if notes clearly describe significant damage or failure.
+- If severity is unclear, keep language neutral and non-alarming.
 
-Output JSON only (no markdown):
+OUTPUT FORMAT:
+Return JSON only. No markdown. No commentary.
+
 {{
   "issues_natural_language": [
     {{
-      "description": "calm, factual, only what is visibly described in the notes",
-      "rough_category": "cosmetic|moisture|structure|systems|exterior|opportunity",
-      "location_hint": "where"
+      "description": "Calm, factual description of what is visibly described in the notes",
+      "rough_category": "cosmetic | moisture | structure | systems | exterior | opportunity",
+      "location_hint": "Brief location reference, if mentioned"
     }}
-  ],
-  "catalog_flags": {{
-    "<issue_id>": {{
-      "present": "yes|no|uncertain",
-      "severity": "none|minor_repair|moderate_repair|full_replacement",
-      "evidence": "short quote or empty"
-    }}
-  }}
+  ]
 }}
-
-Catalog_flags requirements:
-- Include EVERY issue_id from {catalog_list_str}.
-- If present != "yes" → severity MUST be "none".
-- Only use moderate_repair/full_replacement when notes clearly imply substantial work.
 """
 
 
 async def run_pass_2b_issue_verification(
-    image_path: Path,
-    vlm_client: Any,
-    model_config: dict,
-    freeform_notes: str,
-    context: Optional[Dict[str, Any]] = None,
-    issue_catalog: Optional[Dict[str, Any]] = None,
+        image_path: Path,
+        vlm_client: Any,
+        model_config: dict,
+        freeform_notes: str,
+        context: Optional[Dict[str, Any]] = None,
+        issue_catalog: Optional[Dict[str, Any]] = None,
 ) -> Pass2bResult:
     """
     Pass 2b: Convert freeform notes from Pass 2a into structured JSON.
@@ -448,11 +453,8 @@ async def run_pass_2b_issue_verification(
         vlm_client: VLM client instance
         model_config: Model configuration
         freeform_notes: Freeform notes from Pass 2a
-        context: Optional context from previous passes
-        issue_catalog: Issue catalog for structured flagging
-
     Returns:
-        Pass2bResult with issues_natural_language and catalog_flags
+        Pass2bResult with issues_natural_language
     """
     # Build catalog data for prompt (needed for both early return and full run)
     defect_items = (issue_catalog or {}).get("defect_issues", []) or []
@@ -479,23 +481,22 @@ async def run_pass_2b_issue_verification(
             raw_response=None,
         )
 
-    # Build context for prompt
-    scene = context.get("scene", "property") if context else "property"
+    #UNUSED CURRENTLY
 
-    catalog_ids = [i["id"] for i in all_items]
-    catalog_list_str = ", ".join(catalog_ids)
-
-    catalog_text = "\n".join(
-        f"- {i.get('id')}: {i.get('name', '')}"
-        for i in all_items
-    )
+    # # Build context for prompt
+    # scene = context.get("scene", "property") if context else "property"
+    #
+    # catalog_ids = [i["id"] for i in all_items]
+    # catalog_list_str = ", ".join(catalog_ids)
+    #
+    # catalog_text = "\n".join(
+    #     f"- {i.get('id')}: {i.get('name', '')}"
+    #     for i in all_items
+    # )
 
     # Format the system prompt with all placeholders
     system_prompt = PASS_2B_SYSTEM_PROMPT.format(
-        scene=scene,
-        catalog_list_str=catalog_list_str or "(none)",
         freeform_notes=freeform_notes or "(no notes provided)",
-        catalog_text=catalog_text or "(no catalog provided)",
     )
 
     logger.debug(f"Pass 2b: Converting freeform notes to JSON for {image_path.name}")
@@ -559,10 +560,10 @@ PASS_3_USER_PROMPT = "Generate detection keywords."
 
 
 async def run_pass_3_keyword_extraction(
-    vlm_client: Any,
-    model_config: dict,
-    context: Optional[Dict[str, Any]] = None,
-    max_keywords: int = 20,
+        vlm_client: Any,
+        model_config: dict,
+        context: Optional[Dict[str, Any]] = None,
+        max_keywords: int = 20,
 ) -> Pass3Result:
     """
     Pass 3: Generate detection keywords from structured facts (text-only).
@@ -639,9 +640,9 @@ Respond with ONLY a JSON object:
 
 
 async def run_pass_4_property_summary(
-    vlm_client: Any,
-    model_config: dict,
-    all_results: Dict[str, Any],
+        vlm_client: Any,
+        model_config: dict,
+        all_results: Dict[str, Any],
 ) -> Pass4Result:
     """
     Pass 4: Generate property-level summary from all image analyses.
@@ -674,11 +675,11 @@ async def run_pass_4_property_summary(
             issues_blocks.append(f"- {img_key} ({scene}): {neg}")
 
     user_prompt = (
-        "POSITIVES NOTES:\n---\n"
-        + "\n".join(positives_blocks) + "\n---\n\n"
-        + "ISSUES NOTES:\n---\n"
-        + "\n".join(issues_blocks) + "\n---\n"
-        + f"\nTotal images analyzed: {len(all_results)}"
+            "POSITIVES NOTES:\n---\n"
+            + "\n".join(positives_blocks) + "\n---\n\n"
+            + "ISSUES NOTES:\n---\n"
+            + "\n".join(issues_blocks) + "\n---\n"
+            + f"\nTotal images analyzed: {len(all_results)}"
     )
 
     logger.debug(f"Pass 4: Generating property summary from freeform notes ({len(all_results)} images)")
@@ -715,7 +716,8 @@ SCENE_GROUPS_UI: Dict[str, List[str]] = {
     "bedroom": ["bedroom", "closet"],
     "living_areas": ["living_room", "dining_room", "home_office", "hallway", "stairway"],
     "utility": ["laundry_room", "basement", "attic", "garage", "hvac"],
-    "exterior": ["exterior_front", "exterior_back", "exterior_side", "yard", "patio", "deck", "balcony", "driveway", "pool", "garden"],
+    "exterior": ["exterior_front", "exterior_back", "exterior_side", "yard", "patio", "deck", "balcony", "driveway",
+                 "pool", "garden"],
     "other": ["roof", "other", "unknown", "floor_plan", "aerial_view", "street_view"],
 }
 
@@ -815,10 +817,10 @@ def _collect_issues(all_results: Dict[str, Any]) -> List[Dict[str, Any]]:
 
 
 async def run_pass_4a_room_summaries(
-    vlm_client: Any,
-    model_config: dict,
-    all_results: Dict[str, Any],
-    scene_counts: Optional[Dict[str, int]] = None,
+        vlm_client: Any,
+        model_config: dict,
+        all_results: Dict[str, Any],
+        scene_counts: Optional[Dict[str, int]] = None,
 ) -> Pass4aRoomSummariesResult:
     """
     Pass 4a: Produce room-group summaries and deterministic issue counts.
@@ -889,12 +891,12 @@ async def run_pass_4a_room_summaries(
 
 
 async def run_pass_4b_property_card_fields(
-    vlm_client: Any,
-    model_config: dict,
-    room_summaries: Dict[str, Any],
-    total_issues_found: int,
-    total_images_analyzed: int,
-    issues_by_category: Dict[str, int],
+        vlm_client: Any,
+        model_config: dict,
+        room_summaries: Dict[str, Any],
+        total_issues_found: int,
+        total_images_analyzed: int,
+        issues_by_category: Dict[str, int],
 ) -> Pass4bLegacyCardResult:
     """
     Pass 4b: Generate legacy UI card fields from room summaries + totals.

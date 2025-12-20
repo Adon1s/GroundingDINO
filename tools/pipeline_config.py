@@ -65,6 +65,19 @@ GPT_PASS_1B_MODEL = _env_any("OPENAI_PASS_1B_MODEL", "OPENAI_PASS1B_MODEL") or G
 GPT_PASS_2A_MODEL = _env_any("OPENAI_PASS_2A_MODEL", "OPENAI_PASS2A_MODEL") or GPT_MODEL  # Issue detection
 GPT_PASS_4_MODEL  = _env_any("OPENAI_PASS_4_MODEL",  "OPENAI_PASS4_MODEL")  or GPT_MODEL  # Property summary
 
+# Embeddings-based catalog matching
+USE_EMBEDDINGS_CATALOG = True
+EMBEDDINGS_MODEL_NAME = "jinaai/jina-embeddings-v3"
+EMBEDDINGS_TRUST_REMOTE_CODE = True
+EMBEDDINGS_TOPK = 5
+EMBEDDINGS_THRESHOLD_DEFECT = 0.58
+EMBEDDINGS_THRESHOLD_OPPORTUNITY = 0.56
+EMBEDDINGS_ROUTE_BY_ROUGH_CATEGORY = True
+EMBEDDINGS_OVERRIDE_EXISTING_FLAGS = True
+EMBEDDINGS_ATTACH_CANDIDATES = True
+EMBEDDINGS_DEVICE = "cpu"
+
+
 # ============================================================================
 # ANALYSIS PROFILE SETTINGS
 # ============================================================================
