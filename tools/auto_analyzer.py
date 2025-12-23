@@ -27,14 +27,15 @@ from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass
 from datetime import datetime
 
+# Ensure repo root is in sys.path BEFORE any tools.* imports
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 from PIL import Image
 
 from tools.run_pipeline import redraw_overlay
 from scene_classifier import load_issue_catalog
-
-ROOT = Path(__file__).resolve().parents[1]
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
 
 # Import configuration
 try:
@@ -986,14 +987,14 @@ class AutoAnalyzer:
                     issue_catalog=self.issue_catalog,
                 )
                 results['issues_natural_language'] = pass_2b.issues_natural_language
-                results['catalog_flags'] = pass_2b.catalog_flags
+                results['catalog_flags'] = {}  # embeddings owns this, not pass_2b
                 results['verified_issues'] = pass_2b.issues_natural_language
                 context['issues_natural_language'] = results['issues_natural_language']
 
                 # Store Pass 2b output
                 results['passes']['2b'] = {
                     'issues_natural_language': results['issues_natural_language'],
-                    'catalog_flags': results['catalog_flags'],
+                    'catalog_flags': {},  # canonical: always empty in 2b
                 }
             except Exception as e:
                 logger.warning(f"  Pass 2b failed: {e}")
@@ -1094,7 +1095,7 @@ class AutoAnalyzer:
             "2a": {"issues_notes": scene_payload.get("issues_notes", "")},
             "2b": {
                 "issues_natural_language": scene_payload.get("issues_natural_language", []),
-                "catalog_flags": scene_payload.get("catalog_flags", {}),
+                "catalog_flags": {},  # canonical: embeddings owns catalog_flags, not 2b
             },
             "3": {
                 "keywords": keywords,
@@ -1323,7 +1324,6 @@ class AutoAnalyzer:
         Note: Pass 2b (verification) always uses Qwen even in premium mode
         because it's high-volume and doesn't benefit much from GPT.
         """
-        import subprocess
 
         if self.skip_verification:
             return {"skipped": True}
@@ -1533,9 +1533,10 @@ class AutoAnalyzer:
             # Write survivors back
             detection_result["detections"] = detections
 
-            for k in ("count", "num_detections", "detections_count"):
-                if k in detection_result:
-                    detection_result[k] = len(detections)
+            # Update all count fields unconditionally to match filtered detections
+            final_count = len(detections)
+            for k in ("count", "num_detections", "detections_count", "detection_count"):
+                detection_result[k] = final_count
 
             pred_json_path = output_dir / "pred.json"
             with open(pred_json_path, "w", encoding="utf-8") as f:
@@ -1695,6 +1696,16 @@ class AutoAnalyzer:
         """
         if not isinstance(payload, dict):
             return payload
+
+        # Canonical: never store catalog_flags in 2b (clear ASAP, even if we early-return)
+        passes = payload.get("passes") if isinstance(payload.get("passes"), dict) else {}
+        if isinstance(passes, dict):
+            p2b = passes.get("2b")
+            if isinstance(p2b, dict):
+                if p2b.get("catalog_flags"):
+                    logger.warning("Clearing passes['2b'].catalog_flags; embeddings owns catalog_flags.")
+                p2b["catalog_flags"] = {}
+
         if not self.catalog_matcher:
             return payload
         if not getattr(cfg, "USE_EMBEDDINGS_CATALOG", False):
@@ -1704,7 +1715,6 @@ class AutoAnalyzer:
         attach = bool(getattr(cfg, "EMBEDDINGS_ATTACH_CANDIDATES", True))
 
         # Prefer issues from passes["2b"], fallback to flat field
-        passes = payload.get("passes") if isinstance(payload.get("passes"), dict) else {}
         issues = None
         if isinstance(passes, dict):
             p2b = passes.get("2b") if isinstance(passes.get("2b"), dict) else {}
@@ -1727,12 +1737,11 @@ class AutoAnalyzer:
 
         payload["catalog_flags"] = flags
 
-        # Keep passes schema consistent too
+        # Keep passes schema consistent - update issues_natural_language with annotations
         if isinstance(passes, dict):
             p2b = passes.setdefault("2b", {})
             if isinstance(p2b, dict):
                 p2b["issues_natural_language"] = issues  # (may now have annotations)
-                p2b["catalog_flags"] = flags
 
         # Also keep flat field in sync (your save_photo_intel reads both)
         payload["issues_natural_language"] = issues
@@ -1853,7 +1862,7 @@ class AutoAnalyzer:
                     "2a": {"issues_notes": payload.get("issues_notes", "")},
                     "2b": {
                         "issues_natural_language": payload.get("issues_natural_language", []) or [],
-                        "catalog_flags": payload.get("catalog_flags", {}) or {},
+                        "catalog_flags": {},  # canonical: embeddings owns catalog_flags, not 2b
                     },
                     "3": {
                         "keywords": payload.get("keywords", []) or [],

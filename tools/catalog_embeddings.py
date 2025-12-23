@@ -11,11 +11,11 @@ logger = logging.getLogger(__name__)
 
 try:
     from sentence_transformers import SentenceTransformer
+
     _ST_OK = True
 except Exception:
     SentenceTransformer = None
     _ST_OK = False
-
 
 _SEV_INT_TO_LABEL = {
     0: "none",
@@ -23,6 +23,32 @@ _SEV_INT_TO_LABEL = {
     2: "moderate_repair",
     3: "full_replacement",
     4: "full_replacement",  # treat 4 as highest bucket for cost table compatibility
+}
+
+# Lexical guardrails for high-risk catalog IDs to prevent obviously wrong matches
+_GUARDRAILS = {
+    "broken_or_fogged_windows": {
+        "must_any": ["fog", "fogged", "condensation", "between panes", "failed seal", "cracked glass", "broken glass",
+                     "shattered", "window", "pane"],
+        "deny_any": ["wall", "paint", "drywall", "scuff", "marks", "discoloration", "ceiling", "floor"],
+    },
+    "roof_damage_visible": {
+        "must_any": ["roof", "shingle", "flashing", "gutter", "soffit", "fascia", "eave"],
+        "deny_any": ["wall", "floor", "interior", "drywall"],
+    },
+    "foundation_cracks": {
+        "must_any": ["foundation", "basement", "slab", "footing", "crawl"],
+        "deny_any": ["drywall", "paint", "cosmetic", "surface"],
+    },
+    "electrical_issues": {
+        "must_any": ["electric", "outlet", "wire", "panel", "breaker", "switch", "voltage", "circuit"],
+        "deny_any": [],
+    },
+    "plumbing_issues": {
+        "must_any": ["plumb", "pipe", "drain", "faucet", "toilet", "sink", "water heater", "sewer"],
+        "deny_any": [],
+    },
+    # Add more high-risk IDs as needed
 }
 
 
@@ -88,15 +114,15 @@ class CatalogEmbedMatcher:
     """
 
     def __init__(
-        self,
-        issue_catalog: Dict[str, Any],
-        model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
-        topk: int = 5,
-        threshold_defect: float = 0.58,
-        threshold_opportunity: float = 0.56,
-        route_by_rough_category: bool = True,
-        trust_remote_code: bool = False,
-        device: str = "cpu",  # ✅ add this
+            self,
+            issue_catalog: Dict[str, Any],
+            model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+            topk: int = 5,
+            threshold_defect: float = 0.58,
+            threshold_opportunity: float = 0.56,
+            route_by_rough_category: bool = True,
+            trust_remote_code: bool = False,
+            device: str = "cpu",  # ✅ add this
     ):
         if not _ST_OK:
             raise RuntimeError("sentence-transformers not available. Install: pip install sentence-transformers")
@@ -161,12 +187,53 @@ class CatalogEmbedMatcher:
         )
         return vecs.astype(np.float32)
 
+    def _eligible_indices(self, pack: List[Dict[str, Any]], rough: str) -> List[int]:
+        """Filter pack indices by rough_category to prevent cross-category hallucinations."""
+        rough = (rough or "").strip().lower()
+
+        # Map rough_category to allowed catalog categories
+        allow_cats_by_rough = {
+            "cosmetic": {"cosmetic", "interior"},
+            "moisture": {"moisture", "structure"},  # leaks can touch structure
+            "structure": {"structure"},
+            "systems": {"systems", "hvac", "electrical", "plumbing"},
+            "exterior": {"exterior"},
+            "opportunity": set(),  # handled separately via _opp_pack
+            "": set(),  # no rough => no filter
+            "other": set(),
+        }
+
+        allow = allow_cats_by_rough.get(rough, set())
+        if not allow:
+            return list(range(len(pack)))
+
+        idxs = []
+        for i, meta in enumerate(pack):
+            cat = str(meta.get("category") or "").strip().lower()
+            if cat in allow:
+                idxs.append(i)
+        return idxs if idxs else list(range(len(pack)))  # fallback to all if no matches
+
+    def _passes_guardrails(self, issue_text: str, cand_id: str) -> bool:
+        """Check if a candidate ID passes lexical guardrails for the given issue text."""
+        g = _GUARDRAILS.get(cand_id)
+        if not g:
+            return True
+        t = issue_text.lower()
+        if any(x in t for x in g.get("deny_any", [])):
+            return False
+        must = g.get("must_any", [])
+        if must and not any(x in t for x in must):
+            return False
+        return True
+
     def match(self, issue_text: str, rough_category: Optional[str] = None) -> List[MatchCandidate]:
         t = _norm(issue_text)
         if not t:
             return []
 
-        q = self._st.encode([t], normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False)[0].astype(np.float32)
+        q = self._st.encode([t], normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False)[0].astype(
+            np.float32)
 
         # Routing: opportunities match opportunity catalog by default (optional)
         rough = (rough_category or "").strip().lower()
@@ -181,10 +248,18 @@ class CatalogEmbedMatcher:
         if mat.shape[0] == 0:
             return []
 
-        scores, idxs = _cosine_topk(q, mat, self.topk)
+        # Filter to eligible indices based on rough_category
+        eligible = self._eligible_indices(pack, rough)
+        if not eligible:
+            return []
+
+        sub_pack = [pack[i] for i in eligible]
+        sub_mat = mat[eligible, :]
+
+        scores, idxs = _cosine_topk(q, sub_mat, self.topk)
         out: List[MatchCandidate] = []
         for s, i in zip(scores.tolist(), idxs.tolist()):
-            meta = pack[i]
+            meta = sub_pack[i]  # idxs are relative to sub_pack
             out.append(MatchCandidate(
                 id=meta["id"],
                 name=meta["name"],
@@ -196,9 +271,9 @@ class CatalogEmbedMatcher:
         return out
 
     def build_catalog_flags_and_annotate(
-        self,
-        issues_natural_language: List[Dict[str, Any]],
-        attach_candidates: bool = True,
+            self,
+            issues_natural_language: List[Dict[str, Any]],
+            attach_candidates: bool = True,
     ) -> Dict[str, Any]:
         """
         Returns catalog_flags dict shaped exactly like your existing pipeline expects:
@@ -219,6 +294,10 @@ class CatalogEmbedMatcher:
 
             rough = str(it.get("rough_category", "") or "")
             cands = self.match(desc, rough_category=rough)
+
+            # Apply lexical guardrails to filter out obviously wrong matches
+            cands = [c for c in cands if self._passes_guardrails(desc, c.id)]
+
             if not cands:
                 if attach_candidates:
                     it["catalog_candidates"] = []

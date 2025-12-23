@@ -189,7 +189,10 @@ async def run_pass_1a_scene_type(
 
 PASS_1B_SYSTEM_PROMPT = "You are a real estate photo analyst"
 
-PASS_1B_USER_PROMPT_TEMPLATE = "What positive features or upgrades do you see in this photo that a realtor might want to highlight? Only mention things that are clearly visible. There might not be any positives at all. If none, reply: none"
+PASS_1B_USER_PROMPT_TEMPLATE = ("What positive features or upgrades do you see in this photo that a realtor might want "
+                                "to highlight? Only mention things that are clearly visible. Only list positives; do "
+                                "not mention issues, updates, or drawbacks. There might not be any positives at all. "
+                                "If none, reply: none")
 
 
 async def run_pass_1b_positive_notes(
