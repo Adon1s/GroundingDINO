@@ -200,7 +200,7 @@ Rules:
 Return ONLY JSON:
 {
   "overall_condition": "excellent|good|fair|poor",
-  "overall_summary": "<1-3 sentences>",
+  "overall_summary": "<Provide about a paragraph summarizng the >",
   "investment_verdict": "buy|maybe|pass",
   "investment_rationale": "<1-3 sentences>",
   "renovation_scope": "light|moderate|heavy",

@@ -29,7 +29,7 @@ from datetime import datetime
 
 from PIL import Image
 
-from run_pipeline import redraw_overlay
+from tools.run_pipeline import redraw_overlay
 from scene_classifier import load_issue_catalog
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,7 +38,7 @@ if str(ROOT) not in sys.path:
 
 # Import configuration
 try:
-    import pipeline_config as cfg
+    from tools import pipeline_config as cfg
 except ImportError:
     print("ERROR: pipeline_config.py not found!")
     sys.exit(1)
@@ -82,7 +82,7 @@ except ImportError:
 
 # Embeddings catalog matcher (optional)
 try:
-    from catalog_embeddings import CatalogEmbedMatcher
+    from tools.catalog_embeddings import CatalogEmbedMatcher
     EMBEDDINGS_MATCHER_AVAILABLE = True
 except Exception:
     CatalogEmbedMatcher = None
@@ -90,7 +90,7 @@ except Exception:
 
 # Import VLM client (for direct calls when orchestrator unavailable)
 try:
-    from vlm_client import VLMClient, create_vlm_client, get_model_configs_from_pipeline_config
+    from tools.vlm_client import VLMClient, create_vlm_client, get_model_configs_from_pipeline_config
 
     VLM_CLIENT_AVAILABLE = True
 except ImportError:
@@ -101,14 +101,14 @@ except ImportError:
 
 # Import pass architecture components (optional - graceful fallback)
 try:
-    from pass_config import (
+    from tools.pass_config import (
         SceneClassifierRunOptions,
         PassToggles,
         PassModelOverrides,
         pick_model_for_pass,
         get_model_config_for_pass, PassKey,
     )
-    from scene_classifier_orchestrator import (
+    from tools.scene_classifier_orchestrator import (
         SceneClassifierOrchestrator,
         create_orchestrator_from_config,
     )

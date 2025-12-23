@@ -15,11 +15,29 @@ Pass 4:  Property Summary (premium uses GPT-5.2)
 from tools.llm_json import extract_json_object
 import json
 import logging
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 logger = logging.getLogger(__name__)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Helper for detecting empty/no-issue notes
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _is_effectively_empty_notes(s: str) -> bool:
+    """
+    Check if notes string is effectively empty or indicates no findings.
+
+    This prevents calling structuring models on "none" responses,
+    which is where accidental hallucinations creep in.
+    """
+    if not s:
+        return True
+    t = s.strip().lower()
+    return t in {"none", "no", "no issues", "no issue", "n/a", "na", "nothing", "nothing notable"}
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -288,7 +306,7 @@ async def run_pass_1c_positive_structuring(
     """
     logger.debug("Pass 1c: Converting positives notes to JSON")
 
-    if not positives_notes or not positives_notes.strip():
+    if _is_effectively_empty_notes(positives_notes):
         return Pass1cResult(
             overall_impression="",
             image_summary="",
@@ -402,16 +420,11 @@ FREEFORM NOTES (from a vision model analyzing a property photo):
 ---
 
 RULES:
-- Be conservative and factual.
-- Only describe issues that are explicitly mentioned or clearly visible in the notes.
+- If the notes say that something is likely not an issue do not include it.
+- If it is extremely minor of an issue do not include it
 - Do NOT speculate or infer hidden problems.
-- Do NOT escalate language.
-- If wording includes "may", "might", "could", or "possible" without a clearly described visible defect:
-  - Either omit the issue entirely, OR
-  - Include it with neutral wording that reflects uncertainty.
-- Do NOT turn "not visible" into "missing"
-  (e.g., "smoke detector not visible" ≠ "missing smoke detector").
-- If the notes indicate no issues, return an empty list.
+- If wording includes "may", "might", "could", or "possible" without a clearly described visible defect, omit the issue entirely
+- If the notes indicate no issues or no major defects, return an empty list.
 
 SEVERITY GUIDANCE (implicit, via wording only):
 - Cosmetic / minor wear → describe plainly, without urgency.
@@ -420,7 +433,7 @@ SEVERITY GUIDANCE (implicit, via wording only):
 - If severity is unclear, keep language neutral and non-alarming.
 
 OUTPUT FORMAT:
-Return JSON only. No markdown. No commentary.
+Return JSON only.
 
 {{
   "issues_natural_language": [
@@ -456,43 +469,13 @@ async def run_pass_2b_issue_verification(
     Returns:
         Pass2bResult with issues_natural_language
     """
-    # Build catalog data for prompt (needed for both early return and full run)
-    defect_items = (issue_catalog or {}).get("defect_issues", []) or []
-    opp_items = (issue_catalog or {}).get("opportunity_flags", []) or []
-
-    all_items = []
-    for x in defect_items + opp_items:
-        if isinstance(x, dict) and x.get("id"):
-            all_items.append(x)
-
-    # If no freeform notes, return empty issues but populate catalog_flags with "no"
-    if not freeform_notes or not freeform_notes.strip():
-        empty_flags = {}
-        for item in all_items:
-            issue_id = item["id"]
-            empty_flags[issue_id] = {
-                "present": "no",
-                "severity": "none",
-                "evidence": "",
-            }
+    # If no freeform notes or effectively empty, return empty result (embeddings will fill catalog_flags when needed)
+    if _is_effectively_empty_notes(freeform_notes):
         return Pass2bResult(
             issues_natural_language=[],
-            catalog_flags=empty_flags,
+            catalog_flags={},
             raw_response=None,
         )
-
-    #UNUSED CURRENTLY
-
-    # # Build context for prompt
-    # scene = context.get("scene", "property") if context else "property"
-    #
-    # catalog_ids = [i["id"] for i in all_items]
-    # catalog_list_str = ", ".join(catalog_ids)
-    #
-    # catalog_text = "\n".join(
-    #     f"- {i.get('id')}: {i.get('name', '')}"
-    #     for i in all_items
-    # )
 
     # Format the system prompt with all placeholders
     system_prompt = PASS_2B_SYSTEM_PROMPT.format(
@@ -513,7 +496,7 @@ async def run_pass_2b_issue_verification(
 
         return Pass2bResult(
             issues_natural_language=result.get("issues_natural_language", []),
-            catalog_flags=result.get("catalog_flags", {}),
+            catalog_flags={},
             raw_response=response,
         )
 
@@ -778,7 +761,7 @@ PASS_4B_SYSTEM_PROMPT = """You generate concise UI card fields for a property an
 Rules:
 - Conservative, buyer/investor-friendly.
 - Use ONLY what is provided. Do not invent issues/features.
-- Keep it short.
+- Keep it a few sentences to a paragraph.
 
 Return ONLY JSON:
 {

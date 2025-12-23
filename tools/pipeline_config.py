@@ -63,6 +63,7 @@ def _env_any(*keys: str) -> str:
 # Optional: separate model for specific passes (if not set, uses GPT_MODEL)
 GPT_PASS_1B_MODEL = _env_any("OPENAI_PASS_1B_MODEL", "OPENAI_PASS1B_MODEL") or GPT_MODEL  # Overall impression
 GPT_PASS_2A_MODEL = _env_any("OPENAI_PASS_2A_MODEL", "OPENAI_PASS2A_MODEL") or GPT_MODEL  # Issue detection
+GPT_PASS_2B_MODEL = _env_any("OPENAI_PASS_2B_MODEL", "OPENAI_PASS2B_MODEL") or GPT_MODEL  # Overall impression
 GPT_PASS_4_MODEL  = _env_any("OPENAI_PASS_4_MODEL",  "OPENAI_PASS4_MODEL")  or GPT_MODEL  # Property summary
 
 # Embeddings-based catalog matching

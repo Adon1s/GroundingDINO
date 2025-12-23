@@ -6,9 +6,8 @@ from scene_classifier_orchestrator import (
     SceneClassifierOrchestrator,
     SceneClassifierRunOptions,
 )
-from scene_classifier_orchestrator import create_orchestrator_from_config
-import pipeline_config as cfg
-
+from tools.scene_classifier_orchestrator import create_orchestrator_from_config
+from tools import pipeline_config as cfg
 
 class StubVLMClient:
     async def analyze_image(self, image_path, system_prompt, user_prompt, **model_config):
@@ -60,7 +59,7 @@ class StubVLMClient:
 
 async def main():
     import pipeline_config as cfg
-    from vlm_client import get_model_configs_from_pipeline_config
+    from tools.vlm_client import get_model_configs_from_pipeline_config
 
     qwen_config, gpt5_config = get_model_configs_from_pipeline_config(cfg)
 

@@ -34,7 +34,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 # Import configuration
 try:
-    import pipeline_config as cfg
+    from tools import pipeline_config as cfg
 except ImportError:
     print("ERROR: pipeline_config.py not found!")
     print("Make sure pipeline_config.py is in the same directory as this script.")

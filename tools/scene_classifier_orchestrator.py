@@ -14,7 +14,7 @@ Usage:
         vlm_client=create_vlm_client(),
     )
 
-    result = await orchestrator.analyze_image(
+    result = await orchestrator.analyze_image(f
         image_path=Path('/path/to/image.jpg'),
         options=SceneClassifierRunOptions(premium=True),
     )
@@ -28,11 +28,11 @@ import json
 from typing import Any, Dict, List, Optional
 
 try:
-    import pipeline_config as cfg
+    from tools import pipeline_config as cfg
 except ImportError:
     cfg = None
 
-from pass_config import (
+from tools.pass_config import (
     PassKey,
     PassToggles,
     PassModelOverrides,
@@ -566,7 +566,10 @@ def create_orchestrator_from_config(
     Returns:
         Configured SceneClassifierOrchestrator
     """
-    from vlm_client import create_vlm_client, get_model_configs_from_pipeline_config
+    from tools.vlm_client import (
+        create_vlm_client,
+        get_model_configs_from_pipeline_config,
+    )
 
     # Get model configs
     qwen_config, gpt5_config = get_model_configs_from_pipeline_config(config)

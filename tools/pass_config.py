@@ -168,7 +168,7 @@ PREMIUM_MODEL_MAP: Dict[PassKey, ModelName] = {
     '1b': 'gpt5',
     '1c': 'qwen',
     '2a': 'gpt5',
-    '2b': 'qwen',
+    '2b': 'gpt5',
     '3': 'gpt5',
     '4': 'gpt5',
     '4a': 'gpt5',

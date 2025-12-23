@@ -31,7 +31,7 @@ import requests
 
 # Import VLMClient for unified LM Studio / OpenAI support
 try:
-    from vlm_client import VLMClient, create_vlm_client
+    from tools.vlm_client import VLMClient, create_vlm_client
 
     VLM_CLIENT_AVAILABLE = True
 except ImportError:
@@ -45,7 +45,7 @@ if hasattr(sys.stdout, "reconfigure"):
 
 # ── Configuration ────────────────────────────────────────────────────────────
 try:
-    import pipeline_config as cfg
+    from tools import pipeline_config as cfg
 
     LM_STUDIO_URL = cfg.LM_STUDIO_URL
     DEFAULT_MODEL = cfg.LM_STUDIO_MODEL

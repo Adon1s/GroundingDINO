@@ -25,7 +25,7 @@ if str(ROOT) not in sys.path:
 
 # Import config first. IMPORTANT: delay importing auto_analyzer until AFTER env overrides
 try:
-    import pipeline_config as cfg  # type: ignore
+    from tools import pipeline_config as cfg  # type: ignore
 except Exception as exc:  # pragma: no cover - external dependency
     print(f"Failed to import pipeline_config: {exc}", file=sys.stderr)
     sys.exit(1)
@@ -33,7 +33,7 @@ except Exception as exc:  # pragma: no cover - external dependency
 
 def _import_auto_analyzer():
     try:
-        from auto_analyzer import AutoAnalyzer  # type: ignore
+        from tools.auto_analyzer import AutoAnalyzer
         return AutoAnalyzer
     except Exception as exc:
         print(f"Failed to import auto_analyzer: {exc}", file=sys.stderr)
@@ -42,7 +42,7 @@ def _import_auto_analyzer():
 
 # Optional: import pass config if available (for new architecture)
 try:
-    from pass_config import PassToggles, PassModelOverrides, SceneClassifierRunOptions
+    from tools.pass_config import PassToggles, PassModelOverrides, SceneClassifierRunOptions
 
     PASS_CONFIG_AVAILABLE = True
 except ImportError:

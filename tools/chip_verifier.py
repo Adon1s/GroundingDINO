@@ -40,7 +40,7 @@ if hasattr(sys.stdout, "reconfigure"):
 # ── Config ───────────────────────────────────────────────────────────────────
 # Try to import from pipeline_config first, then use defaults
 try:
-    import pipeline_config as cfg
+    from tools import pipeline_config as cfg
     LM_STUDIO_URL = cfg.LM_STUDIO_URL
     DEFAULT_MODEL = cfg.LM_STUDIO_MODEL
     VERIFY_THRESHOLDS = {
