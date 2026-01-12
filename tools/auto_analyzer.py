@@ -35,7 +35,6 @@ if str(ROOT) not in sys.path:
 from PIL import Image
 
 from tools.run_pipeline import redraw_overlay
-from scene_classifier import load_issue_catalog
 
 # Import configuration
 try:
@@ -46,14 +45,14 @@ except ImportError:
 
 # Import renovation cost table from dedicated module
 try:
-    from renovation_costs import RENOVATION_COST_TABLE
+    from tools.renovation_costs import RENOVATION_COST_TABLE
 except ImportError:
     print("WARNING: renovation_costs.py not found, using empty cost table")
     RENOVATION_COST_TABLE = {}
 
 # Import NMS postprocessing
 try:
-    from postprocess import (
+    from tools.postprocess import (
         class_aware_nms,
         enforce_scene_caps,
         apply_roi_hint_bonus_overlap,
@@ -65,14 +64,14 @@ except ImportError:
 
 # Import property summarizer (optional - graceful fallback if not available)
 try:
-    from property_summarizer import PropertySummarizer
+    from tools.property_summarizer import PropertySummarizer
 except ImportError:
     PropertySummarizer = None
     print("INFO: property_summarizer.py not found, property summaries will be skipped")
 
 # Import DINO-X client (optional - graceful fallback to legacy mode)
 try:
-    from dinox_client import DINOXClient, create_dinox_client_from_config
+    from tools.dinox_client import DINOXClient, create_dinox_client_from_config
 
     DINOX_CLIENT_AVAILABLE = True
 except ImportError:
@@ -113,7 +112,7 @@ try:
         SceneClassifierOrchestrator,
         create_orchestrator_from_config,
     )
-    from scene_classifier_passes import (
+    from tools.scene_classifier_passes import (
         run_pass_1a_scene_type,
         run_pass_1b_positive_notes,
         run_pass_1c_positive_structuring,
@@ -145,11 +144,45 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-default_catalog_path = getattr(
-    cfg, "PROJECT_ROOT", Path(__file__).resolve().parent.parent
-) / "issue_catalog.json"
+
+def load_issue_catalog(path: Path) -> dict:
+    """
+    Load the issue catalog from JSON.
+
+    Returns a dict with at least keys:
+      - 'defect_issues': list of issue dicts
+      - 'opportunity_flags': list of issue dicts
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        logger.debug(f"Loaded issue catalog from {path}")
+    except FileNotFoundError:
+        logger.warning(f"Issue catalog not found at {path}; using empty catalog.")
+        data = {}
+    except Exception as exc:
+        logger.error(f"Failed to load issue catalog from {path}: {exc}")
+        data = {}
+
+    return {
+        "defect_issues": data.get("defect_issues", []),
+        "opportunity_flags": data.get("opportunity_flags", []),
+    }
+
+
+# Compute default catalog path - prefer tools/issue_catalog.json if it exists
+_repo_root = Path(__file__).resolve().parent.parent
+_tools_dir = getattr(cfg, "TOOLS_DIR", Path(__file__).resolve().parent)
+_tools_catalog = Path(_tools_dir) / "issue_catalog.json"
+_root_catalog = (getattr(cfg, "PROJECT_ROOT", None) or _repo_root) / "issue_catalog.json"
+
+# Prefer tools/ location, fallback to repo root
+if _tools_catalog.exists():
+    default_catalog_path = _tools_catalog
+else:
+    default_catalog_path = _root_catalog
+
 ISSUE_CATALOG_PATH = Path(getattr(cfg, "ISSUE_CATALOG_PATH", default_catalog_path))
-ISSUE_CATALOG = load_issue_catalog(ISSUE_CATALOG_PATH)
 
 SEVERITY_RANK = {
     "none": 0,
@@ -184,6 +217,30 @@ SCENE_TO_GROUP_UI = {}
 for _group, _scenes in SCENE_GROUPS_UI.items():
     for _scene in _scenes:
         SCENE_TO_GROUP_UI[_scene] = _group
+
+# ── Schema Version Constants ────────────────────────────────────────────────────
+PHOTO_INTEL_SCHEMA_VERSION = "photo_intel_v2"
+PROPERTY_SUMMARY_SCHEMA_VERSION = "property_summary_v2"
+NORMALIZATION_POLICY_VERSION = "workitem_v1"
+
+
+def _stable_hash_id(*parts: str, length: int = 12) -> str:
+    """Generate a stable, deterministic short hash ID from input parts."""
+    import hashlib
+    # Include all parts, normalize None to empty string (don't drop falsy values)
+    combined = "|".join(str(p) if p is not None else "" for p in parts)
+    return hashlib.sha256(combined.encode("utf-8")).hexdigest()[:length]
+
+
+def _make_photo_id(property_key: str, run_id: str, photo_key: str) -> str:
+    """Generate deterministic photo ID."""
+    return _stable_hash_id(property_key, run_id, photo_key, length=16)
+
+
+def _make_issue_id(run_id: str, photo_key: str, description: str, location_hint: str, rough_category: str,
+                   ordinal: int = 0) -> str:
+    """Generate deterministic issue ID. Ordinal handles duplicate issues in same photo."""
+    return _stable_hash_id(run_id, photo_key, description, location_hint, rough_category, str(ordinal), length=16)
 
 
 # ── Data Classes ─────────────────────────────────────────────────────────────
@@ -246,9 +303,9 @@ def build_renovation_needs(job: "PropertyAnalysisJob", issue_catalog: Optional[D
 
     Args:
         job: PropertyAnalysisJob with results
-        issue_catalog: Issue catalog to use (defaults to module global ISSUE_CATALOG)
+        issue_catalog: Issue catalog to use
     """
-    catalog = issue_catalog or ISSUE_CATALOG or {}
+    catalog = issue_catalog or {}
 
     issue_meta: Dict[str, Dict[str, str]] = {}
     for item in catalog.get("defect_issues", []) or []:
@@ -365,9 +422,13 @@ class AutoAnalyzer:
         self.skip_verification = skip_verification if skip_verification is not None else cfg.SKIP_VERIFICATION
         self.debug = debug if debug is not None else cfg.DEBUG_MODE
 
-        # ✅ Instance-owned issue catalog (avoid relying on module globals)
+        # ✅ Instance-owned issue catalog (loaded at init, not module level)
         self.issue_catalog_path = ISSUE_CATALOG_PATH
-        self.issue_catalog = ISSUE_CATALOG or {}
+        try:
+            self.issue_catalog = load_issue_catalog(self.issue_catalog_path) or {}
+        except Exception as e:
+            logger.error(f"Failed to load issue catalog at {self.issue_catalog_path}: {e}")
+            self.issue_catalog = {}
 
         # Helpful sanity logging
         try:
@@ -504,7 +565,7 @@ class AutoAnalyzer:
             self.summary_model = getattr(cfg, "SUMMARY_MODEL", None)
             logger.info(f"Using STANDARD analysis profile (max_keywords={self.max_keywords})")
 
-    def _get_model_config_for_pass(self, pass_key: PassKey) -> Dict[str, Any]:
+    def _get_model_config_for_pass(self, pass_key: str) -> Dict[str, Any]:
         """
         Get the appropriate model config for a specific pass.
 
@@ -731,8 +792,9 @@ class AutoAnalyzer:
 
         missing = []
         for name, path in required_paths.items():
-            if isinstance(path, Path) and not path.exists():
-                missing.append(f"{name}: {path}")
+            p = Path(path) if not isinstance(path, Path) else path
+            if not p.exists():
+                missing.append(f"{name}: {p}")
 
         if missing:
             error_msg = "Missing required components:\n" + "\n".join(missing)
@@ -1017,6 +1079,7 @@ class AutoAnalyzer:
                     max_keywords=self.max_keywords,
                 )
                 results['keywords'] = pass_3.keywords
+                results['keyword_categories'] = pass_3.keyword_categories
 
                 # Store Pass 3 output
                 results['passes']['3'] = {
@@ -1058,6 +1121,11 @@ class AutoAnalyzer:
 
         keywords = data.get("keywords", []) or []
 
+        # Robust category extraction - try data first, fallback to pass_3 attribute
+        kw_cats = data.get("keyword_categories")
+        if kw_cats is None and getattr(result, "pass_3", None):
+            kw_cats = getattr(result.pass_3, "keyword_categories", None)
+
         # Build grounding prompt from keywords
         prompt = ". ".join(keywords) + "." if keywords else ""
 
@@ -1068,6 +1136,7 @@ class AutoAnalyzer:
         # Build scene payload for backwards compatibility
         scene_payload = self._scene_classifier_payload(data, scene_override=scene)
         scene_payload['keywords'] = keywords
+        scene_payload['keyword_categories'] = kw_cats  # flat copy for convenience
         scene_payload['overall_impression'] = data.get('overall_impression', '')
         scene_payload['image_summary'] = data.get('image_summary', '')
         scene_payload['notable_features'] = data.get('notable_features', []) or []
@@ -1099,7 +1168,7 @@ class AutoAnalyzer:
             },
             "3": {
                 "keywords": keywords,
-                "categories": data.get("keyword_categories"),
+                "categories": kw_cats,
             },
         }
 
@@ -1132,6 +1201,7 @@ class AutoAnalyzer:
         scene_payload['notable_features'] = results.get('notable_features', []) or []
         scene_payload['positives_notes'] = results.get('positives_notes', '') or ""
         scene_payload['issues_notes'] = results.get('issues_notes', '') or ""
+        scene_payload['keyword_categories'] = results.get('keyword_categories')
         scene_payload['groundingdino_prompt'] = prompt
 
         # Include passes dict if present
@@ -1324,6 +1394,7 @@ class AutoAnalyzer:
         Note: Pass 2b (verification) always uses Qwen even in premium mode
         because it's high-volume and doesn't benefit much from GPT.
         """
+        import subprocess
 
         if self.skip_verification:
             return {"skipped": True}
@@ -1771,6 +1842,7 @@ class AutoAnalyzer:
         payload.setdefault("targets", [])
         payload.setdefault("gdino_terms", [])
         payload.setdefault("keywords", [])
+        payload.setdefault("keyword_categories", None)
         payload.setdefault("groundingdino_prompt", "")
         payload.setdefault("issues_natural_language", [])
         payload.setdefault("verified_issues", [])
@@ -1838,7 +1910,9 @@ class AutoAnalyzer:
             return x if isinstance(x, list) else []
 
         photos: Dict[str, Any] = {}
-        for res in job.results:
+        issues_flat: List[Dict[str, Any]] = []  # Flat index of all issues
+
+        for photo_index, res in enumerate(job.results, start=1):
             image_key = Path(res.image_path).name
             payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
 
@@ -1870,11 +1944,77 @@ class AutoAnalyzer:
                     },
                 }
 
+            # Generate stable photo ID
+            photo_id = _make_photo_id(job.property_key, job.job_id, image_key)
+            scene = payload.get("scene", res.scene) or "unknown"
+            scene_group = SCENE_TO_GROUP_UI.get(scene, "other")
+            scene_confidence = (passes.get("1a", {}) or {}).get("confidence")
+
+            # Backfill issues with stable IDs and source linkage
+            # Track signature counts to handle duplicate issues in same photo
+            issue_sig_counts: Dict[Tuple[str, str, str], int] = {}
+            issues_nl = _safe_list((passes.get("2b", {}) or {}).get("issues_natural_language"))
+            for issue in issues_nl:
+                if isinstance(issue, dict) and issue.get("description"):
+                    # Compute signature for ordinal tracking
+                    sig = (
+                        issue.get("description", ""),
+                        issue.get("location_hint", ""),
+                        issue.get("rough_category", ""),
+                    )
+                    ordinal = issue_sig_counts.get(sig, 0)
+                    issue_sig_counts[sig] = ordinal + 1
+
+                    # Generate stable issue ID with ordinal to handle duplicates
+                    issue_id = _make_issue_id(
+                        job.job_id,
+                        image_key,
+                        sig[0],  # description
+                        sig[1],  # location_hint
+                        sig[2],  # rough_category
+                        ordinal,
+                    )
+                    # Add identity and context fields
+                    issue["issue_id"] = issue_id
+                    issue["source_photo_key"] = image_key
+                    issue["source_photo_id"] = photo_id
+                    issue["scene"] = scene
+                    issue["scene_group"] = scene_group
+                    # Placeholders for future normalization (Phase B)
+                    issue.setdefault("trade", None)
+                    issue.setdefault("severity", None)
+                    issue.setdefault("confidence", None)
+                    issue.setdefault("fix_code", None)
+
+                    # Add to flat index (include placeholders for unified shape)
+                    issues_flat.append({
+                        "issue_id": issue_id,
+                        "photo_id": photo_id,
+                        "photo_key": image_key,
+                        "scene": scene,
+                        "scene_group": scene_group,
+                        "description": issue.get("description", ""),
+                        "rough_category": issue.get("rough_category", ""),
+                        "location_hint": issue.get("location_hint", ""),
+                        # Phase B placeholders
+                        "trade": None,
+                        "severity": None,
+                        "confidence": None,
+                        "fix_code": None,
+                    })
+
             # Keep flat fields for backwards compatibility, but UI should read passes
+            # Put **payload first so our explicit v2 fields override any collisions
             photos[image_key] = {
-                "image_path": res.image_path,
-                "scene": payload.get("scene", res.scene),
                 **payload,
+                "image_path": res.image_path,
+                "scene": scene,
+                # v2 lifted fields (override payload if present)
+                "photo_id": photo_id,
+                "photo_key": image_key,
+                "photo_index": photo_index,
+                "scene_confidence": scene_confidence,
+                "scene_group": scene_group,
                 "passes": passes,
             }
 
@@ -1909,7 +2049,7 @@ class AutoAnalyzer:
                 if s and s not in g["positives"]["notable_features"]:
                     g["positives"]["notable_features"].append(s)
 
-            # Issues
+            # Issues (now with IDs)
             issue_notes = ((passes.get("2a", {}) or {}).get("issues_notes") or "").strip()
             if issue_notes:
                 g["issues"]["notes"].append(issue_notes)
@@ -1919,12 +2059,19 @@ class AutoAnalyzer:
                 if isinstance(it, dict) and it.get("description"):
                     g["issues"]["issues_natural_language"].append({
                         "source_image": img_key,
+                        "issue_id": it.get("issue_id"),
+                        "photo_id": p.get("photo_id"),
+                        "photo_key": img_key,
                         "description": it.get("description", ""),
                         "rough_category": it.get("rough_category", ""),
                         "location_hint": it.get("location_hint", ""),
                     })
 
         photo_intel = {
+            # v2 schema versioning
+            "artifact_schema_version": PHOTO_INTEL_SCHEMA_VERSION,
+            "normalization_policy_version": NORMALIZATION_POLICY_VERSION,
+            # Existing fields
             "run_id": job.job_id,
             "job_id": job.job_id,
             "property_key": job.property_key,
@@ -1942,6 +2089,9 @@ class AutoAnalyzer:
             "scene_policy_version": self._pick_first_metadata(job.results, "scene_policy_version", ""),
             "photos": photos,
             "room_groups": room_groups,
+            # v2 flat issue index
+            "issues_flat": issues_flat,
+            "issues_flat_count": len(issues_flat),
         }
 
         try:
@@ -2148,12 +2298,18 @@ class AutoAnalyzer:
         # Build summary dict - always write even on failure
         # Includes both Pass 4 fields AND legacy UI fields from 4a/4b
         summary_data = {
+            # v2 schema versioning
+            "artifact_schema_version": PROPERTY_SUMMARY_SCHEMA_VERSION,
+            "normalization_policy_version": NORMALIZATION_POLICY_VERSION,
+            # Existing fields
             "property_key": job.property_key,
+            "run_id": job.job_id,  # explicit run_id for consistency
             "job_id": job.job_id,
             "timestamp": job.timestamp,
             "created_at": datetime.utcnow().isoformat() + "Z",
             "summary_version": "pass4_v2",
             "analysis_profile": self.analysis_profile,
+            "scene_counts": scene_counts,  # for UI filters
 
             # Pass 4 fields (original)
             "property_summary": property_summary,

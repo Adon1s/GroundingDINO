@@ -357,7 +357,7 @@ async def run_pass_1c_positive_structuring(
 # Pass 2a: Issue Detection (UNCHANGED)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_2A_SYSTEM_PROMPT = "What issues do you see that a realtor might want to know about? Dont be overdramatic. There might not be any issues at all"
+PASS_2A_SYSTEM_PROMPT = "What do you see in this image that is negative that a real estate investor would like to know about. If nothing looks wrong or notable, reply with only the word 'none'"
 
 
 async def run_pass_2a_issue_detection(
@@ -415,35 +415,40 @@ async def run_pass_2a_issue_detection(
 # Pass 2b: Freeform Issue JSON Conversion (UNCHANGED)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_2B_SYSTEM_PROMPT = """You convert noisy property-photo notes into STRICT, conservative JSON describing only clearly visible issues.
+PASS_2B_SYSTEM_PROMPT = """You convert raw photo notes into structured JSON issues.
 
 FREEFORM NOTES (from a vision model analyzing a property photo):
 ---
 {freeform_notes}
 ---
 
+GOAL:
+- Convert each distinct issue into one JSON item.
+- Keep wording factual and conservative.
+
+KEEP:
+- Wear, damage, stains, discoloration, missing parts.
+- Mentions of "older", "dated", or "outdated" as VALID signals.
+  - Use rough_category = "opportunity" for these.
+
+DROP:
+- Subjective opinions with no visible condition.
+- Anything not explicitly stated in the notes.
+
 RULES:
-- If the notes say that something is likely not an issue do not include it.
-- If it is extremely minor of an issue do not include it
-- Do NOT speculate or infer hidden problems.
-- If wording includes "may", "might", "could", or "possible" without a clearly described visible defect, omit the issue entirely
-- If the notes indicate no issues or no major defects, return an empty list.
+- Do NOT invent or infer problems.
+- Do NOT merge unrelated items.
+- If location is unclear, use an empty string.
 
-SEVERITY GUIDANCE (implicit, via wording only):
-- Cosmetic / minor wear → describe plainly, without urgency.
-- Moderate issues → only if notes clearly describe damage or malfunction.
-- Major issues → only if notes clearly describe significant damage or failure.
-- If severity is unclear, keep language neutral and non-alarming.
-
-OUTPUT FORMAT:
+OUTPUT:
 Return JSON only.
 
 {{
   "issues_natural_language": [
     {{
-      "description": "Calm, factual description of what is visibly described in the notes",
+      "description": "Calm factual restatement",
       "rough_category": "cosmetic | moisture | structure | systems | exterior | opportunity",
-      "location_hint": "Brief location reference, if mentioned"
+      "location_hint": ""
     }}
   ]
 }}
