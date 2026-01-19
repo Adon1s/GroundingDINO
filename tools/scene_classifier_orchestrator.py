@@ -52,8 +52,8 @@ from scene_classifier_passes import (
     Pass3Result,
     Pass4Result,
     run_pass_1a_scene_type,
-    run_pass_1b_positive_notes,
-    run_pass_1c_positive_structuring,
+    run_pass_1b_feature_notes,
+    run_pass_1c_feature_structuring,
     run_pass_2a_issue_detection,
     run_pass_2b_issue_verification,
     run_pass_3_keyword_extraction,
@@ -85,7 +85,8 @@ class ImageAnalysisResult:
     notable_features: List[str] = field(default_factory=list)
 
     # Raw notes (for Pass 4 notes-only summary)
-    positives_notes: str = ""
+    feature_notes: str = ""
+    positives_notes: str = ""  # legacy alias, keep temporarily
     issues_notes: str = ""
 
     keywords: List[str] = field(default_factory=list)
@@ -110,7 +111,8 @@ class ImageAnalysisResult:
             "notable_features": self.notable_features,
 
             # raw notes (pass4)
-            "positives_notes": self.positives_notes,
+            "feature_notes": self.feature_notes,
+            "positives_notes": self.positives_notes,  # legacy
             "issues_notes": self.issues_notes,
 
             "keywords": self.keywords,
@@ -324,39 +326,40 @@ class SceneClassifierOrchestrator:
             result.models_used['1a'] = model_name
 
         # ─────────────────────────────────────────────────────────────────────
-        # Pass 1b: Positives/Inventory Notes (FREEFORM)
+        # Pass 1b: Feature/Market Appeal Notes (FREEFORM)
         # ─────────────────────────────────────────────────────────────────────
-        positives_notes = ""
+        feature_notes = ""
 
         if toggles['1b']:
             model_config = self._get_model_config('1b', options)
             model_name = self._get_model_name('1b', options)
 
             logger.debug(f"Running Pass 1b with {model_name}")
-            result.pass_1b = await run_pass_1b_positive_notes(
+            result.pass_1b = await run_pass_1b_feature_notes(
                 image_path=image_path,
                 vlm_client=self.vlm_client,
                 model_config=model_config,
                 context=context,
             )
 
-            positives_notes = result.pass_1b.positives_notes
-            result.positives_notes = positives_notes
+            feature_notes = result.pass_1b.feature_notes
+            result.feature_notes = feature_notes
+            result.positives_notes = feature_notes  # legacy alias
             result.passes_run.append('1b')
             result.models_used['1b'] = model_name
 
         # ─────────────────────────────────────────────────────────────────────
-        # Pass 1c: Positives Notes -> JSON Structuring (text-only)
+        # Pass 1c: Feature Notes -> JSON Structuring (text-only)
         # ─────────────────────────────────────────────────────────────────────
         if toggles['1c']:
             model_config = self._get_model_config('1c', options)
             model_name = self._get_model_name('1c', options)
 
             logger.debug(f"Running Pass 1c with {model_name}")
-            result.pass_1c = await run_pass_1c_positive_structuring(
+            result.pass_1c = await run_pass_1c_feature_structuring(
                 vlm_client=self.vlm_client,
                 model_config=model_config,
-                positives_notes=positives_notes,
+                feature_notes=feature_notes,
             )
 
             # Back-compat fields for UI

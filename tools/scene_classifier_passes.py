@@ -4,8 +4,8 @@ Scene Classifier Pass Implementations
 Individual pass functions for the scene classification pipeline.
 
 Pass 1a: Scene Type Classification (fast, always Qwen)
-Pass 1b: Positives/Inventory Notes - FREEFORM (premium uses GPT-5.2)
-Pass 1c: Positives Notes → JSON Structuring (text-only)
+Pass 1b: Feature/Market Appeal Notes - FREEFORM (premium uses GPT-5.2)
+Pass 1c: Feature Notes → JSON Structuring (text-only)
 Pass 2a: Issue Detection (premium uses GPT-5.2)
 Pass 2b: Issue Verification (high volume, always Qwen)
 Pass 3:  Keyword Extraction (text-only, from structured facts)
@@ -55,14 +55,14 @@ class Pass1aResult:
 
 @dataclass
 class Pass1bResult:
-    """Result from Pass 1b: Positives/Inventory FREEFORM notes."""
-    positives_notes: str
+    """Result from Pass 1b: Feature/market appeal FREEFORM notes."""
+    feature_notes: str
     raw_response: Optional[str] = None
 
 
 @dataclass
 class Pass1cResult:
-    """Result from Pass 1c: Positives notes structured into JSON."""
+    """Result from Pass 1c: Feature notes structured into JSON."""
     overall_impression: str
     image_summary: Optional[str] = None
     notable_features: Optional[List[str]] = None
@@ -129,7 +129,6 @@ Classify the image into exactly ONE of these categories:
 Respond with ONLY a JSON object:
 {
   "scene": "<category>",
-  "confidence": <0.0-1.0>,
   "reasoning": "<brief explanation>"
 }"""
 
@@ -184,18 +183,15 @@ async def run_pass_1a_scene_type(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 1b: Positives/Inventory Notes (FREEFORM - NEW)
+# Pass 1b: Feature/Market Appeal Notes (FREEFORM)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 PASS_1B_SYSTEM_PROMPT = "You are a real estate photo analyst"
 
-PASS_1B_USER_PROMPT_TEMPLATE = ("What positive features or upgrades do you see in this photo that a realtor might want "
-                                "to highlight? Only mention things that are clearly visible. Only list positives; do "
-                                "not mention issues, updates, or drawbacks. There might not be any positives at all. "
-                                "If none, reply: none")
+PASS_1B_USER_PROMPT_TEMPLATE = ("In a few sentences to a paragraph, describe the visible finishes and layout that define the room")
 
 
-async def run_pass_1b_positive_notes(
+async def run_pass_1b_feature_notes(
         image_path: Path,
         vlm_client: Any,
         model_config: dict,
@@ -225,14 +221,14 @@ async def run_pass_1b_positive_notes(
 
     Returns:
         Pass1bResult containing:
-            - positives_notes: Freeform text describing visible positive features,
+            - feature_notes: Freeform text describing visible positive features,
               or "none" if no positives are present.
             - raw_response: The raw model response text.
     """
     scene = context.get('scene', 'property') if context else 'property'
     user_prompt = PASS_1B_USER_PROMPT_TEMPLATE
 
-    logger.debug(f"Pass 1b: Generating positives notes for {image_path.name} (scene: {scene})")
+    logger.debug(f"Pass 1b: Generating feature notes for {image_path.name} (scene: {scene})")
 
     try:
         response = await vlm_client.analyze_image(
@@ -245,43 +241,39 @@ async def run_pass_1b_positive_notes(
         notes = (response or "").strip()
 
         return Pass1bResult(
-            positives_notes=notes,
+            feature_notes=notes,
             raw_response=response,
         )
 
     except Exception as e:
-        logger.error(f"Pass 1b: Error generating positives notes: {e}")
+        logger.error(f"Pass 1b: Error generating feature notes: {e}")
         return Pass1bResult(
-            positives_notes="",
+            feature_notes="",
             raw_response=None,
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 1c: Positives Notes → JSON Structuring (NEW)
+# Pass 1c: Feature Notes → JSON Structuring
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_1C_SYSTEM_PROMPT = """You convert FREEFORM positives/inventory notes about a real estate photo into STRICT JSON.
+PASS_1C_SYSTEM_PROMPT = """You convert FREEFORM notes about visible features into STRICT JSON.
 
 INPUT NOTES:
 ---
-{positives_notes}
+{notes}
 ---
 
 Rules:
 - Use ONLY what is stated in the notes. Do not add new features or claims.
 - Keep language conservative and factual.
-- If the notes are only a list of features (or very short), it is OK to output "" for overall_impression and image_summary.
-- If notes indicate there are no positives (e.g., "none"), output:
-  - overall_impression = ""
-  - image_summary = ""
-  - notable_features = []
-- notable_features must be a list of short strings (2–10 words each), deduplicated.
+- Do NOT restate defects, problems, or renovation conclusions.
+- If notes indicate none (e.g., "none"), output empty fields and [].
+- notable_features must be a list of short strings (2–10 words), deduplicated.
 
 Respond with ONLY a JSON object:
 {{
   "overall_impression": "...",
-  "image_summary": "...",
   "notable_features": ["..."]
 }}
 """
@@ -289,27 +281,27 @@ Respond with ONLY a JSON object:
 PASS_1C_USER_PROMPT = "Convert the notes into the JSON format."
 
 
-async def run_pass_1c_positive_structuring(
+async def run_pass_1c_feature_structuring(
         vlm_client: Any,
         model_config: dict,
-        positives_notes: str,
+        feature_notes: str,
 ) -> Pass1cResult:
     """
-    Pass 1c: Convert freeform positives notes to structured JSON.
+    Pass 1c: Convert freeform feature notes to structured JSON.
 
     This is a text-only pass that structures the freeform notes from Pass 1b.
 
     Args:
         vlm_client: VLM client instance
         model_config: Model configuration
-        positives_notes: Freeform notes from Pass 1b
+        feature_notes: Freeform notes from Pass 1b
 
     Returns:
-        Pass1cResult with structured positives data
+        Pass1cResult with structured feature data
     """
-    logger.debug("Pass 1c: Converting positives notes to JSON")
+    logger.debug("Pass 1c: Converting feature notes to JSON")
 
-    if _is_effectively_empty_notes(positives_notes):
+    if _is_effectively_empty_notes(feature_notes):
         return Pass1cResult(
             overall_impression="",
             image_summary="",
@@ -317,7 +309,7 @@ async def run_pass_1c_positive_structuring(
             raw_response=None,
         )
 
-    system_prompt = PASS_1C_SYSTEM_PROMPT.format(positives_notes=positives_notes)
+    system_prompt = PASS_1C_SYSTEM_PROMPT.format(feature_notes=feature_notes)
 
     try:
         response = await vlm_client.analyze_text(
@@ -344,7 +336,7 @@ async def run_pass_1c_positive_structuring(
         )
 
     except Exception as e:
-        logger.error(f"Pass 1c: Error converting positives notes to JSON: {e}")
+        logger.error(f"Pass 1c: Error converting feature notes to JSON: {e}")
         return Pass1cResult(
             overall_impression="",
             image_summary="",
@@ -612,7 +604,7 @@ async def run_pass_3_keyword_extraction(
 PASS_4_SYSTEM_PROMPT = """You are a real estate investment analyst synthesizing property photo notes.
 
 You will be given:
-- POSITIVES NOTES: freeform positives/inventory notes from multiple photos
+- FEATURE NOTES: freeform positives/inventory notes from multiple photos
 - ISSUES NOTES: freeform issues/concerns notes from multiple photos
 
 Rules:
@@ -639,35 +631,35 @@ async def run_pass_4_property_summary(
     Pass 4: Generate property-level summary from all image analyses.
 
     Uses GPT-5 in premium mode for better synthesis.
-    This pass uses freeform notes from Pass 1b (positives) and Pass 2a (issues).
+    This pass uses freeform notes from Pass 1b (features) and Pass 2a (issues).
 
     Args:
         vlm_client: VLM client instance
         model_config: Model configuration
         all_results: Aggregated results from all images, containing:
             - 'scene': scene type
-            - 'positives_notes': freeform notes from Pass 1b
+            - 'feature_notes': freeform notes from Pass 1b
             - 'issues_notes': freeform notes from Pass 2a
 
     Returns:
         Pass4Result with property summary
     """
-    positives_blocks = []
+    feature_blocks = []
     issues_blocks = []
 
     for img_key, data in list(all_results.items())[:20]:
         scene = data.get("scene", "unknown")
-        pos = (data.get("positives_notes") or "").strip()
+        feat = (data.get("feature_notes") or "").strip()
         neg = (data.get("issues_notes") or "").strip()
 
-        if pos:
-            positives_blocks.append(f"- {img_key} ({scene}): {pos}")
+        if feat:
+            feature_blocks.append(f"- {img_key} ({scene}): {feat}")
         if neg:
             issues_blocks.append(f"- {img_key} ({scene}): {neg}")
 
     user_prompt = (
-            "POSITIVES NOTES:\n---\n"
-            + "\n".join(positives_blocks) + "\n---\n\n"
+            "FEATURE NOTES:\n---\n"
+            + "\n".join(feature_blocks) + "\n---\n\n"
             + "ISSUES NOTES:\n---\n"
             + "\n".join(issues_blocks) + "\n---\n"
             + f"\nTotal images analyzed: {len(all_results)}"
@@ -830,11 +822,11 @@ async def run_pass_4a_room_summaries(
         scene = str((data or {}).get("scene") or "unknown").strip()
         group = SCENE_TO_GROUP.get(scene, "other")
 
-        pos = str((data or {}).get("positives_notes") or "").strip()
+        feat = str((data or {}).get("feature_notes") or "").strip()
         neg = str((data or {}).get("issues_notes") or "").strip()
 
-        if pos:
-            groups[group].append(f"- {img_key} ({scene}) POS: {pos}")
+        if feat:
+            groups[group].append(f"- {img_key} ({scene}) FEAT: {feat}")
         if neg:
             groups[group].append(f"- {img_key} ({scene}) ISSUES: {neg}")
 

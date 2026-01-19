@@ -99,7 +99,6 @@ except ImportError:
     get_model_configs_from_pipeline_config = None
     VLM_CLIENT_AVAILABLE = False
 
-# Import pass architecture components (optional - graceful fallback)
 try:
     from tools.pass_config import (
         SceneClassifierRunOptions,
@@ -114,8 +113,8 @@ try:
     )
     from tools.scene_classifier_passes import (
         run_pass_1a_scene_type,
-        run_pass_1b_positive_notes,
-        run_pass_1c_positive_structuring,
+        run_pass_1b_feature_notes,
+        run_pass_1c_feature_structuring,
         run_pass_2a_issue_detection,
         run_pass_2b_issue_verification,
         run_pass_3_keyword_extraction,
@@ -129,9 +128,11 @@ try:
 
     PASS_ARCHITECTURE_AVAILABLE = True
 except ImportError as e:
-    SceneClassifierRunOptions = None
-    PASS_ARCHITECTURE_AVAILABLE = False
-    print(f"INFO: Pass architecture modules not found ({e}), using legacy scene classifier")
+    raise ImportError(
+        f"Pass architecture import failed: {e}. "
+        "Fix scene_classifier_passes exports / names. "
+        "Legacy fallback is disabled."
+    ) from e
 
 # Console encoding safety
 if hasattr(sys.stdout, "reconfigure"):
@@ -927,7 +928,8 @@ class AutoAnalyzer:
                 'overall_impression': '',
                 'image_summary': '',
                 'notable_features': [],
-                'positives_notes': '',
+                'feature_notes': '',
+                'positives_notes': '',  # legacy alias
                 'issues_notes': '',
                 'keywords': [],
                 'catalog_flags': {},
@@ -962,39 +964,41 @@ class AutoAnalyzer:
             except Exception as e:
                 logger.warning(f"  Pass 1a failed: {e}")
 
-            # Pass 1b: Positives/Inventory notes (FREEFORM; GPT in premium)
+            # Pass 1b: Feature/Market Appeal notes (FREEFORM; GPT in premium)
             model_config_1b = self._get_model_config_for_pass('1b')
             logger.debug(f"  Pass 1b using model: {model_config_1b.get('model')}")
             results['models_used']['1b'] = model_config_1b.get('model')
 
-            positives_notes = ""
+            feature_notes = ""
             try:
-                pass_1b = await run_pass_1b_positive_notes(
+                pass_1b = await run_pass_1b_feature_notes(
                     image_path=image_path,
                     vlm_client=self.vlm_client,
                     model_config=model_config_1b,
                     context=context,
                 )
-                positives_notes = pass_1b.positives_notes
-                results['positives_notes'] = positives_notes
+                feature_notes = pass_1b.feature_notes
+                results['feature_notes'] = feature_notes
+                results['positives_notes'] = feature_notes  # legacy alias
 
                 # Store Pass 1b output
                 results['passes']['1b'] = {
-                    'positives_notes': positives_notes,
+                    'feature_notes': feature_notes,
+                    'positives_notes': feature_notes,  # legacy alias
                 }
             except Exception as e:
                 logger.warning(f"  Pass 1b failed: {e}")
 
-            # Pass 1c: Positives notes -> JSON structuring (text-only)
+            # Pass 1c: Feature notes -> JSON structuring (text-only)
             model_config_1c = self._get_model_config_for_pass('1c')
             logger.debug(f"  Pass 1c using model: {model_config_1c.get('model')}")
             results['models_used']['1c'] = model_config_1c.get('model')
 
             try:
-                pass_1c = await run_pass_1c_positive_structuring(
+                pass_1c = await run_pass_1c_feature_structuring(
                     vlm_client=self.vlm_client,
                     model_config=model_config_1c,
-                    positives_notes=positives_notes,
+                    feature_notes=feature_notes,
                 )
                 results['overall_impression'] = pass_1c.overall_impression or ""
                 results['image_summary'] = pass_1c.image_summary or ""
@@ -1140,7 +1144,8 @@ class AutoAnalyzer:
         scene_payload['overall_impression'] = data.get('overall_impression', '')
         scene_payload['image_summary'] = data.get('image_summary', '')
         scene_payload['notable_features'] = data.get('notable_features', []) or []
-        scene_payload['positives_notes'] = data.get('positives_notes', '') or ""
+        scene_payload['feature_notes'] = data.get('feature_notes', '') or data.get('positives_notes', '') or ""
+        scene_payload['positives_notes'] = scene_payload['feature_notes']  # legacy alias
         scene_payload['issues_notes'] = data.get('issues_notes', '') or ""
         scene_payload['groundingdino_prompt'] = prompt
         scene_payload['catalog_flags'] = data.get('catalog_flags', {})
@@ -1155,7 +1160,10 @@ class AutoAnalyzer:
                 "confidence": confidence,
                 "reasoning": reasoning,
             },
-            "1b": {"positives_notes": scene_payload.get("positives_notes", "")},
+            "1b": {
+                "feature_notes": scene_payload.get("feature_notes", ""),
+                "positives_notes": scene_payload.get("positives_notes", ""),  # legacy alias
+            },
             "1c": {
                 "overall_impression": scene_payload.get("overall_impression", ""),
                 "image_summary": scene_payload.get("image_summary", ""),
@@ -1199,7 +1207,8 @@ class AutoAnalyzer:
         # Build scene payload
         scene_payload = self._scene_classifier_payload(results, scene_override=scene)
         scene_payload['notable_features'] = results.get('notable_features', []) or []
-        scene_payload['positives_notes'] = results.get('positives_notes', '') or ""
+        scene_payload['feature_notes'] = results.get('feature_notes', '') or results.get('positives_notes', '') or ""
+        scene_payload['positives_notes'] = scene_payload['feature_notes']  # legacy alias
         scene_payload['issues_notes'] = results.get('issues_notes', '') or ""
         scene_payload['keyword_categories'] = results.get('keyword_categories')
         scene_payload['groundingdino_prompt'] = prompt
@@ -1836,7 +1845,8 @@ class AutoAnalyzer:
         payload.setdefault("overall_impression", "")
         payload.setdefault("image_summary", "")
         payload.setdefault("notable_features", [])
-        payload.setdefault("positives_notes", "")
+        payload.setdefault("feature_notes", "")
+        payload.setdefault("positives_notes", "")  # legacy alias
         payload.setdefault("issues_notes", "")
         payload.setdefault("reasoning", "" if error is None else error)
         payload.setdefault("targets", [])
@@ -1921,13 +1931,17 @@ class AutoAnalyzer:
             passes = payload.get("passes", None)
             if passes is None:
                 # Fallback: reconstruct passes from flat fields (legacy runs only)
+                feat_notes = payload.get("feature_notes", "") or payload.get("positives_notes", "")
                 passes = {
                     "1a": {
                         "scene": payload.get("scene", "unknown"),
                         "confidence": payload.get("scene_confidence"),
                         "reasoning": payload.get("reasoning", ""),
                     },
-                    "1b": {"positives_notes": payload.get("positives_notes", "")},
+                    "1b": {
+                        "feature_notes": feat_notes,
+                        "positives_notes": feat_notes,  # legacy alias
+                    },
                     "1c": {
                         "overall_impression": payload.get("overall_impression", ""),
                         "image_summary": payload.get("image_summary", ""),
@@ -2038,10 +2052,11 @@ class AutoAnalyzer:
 
             passes = p.get("passes", {}) or {}
 
-            # Positives
-            pos_notes = ((passes.get("1b", {}) or {}).get("positives_notes") or "").strip()
-            if pos_notes:
-                g["positives"]["notes"].append(pos_notes)
+            # Positives (prefer feature_notes, fallback to positives_notes for legacy)
+            pass_1b = (passes.get("1b", {}) or {})
+            feat_notes = (pass_1b.get("feature_notes") or pass_1b.get("positives_notes") or "").strip()
+            if feat_notes:
+                g["positives"]["notes"].append(feat_notes)
 
             nf = _safe_list((passes.get("1c", {}) or {}).get("notable_features"))
             for feat in nf:
