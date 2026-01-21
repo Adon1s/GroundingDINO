@@ -188,7 +188,9 @@ async def run_pass_1a_scene_type(
 
 PASS_1B_SYSTEM_PROMPT = "You are a real estate photo analyst"
 
-PASS_1B_USER_PROMPT_TEMPLATE = ("In a few sentences to a paragraph, describe the visible finishes and layout that define the room")
+PASS_1B_USER_PROMPT_TEMPLATE = ("This is a {scene} photo. Explain any visible features or finishes worth noting "
+                                "(materials, fixtures, appliances, amenities). Do not mention issues, damage, "
+                                "or drawbacks. If none, reply: none")
 
 
 async def run_pass_1b_feature_notes(
@@ -273,7 +275,6 @@ Rules:
 
 Respond with ONLY a JSON object:
 {{
-  "overall_impression": "...",
   "notable_features": ["..."]
 }}
 """
