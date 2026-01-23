@@ -15,7 +15,6 @@ Pass 4:  Property Summary (premium uses GPT-5.2)
 from tools.llm_json import extract_json_object
 import json
 import logging
-import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -186,11 +185,11 @@ async def run_pass_1a_scene_type(
 # Pass 1b: Feature/Market Appeal Notes (FREEFORM)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_1B_SYSTEM_PROMPT = "You are a real estate photo analyst"
+PASS_1B_SYSTEM_PROMPT = ("You are a real estate photo analyst. Explain any visible features or finishes worth noting ("
+                         "materials, fixtures, appliances, amenities). Do not mention issues, damage, or drawbacks. "
+                         "If none, reply: none")
 
-PASS_1B_USER_PROMPT_TEMPLATE = ("This is a {scene} photo. Explain any visible features or finishes worth noting "
-                                "(materials, fixtures, appliances, amenities). Do not mention issues, damage, "
-                                "or drawbacks. If none, reply: none")
+PASS_1B_USER_PROMPT_TEMPLATE = "This is a {scene} photo."
 
 
 async def run_pass_1b_feature_notes(
@@ -228,7 +227,7 @@ async def run_pass_1b_feature_notes(
             - raw_response: The raw model response text.
     """
     scene = context.get('scene', 'property') if context else 'property'
-    user_prompt = PASS_1B_USER_PROMPT_TEMPLATE
+    user_prompt = PASS_1B_USER_PROMPT_TEMPLATE.format(scene=scene)
 
     logger.debug(f"Pass 1b: Generating feature notes for {image_path.name} (scene: {scene})")
 
@@ -261,11 +260,6 @@ async def run_pass_1b_feature_notes(
 
 PASS_1C_SYSTEM_PROMPT = """You convert FREEFORM notes about visible features into STRICT JSON.
 
-INPUT NOTES:
----
-{notes}
----
-
 Rules:
 - Use ONLY what is stated in the notes. Do not add new features or claims.
 - Keep language conservative and factual.
@@ -274,12 +268,20 @@ Rules:
 - notable_features must be a list of short strings (2–10 words), deduplicated.
 
 Respond with ONLY a JSON object:
-{{
+{
   "notable_features": ["..."]
-}}
+}
+
+Convert the notes into the JSON format.
+
 """
 
-PASS_1C_USER_PROMPT = "Convert the notes into the JSON format."
+PASS_1C_USER_PROMPT = """INPUT NOTES:
+---
+{feature_notes}
+---
+"""
+
 
 
 async def run_pass_1c_feature_structuring(
@@ -310,12 +312,13 @@ async def run_pass_1c_feature_structuring(
             raw_response=None,
         )
 
-    system_prompt = PASS_1C_SYSTEM_PROMPT.format(feature_notes=feature_notes)
+    system_prompt = PASS_1C_SYSTEM_PROMPT
+    user_prompt = PASS_1C_USER_PROMPT.format(feature_notes=feature_notes)
 
     try:
         response = await vlm_client.analyze_text(
             system_prompt=system_prompt,
-            user_prompt=PASS_1C_USER_PROMPT,
+            user_prompt=user_prompt,
             **model_config,
         )
 
@@ -410,11 +413,6 @@ async def run_pass_2a_issue_detection(
 
 PASS_2B_SYSTEM_PROMPT = """You convert raw photo notes into structured JSON issues.
 
-FREEFORM NOTES (from a vision model analyzing a property photo):
----
-{freeform_notes}
----
-
 GOAL:
 - Convert each distinct issue into one JSON item.
 - Keep wording factual and conservative.
@@ -436,15 +434,21 @@ RULES:
 OUTPUT:
 Return JSON only.
 
-{{
+{
   "issues_natural_language": [
-    {{
+    {
       "description": "Calm factual restatement",
       "rough_category": "cosmetic | moisture | structure | systems | exterior | opportunity",
       "location_hint": ""
-    }}
+    }
   ]
-}}
+}
+"""
+
+PASS_2B_USER_PROMPT = """FREEFORM NOTES (from a vision model analyzing a property photo):
+---
+{freeform_notes}
+---
 """
 
 
@@ -479,8 +483,9 @@ async def run_pass_2b_issue_verification(
         )
 
     # Format the system prompt with all placeholders
-    system_prompt = PASS_2B_SYSTEM_PROMPT.format(
-        freeform_notes=freeform_notes or "(no notes provided)",
+    system_prompt = PASS_2B_SYSTEM_PROMPT
+    user_prompt = PASS_2B_USER_PROMPT.format(
+        freeform_notes=freeform_notes or "(no notes provided)"
     )
 
     logger.debug(f"Pass 2b: Converting freeform notes to JSON for {image_path.name}")
@@ -489,7 +494,7 @@ async def run_pass_2b_issue_verification(
         # ✅ Text-only call - does not need the image
         response = await vlm_client.analyze_text(
             system_prompt=system_prompt,
-            user_prompt="Convert the notes into the JSON format.",
+            user_prompt=user_prompt,
             **model_config,
         )
 
