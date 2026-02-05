@@ -83,6 +83,7 @@ except ImportError:
 # Embeddings catalog matcher (optional)
 try:
     from tools.catalog_embeddings import CatalogEmbedMatcher
+
     EMBEDDINGS_MATCHER_AVAILABLE = True
 except Exception:
     CatalogEmbedMatcher = None
@@ -115,15 +116,11 @@ try:
         run_pass_1a_scene_type,
         run_pass_1b_feature_notes,
         run_pass_1c_feature_structuring,
-        run_pass_2a_issue_detection,
-        run_pass_2b_issue_verification,
+        run_pass_2a,
+        run_pass_2b,
+        run_pass_2c,
+        run_pass_2d,
         run_pass_3_keyword_extraction,
-        run_pass_4_property_summary,
-        run_pass_4a_room_summaries,
-        run_pass_4b_property_card_fields,
-        Pass4aRoomSummariesResult,
-        Pass4bLegacyCardResult,
-        SCENE_TO_GROUP,
     )
 
     PASS_ARCHITECTURE_AVAILABLE = True
@@ -221,7 +218,7 @@ for _group, _scenes in SCENE_GROUPS_UI.items():
 
 # ── Schema Version Constants ────────────────────────────────────────────────────
 PHOTO_INTEL_SCHEMA_VERSION = "photo_intel_v2"
-PROPERTY_SUMMARY_SCHEMA_VERSION = "property_summary_v2"
+PROPERTY_SUMMARY_SCHEMA_VERSION = "property_summary_v3"
 NORMALIZATION_POLICY_VERSION = "workitem_v1"
 
 
@@ -571,7 +568,7 @@ class AutoAnalyzer:
         Get the appropriate model config for a specific pass.
 
         Args:
-            pass_key: Pass identifier ('1a', '1b', '1c', '2a', '2b', '3', '4', '4a', '4b')
+            pass_key: Pass identifier ('1a', '1b', '1c', '2a', '2b', '3', '4a', '4b', '4c')
 
         Returns:
             Model config dict with 'url', 'model', 'api_key' etc.
@@ -596,8 +593,9 @@ class AutoAnalyzer:
             }
             return base  # no OpenAI cap possible here
 
-        # Premium uses GPT for passes 1b, 2a, 4
-        if self.analysis_profile == 'premium' and pass_key in ('1b', '2a', '4'):
+        # Premium uses GPT for passes 1b, 2a, 4, 4a, 4b, 4c
+        if self.analysis_profile == 'premium' and (
+                pass_key in ('1b', '2a', '4', '4a', '4b', '4c') or pass_key.startswith('4')):
             if self.gpt_config and self.gpt_config.get('api_key'):
                 # Check for pass-specific model override
                 base = self._get_pass_specific_gpt_config(pass_key)
@@ -622,7 +620,11 @@ class AutoAnalyzer:
             '1b': ['GPT_PASS_1B_MODEL', 'OPENAI_PASS1B_MODEL'],
             '2a': ['GPT_PASS_2A_MODEL', 'OPENAI_PASS2A_MODEL'],
             '2b': ['GPT_PASS_2B_MODEL', 'OPENAI_PASS2B_MODEL', 'OPENAI_CHIP_MODEL'],
+            '2c': ['GPT_PASS_2C_MODEL', 'OPENAI_PASS2C_MODEL'],
             '4': ['GPT_PASS_4_MODEL', 'OPENAI_PASS4_MODEL'],
+            '4a': ['GPT_PASS_4A_MODEL', 'OPENAI_PASS4A_MODEL'],
+            '4b': ['GPT_PASS_4B_MODEL', 'OPENAI_PASS4B_MODEL'],
+            '4c': ['GPT_PASS_4C_MODEL', 'OPENAI_PASS4C_MODEL'],
         }
 
         attr_names = pass_model_attrs.get(pass_key, [])
@@ -655,7 +657,11 @@ class AutoAnalyzer:
         key_map = {
             "1b": "OPENAI_PASS_1B_MAX_TOKENS",
             "2a": "OPENAI_PASS_2A_MAX_TOKENS",
+            "2c": "OPENAI_PASS_2C_MAX_TOKENS",
             "4": "OPENAI_PASS_4_MAX_TOKENS",
+            "4a": "OPENAI_PASS_4A_MAX_TOKENS",
+            "4b": "OPENAI_PASS_4B_MAX_TOKENS",
+            "4c": "OPENAI_PASS_4C_MAX_TOKENS",
         }
 
         attr = key_map.get(pass_key)
@@ -937,6 +943,7 @@ class AutoAnalyzer:
                 'verified_issues': [],
                 'passes': {},  # Store per-pass outputs
                 'models_used': {},  # Track which model was used for each pass
+                'pass_timings': {},  # Track per-pass execution time in seconds
             }
             context = {}
 
@@ -945,6 +952,7 @@ class AutoAnalyzer:
             logger.debug(f"  Pass 1a using model: {model_config_1a.get('model')}")
             results['models_used']['1a'] = model_config_1a.get('model')
 
+            t0 = time.time()
             try:
                 pass_1a = await run_pass_1a_scene_type(
                     image_path=image_path,
@@ -958,11 +966,12 @@ class AutoAnalyzer:
                 # Store Pass 1a output
                 results['passes']['1a'] = {
                     'scene': pass_1a.scene,
-                    'confidence': pass_1a.scene_confidence,
+                    'confidence': None,  # scene_confidence retired
                     'reasoning': pass_1a.reasoning,
                 }
             except Exception as e:
                 logger.warning(f"  Pass 1a failed: {e}")
+            results['pass_timings']['1a'] = round(time.time() - t0, 3)
 
             # Pass 1b: Feature/Market Appeal notes (FREEFORM; GPT in premium)
             model_config_1b = self._get_model_config_for_pass('1b')
@@ -970,6 +979,7 @@ class AutoAnalyzer:
             results['models_used']['1b'] = model_config_1b.get('model')
 
             feature_notes = ""
+            t0 = time.time()
             try:
                 pass_1b = await run_pass_1b_feature_notes(
                     image_path=image_path,
@@ -988,93 +998,147 @@ class AutoAnalyzer:
                 }
             except Exception as e:
                 logger.warning(f"  Pass 1b failed: {e}")
+            results['pass_timings']['1b'] = round(time.time() - t0, 3)
 
             # Pass 1c: Feature notes -> JSON structuring (text-only)
             model_config_1c = self._get_model_config_for_pass('1c')
             logger.debug(f"  Pass 1c using model: {model_config_1c.get('model')}")
             results['models_used']['1c'] = model_config_1c.get('model')
 
+            t0 = time.time()
             try:
                 pass_1c = await run_pass_1c_feature_structuring(
                     vlm_client=self.vlm_client,
                     model_config=model_config_1c,
                     feature_notes=feature_notes,
                 )
-                results['overall_impression'] = pass_1c.overall_impression or ""
-                results['image_summary'] = pass_1c.image_summary or ""
                 results['notable_features'] = pass_1c.notable_features or []
                 context['notable_features'] = results['notable_features']
 
-                # Store Pass 1c output
+                # Store Pass 1c output (only notable_features in current Pass1cResult)
                 results['passes']['1c'] = {
-                    'overall_impression': results['overall_impression'],
-                    'image_summary': results['image_summary'],
                     'notable_features': results['notable_features'],
                 }
             except Exception as e:
                 logger.warning(f"  Pass 1c failed: {e}")
+            results['pass_timings']['1c'] = round(time.time() - t0, 3)
 
             # Pass 2a: Issue Detection - freeform notes (GPT in premium)
             model_config_2a = self._get_model_config_for_pass('2a')
             logger.debug(f"  Pass 2a using model: {model_config_2a.get('model')}")
             results['models_used']['2a'] = model_config_2a.get('model')
 
-            freeform_notes = ""
+            obs_freeform = ""
+            t0 = time.time()
             try:
-                pass_2a = await run_pass_2a_issue_detection(
+                pass_2a = await run_pass_2a(
                     image_path=image_path,
                     vlm_client=self.vlm_client,
                     model_config=model_config_2a,
                     context=context,
-                    issue_catalog=self.issue_catalog,
                 )
-                freeform_notes = pass_2a.issues_notes
-                results['issues_notes'] = freeform_notes
+                obs_freeform = pass_2a.observations_freeform
+                results['observations_freeform'] = obs_freeform
 
                 # Store Pass 2a output
                 results['passes']['2a'] = {
-                    'issues_notes': freeform_notes,
+                    'observations_freeform': obs_freeform,
                 }
             except Exception as e:
                 logger.warning(f"  Pass 2a failed: {e}")
+            results['pass_timings']['2a'] = round(time.time() - t0, 3)
 
             # Pass 2b: Freeform to JSON conversion (always Qwen)
             model_config_2b = self._get_model_config_for_pass('2b')
             logger.debug(f"  Pass 2b using model: {model_config_2b.get('model')}")
             results['models_used']['2b'] = model_config_2b.get('model')
 
+            observations: List[Dict[str, Any]] = []
+            t0 = time.time()
             try:
-                pass_2b = await run_pass_2b_issue_verification(
-                    image_path=image_path,
+                pass_2b = await run_pass_2b(
                     vlm_client=self.vlm_client,
                     model_config=model_config_2b,
-                    freeform_notes=freeform_notes,
-                    context=context,
-                    issue_catalog=self.issue_catalog,
+                    observations_freeform=obs_freeform,
                 )
-                results['issues_natural_language'] = pass_2b.issues_natural_language
-                results['catalog_flags'] = {}  # embeddings owns this, not pass_2b
-                results['verified_issues'] = pass_2b.issues_natural_language
-                context['issues_natural_language'] = results['issues_natural_language']
+                observations = pass_2b.observations or []
+                results['observations'] = observations
 
                 # Store Pass 2b output
                 results['passes']['2b'] = {
-                    'issues_natural_language': results['issues_natural_language'],
-                    'catalog_flags': {},  # canonical: always empty in 2b
+                    'observations': observations,
                 }
             except Exception as e:
                 logger.warning(f"  Pass 2b failed: {e}")
+            results['pass_timings']['2b'] = round(time.time() - t0, 3)
+
+            # Pass 2c: Issue classification + labeling (always Qwen, text-only)
+            model_config_2c = self._get_model_config_for_pass('2c')
+            logger.debug(f"  Pass 2c using model: {model_config_2c.get('model')}")
+            results['models_used']['2c'] = model_config_2c.get('model')
+
+            labeled_debug: List[Dict[str, Any]] = []
+            labeled_forward: List[Dict[str, Any]] = []
+            t0 = time.time()
+            try:
+                pass_2c = await run_pass_2c(
+                    vlm_client=self.vlm_client,
+                    model_config=model_config_2c,
+                    observations=observations,
+                )
+                labeled_debug = pass_2c.labeled_debug or []
+                labeled_forward = pass_2c.labeled_forward or []
+
+                # Enrich forward items to keep downstream schema happy
+                forward_enriched = [
+                    {
+                        "description": x.get("description", ""),
+                        "label": x.get("label", ""),
+                        "rough_category": x.get("label", ""),  # placeholder until real taxonomy
+                        "location_hint": "",
+                    }
+                    for x in labeled_forward
+                    if isinstance(x, dict) and x.get("description")
+                ]
+
+                results['labeled_debug'] = labeled_debug
+                results['labeled_forward'] = forward_enriched
+                results['catalog_flags'] = {}  # embeddings owns this, not passes
+
+                # Bridge to legacy fields for downstream compatibility
+                results['issues_natural_language'] = forward_enriched
+                results['verified_issues'] = forward_enriched
+
+                # Store Pass 2c output
+                results['passes']['2c'] = {
+                    'labeled_debug': labeled_debug,
+                    'labeled_forward': forward_enriched,
+                }
+            except Exception as e:
+                logger.warning(f"  Pass 2c failed: {e}")
+                # Fallback: bridge observations directly
+                fallback_issues = [
+                    {"description": x.get("description", ""), "label": "", "rough_category": "", "location_hint": ""}
+                    for x in observations if isinstance(x, dict) and x.get("description")
+                ]
+                results['labeled_debug'] = []
+                results['labeled_forward'] = fallback_issues
+                results['issues_natural_language'] = fallback_issues
+                results['verified_issues'] = fallback_issues
+            results['pass_timings']['2c'] = round(time.time() - t0, 3)
 
             # Pass 3: Keyword Extraction (text-only, always Qwen)
             model_config_3 = self._get_model_config_for_pass('3')
             logger.debug(f"  Pass 3 using model: {model_config_3.get('model')}")
             results['models_used']['3'] = model_config_3.get('model')
 
+            t0 = time.time()
             try:
-                # Ensure Pass 3 context matches new Pass 3 prompt (structured facts only)
-                context.setdefault("scene", results.get("scene", "property"))
-                context.setdefault("notable_features", results.get("notable_features", []))
-                context.setdefault("issues_natural_language", results.get("issues_natural_language", []))
+                # Pass 3 context must match new Pass 3 prompt expectations
+                context["scene"] = results.get("scene", "property")
+                context["features_struct"] = {"notable_features": results.get("notable_features", [])}
+                context["observations"] = observations
+                context["labeled_forward"] = results.get("labeled_forward", [])
 
                 pass_3 = await run_pass_3_keyword_extraction(
                     vlm_client=self.vlm_client,
@@ -1092,6 +1156,10 @@ class AutoAnalyzer:
                 }
             except Exception as e:
                 logger.warning(f"  Pass 3 failed: {e}")
+            results['pass_timings']['3'] = round(time.time() - t0, 3)
+
+            # Compute total LLM time
+            results['total_pass_time'] = round(sum(results['pass_timings'].values()), 3)
 
             return results
 
@@ -1118,10 +1186,9 @@ class AutoAnalyzer:
 
         scene = data.get("scene", "unknown")
         reasoning = ""
-        confidence = None
+        confidence = None  # scene_confidence retired
         if hasattr(result, 'pass_1a') and result.pass_1a:
             reasoning = result.pass_1a.reasoning or ""
-            confidence = getattr(result.pass_1a, 'scene_confidence', None)
 
         keywords = data.get("keywords", []) or []
 
@@ -1153,32 +1220,66 @@ class AutoAnalyzer:
         scene_payload['verified_issues'] = data.get('verified_issues', [])
         scene_payload['models_used'] = data.get('models_used', {})
 
-        # Build passes dict for consistent schema
-        scene_payload['passes'] = {
-            "1a": {
-                "scene": scene,
-                "confidence": confidence,
-                "reasoning": reasoning,
-            },
-            "1b": {
-                "feature_notes": scene_payload.get("feature_notes", ""),
-                "positives_notes": scene_payload.get("positives_notes", ""),  # legacy alias
-            },
-            "1c": {
-                "overall_impression": scene_payload.get("overall_impression", ""),
-                "image_summary": scene_payload.get("image_summary", ""),
-                "notable_features": scene_payload.get("notable_features", []),
-            },
-            "2a": {"issues_notes": scene_payload.get("issues_notes", "")},
-            "2b": {
-                "issues_natural_language": scene_payload.get("issues_natural_language", []),
-                "catalog_flags": {},  # canonical: embeddings owns catalog_flags, not 2b
-            },
-            "3": {
-                "keywords": keywords,
-                "categories": kw_cats,
-            },
-        }
+        # Copy v2 fields through from orchestrator
+        scene_payload["observations_freeform"] = data.get("observations_freeform", "")
+        scene_payload["features_struct"] = data.get("features_struct", {}) or {}
+        scene_payload["observations_struct"] = data.get("observations_struct", {}) or {}
+        scene_payload["labeled_debug"] = data.get("labeled_debug", []) or []
+        scene_payload["labeled_forward"] = data.get("labeled_forward", []) or []
+        scene_payload["resolved_defects"] = data.get("resolved_defects", []) or []
+
+        # Keep meta
+        scene_payload["passes_run"] = data.get("passes_run", []) or []
+        scene_payload["pass_timings"] = data.get("pass_timings", {}) or {}
+        scene_payload["total_pass_time"] = data.get("total_pass_time", 0.0) or 0.0
+
+        # TEMP bridge: treat labeled_forward as "issues" so legacy paths still function
+        if scene_payload["labeled_forward"] and not scene_payload.get("issues_natural_language"):
+            scene_payload["issues_natural_language"] = [
+                {
+                    "description": x.get("description", ""),
+                    "rough_category": x.get("label", ""),   # placeholder mapping
+                    "location_hint": "",
+                    "label": x.get("label", ""),
+                }
+                for x in (scene_payload["labeled_forward"] or [])
+                if isinstance(x, dict) and x.get("description")
+            ]
+            scene_payload["verified_issues"] = scene_payload["issues_natural_language"]
+
+        # Build passes dict for consistent schema - preserve orchestrator passes if present
+        existing_passes = data.get("passes")
+        if isinstance(existing_passes, dict) and existing_passes:
+            scene_payload["passes"] = existing_passes
+        else:
+            # Fallback only if orchestrator didn't provide passes
+            scene_payload['passes'] = {
+                "1a": {
+                    "scene": scene,
+                    "confidence": confidence,
+                    "reasoning": reasoning,
+                },
+                "1b": {
+                    "feature_notes": scene_payload.get("feature_notes", ""),
+                    "positives_notes": scene_payload.get("positives_notes", ""),  # legacy alias
+                },
+                "1c": {
+                    "overall_impression": scene_payload.get("overall_impression", ""),
+                    "image_summary": scene_payload.get("image_summary", ""),
+                    "notable_features": scene_payload.get("notable_features", []),
+                },
+                "2a": {"observations_freeform": scene_payload.get("observations_freeform", "")},
+                "2b": {"observations": scene_payload.get("observations_struct", {}).get("observations", [])},
+                "2c": {
+                    "labeled_debug": scene_payload.get("labeled_debug", []),
+                    "labeled_forward": scene_payload.get("labeled_forward", []),
+                },
+                "2d": {"resolutions": scene_payload.get("resolved_defects", [])},
+                "3": {
+                    "keywords": keywords,
+                    "categories": kw_cats,
+                },
+            }
 
         return (
             scene,
@@ -1771,7 +1872,7 @@ class AutoAnalyzer:
 
     def _maybe_apply_embeddings_catalog(self, payload: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Backfill/override catalog_flags using embeddings based on issues_natural_language.
+        Backfill/override catalog_flags using embeddings based on verified_issues.
         Keeps your downstream renovation_needs + UI schema intact.
         """
         if not isinstance(payload, dict):
@@ -1794,14 +1895,19 @@ class AutoAnalyzer:
         override = bool(getattr(cfg, "EMBEDDINGS_OVERRIDE_EXISTING_FLAGS", True))
         attach = bool(getattr(cfg, "EMBEDDINGS_ATTACH_CANDIDATES", True))
 
-        # Prefer issues from passes["2b"], fallback to flat field
+        # Prefer verified issues from 2c (post-gate), fallback to 2b
         issues = None
         if isinstance(passes, dict):
-            p2b = passes.get("2b") if isinstance(passes.get("2b"), dict) else {}
-            issues = p2b.get("issues_natural_language")
+            p2c = passes.get("2c") if isinstance(passes.get("2c"), dict) else {}
+            issues = p2c.get("verified_issues") or p2c.get("issues_natural_language")
+
+            if issues is None:
+                p2b = passes.get("2b") if isinstance(passes.get("2b"), dict) else {}
+                issues = p2b.get("issues_natural_language")
 
         if issues is None:
-            issues = payload.get("issues_natural_language")
+            # Flat field fallback
+            issues = payload.get("verified_issues") or payload.get("issues_natural_language")
 
         if not isinstance(issues, list) or not issues:
             return payload
@@ -1817,14 +1923,14 @@ class AutoAnalyzer:
 
         payload["catalog_flags"] = flags
 
-        # Keep passes schema consistent - update issues_natural_language with annotations
+        # Keep passes schema consistent - update verified_issues with annotations
         if isinstance(passes, dict):
-            p2b = passes.setdefault("2b", {})
-            if isinstance(p2b, dict):
-                p2b["issues_natural_language"] = issues  # (may now have annotations)
+            p2c = passes.setdefault("2c", {})
+            if isinstance(p2c, dict):
+                p2c["verified_issues"] = issues  # (may now have annotations)
 
-        # Also keep flat field in sync (your save_photo_intel reads both)
-        payload["issues_natural_language"] = issues
+        # Also keep flat field in sync
+        payload["verified_issues"] = issues
 
         return payload
 
@@ -1841,6 +1947,7 @@ class AutoAnalyzer:
             payload.setdefault("scene", scene_override)
 
         payload.setdefault("scene", "unknown")
+        payload.setdefault("scene_confidence", None)  # retired but keep for schema stability
         payload.setdefault("is_staged", None)
         payload.setdefault("overall_impression", "")
         payload.setdefault("image_summary", "")
@@ -1859,6 +1966,8 @@ class AutoAnalyzer:
         payload.setdefault("catalog_flags", {})
         payload.setdefault("issue_visual_anchors", [])
         payload.setdefault("processing_time", payload.get("processing_time"))
+        payload.setdefault("pass_timings", payload.get("pass_timings", {}))
+        payload.setdefault("total_pass_time", payload.get("total_pass_time", 0.0))
         payload.setdefault("prompt_version", payload.get("prompt_version", ""))
         payload.setdefault("scene_policy_version", payload.get("scene_policy_version", ""))
         payload.setdefault("image", payload.get("image"))
@@ -1935,7 +2044,7 @@ class AutoAnalyzer:
                 passes = {
                     "1a": {
                         "scene": payload.get("scene", "unknown"),
-                        "confidence": payload.get("scene_confidence"),
+                        "confidence": None,  # scene_confidence retired
                         "reasoning": payload.get("reasoning", ""),
                     },
                     "1b": {
@@ -1967,7 +2076,15 @@ class AutoAnalyzer:
             # Backfill issues with stable IDs and source linkage
             # Track signature counts to handle duplicate issues in same photo
             issue_sig_counts: Dict[Tuple[str, str, str], int] = {}
-            issues_nl = _safe_list((passes.get("2b", {}) or {}).get("issues_natural_language"))
+
+            # Prefer verified_issues (post-2c searchable=yes gate)
+            issues_nl = _safe_list((passes.get("2c", {}) or {}).get("verified_issues"))
+            if not issues_nl:
+                issues_nl = _safe_list(payload.get("verified_issues"))
+            if not issues_nl:
+                # Fallback to 2b if 2c not available
+                issues_nl = _safe_list((passes.get("2b", {}) or {}).get("issues_natural_language"))
+
             for issue in issues_nl:
                 if isinstance(issue, dict) and issue.get("description"):
                     # Compute signature for ordinal tracking
@@ -2030,6 +2147,8 @@ class AutoAnalyzer:
                 "scene_confidence": scene_confidence,
                 "scene_group": scene_group,
                 "passes": passes,
+                "pass_timings": payload.get("pass_timings", {}),
+                "total_pass_time": payload.get("total_pass_time", 0.0),
             }
 
         # Build room_groups aggregation
@@ -2064,12 +2183,19 @@ class AutoAnalyzer:
                 if s and s not in g["positives"]["notable_features"]:
                     g["positives"]["notable_features"].append(s)
 
-            # Issues (now with IDs)
+            # Issues (prefer verified_issues from 2c, fallback to 2b)
             issue_notes = ((passes.get("2a", {}) or {}).get("issues_notes") or "").strip()
             if issue_notes:
                 g["issues"]["notes"].append(issue_notes)
 
-            issues = _safe_list((passes.get("2b", {}) or {}).get("issues_natural_language"))
+            # Prefer verified_issues (post-2c searchable=yes gate)
+            issues = _safe_list((passes.get("2c", {}) or {}).get("verified_issues"))
+            if not issues:
+                issues = _safe_list(p.get("verified_issues"))
+            if not issues:
+                # Fallback to 2b if 2c not available
+                issues = _safe_list((passes.get("2b", {}) or {}).get("issues_natural_language"))
+
             for it in issues:
                 if isinstance(it, dict) and it.get("description"):
                     g["issues"]["issues_natural_language"].append({
@@ -2150,31 +2276,22 @@ class AutoAnalyzer:
         if output_path is None:
             output_path = Path(job.artifacts_dir) / "property_summary.json"
 
-        # Build all_results from job for Pass 4
-        all_results = {}
-        scene_counts: Dict[str, int] = {}
-        for res in job.results:
-            image_key = Path(res.image_path).name
-            payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
-            all_results[image_key] = payload
-            # Count scenes
-            scene = payload.get("scene", "unknown")
-            scene_counts[scene] = scene_counts.get(scene, 0) + 1
-
-        # Initialize with empty/error values for Pass 4
-        property_summary = ""
-        investment_considerations = []
-        estimated_condition = ""
-        confidence = None
+        # Initialize with defaults
         error_msg = None
         model_used = ""
+        scene_counts: Dict[str, int] = {}
 
-        # Initialize Pass 4a/4b outputs with defaults
+        # Initialize Pass 4a outputs with defaults
         room_summaries: Dict[str, Any] = {}
         issues_by_category: Dict[str, int] = {}
         total_issues_found = 0
 
-        # Legacy UI card fields (from Pass 4b)
+        # Pass 4b fields (renovation intel)
+        room_scopes: Dict[str, str] = {}
+        room_work_items: Dict[str, List[str]] = {}
+        top_work_items: List[str] = []
+
+        # Pass 4c UI card fields
         overall_condition = ""
         overall_summary = ""
         investment_verdict = ""
@@ -2186,113 +2303,159 @@ class AutoAnalyzer:
 
         errors: Dict[str, str] = {}
 
-        logger.warning(
+        logger.info(
             f"Pass4 gate: VLM_CLIENT_AVAILABLE={VLM_CLIENT_AVAILABLE} "
             f"vlm_client={bool(self.vlm_client)} "
             f"PASS_ARCHITECTURE_AVAILABLE={PASS_ARCHITECTURE_AVAILABLE} "
             f"auto_analyzer_file={__file__}"
         )
 
-        # Try Pass 4 if VLM client is available
+        # ═══════════════════════════════════════════════════════════════════════════
+        # Aggregate from job.results and run Pass 4a/4b/4c
+        # (Uses already-computed per-image results, does NOT re-run passes 1-3)
+        # ═══════════════════════════════════════════════════════════════════════════
         if VLM_CLIENT_AVAILABLE and self.vlm_client and PASS_ARCHITECTURE_AVAILABLE:
-            # --- Pass 4 (original property summary) ---
+            logger.info("  Aggregating from job.results for Pass 4a/4b/4c")
+
+            # Build all_results from job (uses already-computed passes, no re-analysis)
+            all_results = {}
+            for res in job.results:
+                image_key = Path(res.image_path).name
+                payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
+                all_results[image_key] = payload
+                # Count scenes
+                scene = payload.get("scene", "unknown")
+                scene_counts[scene] = scene_counts.get(scene, 0) + 1
+
+            # Lazy import Pass 4 functions to prevent import-time failures
             try:
-                logger.info("  Using Pass 4 (run_pass_4_property_summary)")
-                model_config_4 = self._get_model_config_for_pass('4')
-                model_used = model_config_4.get('model', '')
-                logger.info(f"  Model: {model_used}")
+                from tools.scene_classifier_passes import (
+                    run_pass_4a_room_summaries,
+                    run_pass_4b_renovation_intel,
+                    run_pass_4c_property_card_fields,
+                    build_grouped_issues,
+                    derive_property_scope,
+                )
+            except ImportError as e:
+                logger.warning(f"Pass 4 imports missing, skipping property summary: {e}")
+                error_msg = f"Pass 4 imports unavailable: {e}"
+                # Fall through to write empty summary
+            else:
+                # Compute grouped_issues ONCE from all_results (single source of truth)
+                # build_grouped_issues filters to searchable=yes issues only
+                grouped_issues, _fallback_count = build_grouped_issues(all_results)
 
-                async def run_pass4():
-                    return await run_pass_4_property_summary(
-                        vlm_client=self.vlm_client,
-                        model_config=model_config_4,
-                        all_results=all_results,
-                    )
+                # Compute deterministic totals from verified issues
+                total_images_analyzed = len(all_results)
+                total_issues_found = sum(len(issues) for issues in grouped_issues.values())
+                issues_by_category = {}
+                for group_issues in grouped_issues.values():
+                    for issue in group_issues:
+                        cat = issue.get("rough_category", "general")
+                        issues_by_category[cat] = issues_by_category.get(cat, 0) + 1
 
-                loop = asyncio.new_event_loop()
+                # --- Pass 4a (room summaries aggregation) ---
                 try:
-                    pass_4_result = loop.run_until_complete(run_pass4())
-                finally:
-                    loop.close()
+                    logger.info("  Using Pass 4a (run_pass_4a_room_summaries)")
+                    model_config_4a = self._get_model_config_for_pass('4a')
+                    model_used = model_config_4a.get('model', '')
+                    logger.info(f"  Model: {model_used}")
 
-                # Extract successful results
-                property_summary = pass_4_result.property_summary or ""
-                investment_considerations = pass_4_result.investment_considerations or []
-                estimated_condition = pass_4_result.estimated_condition or ""
-                confidence = getattr(pass_4_result, "confidence", None)
+                    async def run_pass4a():
+                        return await run_pass_4a_room_summaries(
+                            vlm_client=self.vlm_client,
+                            model_config=model_config_4a,
+                            grouped_issues=grouped_issues,
+                            scene_counts=scene_counts,
+                            total_images_analyzed=total_images_analyzed,
+                            total_issues_found=total_issues_found,
+                            issues_by_category=issues_by_category,
+                        )
 
-                logger.info("  Pass 4 completed successfully")
+                    loop = asyncio.new_event_loop()
+                    try:
+                        pass_4a_result = loop.run_until_complete(run_pass4a())
+                    finally:
+                        loop.close()
 
-            except Exception as e:
-                errors["pass4"] = f"Pass 4 failed: {e}"
-                logger.error(errors["pass4"], exc_info=True)
+                    room_summaries = pass_4a_result.room_summaries or {}
+                    logger.info(f"  Pass 4a completed: {len(room_summaries)} room groups")
 
-            # --- Pass 4a (room summaries aggregation) ---
-            try:
-                logger.info("  Using Pass 4a (run_pass_4a_room_summaries)")
-                model_config_4a = self._get_model_config_for_pass('4a')
-                logger.info(f"  Model: {model_config_4a.get('model', '')}")
+                except Exception as e:
+                    errors["pass4a"] = f"Pass 4a failed: {e}"
+                    logger.error(errors["pass4a"], exc_info=True)
 
-                async def run_pass4a():
-                    return await run_pass_4a_room_summaries(
-                        vlm_client=self.vlm_client,
-                        model_config=model_config_4a,
-                        all_results=all_results,
-                        scene_counts=scene_counts,
-                    )
-
-                loop = asyncio.new_event_loop()
+                # --- Pass 4b (renovation intel: scopes + work items) ---
                 try:
-                    pass_4a_result = loop.run_until_complete(run_pass4a())
-                finally:
-                    loop.close()
+                    logger.info("  Using Pass 4b (run_pass_4b_renovation_intel)")
+                    model_config_4b = self._get_model_config_for_pass('4b')
+                    logger.info(f"  Model: {model_config_4b.get('model', '')}")
 
-                room_summaries = pass_4a_result.room_summaries or {}
-                issues_by_category = pass_4a_result.issues_by_category or {}
-                total_issues_found = pass_4a_result.total_issues_found
+                    async def run_pass4b():
+                        return await run_pass_4b_renovation_intel(
+                            vlm_client=self.vlm_client,
+                            model_config=model_config_4b,
+                            grouped_issues=grouped_issues,
+                        )
 
-                logger.info(f"  Pass 4a completed: {len(room_summaries)} room groups, {total_issues_found} issues")
+                    loop = asyncio.new_event_loop()
+                    try:
+                        pass_4b_result = loop.run_until_complete(run_pass4b())
+                    finally:
+                        loop.close()
 
-            except Exception as e:
-                errors["pass4a"] = f"Pass 4a failed: {e}"
-                logger.error(errors["pass4a"], exc_info=True)
+                    room_scopes = pass_4b_result.room_scopes or {}
+                    room_work_items = pass_4b_result.room_work_items or {}
+                    top_work_items = pass_4b_result.top_work_items or []
 
-            # --- Pass 4b (legacy UI card fields) ---
-            try:
-                logger.info("  Using Pass 4b (run_pass_4b_property_card_fields)")
-                model_config_4b = self._get_model_config_for_pass('4b')
-                logger.info(f"  Model: {model_config_4b.get('model', '')}")
+                    # Derive property scope deterministically from room scopes
+                    renovation_scope = derive_property_scope(room_scopes)
 
-                async def run_pass4b():
-                    return await run_pass_4b_property_card_fields(
-                        vlm_client=self.vlm_client,
-                        model_config=model_config_4b,
-                        room_summaries=room_summaries,
-                        total_issues_found=total_issues_found,
-                        total_images_analyzed=len(all_results),
-                        issues_by_category=issues_by_category,
-                    )
+                    logger.info(f"  Pass 4b completed: scope={renovation_scope}, top_items={len(top_work_items)}")
 
-                loop = asyncio.new_event_loop()
+                except Exception as e:
+                    errors["pass4b"] = f"Pass 4b failed: {e}"
+                    logger.error(errors["pass4b"], exc_info=True)
+
+                # --- Pass 4c (property card fields for UI) ---
                 try:
-                    pass_4b_result = loop.run_until_complete(run_pass4b())
-                finally:
-                    loop.close()
+                    logger.info("  Using Pass 4c (run_pass_4c_property_card_fields)")
+                    model_config_4c = self._get_model_config_for_pass('4c')
+                    logger.info(f"  Model: {model_config_4c.get('model', '')}")
 
-                overall_condition = pass_4b_result.overall_condition or ""
-                overall_summary = pass_4b_result.overall_summary or ""
-                investment_verdict = pass_4b_result.investment_verdict or ""
-                investment_rationale = pass_4b_result.investment_rationale or ""
-                renovation_scope = pass_4b_result.renovation_scope or ""
-                renovation_priorities = pass_4b_result.renovation_priorities or []
-                risk_flags = pass_4b_result.risk_flags or []
-                deferred_maintenance = pass_4b_result.deferred_maintenance or []
+                    async def run_pass4c():
+                        return await run_pass_4c_property_card_fields(
+                            vlm_client=self.vlm_client,
+                            model_config=model_config_4c,
+                            room_summaries=room_summaries,
+                            room_scopes=room_scopes,
+                            room_work_items=room_work_items,
+                            top_work_items=top_work_items,
+                            total_issues_found=total_issues_found,
+                            total_images_analyzed=total_images_analyzed,
+                            issues_by_category=issues_by_category,
+                            property_scope=renovation_scope,
+                        )
 
-                logger.info("  Pass 4b completed successfully")
+                    loop = asyncio.new_event_loop()
+                    try:
+                        pass_4c_result = loop.run_until_complete(run_pass4c())
+                    finally:
+                        loop.close()
 
-            except Exception as e:
-                errors["pass4b"] = f"Pass 4b failed: {e}"
-                logger.error(errors["pass4b"], exc_info=True)
+                    overall_condition = pass_4c_result.overall_condition or ""
+                    overall_summary = pass_4c_result.overall_summary or ""
+                    investment_verdict = pass_4c_result.investment_verdict or ""
+                    investment_rationale = pass_4c_result.investment_rationale or ""
+                    renovation_priorities = pass_4c_result.renovation_priorities or []
+                    risk_flags = pass_4c_result.risk_flags or []
+                    deferred_maintenance = pass_4c_result.deferred_maintenance or []
+
+                    logger.info("  Pass 4c completed successfully")
+
+                except Exception as e:
+                    errors["pass4c"] = f"Pass 4c failed: {e}"
+                    logger.error(errors["pass4c"], exc_info=True)
 
         else:
             # VLM client or pass architecture not available
@@ -2311,9 +2474,9 @@ class AutoAnalyzer:
             error_msg = "; ".join(errors.values())
 
         # Build summary dict - always write even on failure
-        # Includes both Pass 4 fields AND legacy UI fields from 4a/4b
+        # Pass 4a: room summaries, Pass 4b: renovation intel, Pass 4c: UI card fields
         summary_data = {
-            # v2 schema versioning
+            # v3 schema versioning
             "artifact_schema_version": PROPERTY_SUMMARY_SCHEMA_VERSION,
             "normalization_policy_version": NORMALIZATION_POLICY_VERSION,
             # Existing fields
@@ -2322,27 +2485,26 @@ class AutoAnalyzer:
             "job_id": job.job_id,
             "timestamp": job.timestamp,
             "created_at": datetime.utcnow().isoformat() + "Z",
-            "summary_version": "pass4_v2",
+            "summary_version": "pass4_v3",
             "analysis_profile": self.analysis_profile,
             "scene_counts": scene_counts,  # for UI filters
-
-            # Pass 4 fields (original)
-            "property_summary": property_summary,
-            "investment_considerations": investment_considerations,
-            "estimated_condition": estimated_condition,
-            "confidence": confidence,
 
             # Pass 4a fields (room summaries)
             "room_summaries": room_summaries,
             "issues_by_category": issues_by_category,
             "total_issues_found": total_issues_found,
 
-            # Pass 4b fields (legacy UI card)
+            # Pass 4b fields (renovation intel)
+            "room_scopes": room_scopes,
+            "room_work_items": room_work_items,
+            "top_work_items": top_work_items,
+            "renovation_scope": renovation_scope,  # derived from room_scopes
+
+            # Pass 4c fields (UI card)
             "overall_condition": overall_condition,
             "overall_summary": overall_summary,
             "investment_verdict": investment_verdict,
             "investment_rationale": investment_rationale,
-            "renovation_scope": renovation_scope,
             "renovation_priorities": renovation_priorities,
             "risk_flags": risk_flags,
             "deferred_maintenance": deferred_maintenance,
@@ -2367,37 +2529,38 @@ class AutoAnalyzer:
 
         logger.info(f"Property summary saved to: {output_path}")
 
-        # Embed Pass 4 output into photo_intel.json so UI has single payload
+        # Embed Pass 4a/4b/4c output into photo_intel.json so UI has single payload
         if photo_intel_path and photo_intel_path.exists():
             try:
                 with open(photo_intel_path, 'r', encoding='utf-8') as f:
                     photo_intel = json.load(f)
 
-                photo_intel["property_pass4"] = {
-                    "property_summary": property_summary,
-                    "investment_considerations": investment_considerations,
-                    "estimated_condition": estimated_condition,
-                    "confidence": confidence,
-                    "error": errors.get("pass4"),
-                }
-
                 photo_intel["property_pass4a"] = {
                     "room_summaries": room_summaries,
                     "issues_by_category": issues_by_category,
                     "total_issues_found": total_issues_found,
+                    "scene_counts": scene_counts,
+                    "total_images_analyzed": len(job.results),
                     "error": errors.get("pass4a"),
                 }
 
                 photo_intel["property_pass4b"] = {
+                    "room_scopes": room_scopes,
+                    "room_work_items": room_work_items,
+                    "top_work_items": top_work_items,
+                    "renovation_scope": renovation_scope,
+                    "error": errors.get("pass4b"),
+                }
+
+                photo_intel["property_pass4c"] = {
                     "overall_condition": overall_condition,
                     "overall_summary": overall_summary,
                     "investment_verdict": investment_verdict,
                     "investment_rationale": investment_rationale,
-                    "renovation_scope": renovation_scope,
                     "renovation_priorities": renovation_priorities,
                     "risk_flags": risk_flags,
                     "deferred_maintenance": deferred_maintenance,
-                    "error": errors.get("pass4b"),
+                    "error": errors.get("pass4c"),
                 }
 
                 # Also embed full summary for convenience
@@ -2406,7 +2569,7 @@ class AutoAnalyzer:
                 with open(photo_intel_path, "w", encoding="utf-8") as f:
                     json.dump(photo_intel, f, indent=2, ensure_ascii=False)
 
-                logger.info(f"Pass 4/4a/4b outputs embedded into: {photo_intel_path}")
+                logger.info(f"Pass 4a/4b/4c outputs embedded into: {photo_intel_path}")
             except Exception as exc:
                 logger.warning(f"Could not embed property_pass4 into photo_intel.json: {exc}")
 

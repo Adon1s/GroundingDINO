@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Set
 
 import logging
 import numpy as np
@@ -11,173 +11,183 @@ logger = logging.getLogger(__name__)
 
 try:
     from sentence_transformers import SentenceTransformer
-
     _ST_OK = True
 except Exception:
     SentenceTransformer = None
     _ST_OK = False
-
-_SEV_INT_TO_LABEL = {
-    0: "none",
-    1: "minor_repair",
-    2: "moderate_repair",
-    3: "full_replacement",
-    4: "full_replacement",  # treat 4 as highest bucket for cost table compatibility
-}
-
-# Lexical guardrails for high-risk catalog IDs to prevent obviously wrong matches
-_GUARDRAILS = {
-    "broken_or_fogged_windows": {
-        "must_any": ["fog", "fogged", "condensation", "between panes", "failed seal", "cracked glass", "broken glass",
-                     "shattered", "window", "pane"],
-        "deny_any": ["wall", "paint", "drywall", "scuff", "marks", "discoloration", "ceiling", "floor"],
-    },
-    "roof_damage_visible": {
-        "must_any": ["roof", "shingle", "flashing", "gutter", "soffit", "fascia", "eave"],
-        "deny_any": ["wall", "floor", "interior", "drywall"],
-    },
-    "foundation_cracks": {
-        "must_any": ["foundation", "basement", "slab", "footing", "crawl"],
-        "deny_any": ["drywall", "paint", "cosmetic", "surface"],
-    },
-    "electrical_issues": {
-        "must_any": ["electric", "outlet", "wire", "panel", "breaker", "switch", "voltage", "circuit"],
-        "deny_any": [],
-    },
-    "plumbing_issues": {
-        "must_any": ["plumb", "pipe", "drain", "faucet", "toilet", "sink", "water heater", "sewer"],
-        "deny_any": [],
-    },
-    # Add more high-risk IDs as needed
-}
 
 
 def _norm(s: str) -> str:
     return " ".join((s or "").strip().split())
 
 
-def _parse_severity_int(x: Any) -> int:
-    # Accept int-like strings, otherwise map known labels
-    if x is None:
-        return 0
-    if isinstance(x, (int, np.integer)):
+def _parse_int(x: Any, default: int = 0) -> int:
+    try:
         return int(x)
-    s = str(x).strip().lower()
-    if s.isdigit():
-        return int(s)
-    label_to_int = {
-        "none": 0,
-        "minor_repair": 1,
-        "moderate_repair": 2,
-        "full_replacement": 3,
-    }
-    return label_to_int.get(s, 0)
-
-
-def _catalog_text(item: Dict[str, Any]) -> str:
-    name = item.get("name", item.get("id", ""))
-    desc = item.get("description", "")
-    cat = item.get("category", "")
-    return _norm(f"{name}. {desc}. Category: {cat}.")
+    except Exception:
+        return default
 
 
 def _cosine_topk(q: np.ndarray, mat: np.ndarray, k: int) -> Tuple[np.ndarray, np.ndarray]:
-    scores = mat @ q
-    n = scores.shape[0]
-    if n == 0:
+    """
+    q: (d,), mat: (n,d) normalized embeddings.
+    Returns (scores, idxs) for top-k cosine similarity (dot product).
+    """
+    if mat.shape[0] == 0:
         return np.array([], dtype=np.float32), np.array([], dtype=np.int64)
 
+    scores = mat @ q
+    n = scores.shape[0]
     k = max(1, min(int(k), n))
     if k == n:
         idxs = np.argsort(-scores)
     else:
-        # kth should be k-1 (top-k selection)
         idxs = np.argpartition(-scores, k - 1)[:k]
         idxs = idxs[np.argsort(-scores[idxs])]
     return scores[idxs], idxs
 
 
-@dataclass
-class MatchCandidate:
-    id: str
+@dataclass(frozen=True)
+class CatalogItemMeta:
+    defect_id: str
     name: str
-    category: str
-    kind: str  # defect_issues | opportunity_flags
-    score: float
+    kind: str              # defect | upgrade (safety/opportunity filtered out)
+    trade_bucket: str
     severity: int
+    text: str              # embed this
 
 
-class CatalogEmbedMatcher:
+@dataclass(frozen=True)
+class MatchCandidate:
+    defect_id: str
+    name: str
+    kind: str
+    trade_bucket: str
+    severity: int
+    score: float
+
+
+class CatalogEmbeddingsRetriever:
     """
-    Builds embeddings for your catalog (defect_issues + opportunity_flags) and
-    matches issues_natural_language descriptions to nearest catalog items.
+    Embeddings-based candidate retrieval for catalog items.
+
+    - Builds embeddings for catalog v2 items[].
+    - Retrieves top-K candidates for each observation.
+    - Does NOT decide present/absent (LLM resolver does that in Pass 2d).
     """
 
     def __init__(
-            self,
-            issue_catalog: Dict[str, Any],
-            model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
-            topk: int = 5,
-            threshold_defect: float = 0.58,
-            threshold_opportunity: float = 0.56,
-            route_by_rough_category: bool = True,
-            trust_remote_code: bool = False,
-            device: str = "cpu",  # ✅ add this
+        self,
+        catalog_v2: Dict[str, Any],
+        model_name: str = "sentence-transformers/all-MiniLM-L6-v2",
+        device: str = "cpu",
+        trust_remote_code: bool = False,
+        default_topk: int = 10,
+        # Optional: lexical guardrails keyed by defect_id
+        guardrails: Optional[Dict[str, Dict[str, List[str]]]] = None,
     ):
         if not _ST_OK:
             raise RuntimeError("sentence-transformers not available. Install: pip install sentence-transformers")
 
         self.model_name = model_name
-        self.topk = max(1, int(topk))
-        self.threshold_defect = float(threshold_defect)
-        self.threshold_opportunity = float(threshold_opportunity)
-        self.route_by_rough_category = bool(route_by_rough_category)
-        self.device = (device or "cpu").strip()  # ✅ store it
+        self.device = (device or "cpu").strip()
+        self.default_topk = max(1, int(default_topk))
+        self.guardrails = guardrails or {}
 
-        # ✅ Create ST model and force device (compatible across ST versions)
+        # Load model
         try:
             self._st = SentenceTransformer(
                 self.model_name,
                 trust_remote_code=trust_remote_code,
-                device=self.device,  # (newer ST supports this)
+                device=self.device,
             )
         except TypeError:
-            # older ST: no `device=` kwarg
             self._st = SentenceTransformer(self.model_name, trust_remote_code=trust_remote_code)
 
         try:
-            self._st.to(self.device)  # ✅ this is the actual “make it CPU” step
+            self._st.to(self.device)
         except Exception as e:
             logger.warning(f"Could not move embeddings model to {self.device}: {e}")
 
-        self._def_pack = self._build_pack(issue_catalog.get("defect_issues") or [], "defect_issues")
-        self._opp_pack = self._build_pack(issue_catalog.get("opportunity_flags") or [], "opportunity_flags")
-        self._all_pack = self._def_pack + self._opp_pack
+        # Build index
+        items = catalog_v2.get("items") or []
+        self._items: List[CatalogItemMeta] = self._build_items(items)
+        self._mat: np.ndarray = self._embed_items(self._items)
 
-        self._def_mat = self._embed_pack(self._def_pack)
-        self._opp_mat = self._embed_pack(self._opp_pack)
-        self._all_mat = self._embed_pack(self._all_pack)
+        # Precompute indices by kind for fast filtering
+        self._idx_by_kind: Dict[str, np.ndarray] = {}
+        for i, meta in enumerate(self._items):
+            self._idx_by_kind.setdefault(meta.kind, []).append(i)
+        for k, idxs in self._idx_by_kind.items():
+            self._idx_by_kind[k] = np.asarray(idxs, dtype=np.int64)
 
-    def _build_pack(self, items: List[Dict[str, Any]], kind: str) -> List[Dict[str, Any]]:
-        out = []
+        # Convenience "slices" - only defect and upgrade (no safety/opportunity)
+        self._defect_kinds = {"defect"}
+        self._upgrade_kinds = {"upgrade"}
+
+    def _catalog_text(self, it: Dict[str, Any]) -> str:
+        # Embed the stable semantics: name + description + aliases + trade bucket
+        name = str(it.get("name") or it.get("defect_id") or "").strip()
+        desc = str(it.get("description") or "").strip()
+        aliases = it.get("aliases") or []
+        if isinstance(aliases, str):
+            aliases = [aliases]
+        aliases = [str(a).strip() for a in aliases if str(a).strip()]
+        trade = str(it.get("trade_bucket") or "").strip()
+        kind = str(it.get("kind") or "").strip()
+
+        blob = f"{name}. {desc}."
+        if aliases:
+            blob += " Aliases: " + "; ".join(aliases) + "."
+        if trade:
+            blob += f" Trade: {trade}."
+        if kind:
+            blob += f" Kind: {kind}."
+        return _norm(blob)
+
+    def _build_items(self, items: List[Dict[str, Any]]) -> List[CatalogItemMeta]:
+        out: List[CatalogItemMeta] = []
         for it in items:
-            if not isinstance(it, dict) or not it.get("id"):
+            if not isinstance(it, dict):
                 continue
-            out.append({
-                "id": it["id"],
-                "name": it.get("name", it["id"]),
-                "category": it.get("category", "unknown"),
-                "severity": _parse_severity_int(it.get("severity", 0)),
-                "kind": kind,
-                "text": _catalog_text(it),
-            })
+
+            # Accept defect_id OR upgrade_id as the identifier
+            item_id = str(it.get("defect_id") or it.get("upgrade_id") or "").strip()
+            if not item_id:
+                continue
+
+            name = str(it.get("name") or item_id).strip()
+            kind = str(it.get("kind") or "defect").strip().lower()
+            trade_bucket = str(it.get("trade_bucket") or "").strip().lower()
+            severity = _parse_int(it.get("severity"), default=0)
+
+            # Filter out safety and opportunity kinds - they should not appear downstream
+            if kind in {"safety", "opportunity"}:
+                continue
+
+            # Make sure _catalog_text sees an id even if this is an upgrade
+            # (since _catalog_text currently checks defect_id)
+            it2 = dict(it)
+            if "defect_id" not in it2 and "upgrade_id" in it2:
+                it2["defect_id"] = item_id
+
+            text = self._catalog_text(it2)
+
+            out.append(CatalogItemMeta(
+                defect_id=item_id,  # yes, field name stays defect_id for now
+                name=name,
+                kind=kind,
+                trade_bucket=trade_bucket,
+                severity=severity,
+                text=text,
+            ))
         return out
 
-    def _embed_pack(self, pack: List[Dict[str, Any]]) -> np.ndarray:
+    def _embed_items(self, items: List[CatalogItemMeta]) -> np.ndarray:
         dim = int(getattr(self._st, "get_sentence_embedding_dimension", lambda: 384)())
-        if not pack:
+        if not items:
             return np.zeros((0, dim), dtype=np.float32)
-        texts = [p["text"] for p in pack]
+        texts = [m.text for m in items]
         vecs = self._st.encode(
             texts,
             normalize_embeddings=True,
@@ -187,157 +197,77 @@ class CatalogEmbedMatcher:
         )
         return vecs.astype(np.float32)
 
-    def _eligible_indices(self, pack: List[Dict[str, Any]], rough: str) -> List[int]:
-        """Filter pack indices by rough_category to prevent cross-category hallucinations."""
-        rough = (rough or "").strip().lower()
-
-        # Map rough_category to allowed catalog categories
-        allow_cats_by_rough = {
-            "cosmetic": {"cosmetic", "interior"},
-            "moisture": {"moisture", "structure"},  # leaks can touch structure
-            "structure": {"structure"},
-            "systems": {"systems", "hvac", "electrical", "plumbing"},
-            "exterior": {"exterior"},
-            "opportunity": set(),  # handled separately via _opp_pack
-            "": set(),  # no rough => no filter
-            "other": set(),
-        }
-
-        allow = allow_cats_by_rough.get(rough, set())
-        if not allow:
-            return list(range(len(pack)))
-
-        idxs = []
-        for i, meta in enumerate(pack):
-            cat = str(meta.get("category") or "").strip().lower()
-            if cat in allow:
-                idxs.append(i)
-        return idxs if idxs else list(range(len(pack)))  # fallback to all if no matches
-
-    def _passes_guardrails(self, issue_text: str, cand_id: str) -> bool:
-        """Check if a candidate ID passes lexical guardrails for the given issue text."""
-        g = _GUARDRAILS.get(cand_id)
+    def _passes_guardrails(self, text: str, defect_id: str) -> bool:
+        g = self.guardrails.get(defect_id)
         if not g:
             return True
-        t = issue_text.lower()
-        if any(x in t for x in g.get("deny_any", [])):
+        t = text.lower()
+        deny = g.get("deny_any", [])
+        if deny and any(x in t for x in deny):
             return False
         must = g.get("must_any", [])
         if must and not any(x in t for x in must):
             return False
         return True
 
-    def match(self, issue_text: str, rough_category: Optional[str] = None) -> List[MatchCandidate]:
-        t = _norm(issue_text)
-        if not t:
+    def _encode_queries(self, texts: Sequence[str]) -> np.ndarray:
+        texts = [_norm(t) for t in texts]
+        vecs = self._st.encode(
+            list(texts),
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+            batch_size=64,
+            show_progress_bar=False,
+        )
+        return vecs.astype(np.float32)
+
+    def retrieve_candidates(
+        self,
+        observation_text: str,
+        *,
+        topk: Optional[int] = None,
+        allowed_kinds: Optional[Set[str]] = None,
+    ) -> List[MatchCandidate]:
+        t = _norm(observation_text)
+        if not t or self._mat.shape[0] == 0:
             return []
 
-        q = self._st.encode([t], normalize_embeddings=True, convert_to_numpy=True, show_progress_bar=False)[0].astype(
-            np.float32)
+        q = self._encode_queries([t])[0]
 
-        # Routing: opportunities match opportunity catalog by default (optional)
-        rough = (rough_category or "").strip().lower()
-        if self.route_by_rough_category:
-            if rough == "opportunity":
-                pack, mat = self._opp_pack, self._opp_mat
-            else:
-                pack, mat = self._def_pack, self._def_mat
-        else:
-            pack, mat = self._all_pack, self._all_mat
+        idxs = None
+        if allowed_kinds:
+            # build a union of indices for those kinds
+            buf: List[int] = []
+            for k in allowed_kinds:
+                arr = self._idx_by_kind.get(k)
+                if arr is not None and arr.size:
+                    buf.extend(arr.tolist())
+            idxs = np.asarray(sorted(set(buf)), dtype=np.int64) if buf else None
 
-        if mat.shape[0] == 0:
-            return []
+        mat = self._mat if idxs is None else self._mat[idxs, :]
+        pack = self._items if idxs is None else [self._items[i] for i in idxs.tolist()]
 
-        # Filter to eligible indices based on rough_category
-        eligible = self._eligible_indices(pack, rough)
-        if not eligible:
-            return []
+        k = topk if topk is not None else self.default_topk
+        scores, rel = _cosine_topk(q, mat, k)
 
-        sub_pack = [pack[i] for i in eligible]
-        sub_mat = mat[eligible, :]
-
-        scores, idxs = _cosine_topk(q, sub_mat, self.topk)
         out: List[MatchCandidate] = []
-        for s, i in zip(scores.tolist(), idxs.tolist()):
-            meta = sub_pack[i]  # idxs are relative to sub_pack
+        for s, i in zip(scores.tolist(), rel.tolist()):
+            meta = pack[i]
+            if not self._passes_guardrails(t, meta.defect_id):
+                continue
             out.append(MatchCandidate(
-                id=meta["id"],
-                name=meta["name"],
-                category=meta["category"],
-                kind=meta["kind"],
+                defect_id=meta.defect_id,
+                name=meta.name,
+                kind=meta.kind,
+                trade_bucket=meta.trade_bucket,
+                severity=meta.severity,
                 score=float(s),
-                severity=int(meta.get("severity", 0) or 0),
             ))
         return out
 
-    def build_catalog_flags_and_annotate(
-            self,
-            issues_natural_language: List[Dict[str, Any]],
-            attach_candidates: bool = True,
-    ) -> Dict[str, Any]:
-        """
-        Returns catalog_flags dict shaped exactly like your existing pipeline expects:
-          { issue_id: {present, severity, evidence} }
+    # Convenience wrappers that make your pipeline code very explicit
+    def embeddings_retrieve_defect_candidates(self, observation_text: str, topk: Optional[int] = None) -> List[MatchCandidate]:
+        return self.retrieve_candidates(observation_text, topk=topk, allowed_kinds=self._defect_kinds)
 
-        Also optionally annotates each issue dict with:
-          - catalog_best_match
-          - catalog_candidates
-        """
-        flags: Dict[str, Any] = {}
-
-        for it in issues_natural_language or []:
-            if not isinstance(it, dict):
-                continue
-            desc = _norm(str(it.get("description", "")))
-            if not desc:
-                continue
-
-            rough = str(it.get("rough_category", "") or "")
-            cands = self.match(desc, rough_category=rough)
-
-            # Apply lexical guardrails to filter out obviously wrong matches
-            cands = [c for c in cands if self._passes_guardrails(desc, c.id)]
-
-            if not cands:
-                if attach_candidates:
-                    it["catalog_candidates"] = []
-                    it.pop("catalog_best_match", None)
-                continue
-
-            best = cands[0]
-            thr = self.threshold_opportunity if best.kind == "opportunity_flags" else self.threshold_defect
-            present = "yes" if best.score >= thr else "uncertain"
-            sev_label = _SEV_INT_TO_LABEL.get(best.severity, "none")
-            if present != "yes":
-                sev_label = "none"
-
-            # Evidence: keep it simple and useful for debugging/UX
-            loc = _norm(str(it.get("location_hint", "")))
-            ev = desc if not loc else f"{desc} (location: {loc})"
-            ev = f"{ev} | match={best.id} score={best.score:.3f}"
-
-            # One flag per issue_id per photo - keep highest score if duplicate
-            prev = flags.get(best.id)
-            if prev is None:
-                flags[best.id] = {"present": present, "severity": sev_label, "evidence": ev, "_score": best.score}
-            else:
-                # keep the better match for this photo
-                if float(prev.get("_score", 0.0)) < best.score:
-                    flags[best.id] = {"present": present, "severity": sev_label, "evidence": ev, "_score": best.score}
-
-            if attach_candidates:
-                it["catalog_candidates"] = [
-                    {"id": c.id, "name": c.name, "category": c.category, "kind": c.kind, "score": c.score}
-                    for c in cands
-                ]
-                if best.score >= thr:
-                    it["catalog_best_match"] = {"id": best.id, "kind": best.kind, "score": best.score}
-                else:
-                    it.pop("catalog_best_match", None)
-
-        # strip internal helper field
-        for v in flags.values():
-            if isinstance(v, dict):
-                v.pop("_score", None)
-
-        return flags
+    def embeddings_retrieve_upgrade_candidates(self, observation_text: str, topk: Optional[int] = None) -> List[MatchCandidate]:
+        return self.retrieve_candidates(observation_text, topk=topk, allowed_kinds=self._upgrade_kinds)

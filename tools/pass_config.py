@@ -5,40 +5,50 @@ Defines pass toggles, model selection, and premium routing logic.
 
 Pass Overview:
 - 1a: Scene type classification (always Qwen - fast/cheap)
-- 1b: Positives/inventory notes - freeform (GPT-5 when premium)
-- 1c: Positives notes -> JSON structuring (always Qwen - text-only)
-- 2a: Issue detection (GPT-5 when premium)
-- 2b: Issue verification (always Qwen - high volume)
+- 1b: Feature notes - freeform (GPT-5 when premium)
+- 1c: Feature notes -> JSON structuring (always Qwen - text-only)
+- 2a: Observations - freeform (GPT-5 when premium)
+- 2b: Observations -> JSON (always Qwen - text-only)
+- 2c: Label observations + debug/forward split (always Qwen - text-only)
+- 2d: Resolve defect_id from candidates (GPT-5 when premium, optional)
 - 3:  Keyword extraction (always Qwen - text-only)
-- 4:  Property summary (GPT-5 when premium)
+
+Legacy passes (not currently executed by orchestrator but still supported):
+- 4:  Property summary (legacy)
+- 4a: Room summaries
+- 4b: Renovation intel - scopes + work items
+- 4c: Final narrative / verdict / priorities
 """
 
 from dataclasses import dataclass, field
 from typing import Dict, Literal, Optional, TypeAlias
 
 # Type definitions
-PassKey: TypeAlias = Literal['1a', '1b', '1c', '2a', '2b', '3', '4', '4a', '4b']
+PassKey: TypeAlias = Literal['1a', '1b', '1c', '2a', '2b', '2c', '2d', '3', '4', '4a', '4b', '4c']
 ModelName = Literal['qwen', 'gpt5']
 
 # All valid pass keys (in execution order)
-ALL_PASSES: tuple[PassKey, ...] = ('1a', '1b', '1c', '2a', '2b', '3', '4', '4a', '4b')
+ALL_PASSES: tuple[PassKey, ...] = ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '3', '4', '4a', '4b', '4c')
 
 
 @dataclass
 class PassToggles:
     """Enable/disable individual passes."""
-    pass_1a: bool = True  # Scene type classification
-    pass_1b: bool = True  # Positives/inventory notes (freeform)
-    pass_1c: bool = True  # Positives notes -> JSON structuring
-    pass_2a: bool = True  # Issue detection
-    pass_2b: bool = True  # Issue verification
-    pass_3: bool = True  # Keyword extraction
-    pass_4: bool = True  # Property summary (often skipped in standard)
-    pass_4a: bool = True  # Room summaries
-    pass_4b: bool = True  # Property card fields
+    pass_1a: bool = True   # Scene type classification
+    pass_1b: bool = True   # Feature notes (freeform)
+    pass_1c: bool = True   # Feature notes -> JSON structuring
+    pass_2a: bool = True   # Observations (freeform)
+    pass_2b: bool = True   # Observations -> JSON
+    pass_2c: bool = True   # Label observations + debug/forward split
+    pass_2d: bool = False  # Resolve defect_id from candidates (optional, requires candidate_provider)
+    pass_3: bool = True    # Keyword extraction
+    pass_4: bool = False   # Property summary (legacy, not executed by current orchestrator)
+    pass_4a: bool = False  # Room summaries (legacy, not executed by current orchestrator)
+    pass_4b: bool = False  # Renovation intel (legacy, not executed by current orchestrator)
+    pass_4c: bool = False  # Final narrative (legacy, not executed by current orchestrator)
 
     def __getitem__(self, key: PassKey) -> bool:
-        return getattr(self, f'pass_{key}')
+        return getattr(self, f'pass_{key}', False)  # default False for safety
 
     def __setitem__(self, key: PassKey, value: bool):
         setattr(self, f'pass_{key}', value)
@@ -50,10 +60,13 @@ class PassToggles:
             '1c': self.pass_1c,
             '2a': self.pass_2a,
             '2b': self.pass_2b,
+            '2c': self.pass_2c,
+            '2d': self.pass_2d,
             '3': self.pass_3,
             '4': self.pass_4,
             '4a': self.pass_4a,
             '4b': self.pass_4b,
+            '4c': self.pass_4c,
         }
 
     @classmethod
@@ -66,10 +79,13 @@ class PassToggles:
             pass_1c=d.get('1c', True),
             pass_2a=d.get('2a', True),
             pass_2b=d.get('2b', True),
+            pass_2c=d.get('2c', True),
+            pass_2d=d.get('2d', False),  # default False - requires candidate_provider
             pass_3=d.get('3', True),
-            pass_4=d.get('4', True),
-            pass_4a=d.get('4a', True),
-            pass_4b=d.get('4b', True),
+            pass_4=d.get('4', False),
+            pass_4a=d.get('4a', False),
+            pass_4b=d.get('4b', False),
+            pass_4c=d.get('4c', False),
         )
 
 
@@ -81,13 +97,16 @@ class PassModelOverrides:
     model_1c: Optional[ModelName] = None
     model_2a: Optional[ModelName] = None
     model_2b: Optional[ModelName] = None
+    model_2c: Optional[ModelName] = None
+    model_2d: Optional[ModelName] = None
     model_3: Optional[ModelName] = None
     model_4: Optional[ModelName] = None
     model_4a: Optional[ModelName] = None
     model_4b: Optional[ModelName] = None
+    model_4c: Optional[ModelName] = None
 
     def __getitem__(self, key: PassKey) -> Optional[ModelName]:
-        return getattr(self, f'model_{key}')
+        return getattr(self, f'model_{key}', None)  # default None for safety
 
     def __setitem__(self, key: PassKey, value: Optional[ModelName]):
         setattr(self, f'model_{key}', value)
@@ -99,10 +118,13 @@ class PassModelOverrides:
             '1c': self.model_1c,
             '2a': self.model_2a,
             '2b': self.model_2b,
+            '2c': self.model_2c,
+            '2d': self.model_2d,
             '3': self.model_3,
             '4': self.model_4,
             '4a': self.model_4a,
             '4b': self.model_4b,
+            '4c': self.model_4c,
         }
 
     @classmethod
@@ -121,10 +143,13 @@ class PassModelOverrides:
             model_1c=to_model(d.get('1c')),
             model_2a=to_model(d.get('2a')),
             model_2b=to_model(d.get('2b')),
+            model_2c=to_model(d.get('2c')),
+            model_2d=to_model(d.get('2d')),
             model_3=to_model(d.get('3')),
             model_4=to_model(d.get('4')),
             model_4a=to_model(d.get('4a')),
             model_4b=to_model(d.get('4b')),
+            model_4c=to_model(d.get('4c')),
         )
 
 
@@ -156,23 +181,28 @@ class SceneClassifierRunOptions:
 
 # Premium model mapping (when premium=True)
 # - 1a stays Qwen (scene type is simple/fast)
-# - 1b uses GPT-5 (positives notes benefit from reasoning)
-# - 1c stays Qwen (purely structuring, high-volume, text-only)
-# - 2a uses GPT-5 (issue detection needs strong vision)
-# - 2b stays Qwen (verification is high-volume)
+# - 1b uses GPT-5 (feature notes benefit from reasoning)
+# - 1c stays Qwen (purely structuring, text-only)
+# - 2a uses GPT-5 (observations detection needs strong vision)
+# - 2b stays Qwen (structuring is text-only)
+# - 2c stays Qwen (labeling is text-only)
+# - 2d uses GPT-5 (resolver benefits from reasoning)
 # - 3 stays Qwen (keyword extraction is straightforward, text-only)
-# - 4 uses GPT-5 (property summary is user-facing)
+# - 4/4a/4b/4c use GPT-5 (property-level analysis is user-facing)
 
 PREMIUM_MODEL_MAP: Dict[PassKey, ModelName] = {
     '1a': 'qwen',
     '1b': 'gpt5',
     '1c': 'qwen',
     '2a': 'gpt5',
-    '2b': 'gpt5',
-    '3': 'gpt5',
+    '2b': 'qwen',
+    '2c': 'qwen',
+    '2d': 'gpt5',  # resolver benefits from GPT reasoning
+    '3': 'qwen',
     '4': 'gpt5',
     '4a': 'gpt5',
     '4b': 'gpt5',
+    '4c': 'gpt5',
 }
 
 STANDARD_MODEL_MAP: Dict[PassKey, ModelName] = {
@@ -181,10 +211,13 @@ STANDARD_MODEL_MAP: Dict[PassKey, ModelName] = {
     '1c': 'qwen',
     '2a': 'qwen',
     '2b': 'qwen',
+    '2c': 'qwen',
+    '2d': 'qwen',
     '3': 'qwen',
     '4': 'qwen',
     '4a': 'qwen',
     '4b': 'qwen',
+    '4c': 'qwen',
 }
 
 
@@ -202,7 +235,7 @@ def pick_model_for_pass(
     3. Standard mapping (always Qwen)
 
     Args:
-        pass_key: Which pass ('1a', '1b', '1c', '2a', '2b', '3', '4')
+        pass_key: Which pass ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '3', etc.)
         premium: Whether premium analysis is enabled
         overrides: Optional per-pass model overrides
 
@@ -250,14 +283,17 @@ def get_model_config_for_pass(
 
 PASS_DESCRIPTIONS: Dict[PassKey, str] = {
     '1a': 'Scene Type Classification',
-    '1b': 'Positives/Inventory Notes (freeform)',
-    '1c': 'Positives Notes → JSON Structuring',
-    '2a': 'Issue Detection',
-    '2b': 'Issue Verification',
+    '1b': 'Feature Notes (freeform)',
+    '1c': 'Feature Notes → JSON Structuring',
+    '2a': 'Observations (freeform)',
+    '2b': 'Observations → JSON',
+    '2c': 'Label Observations (debug/forward)',
+    '2d': 'Resolve defect_id from candidates',
     '3': 'Keyword Extraction',
-    '4': 'Property Summary',
-    '4a': 'Room Summaries',
-    '4b': 'Property Card Fields',
+    '4': 'Property Summary (legacy)',
+    '4a': 'Room Summaries (legacy)',
+    '4b': 'Renovation Intel (legacy)',
+    '4c': 'Final Narrative (legacy)',
 }
 
 

@@ -14,7 +14,7 @@ Usage:
         vlm_client=create_vlm_client(),
     )
 
-    result = await orchestrator.analyze_image(f
+    result = await orchestrator.analyze_image(
         image_path=Path('/path/to/image.jpg'),
         options=SceneClassifierRunOptions(premium=True),
     )
@@ -25,7 +25,7 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 try:
     from tools import pipeline_config as cfg
@@ -49,15 +49,17 @@ from scene_classifier_passes import (
     Pass1cResult,
     Pass2aResult,
     Pass2bResult,
+    Pass2cResult,
+    Pass2dResult,
     Pass3Result,
-    Pass4Result,
     run_pass_1a_scene_type,
     run_pass_1b_feature_notes,
     run_pass_1c_feature_structuring,
-    run_pass_2a_issue_detection,
-    run_pass_2b_issue_verification,
+    run_pass_2a,
+    run_pass_2b,
+    run_pass_2c,
+    run_pass_2d,
     run_pass_3_keyword_extraction,
-    run_pass_4_property_summary,
 )
 
 logger = logging.getLogger(__name__)
@@ -74,6 +76,8 @@ class ImageAnalysisResult:
     pass_1c: Optional[Pass1cResult] = None
     pass_2a: Optional[Pass2aResult] = None
     pass_2b: Optional[Pass2bResult] = None
+    pass_2c: Optional[Pass2cResult] = None
+    pass_2d: Optional[List[Pass2dResult]] = None  # List because one per defect observation
     pass_3: Optional[Pass3Result] = None
 
     # Computed/merged fields for backwards compatibility
@@ -84,19 +88,28 @@ class ImageAnalysisResult:
     image_summary: str = ""
     notable_features: List[str] = field(default_factory=list)
 
-    # Raw notes (for Pass 4 notes-only summary)
+    # Raw notes
     feature_notes: str = ""
     positives_notes: str = ""  # legacy alias, keep temporarily
-    issues_notes: str = ""
+    observations_freeform: str = ""
+
+    # Structured outputs (v2)
+    features_struct: Dict[str, Any] = field(default_factory=dict)
+    observations_struct: Dict[str, Any] = field(default_factory=dict)
+
+    labeled_debug: List[Dict[str, Any]] = field(default_factory=list)
+    labeled_forward: List[Dict[str, Any]] = field(default_factory=list)
+
+    # Optional resolver output (2d). Orchestrator stores results if run elsewhere.
+    resolved_defects: List[Dict[str, Any]] = field(default_factory=list)
 
     keywords: List[str] = field(default_factory=list)
-    catalog_flags: Dict[str, Any] = field(default_factory=dict)
-    verified_issues: List[Dict[str, Any]] = field(default_factory=list)
-    issues_natural_language: List[Dict[str, Any]] = field(default_factory=list)
 
     # Metadata
     passes_run: List[str] = field(default_factory=list)
     models_used: Dict[str, str] = field(default_factory=dict)
+    pass_timings: Dict[str, float] = field(default_factory=dict)
+    total_pass_time: float = 0.0
     processing_time: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
@@ -110,46 +123,39 @@ class ImageAnalysisResult:
             "image_summary": self.image_summary,
             "notable_features": self.notable_features,
 
-            # raw notes (pass4)
+            # raw notes
             "feature_notes": self.feature_notes,
             "positives_notes": self.positives_notes,  # legacy
-            "issues_notes": self.issues_notes,
+            "observations_freeform": self.observations_freeform,
+
+            # structured outputs (v2)
+            "features_struct": self.features_struct,
+            "observations_struct": self.observations_struct,
+            "labeled_debug": self.labeled_debug,
+            "labeled_forward": self.labeled_forward,
+            "resolved_defects": self.resolved_defects,
 
             "keywords": self.keywords,
-            "catalog_flags": self.catalog_flags,
-            "verified_issues": self.verified_issues,
-            "issues_natural_language": self.issues_natural_language,
             "passes_run": self.passes_run,
             "models_used": self.models_used,
+            "pass_timings": self.pass_timings,
+            "total_pass_time": self.total_pass_time,
             "processing_time": self.processing_time,
         }
 
 
 @dataclass
 class PropertyAnalysisResult:
-    """Complete analysis result for a property (all images + summary)."""
+    """Complete analysis result for a property (all images)."""
     property_key: str
     image_results: List[ImageAnalysisResult] = field(default_factory=list)
-    pass_4: Optional[Pass4Result] = None
-
-    # Aggregated fields
-    property_summary: str = ""
-    investment_considerations: List[str] = field(default_factory=list)
-    estimated_condition: str = ""
-    confidence: Optional[float] = None
-    total_issues: int = 0
     total_processing_time: float = 0.0
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            'property_key': self.property_key,
-            'property_summary': self.property_summary,
-            'investment_considerations': self.investment_considerations,
-            'estimated_condition': self.estimated_condition,
-            'confidence': self.confidence,
-            'total_issues': self.total_issues,
-            'total_processing_time': self.total_processing_time,
-            'images': {r.image_path: r.to_dict() for r in self.image_results},
+            "property_key": self.property_key,
+            "total_processing_time": self.total_processing_time,
+            "images": {r.image_path: r.to_dict() for r in self.image_results},
         }
 
 
@@ -169,8 +175,10 @@ class SceneClassifierOrchestrator:
         qwen_config: Dict[str, Any],
         gpt5_config: Dict[str, Any],
         vlm_client: Any,
-        issue_catalog: Optional[Dict[str, Any]] = None,
         max_keywords: int = 20,
+        candidate_provider: Optional[Callable[[str, Dict[str, Any]], List[Dict[str, Any]]]] = None,
+        top_k_candidates: int = 8,
+        max_resolve_per_image: int = 25,
     ):
         """
         Initialize the orchestrator.
@@ -181,14 +189,19 @@ class SceneClassifierOrchestrator:
             gpt5_config: Configuration for GPT-5 model calls
                          {'url': '...', 'model': '...', 'api_key': '...'}
             vlm_client: VLM client instance for making API calls
-            issue_catalog: Issue catalog for Pass 2a
             max_keywords: Maximum keywords for Pass 3
+            candidate_provider: Optional callback to retrieve defect candidates for Pass 2d
+                               Signature: (observation_text, context) -> List[Dict]
+            top_k_candidates: Number of candidates to retrieve per observation
+            max_resolve_per_image: Maximum observations to resolve per image in Pass 2d
         """
         self.qwen_config = qwen_config
         self.gpt5_config = gpt5_config
         self.vlm_client = vlm_client
-        self.issue_catalog = issue_catalog
         self.max_keywords = max_keywords
+        self.candidate_provider = candidate_provider
+        self.top_k_candidates = top_k_candidates
+        self.max_resolve_per_image = max_resolve_per_image
 
     def _attach_openai_token_cap(self, pass_key: PassKey, model_config: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -207,7 +220,10 @@ class SceneClassifierOrchestrator:
             "1b": "OPENAI_PASS_1B_MAX_TOKENS",
             "1c": "OPENAI_PASS_1C_MAX_TOKENS",
             "2a": "OPENAI_PASS_2A_MAX_TOKENS",
-            "4": "OPENAI_PASS_4_MAX_TOKENS",
+            "2b": "OPENAI_PASS_2B_MAX_TOKENS",
+            "2c": "OPENAI_PASS_2C_MAX_TOKENS",
+            "2d": "OPENAI_PASS_2D_MAX_TOKENS",
+            "3":  "OPENAI_PASS_3_MAX_TOKENS",
         }
 
         attr = key_map.get(str(pass_key))
@@ -278,7 +294,6 @@ class SceneClassifierOrchestrator:
         self,
         image_path: Path,
         options: Optional[SceneClassifierRunOptions] = None,
-        issue_catalog: Optional[Dict[str, Any]] = None,
     ) -> ImageAnalysisResult:
         """
         Run all enabled passes on a single image.
@@ -286,7 +301,6 @@ class SceneClassifierOrchestrator:
         Args:
             image_path: Path to the image file
             options: Run options (premium, toggles, overrides)
-            issue_catalog: Optional override for issue catalog (caller override > orchestrator default > empty)
 
         Returns:
             ImageAnalysisResult with all pass results
@@ -296,9 +310,6 @@ class SceneClassifierOrchestrator:
 
         options = options or SceneClassifierRunOptions()
         toggles = options.toggles
-
-        # ✅ Resolve catalog: caller override > orchestrator default > empty
-        resolved_catalog = issue_catalog or self.issue_catalog or {}
 
         result = ImageAnalysisResult(image_path=str(image_path))
         context: Dict[str, Any] = {}
@@ -314,11 +325,13 @@ class SceneClassifierOrchestrator:
             model_name = self._get_model_name('1a', options)
 
             logger.debug(f"Running Pass 1a with {model_name}")
+            t0 = time.time()
             result.pass_1a = await run_pass_1a_scene_type(
                 image_path=image_path,
                 vlm_client=self.vlm_client,
                 model_config=model_config,
             )
+            result.pass_timings['1a'] = round(time.time() - t0, 3)
 
             result.scene = result.pass_1a.scene
             context['scene'] = result.scene
@@ -335,12 +348,14 @@ class SceneClassifierOrchestrator:
             model_name = self._get_model_name('1b', options)
 
             logger.debug(f"Running Pass 1b with {model_name}")
+            t0 = time.time()
             result.pass_1b = await run_pass_1b_feature_notes(
                 image_path=image_path,
                 vlm_client=self.vlm_client,
                 model_config=model_config,
                 context=context,
             )
+            result.pass_timings['1b'] = round(time.time() - t0, 3)
 
             feature_notes = result.pass_1b.feature_notes
             result.feature_notes = feature_notes
@@ -356,81 +371,171 @@ class SceneClassifierOrchestrator:
             model_name = self._get_model_name('1c', options)
 
             logger.debug(f"Running Pass 1c with {model_name}")
+            t0 = time.time()
             result.pass_1c = await run_pass_1c_feature_structuring(
                 vlm_client=self.vlm_client,
                 model_config=model_config,
                 feature_notes=feature_notes,
             )
+            result.pass_timings['1c'] = round(time.time() - t0, 3)
 
-            # Back-compat fields for UI
-            result.overall_impression = result.pass_1c.overall_impression or ""
-            result.image_summary = result.pass_1c.image_summary or ""
+            # Pass 1c now produces overall_impression, image_summary, notable_features
+            result.overall_impression = result.pass_1c.overall_impression
+            result.image_summary = result.pass_1c.image_summary
             result.notable_features = result.pass_1c.notable_features or []
 
-            # Context for Pass 3
-            context["notable_features"] = result.notable_features
+            # Store features_struct for Streamlit parity
+            result.features_struct = {
+                "overall_impression": result.overall_impression,
+                "image_summary": result.image_summary,
+                "notable_features": result.notable_features,
+            }
+            context["features_struct"] = result.features_struct
 
             result.passes_run.append('1c')
             result.models_used['1c'] = model_name
 
         # ─────────────────────────────────────────────────────────────────────
-        # Pass 2a: Issue Detection (freeform notes)
+        # Pass 2a: Observations Freeform (vision)
         # ─────────────────────────────────────────────────────────────────────
-        issues_notes = ""
+        observations_freeform = ""
 
         if toggles['2a']:
             model_config = self._get_model_config('2a', options)
             model_name = self._get_model_name('2a', options)
 
             logger.debug(f"Running Pass 2a with {model_name}")
-            result.pass_2a = await run_pass_2a_issue_detection(
+            t0 = time.time()
+            result.pass_2a = await run_pass_2a(
                 image_path=image_path,
                 vlm_client=self.vlm_client,
                 model_config=model_config,
                 context=context,
-                issue_catalog=resolved_catalog,
             )
+            result.pass_timings['2a'] = round(time.time() - t0, 3)
 
-            issues_notes = result.pass_2a.issues_notes
-            result.issues_notes = issues_notes
+            observations_freeform = result.pass_2a.observations_freeform
+            result.observations_freeform = observations_freeform
             result.passes_run.append('2a')
             result.models_used['2a'] = model_name
 
-            logger.debug(f"Pass 2a freeform length (orchestrator): {len(issues_notes)}")
-
         # ─────────────────────────────────────────────────────────────────────
-        # Pass 2b: Freeform to JSON Conversion
+        # Pass 2b: Observations -> JSON (text-only)
         # ─────────────────────────────────────────────────────────────────────
         if toggles['2b']:
             model_config = self._get_model_config('2b', options)
             model_name = self._get_model_name('2b', options)
 
             logger.debug(f"Running Pass 2b with {model_name}")
-            result.pass_2b = await run_pass_2b_issue_verification(
-                image_path=image_path,
+            t0 = time.time()
+            result.pass_2b = await run_pass_2b(
                 vlm_client=self.vlm_client,
                 model_config=model_config,
-                freeform_notes=issues_notes,
-                context=context,
-                issue_catalog=resolved_catalog,
+                observations_freeform=observations_freeform,
             )
+            result.pass_timings['2b'] = round(time.time() - t0, 3)
 
-            # ✅ Store structured output for downstream use
-            result.catalog_flags = result.pass_2b.catalog_flags
-            # Store in both fields for compatibility
-            result.issues_natural_language = result.pass_2b.issues_natural_language
-            result.verified_issues = result.pass_2b.issues_natural_language
-
-            # Context for Pass 3
-            context["issues_natural_language"] = result.issues_natural_language
+            observations_list = result.pass_2b.observations or []
+            result.observations_struct = {"observations": observations_list}
+            context["observations_struct"] = result.observations_struct
 
             result.passes_run.append('2b')
             result.models_used['2b'] = model_name
 
-            logger.debug(
-                f"Pass 2b issues={len(result.pass_2b.issues_natural_language)} "
-                f"flags={len(result.pass_2b.catalog_flags)}"
+        # ─────────────────────────────────────────────────────────────────────
+        # Pass 2c: Label Observations + Debug/Forward Split (text-only)
+        # ─────────────────────────────────────────────────────────────────────
+        if toggles['2c']:
+            model_config = self._get_model_config('2c', options)
+            model_name = self._get_model_name('2c', options)
+
+            observations_in = []
+            if isinstance(result.observations_struct, dict):
+                observations_in = result.observations_struct.get("observations") or []
+
+            logger.debug(f"Running Pass 2c with {model_name}")
+            t0 = time.time()
+            result.pass_2c = await run_pass_2c(
+                vlm_client=self.vlm_client,
+                model_config=model_config,
+                observations=observations_in,
             )
+            result.pass_timings['2c'] = round(time.time() - t0, 3)
+
+            result.labeled_debug = result.pass_2c.labeled_debug or []
+            result.labeled_forward = result.pass_2c.labeled_forward or []
+
+            context["labeled_debug"] = result.labeled_debug
+            context["labeled_forward"] = result.labeled_forward
+
+            result.passes_run.append('2c')
+            result.models_used['2c'] = model_name
+
+        # ─────────────────────────────────────────────────────────────────────
+        # Pass 2d: Resolve defect_id from candidates (text-only, optional)
+        # ─────────────────────────────────────────────────────────────────────
+        if toggles['2d'] and self.candidate_provider:
+            model_config = self._get_model_config('2d', options)
+            model_name = self._get_model_name('2d', options)
+
+            # Only resolve defect_or_damage observations
+            defects_to_resolve = [
+                obs for obs in result.labeled_forward
+                if obs.get("label") == "defect_or_damage"
+            ][:self.max_resolve_per_image]
+
+            if defects_to_resolve:
+                logger.debug(f"Running Pass 2d with {model_name} for {len(defects_to_resolve)} defects")
+                t0 = time.time()
+
+                pass_2d_results: List[Pass2dResult] = []
+                resolved_defects: List[Dict[str, Any]] = []
+
+                # Context for candidate provider
+                ctx_for_provider = {**context, "top_k_candidates": self.top_k_candidates}
+
+                for obs in defects_to_resolve:
+                    description = obs.get("description", "")
+                    if not description:
+                        continue
+
+                    # Retrieve candidates via provider
+                    candidates = self.candidate_provider(description, ctx_for_provider)
+
+                    if not candidates:
+                        continue
+
+                    # Call Pass 2d
+                    pass_2d_result = await run_pass_2d(
+                        vlm_client=self.vlm_client,
+                        model_config=model_config,
+                        observation=description,
+                        candidates=candidates,
+                    )
+                    pass_2d_results.append(pass_2d_result)
+
+                    # Get top candidate for debugging
+                    top_candidate = candidates[0] if candidates else None
+
+                    resolved_defects.append({
+                        "description": description,
+                        "label": "defect_or_damage",
+                        "resolved_defect_id": pass_2d_result.resolved_defect_id,
+                        "top_candidate_id": top_candidate.get("defect_id") if top_candidate else None,
+                        "top_candidate_score": top_candidate.get("score") if top_candidate else None,
+                        "candidates": candidates,
+                        "raw_response": pass_2d_result.raw_response,
+                    })
+
+                result.pass_timings['2d'] = round(time.time() - t0, 3)
+                result.pass_2d = pass_2d_results
+                result.resolved_defects = resolved_defects
+                result.passes_run.append('2d')
+                result.models_used['2d'] = model_name
+
+                logger.debug(f"Pass 2d resolved {len(resolved_defects)} defects")
+            else:
+                logger.debug("Pass 2d: no defect_or_damage observations to resolve.")
 
         # ─────────────────────────────────────────────────────────────────────
         # Pass 3: Keyword Extraction (text-only, from structured facts)
@@ -441,26 +546,35 @@ class SceneClassifierOrchestrator:
 
             # ensure context contains what Pass 3 expects
             context.setdefault("scene", result.scene)
-            context.setdefault("notable_features", result.notable_features)
-            context.setdefault("issues_natural_language", result.issues_natural_language)
+            context.setdefault("features_struct", result.features_struct)
+
+            # For pass3: prefer labeled_forward if present, else observations_struct
+            context.setdefault("labeled_forward", result.labeled_forward)
+            if isinstance(result.observations_struct, dict):
+                context.setdefault("observations", result.observations_struct.get("observations") or [])
+            else:
+                context.setdefault("observations", [])
 
             logger.debug(f"Running Pass 3 with {model_name}")
+            t0 = time.time()
             result.pass_3 = await run_pass_3_keyword_extraction(
                 vlm_client=self.vlm_client,
                 model_config=model_config,
                 context=context,
                 max_keywords=self.max_keywords,
             )
+            result.pass_timings['3'] = round(time.time() - t0, 3)
 
             result.keywords = result.pass_3.keywords
             result.passes_run.append('3')
             result.models_used['3'] = model_name
 
+        result.total_pass_time = round(sum(result.pass_timings.values()), 3)
         result.processing_time = time.time() - start_time
         logger.info(
             f"Completed {image_path.name}: scene={result.scene}, "
-            f"issues={len(result.verified_issues)}, "
-            f"time={result.processing_time:.1f}s"
+            f"forward_obs={len(result.labeled_forward)}, "
+            f"time={result.processing_time:.1f}s (LLM={result.total_pass_time:.1f}s)"
         )
 
         return result
@@ -473,7 +587,7 @@ class SceneClassifierOrchestrator:
         on_progress: Optional[callable] = None,
     ) -> PropertyAnalysisResult:
         """
-        Run analysis on all images for a property, then run Pass 4 summary.
+        Run analysis on all images for a property.
 
         Args:
             property_key: Property identifier
@@ -482,7 +596,7 @@ class SceneClassifierOrchestrator:
             on_progress: Optional callback for progress updates
 
         Returns:
-            PropertyAnalysisResult with all image results and property summary
+            PropertyAnalysisResult with all image results
         """
         import time
         start_time = time.time()
@@ -505,33 +619,6 @@ class SceneClassifierOrchestrator:
 
             image_result = await self.analyze_image(image_path, options)
             result.image_results.append(image_result)
-            result.total_issues += len(image_result.verified_issues)
-
-        # ─────────────────────────────────────────────────────────────────────
-        # Pass 4: Property Summary
-        # ─────────────────────────────────────────────────────────────────────
-        if options.toggles['4'] and result.image_results:
-            model_config = self._get_model_config('4', options)
-            model_name = self._get_model_name('4', options)
-
-            logger.debug(f"Running Pass 4 with {model_name}")
-
-            # Aggregate image results for Pass 4
-            all_results = {
-                r.image_path: r.to_dict()
-                for r in result.image_results
-            }
-
-            result.pass_4 = await run_pass_4_property_summary(
-                vlm_client=self.vlm_client,
-                model_config=model_config,
-                all_results=all_results,
-            )
-
-            result.property_summary = result.pass_4.property_summary
-            result.investment_considerations = result.pass_4.investment_considerations or []
-            result.estimated_condition = result.pass_4.estimated_condition or ""
-            result.confidence = getattr(result.pass_4, "confidence", None)
 
         result.total_processing_time = time.time() - start_time
 
@@ -545,7 +632,6 @@ class SceneClassifierOrchestrator:
         logger.info(
             f"Completed property {property_key}: "
             f"{len(result.image_results)} images, "
-            f"{result.total_issues} total issues, "
             f"time={result.total_processing_time:.1f}s"
         )
 
@@ -557,14 +643,14 @@ class SceneClassifierOrchestrator:
 
 def create_orchestrator_from_config(
     config: Any,
-    issue_catalog: Optional[Dict[str, Any]] = None,
+    candidate_provider: Optional[Callable[[str, Dict[str, Any]], List[Dict[str, Any]]]] = None,
 ) -> SceneClassifierOrchestrator:
     """
     Create an orchestrator from a pipeline_config module.
 
     Args:
         config: pipeline_config module with LM_STUDIO_URL, etc.
-        issue_catalog: Optional issue catalog to use (if None, loads from config path)
+        candidate_provider: Optional callback to retrieve defect candidates for Pass 2d
 
     Returns:
         Configured SceneClassifierOrchestrator
@@ -574,28 +660,15 @@ def create_orchestrator_from_config(
         get_model_configs_from_pipeline_config,
     )
 
-    # Get model configs
     qwen_config, gpt5_config = get_model_configs_from_pipeline_config(config)
-
-    # Create VLM client
     vlm_client = create_vlm_client()
-
-    # ✅ Use provided catalog, or load from config path if not provided
-    resolved_catalog = issue_catalog
-    if resolved_catalog is None:
-        catalog_path = getattr(config, 'ISSUE_CATALOG_PATH', None)
-        if catalog_path:
-            import json
-            try:
-                with open(catalog_path, 'r') as f:
-                    resolved_catalog = json.load(f)
-            except Exception as e:
-                logger.warning(f"Could not load issue catalog: {e}")
 
     return SceneClassifierOrchestrator(
         qwen_config=qwen_config,
         gpt5_config=gpt5_config,
         vlm_client=vlm_client,
-        issue_catalog=resolved_catalog,
-        max_keywords=getattr(config, 'MAX_KEYWORDS', 20),
+        max_keywords=getattr(config, "MAX_KEYWORDS", 20),
+        candidate_provider=candidate_provider,
+        top_k_candidates=getattr(config, "TOP_K_CANDIDATES", 8),
+        max_resolve_per_image=getattr(config, "MAX_RESOLVE_PER_IMAGE", 25),
     )

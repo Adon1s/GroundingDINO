@@ -6,16 +6,17 @@ Individual pass functions for the scene classification pipeline.
 Pass 1a: Scene Type Classification (fast, always Qwen)
 Pass 1b: Feature/Market Appeal Notes - FREEFORM (premium uses GPT-5.2)
 Pass 1c: Feature Notes → JSON Structuring (text-only)
-Pass 2a: Issue Detection (premium uses GPT-5.2)
-Pass 2b: Issue Verification (high volume, always Qwen)
+Pass 2a: Observations freeform (premium uses GPT-5.2)
+Pass 2b: Observations → JSON (text-only)
+Pass 2c: Label observations + debug/forward split (text-only)
+Pass 2d: Resolve defect_id from candidates (text-only, optional)
 Pass 3:  Keyword Extraction (text-only, from structured facts)
-Pass 4:  Property Summary (premium uses GPT-5.2)
 """
 
 from tools.llm_json import extract_json_object
 import json
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -23,8 +24,28 @@ logger = logging.getLogger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Helper for detecting empty/no-issue notes
+# Helpers
 # ═══════════════════════════════════════════════════════════════════════════════
+
+def safe_format_prompt(template: str, **kwargs) -> str:
+    """
+    Makes str.format() safe even if the template contains JSON { } examples.
+
+    It:
+    1) temporarily protects intended placeholders like {notes}
+    2) escapes all remaining { } into {{ }}
+    3) restores placeholders and formats
+    """
+    for k in kwargs.keys():
+        template = template.replace("{" + k + "}", f"@@@__{k}__@@@")
+
+    template = template.replace("{", "{{").replace("}", "}}")
+
+    for k in kwargs.keys():
+        template = template.replace(f"@@@__{k}__@@@", "{" + k + "}")
+
+    return template.format(**kwargs)
+
 
 def _is_effectively_empty_notes(s: str) -> bool:
     """
@@ -47,7 +68,7 @@ def _is_effectively_empty_notes(s: str) -> bool:
 class Pass1aResult:
     """Result from Pass 1a: Scene Type Classification."""
     scene: str
-    scene_confidence: Optional[float] = None
+    confidence: Optional[float] = None
     reasoning: Optional[str] = None
     raw_response: Optional[str] = None
 
@@ -62,24 +83,39 @@ class Pass1bResult:
 @dataclass
 class Pass1cResult:
     """Result from Pass 1c: Feature notes structured into JSON."""
-    overall_impression: str
-    image_summary: Optional[str] = None
-    notable_features: Optional[List[str]] = None
+    overall_impression: str = ""
+    image_summary: str = ""
+    notable_features: List[str] = field(default_factory=list)
     raw_response: Optional[str] = None
 
 
 @dataclass
 class Pass2aResult:
-    """Result from Pass 2a: Issue Detection (freeform notes)."""
-    issues_notes: str
+    """Result from Pass 2a: Observations freeform."""
+    observations_freeform: str
     raw_response: Optional[str] = None
 
 
 @dataclass
 class Pass2bResult:
-    """Result from Pass 2b: Freeform to JSON Conversion."""
-    issues_natural_language: List[Dict[str, Any]]
-    catalog_flags: Dict[str, Any]
+    """Result from Pass 2b: Observations → JSON."""
+    observations: List[Dict[str, str]] = field(default_factory=list)  # [{"description": "..."}]
+    raw_response: Optional[str] = None
+
+
+@dataclass
+class Pass2cResult:
+    """Result from Pass 2c: Labeled observations with debug/forward split."""
+    labeled_debug: List[Dict[str, str]] = field(default_factory=list)
+    labeled_forward: List[Dict[str, str]] = field(default_factory=list)
+    raw_response: Optional[str] = None
+
+
+@dataclass
+class Pass2dResult:
+    """Result from Pass 2d: Resolved defect_id from candidates."""
+    observation: str
+    resolved_defect_id: Optional[str]
     raw_response: Optional[str] = None
 
 
@@ -91,43 +127,34 @@ class Pass3Result:
     raw_response: Optional[str] = None
 
 
-@dataclass
-class Pass4Result:
-    """Result from Pass 4: Property Summary."""
-    property_summary: str
-    investment_considerations: Optional[List[str]] = None
-    estimated_condition: Optional[str] = None
-    confidence: Optional[float] = None
-    raw_response: Optional[str] = None
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 1a: Scene Type Classification (UNCHANGED)
+# Pass 1a: Scene Type Classification
 # ═══════════════════════════════════════════════════════════════════════════════
 
 PASS_1A_SYSTEM_PROMPT = """You are a real estate image classifier. Your task is to identify the scene type shown in a property photo.
 
 Classify the image into exactly ONE of these categories:
-- exterior_front: Front view of the property
-- exterior_back: Back/rear view of the property
-- exterior_side: Side view of the property
-- living_room: Living room or family room
-- kitchen: Kitchen area
-- bedroom: Bedroom
-- bathroom: Bathroom (full or half)
-- dining_room: Dining room or eating area
-- basement: Basement or cellar
-- attic: Attic space
-- garage: Garage (interior or exterior)
-- yard: Yard, garden, or outdoor space
-- pool: Pool or spa area
-- roof: Roof view
-- hvac: HVAC equipment, water heater, electrical panel
-- other: Any other space not listed
+- exterior_front
+- exterior_back
+- exterior_side
+- living_room
+- kitchen
+- bedroom
+- bathroom
+- dining_room
+- basement
+- attic
+- garage
+- yard
+- pool
+- roof
+- hvac
+- other
 
 Respond with ONLY a JSON object:
 {
   "scene": "<category>",
+  "confidence": <0.0-1.0>,
   "reasoning": "<brief explanation>"
 }"""
 
@@ -166,17 +193,24 @@ async def run_pass_1a_scene_type(
         # Parse JSON response
         result = extract_json_object(response) or {}
 
+        conf = None
+        try:
+            if result.get("confidence") is not None:
+                conf = float(result.get("confidence"))
+        except Exception:
+            conf = None
+
         return Pass1aResult(
-            scene=result.get('scene', 'other'),
-            scene_confidence=result.get('confidence'),
-            reasoning=result.get('reasoning'),
+            scene=str(result.get("scene", "other")).strip() or "other",
+            confidence=conf,
+            reasoning=result.get("reasoning"),
             raw_response=response,
         )
 
     except Exception as e:
         logger.error(f"Pass 1a: Error classifying scene: {e}")
         return Pass1aResult(
-            scene='other',
+            scene="other",
             reasoning=f"Error: {e}",
         )
 
@@ -185,11 +219,12 @@ async def run_pass_1a_scene_type(
 # Pass 1b: Feature/Market Appeal Notes (FREEFORM)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_1B_SYSTEM_PROMPT = ("You are a real estate photo analyst. Explain any visible features or finishes worth noting ("
-                         "materials, fixtures, appliances, amenities). Do not mention issues, damage, or drawbacks. "
-                         "If none, reply: none")
-
-PASS_1B_USER_PROMPT_TEMPLATE = "This is a {scene} photo."
+PASS_1B_SYSTEM_PROMPT = "You are a real estate photo analyst."
+PASS_1B_USER_PROMPT_TEMPLATE = (
+    "This is a {scene} photo. List any clearly visible features or finishes worth noting "
+    "(materials, fixtures, appliances, amenities). Be factual and concise. "
+    "Do not mention issues, damage, or drawbacks. If none, reply: none"
+)
 
 
 async def run_pass_1b_feature_notes(
@@ -226,7 +261,7 @@ async def run_pass_1b_feature_notes(
               or "none" if no positives are present.
             - raw_response: The raw model response text.
     """
-    scene = context.get('scene', 'property') if context else 'property'
+    scene = context.get("scene", "property") if context else "property"
     user_prompt = PASS_1B_USER_PROMPT_TEMPLATE.format(scene=scene)
 
     logger.debug(f"Pass 1b: Generating feature notes for {image_path.name} (scene: {scene})")
@@ -258,30 +293,27 @@ async def run_pass_1b_feature_notes(
 # Pass 1c: Feature Notes → JSON Structuring
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_1C_SYSTEM_PROMPT = """You convert FREEFORM notes about visible features into STRICT JSON.
+PASS_1C_SYSTEM_PROMPT_TEMPLATE = """You convert FREEFORM notes about visible features into STRICT JSON.
+
+INPUT NOTES:
+---
+{notes}
+---
 
 Rules:
 - Use ONLY what is stated in the notes. Do not add new features or claims.
 - Keep language conservative and factual.
-- Do NOT restate defects, problems, or renovation conclusions.
 - If notes indicate none (e.g., "none"), output empty fields and [].
 - notable_features must be a list of short strings (2–10 words), deduplicated.
 
 Respond with ONLY a JSON object:
 {
+  "overall_impression": "...",
+  "image_summary": "...",
   "notable_features": ["..."]
-}
+}"""
 
-Convert the notes into the JSON format.
-
-"""
-
-PASS_1C_USER_PROMPT = """INPUT NOTES:
----
-{feature_notes}
----
-"""
-
+PASS_1C_USER_PROMPT = "Convert the notes into the JSON format."
 
 
 async def run_pass_1c_feature_structuring(
@@ -312,18 +344,30 @@ async def run_pass_1c_feature_structuring(
             raw_response=None,
         )
 
-    system_prompt = PASS_1C_SYSTEM_PROMPT
-    user_prompt = PASS_1C_USER_PROMPT.format(feature_notes=feature_notes)
+    system_prompt = safe_format_prompt(PASS_1C_SYSTEM_PROMPT_TEMPLATE, notes=feature_notes)
 
     try:
         response = await vlm_client.analyze_text(
             system_prompt=system_prompt,
-            user_prompt=user_prompt,
+            user_prompt=PASS_1C_USER_PROMPT,
             **model_config,
         )
 
         result = extract_json_object(response) or {}
 
+        # Parse overall_impression
+        oi = result.get("overall_impression") or ""
+        if not isinstance(oi, str):
+            oi = ""
+        oi = oi.strip()
+
+        # Parse image_summary
+        ims = result.get("image_summary") or ""
+        if not isinstance(ims, str):
+            ims = ""
+        ims = ims.strip()
+
+        # Parse notable_features
         nf = result.get("notable_features") or []
         if isinstance(nf, str):
             nf = [nf]
@@ -333,8 +377,8 @@ async def run_pass_1c_feature_structuring(
         nf = list(dict.fromkeys(nf))  # preserve order, dedupe
 
         return Pass1cResult(
-            overall_impression=result.get("overall_impression", ""),
-            image_summary=result.get("image_summary", ""),
+            overall_impression=oi,
+            image_summary=ims,
             notable_features=nf,
             raw_response=response,
         )
@@ -350,23 +394,26 @@ async def run_pass_1c_feature_structuring(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 2a: Issue Detection (UNCHANGED)
+# Pass 2a: Observations Freeform (Vision)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_2A_SYSTEM_PROMPT = "What do you see in this image that is negative that a real estate investor would like to know about. If nothing looks wrong or notable, reply with only the word 'none'"
+PASS_2A_SYSTEM_PROMPT = ""  # blank on purpose
+PASS_2A_USER_PROMPT = (
+    "What stands out here to a renovator, based on what's visible? "
+    "If nothing stands out, reply with only the word 'none'."
+)
 
 
-async def run_pass_2a_issue_detection(
+async def run_pass_2a(
         image_path: Path,
         vlm_client: Any,
         model_config: dict,
         context: Optional[Dict[str, Any]] = None,
-        issue_catalog: Optional[Dict[str, Any]] = None,
 ) -> Pass2aResult:
     """
-    Pass 2a: Detect issues and defects in the image (freeform notes).
+    Pass 2a: Detect observations in the image (freeform notes).
 
-    Uses GPT-5 in premium mode for better issue detection.
+    Uses GPT-5 in premium mode for better observation detection.
     Returns freeform text notes - JSON conversion happens in Pass 2b.
 
     Args:
@@ -374,176 +421,379 @@ async def run_pass_2a_issue_detection(
         vlm_client: VLM client instance
         model_config: Model configuration
         context: Optional context from previous passes
-        issue_catalog: Issue catalog (not used in 2a, but kept for signature consistency)
 
     Returns:
-        Pass2aResult with freeform notes
+        Pass2aResult with freeform observations
     """
-    logger.debug(f"Pass 2a: Detecting issues in {image_path.name}")
+    logger.debug(f"Pass 2a: Detecting observations in {image_path.name}")
 
     try:
         response = await vlm_client.analyze_image(
             image_path=image_path,
             system_prompt=PASS_2A_SYSTEM_PROMPT,
-            user_prompt="Analyze this image for any issues, defects, or concerns.",
+            user_prompt=PASS_2A_USER_PROMPT,
             **model_config,
         )
 
-        # ✅ Do NOT parse JSON. Treat as freeform notes.
+        # Do NOT parse JSON. Treat as freeform notes.
         freeform = (response or "").strip()
 
         logger.debug(f"Pass 2a freeform length: {len(freeform)} chars")
 
         return Pass2aResult(
-            issues_notes=freeform,
+            observations_freeform=freeform,
             raw_response=response,
         )
 
     except Exception as e:
-        logger.error(f"Pass 2a: Error detecting issues: {e}")
+        logger.error(f"Pass 2a: Error detecting observations: {e}")
         return Pass2aResult(
-            issues_notes="",
+            observations_freeform="",
             raw_response=None,
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 2b: Freeform Issue JSON Conversion (UNCHANGED)
+# Pass 2b: Observations → JSON (Text-only)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_2B_SYSTEM_PROMPT = """You convert raw photo notes into structured JSON issues.
+PASS_2B_SYSTEM_PROMPT_TEMPLATE = """You split FREEFORM photo notes into distinct, concrete observations.
 
-GOAL:
-- Convert each distinct issue into one JSON item.
-- Keep wording factual and conservative.
+INPUT NOTES:
+---
+{notes}
+---
 
-KEEP:
-- Wear, damage, stains, discoloration, missing parts.
-- Mentions of "older", "dated", or "outdated" as VALID signals.
-  - Use rough_category = "opportunity" for these.
+Rules:
+- Only output observations explicitly stated or directly described in the notes.
+- One observation per item.
+- Description must be 5–25 words.
+- Be factual and non-speculative.
+- Do NOT infer causes, consequences, or hidden problems.
+- If the notes are empty or the word "none", return an empty list.
 
-DROP:
-- Subjective opinions with no visible condition.
-- Anything not explicitly stated in the notes.
-
-RULES:
-- Do NOT invent or infer problems.
-- Do NOT merge unrelated items.
-- If location is unclear, use an empty string.
-
-OUTPUT:
-Return JSON only.
-
+Return JSON only:
 {
-  "issues_natural_language": [
-    {
-      "description": "Calm factual restatement",
-      "rough_category": "cosmetic | moisture | structure | systems | exterior | opportunity",
-      "location_hint": ""
-    }
+  "observations": [
+    { "description": "..." }
   ]
-}
-"""
+}"""
 
-PASS_2B_USER_PROMPT = """FREEFORM NOTES (from a vision model analyzing a property photo):
----
-{freeform_notes}
----
-"""
+PASS_2B_USER_PROMPT = "Convert the notes into the JSON format."
 
 
-async def run_pass_2b_issue_verification(
-        image_path: Path,
+def _coerce_observations_2b(x: Any) -> List[Dict[str, str]]:
+    """Normalize Pass 2b observations to list of dicts with description."""
+    if not isinstance(x, list):
+        return []
+    out = []
+    for it in x:
+        if isinstance(it, dict):
+            desc = str(it.get("description") or "").strip()
+        else:
+            desc = str(it or "").strip()
+        if desc:
+            out.append({"description": desc})
+    return out
+
+
+async def run_pass_2b(
         vlm_client: Any,
         model_config: dict,
-        freeform_notes: str,
-        context: Optional[Dict[str, Any]] = None,
-        issue_catalog: Optional[Dict[str, Any]] = None,
+        observations_freeform: str,
 ) -> Pass2bResult:
     """
     Pass 2b: Convert freeform notes from Pass 2a into structured JSON.
 
-    Always uses Qwen for speed (high volume conversion).
-    Note: This is a text-only pass - does not need the image.
+    This is a text-only pass - does not need the image.
 
     Args:
-        image_path: Path to the image file (kept for signature consistency, not used)
         vlm_client: VLM client instance
         model_config: Model configuration
-        freeform_notes: Freeform notes from Pass 2a
+        observations_freeform: Freeform notes from Pass 2a
+
     Returns:
-        Pass2bResult with issues_natural_language
+        Pass2bResult with observations list
     """
-    # If no freeform notes or effectively empty, return empty result (embeddings will fill catalog_flags when needed)
-    if _is_effectively_empty_notes(freeform_notes):
+    # If no freeform notes or effectively empty, return empty result
+    if _is_effectively_empty_notes(observations_freeform):
         return Pass2bResult(
-            issues_natural_language=[],
-            catalog_flags={},
+            observations=[],
             raw_response=None,
         )
 
-    # Format the system prompt with all placeholders
-    system_prompt = PASS_2B_SYSTEM_PROMPT
-    user_prompt = PASS_2B_USER_PROMPT.format(
-        freeform_notes=freeform_notes or "(no notes provided)"
-    )
+    system_prompt = safe_format_prompt(PASS_2B_SYSTEM_PROMPT_TEMPLATE, notes=observations_freeform)
 
-    logger.debug(f"Pass 2b: Converting freeform notes to JSON for {image_path.name}")
+    logger.debug("Pass 2b: Converting observations freeform to JSON")
 
     try:
-        # ✅ Text-only call - does not need the image
         response = await vlm_client.analyze_text(
             system_prompt=system_prompt,
-            user_prompt=user_prompt,
+            user_prompt=PASS_2B_USER_PROMPT,
             **model_config,
         )
 
         result = extract_json_object(response) or {}
+        observations = _coerce_observations_2b(result.get("observations"))
 
         return Pass2bResult(
-            issues_natural_language=result.get("issues_natural_language", []),
-            catalog_flags={},
+            observations=observations,
             raw_response=response,
         )
 
     except Exception as e:
-        logger.error(f"Pass 2b: Error converting notes to JSON: {e}")
+        logger.error(f"Pass 2b: Error converting observations to JSON: {e}")
         return Pass2bResult(
-            issues_natural_language=[],
-            catalog_flags={},
+            observations=[],
+            raw_response=None,
         )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 3: Keyword Extraction (UPDATED - text-only from structured facts)
+# Pass 2c: Label Observations + Debug/Forward Split (Text-only)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_3_SYSTEM_PROMPT = """You generate object-detection keywords for a real estate photo using ONLY provided extracted facts.
+PASS_2C_SYSTEM_PROMPT = """Label each observation with a simple type.
+
+Allowed labels:
+- defect_or_damage: visible wear, damage, missing, broken, poor condition
+- safety: tripping hazards, exposed wiring, unsafe conditions
+- upgrade_candidate: dated/cheap fixture/finish that a renovator would likely replace
+- good_condition: explicitly says looks good / intact / clean
+- generic_presence: neutral existence of an item (e.g., "there is a door")
+- other: anything else
+
+Rules:
+- Do NOT add new observations.
+- Use ONLY the provided descriptions.
+- One label per item.
+
+Return JSON only:
+{
+  "labeled": [
+    { "description": "...", "label": "defect_or_damage|safety|upgrade_candidate|good_condition|generic_presence|other" }
+  ]
+}
+"""
+
+PASS_2C_USER_PROMPT_TEMPLATE = """OBSERVATIONS_JSON:
+{observations_json}
+"""
+
+VALID_LABELS = {"defect_or_damage", "safety", "upgrade_candidate", "good_condition", "generic_presence", "other"}
+
+
+def _coerce_labeled_2c(x: Any) -> List[Dict[str, str]]:
+    """Normalize Pass 2c labeled observations."""
+    if not isinstance(x, list):
+        return []
+    out: List[Dict[str, str]] = []
+    for it in x:
+        if not isinstance(it, dict):
+            continue
+        desc = str(it.get("description") or "").strip()
+        if not desc:
+            continue
+        label = str(it.get("label") or "").strip().lower()
+        if label not in VALID_LABELS:
+            label = "other"
+        out.append({
+            "description": desc,
+            "label": label,
+        })
+    return out
+
+
+async def run_pass_2c(
+        vlm_client: Any,
+        model_config: dict,
+        observations: List[Dict[str, str]],
+) -> Pass2cResult:
+    """
+    Pass 2c: Label observations and split into debug/forward lists.
+
+    labeled_debug: all labeled observations (for debugging)
+    labeled_forward: only defect_or_damage and upgrade_candidate (for downstream)
+
+    Args:
+        vlm_client: VLM client instance
+        model_config: Model configuration
+        observations: Observations from Pass 2b
+
+    Returns:
+        Pass2cResult with labeled_debug and labeled_forward
+    """
+    if not observations:
+        return Pass2cResult(labeled_debug=[], labeled_forward=[], raw_response=None)
+
+    observations_json = json.dumps(observations, ensure_ascii=False)
+    user_prompt = safe_format_prompt(PASS_2C_USER_PROMPT_TEMPLATE, observations_json=observations_json)
+
+    logger.debug("Pass 2c: Labeling observations (text-only)")
+
+    try:
+        response = await vlm_client.analyze_text(
+            system_prompt=PASS_2C_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+            **model_config,
+        )
+        result = extract_json_object(response) or {}
+        labeled_debug = _coerce_labeled_2c(result.get("labeled"))
+
+        # Split: labeled_forward = defect_or_damage + upgrade_candidate only
+        labeled_forward = [
+            x for x in labeled_debug
+            if x.get("label") in {"defect_or_damage", "upgrade_candidate"}
+        ]
+
+        return Pass2cResult(
+            labeled_debug=labeled_debug,
+            labeled_forward=labeled_forward,
+            raw_response=response,
+        )
+
+    except Exception as e:
+        logger.error(f"Pass 2c: Error labeling observations: {e}")
+        return Pass2cResult(
+            labeled_debug=[],
+            labeled_forward=[],
+            raw_response=None,
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Pass 2d: Resolve defect_id from Candidates (Text-only, Optional)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+PASS_2D_SYSTEM_PROMPT = ""
+PASS_2D_USER_PROMPT_TEMPLATE = """Map this observation to a defect catalog ID using ONLY the candidates.
+
+OBSERVATION:
+{observation}
+
+CANDIDATES:
+{candidates_text}
+
+Rules:
+- Choose 0 or 1 defect_id that best matches the observation.
+- If none fit, return null.
+- Use ONLY defect_id values from the candidate list.
+
+Return JSON only:
+{
+  "resolved_defect_id": "..." or null
+}
+"""
+
+
+def format_candidates_text(candidates: List[Dict[str, Any]]) -> str:
+    """Format candidate list to text for the prompt."""
+    if not candidates:
+        return "(none)"
+    lines = []
+    for c in candidates:
+        defect_id = c.get("defect_id", "")
+        name = c.get("name", "")
+        trade = c.get("trade_bucket", "")
+        kind = c.get("kind", "")
+        score = c.get("score", 0.0)
+        lines.append(f"- {defect_id} | {name} | trade={trade} | kind={kind} | score={score:.3f}")
+    return "\n".join(lines) or "(none)"
+
+
+async def run_pass_2d(
+        vlm_client: Any,
+        model_config: dict,
+        observation: str,
+        candidates: List[Dict[str, Any]],
+) -> Pass2dResult:
+    """
+    Pass 2d: Resolve a defect_id from embedding candidates for a single observation.
+
+    This pass is only run on defect_or_damage observations, not upgrades.
+
+    Args:
+        vlm_client: VLM client instance
+        model_config: Model configuration
+        observation: The observation description string
+        candidates: List of candidate dicts from embeddings retrieval
+
+    Returns:
+        Pass2dResult with resolved_defect_id (str or None)
+    """
+    if not observation or not candidates:
+        return Pass2dResult(
+            observation=observation,
+            resolved_defect_id=None,
+            raw_response=None,
+        )
+
+    candidates_text = format_candidates_text(candidates)
+    user_prompt = safe_format_prompt(
+        PASS_2D_USER_PROMPT_TEMPLATE,
+        observation=observation,
+        candidates_text=candidates_text,
+    )
+
+    logger.debug(f"Pass 2d: Resolving defect_id for observation: {observation[:50]}...")
+
+    try:
+        response = await vlm_client.analyze_text(
+            system_prompt=PASS_2D_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+            **model_config,
+        )
+        result = extract_json_object(response) or {}
+
+        resolved_id = None
+        if isinstance(result, dict):
+            resolved_id = result.get("resolved_defect_id")
+            if resolved_id is not None:
+                resolved_id = str(resolved_id).strip() if resolved_id else None
+
+        return Pass2dResult(
+            observation=observation,
+            resolved_defect_id=resolved_id,
+            raw_response=response,
+        )
+
+    except Exception as e:
+        logger.error(f"Pass 2d: Error resolving defect_id: {e}")
+        return Pass2dResult(
+            observation=observation,
+            resolved_defect_id=None,
+            raw_response=None,
+        )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Pass 3: Keyword Extraction (Text-only, from structured facts)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+PASS_3_SYSTEM_PROMPT_TEMPLATE = """You generate object-detection keywords using ONLY provided extracted facts.
 
 Scene: {scene}
 
-Positives (visible features):
-{notable_features_json}
+Features:
+{features_json}
 
-Issues (visible concerns):
-{issues_json}
+Observations:
+{observations_json}
 
 Rules:
 - Keywords must be visually detectable objects/materials (1–4 words).
-- No speculation and no code/safety claims.
-- Deduplicate and keep high-signal. Max 20 keywords.
+- Deduplicate and keep high-signal.
 
 Output JSON only:
-{{
-  "keywords": ["<keyword1>", "<keyword2>", ...],
-  "categories": {{
-    "structural": ["<kw>", ...],
-    "fixtures": ["<kw>", ...],
-    "condition": ["<kw>", ...],
-    "style": ["<kw>", ...]
-  }}
-}}
-"""
+{
+  "keywords": ["<kw>", "..."],
+  "categories": {
+    "structural": ["<kw>", "..."],
+    "fixtures": ["<kw>", "..."],
+    "condition": ["<kw>", "..."],
+    "style": ["<kw>", "..."]
+  }
+}"""
 
 PASS_3_USER_PROMPT = "Generate detection keywords."
 
@@ -557,27 +807,36 @@ async def run_pass_3_keyword_extraction(
     """
     Pass 3: Generate detection keywords from structured facts (text-only).
 
-    Always uses Qwen for speed.
-    Note: This is now a text-only pass that uses structured outputs from
-    previous passes instead of re-analyzing the image.
-
     Args:
         vlm_client: VLM client instance
         model_config: Model configuration
-        context: Context containing 'scene', 'notable_features', 'issues_natural_language'
+        context: Context containing:
+            - 'scene': scene type from Pass 1a
+            - 'features_struct': dict with 'notable_features' from Pass 1c
+            - 'observations': list from Pass 2b (observations_struct.get("observations"))
+            - 'labeled_forward': list from Pass 2c (preferred if non-empty)
         max_keywords: Maximum keywords to return
 
     Returns:
         Pass3Result with extracted keywords
     """
     scene = context.get("scene", "property") if context else "property"
-    notable_features = context.get("notable_features", []) if context else []
-    issues = context.get("issues_natural_language", []) if context else []
 
-    system_prompt = PASS_3_SYSTEM_PROMPT.format(
+    # Get notable_features from features_struct
+    features_struct = context.get("features_struct", {}) if context else {}
+    notable_features = features_struct.get("notable_features", [])
+
+    # Use labeled_forward if non-empty, else fall back to observations
+    labeled_forward = context.get("labeled_forward", []) if context else []
+    observations = context.get("observations", []) if context else []
+
+    observations_for_keywords = labeled_forward if labeled_forward else observations
+
+    system_prompt = safe_format_prompt(
+        PASS_3_SYSTEM_PROMPT_TEMPLATE,
         scene=scene,
-        notable_features_json=json.dumps(notable_features, ensure_ascii=False),
-        issues_json=json.dumps(issues, ensure_ascii=False),
+        features_json=json.dumps(notable_features, ensure_ascii=False),
+        observations_json=json.dumps(observations_for_keywords, ensure_ascii=False),
     )
 
     logger.debug("Pass 3: Generating keywords from structured facts (text-only)")
@@ -601,331 +860,3 @@ async def run_pass_3_keyword_extraction(
     except Exception as e:
         logger.error(f"Pass 3: Error extracting keywords: {e}")
         return Pass3Result(keywords=[], raw_response=None)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Pass 4: Property Summary (UPDATED - uses freeform notes only)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-PASS_4_SYSTEM_PROMPT = """You are a real estate investment analyst synthesizing property photo notes.
-
-You will be given:
-- FEATURE NOTES: freeform positives/inventory notes from multiple photos
-- ISSUES NOTES: freeform issues/concerns notes from multiple photos
-
-Rules:
-- Use ONLY what is explicitly stated in the notes. Do not add new features, issues, or assumptions.
-- Keep it balanced: strengths + risks.
-- Be conservative; avoid strong claims unless clearly supported by the notes.
-
-Respond with ONLY a JSON object:
-{
-  "property_summary": "<2-3 sentence investment-focused summary grounded in the notes>",
-  "investment_considerations": ["<fact-based point1>", "<fact-based point2>", ...],
-  "estimated_condition": "excellent|good|fair|poor",
-  "confidence": <0.0-1.0>
-}
-"""
-
-
-async def run_pass_4_property_summary(
-        vlm_client: Any,
-        model_config: dict,
-        all_results: Dict[str, Any],
-) -> Pass4Result:
-    """
-    Pass 4: Generate property-level summary from all image analyses.
-
-    Uses GPT-5 in premium mode for better synthesis.
-    This pass uses freeform notes from Pass 1b (features) and Pass 2a (issues).
-
-    Args:
-        vlm_client: VLM client instance
-        model_config: Model configuration
-        all_results: Aggregated results from all images, containing:
-            - 'scene': scene type
-            - 'feature_notes': freeform notes from Pass 1b
-            - 'issues_notes': freeform notes from Pass 2a
-
-    Returns:
-        Pass4Result with property summary
-    """
-    feature_blocks = []
-    issues_blocks = []
-
-    for img_key, data in list(all_results.items())[:20]:
-        scene = data.get("scene", "unknown")
-        feat = (data.get("feature_notes") or "").strip()
-        neg = (data.get("issues_notes") or "").strip()
-
-        if feat:
-            feature_blocks.append(f"- {img_key} ({scene}): {feat}")
-        if neg:
-            issues_blocks.append(f"- {img_key} ({scene}): {neg}")
-
-    user_prompt = (
-            "FEATURE NOTES:\n---\n"
-            + "\n".join(feature_blocks) + "\n---\n\n"
-            + "ISSUES NOTES:\n---\n"
-            + "\n".join(issues_blocks) + "\n---\n"
-            + f"\nTotal images analyzed: {len(all_results)}"
-    )
-
-    logger.debug(f"Pass 4: Generating property summary from freeform notes ({len(all_results)} images)")
-
-    try:
-        response = await vlm_client.analyze_text(
-            system_prompt=PASS_4_SYSTEM_PROMPT,
-            user_prompt=user_prompt,
-            **model_config,
-        )
-
-        result = extract_json_object(response) or {}
-
-        return Pass4Result(
-            property_summary=result.get("property_summary", ""),
-            investment_considerations=result.get("investment_considerations", []),
-            estimated_condition=result.get("estimated_condition"),
-            confidence=result.get("confidence"),
-            raw_response=response,
-        )
-
-    except Exception as e:
-        logger.error(f"Pass 4: Error generating summary: {e}")
-        return Pass4Result(property_summary="", raw_response=None)
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Scene grouping helpers (needed by orchestrator + pass 4a/4b)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-SCENE_GROUPS_UI: Dict[str, List[str]] = {
-    "kitchen": ["kitchen", "pantry"],
-    "bathroom": ["bathroom"],
-    "bedroom": ["bedroom", "closet"],
-    "living_areas": ["living_room", "dining_room", "home_office", "hallway", "stairway"],
-    "utility": ["laundry_room", "basement", "attic", "garage", "hvac"],
-    "exterior": ["exterior_front", "exterior_back", "exterior_side", "yard", "patio", "deck", "balcony", "driveway",
-                 "pool", "garden"],
-    "other": ["roof", "other", "unknown", "floor_plan", "aerial_view", "street_view"],
-}
-
-# Reverse lookup: scene -> group
-SCENE_TO_GROUP: Dict[str, str] = {}
-for _group, _scenes in SCENE_GROUPS_UI.items():
-    for _scene in _scenes:
-        SCENE_TO_GROUP[_scene] = _group
-
-
-@dataclass
-class Pass4aRoomSummariesResult:
-    """Result from Pass 4a: Room-group summaries + issue counts."""
-    room_summaries: Dict[str, str]
-    issues_by_category: Dict[str, int]
-    total_issues_found: int
-    raw_response: Optional[str] = None
-
-
-@dataclass
-class Pass4bLegacyCardResult:
-    """Result from Pass 4b: UI card fields (legacy)."""
-    overall_condition: str
-    overall_summary: str
-    investment_verdict: str
-    investment_rationale: str
-    renovation_scope: str
-    renovation_priorities: List[str]
-    risk_flags: List[str]
-    deferred_maintenance: List[str]
-    raw_response: Optional[str] = None
-
-
-PASS_4A_SYSTEM_PROMPT = """You generate conservative room-group summaries for a property photo analysis.
-
-You will receive per-photo extracted facts (scene, positives, issues).
-Rules:
-- Be factual, conservative, and brief.
-- Do NOT add new issues or features.
-- If there is no evidence for a room group, output an empty string for that group.
-
-Return ONLY JSON:
-{
-  "room_summaries": {
-    "kitchen": "<1-3 sentences or ''>",
-    "bathroom": "<1-3 sentences or ''>",
-    "bedroom": "<1-3 sentences or ''>",
-    "living_areas": "<1-3 sentences or ''>",
-    "utility": "<1-3 sentences or ''>",
-    "exterior": "<1-3 sentences or ''>",
-    "other": "<1-3 sentences or ''>"
-  }
-}
-"""
-
-PASS_4B_SYSTEM_PROMPT = """You generate concise UI card fields for a property analysis.
-
-Rules:
-- Conservative, buyer/investor-friendly.
-- Use ONLY what is provided. Do not invent issues/features.
-- Keep it a few sentences to a paragraph.
-
-Return ONLY JSON:
-{
-  "overall_condition": "excellent|good|fair|poor",
-  "overall_summary": "<1-3 sentences>",
-  "investment_verdict": "buy|maybe|pass",
-  "investment_rationale": "<1-3 sentences>",
-  "renovation_scope": "light|moderate|heavy",
-  "renovation_priorities": ["<short>", "..."],
-  "risk_flags": ["<short>", "..."],
-  "deferred_maintenance": ["<short>", "..."]
-}
-"""
-
-
-def _coerce_list(x: Any) -> List[str]:
-    if x is None:
-        return []
-    if isinstance(x, list):
-        return [str(v).strip() for v in x if str(v).strip()]
-    if isinstance(x, str):
-        s = x.strip()
-        return [s] if s else []
-    return []
-
-
-def _collect_issues(all_results: Dict[str, Any]) -> List[Dict[str, Any]]:
-    out: List[Dict[str, Any]] = []
-    for _, payload in (all_results or {}).items():
-        issues = (payload or {}).get("issues_natural_language") or []
-        if isinstance(issues, list):
-            for it in issues:
-                if isinstance(it, dict):
-                    out.append(it)
-    return out
-
-
-async def run_pass_4a_room_summaries(
-        vlm_client: Any,
-        model_config: dict,
-        all_results: Dict[str, Any],
-        scene_counts: Optional[Dict[str, int]] = None,
-) -> Pass4aRoomSummariesResult:
-    """
-    Pass 4a: Produce room-group summaries and deterministic issue counts.
-    """
-    # Deterministic counts (don't make the model do bookkeeping)
-    issues = _collect_issues(all_results)
-    issues_by_category: Dict[str, int] = {}
-    for it in issues:
-        cat = str(it.get("rough_category") or "other").strip() or "other"
-        issues_by_category[cat] = issues_by_category.get(cat, 0) + 1
-    total_issues_found = len(issues)
-
-    # Build compact, grouped input
-    groups: Dict[str, List[str]] = {k: [] for k in SCENE_GROUPS_UI.keys()}
-    for img_key, data in (all_results or {}).items():
-        scene = str((data or {}).get("scene") or "unknown").strip()
-        group = SCENE_TO_GROUP.get(scene, "other")
-
-        feat = str((data or {}).get("feature_notes") or "").strip()
-        neg = str((data or {}).get("issues_notes") or "").strip()
-
-        if feat:
-            groups[group].append(f"- {img_key} ({scene}) FEAT: {feat}")
-        if neg:
-            groups[group].append(f"- {img_key} ({scene}) ISSUES: {neg}")
-
-    # Keep prompts bounded
-    for g in groups:
-        groups[g] = groups[g][:30]
-
-    user_payload = {
-        "scene_counts": scene_counts or {},
-        "grouped_notes": groups,
-        "total_images_analyzed": len(all_results or {}),
-        "total_issues_found": total_issues_found,
-        "issues_by_category": issues_by_category,
-    }
-
-    try:
-        response = await vlm_client.analyze_text(
-            system_prompt=PASS_4A_SYSTEM_PROMPT,
-            user_prompt=json.dumps(user_payload, ensure_ascii=False),
-            **model_config,
-        )
-        result = extract_json_object(response) or {}
-        rs = result.get("room_summaries") if isinstance(result.get("room_summaries"), dict) else {}
-
-        # Ensure all keys exist
-        room_summaries: Dict[str, str] = {}
-        for k in SCENE_GROUPS_UI.keys():
-            v = rs.get(k, "")
-            room_summaries[k] = str(v).strip() if isinstance(v, str) else ""
-
-        return Pass4aRoomSummariesResult(
-            room_summaries=room_summaries,
-            issues_by_category=issues_by_category,
-            total_issues_found=total_issues_found,
-            raw_response=response,
-        )
-    except Exception as e:
-        logger.error(f"Pass 4a: Error generating room summaries: {e}")
-        return Pass4aRoomSummariesResult(
-            room_summaries={k: "" for k in SCENE_GROUPS_UI.keys()},
-            issues_by_category=issues_by_category,
-            total_issues_found=total_issues_found,
-            raw_response=None,
-        )
-
-
-async def run_pass_4b_property_card_fields(
-        vlm_client: Any,
-        model_config: dict,
-        room_summaries: Dict[str, Any],
-        total_issues_found: int,
-        total_images_analyzed: int,
-        issues_by_category: Dict[str, int],
-) -> Pass4bLegacyCardResult:
-    """
-    Pass 4b: Generate legacy UI card fields from room summaries + totals.
-    """
-    user_payload = {
-        "room_summaries": room_summaries or {},
-        "total_issues_found": int(total_issues_found or 0),
-        "total_images_analyzed": int(total_images_analyzed or 0),
-        "issues_by_category": issues_by_category or {},
-    }
-
-    try:
-        response = await vlm_client.analyze_text(
-            system_prompt=PASS_4B_SYSTEM_PROMPT,
-            user_prompt=json.dumps(user_payload, ensure_ascii=False),
-            **model_config,
-        )
-        result = extract_json_object(response) or {}
-
-        return Pass4bLegacyCardResult(
-            overall_condition=str(result.get("overall_condition") or "").strip(),
-            overall_summary=str(result.get("overall_summary") or "").strip(),
-            investment_verdict=str(result.get("investment_verdict") or "").strip(),
-            investment_rationale=str(result.get("investment_rationale") or "").strip(),
-            renovation_scope=str(result.get("renovation_scope") or "").strip(),
-            renovation_priorities=_coerce_list(result.get("renovation_priorities")),
-            risk_flags=_coerce_list(result.get("risk_flags")),
-            deferred_maintenance=_coerce_list(result.get("deferred_maintenance")),
-            raw_response=response,
-        )
-    except Exception as e:
-        logger.error(f"Pass 4b: Error generating UI card fields: {e}")
-        return Pass4bLegacyCardResult(
-            overall_condition="",
-            overall_summary="",
-            investment_verdict="",
-            investment_rationale="",
-            renovation_scope="",
-            renovation_priorities=[],
-            risk_flags=[],
-            deferred_maintenance=[],
-            raw_response=None,
-        )
