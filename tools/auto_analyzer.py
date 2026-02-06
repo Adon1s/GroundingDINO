@@ -82,11 +82,11 @@ except ImportError:
 
 # Embeddings catalog matcher (optional)
 try:
-    from tools.catalog_embeddings import CatalogEmbedMatcher
+    from tools.catalog_embeddings import CatalogEmbeddingsRetriever
 
     EMBEDDINGS_MATCHER_AVAILABLE = True
 except Exception:
-    CatalogEmbedMatcher = None
+    CatalogEmbeddingsRetriever = None
     EMBEDDINGS_MATCHER_AVAILABLE = False
 
 # Import VLM client (for direct calls when orchestrator unavailable)
@@ -154,7 +154,7 @@ def load_issue_catalog(path: Path) -> dict:
     try:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        logger.debug(f"Loaded issue catalog from {path}")
+        logger.info(f"Catalog file loaded: {path.resolve()} raw_keys={list(data.keys()) if isinstance(data, dict) else type(data).__name__}")
     except FileNotFoundError:
         logger.warning(f"Issue catalog not found at {path}; using empty catalog.")
         data = {}
@@ -163,9 +163,33 @@ def load_issue_catalog(path: Path) -> dict:
         data = {}
 
     return {
-        "defect_issues": data.get("defect_issues", []),
-        "opportunity_flags": data.get("opportunity_flags", []),
+        # Support both naming conventions: defects (current schema) and defect_issues (legacy)
+        "defect_issues": data.get("defects", []) or data.get("defect_issues", []),
+        "opportunity_flags": data.get("upgrades", []) or data.get("opportunity_flags", []),
+        # Preserve additional catalog metadata
+        "items": data.get("items", []),
+        "trade_buckets": data.get("trade_buckets", {}),
+        "version": data.get("version"),
     }
+
+
+def _log_catalog_load(path: Path, cat: dict):
+    """Log catalog load details at INFO so they're always visible."""
+    defects = cat.get("defect_issues", []) or []
+    upgrades = cat.get("opportunity_flags", []) or []
+    items = cat.get("items", []) or []
+    version = cat.get("version")
+    logger.info(
+        f"Catalog load: path={path.resolve()} exists={path.exists()} "
+        f"version={version} defect_issues={len(defects)} "
+        f"opportunity_flags={len(upgrades)} items={len(items)} "
+        f"keys={list(cat.keys())}"
+    )
+    sample = defects[:2]
+    if sample:
+        logger.info(f"Catalog sample defect_issues[0:2]={sample}")
+    else:
+        logger.info("Catalog sample: defect_issues is EMPTY")
 
 
 # Compute default catalog path - prefer tools/issue_catalog.json if it exists
@@ -235,10 +259,10 @@ def _make_photo_id(property_key: str, run_id: str, photo_key: str) -> str:
     return _stable_hash_id(property_key, run_id, photo_key, length=16)
 
 
-def _make_issue_id(run_id: str, photo_key: str, description: str, location_hint: str, rough_category: str,
+def _make_issue_id(run_id: str, photo_key: str, description: str, location_hint: str, label: str,
                    ordinal: int = 0) -> str:
     """Generate deterministic issue ID. Ordinal handles duplicate issues in same photo."""
-    return _stable_hash_id(run_id, photo_key, description, location_hint, rough_category, str(ordinal), length=16)
+    return _stable_hash_id(run_id, photo_key, description, location_hint, label, str(ordinal), length=16)
 
 
 # ── Data Classes ─────────────────────────────────────────────────────────────
@@ -429,25 +453,16 @@ class AutoAnalyzer:
             self.issue_catalog = {}
 
         # Helpful sanity logging
-        try:
-            defect_count = len((self.issue_catalog.get("defect_issues", []) or []))
-            opp_count = len((self.issue_catalog.get("opportunity_flags", []) or []))
-            logger.info(f"ISSUE_CATALOG_PATH = {self.issue_catalog_path}")
-            logger.info(f"Issue catalog counts: defect={defect_count} opportunity={opp_count}")
-        except Exception as e:
-            logger.warning(f"Failed to log issue catalog counts: {e}")
+        _log_catalog_load(self.issue_catalog_path, self.issue_catalog)
 
         # ── Embeddings-based catalog matcher (optional) ─────────────────────
         self.catalog_matcher = None
         if getattr(cfg, "USE_EMBEDDINGS_CATALOG", False) and EMBEDDINGS_MATCHER_AVAILABLE:
             try:
-                self.catalog_matcher = CatalogEmbedMatcher(
-                    issue_catalog=self.issue_catalog,
+                self.catalog_matcher = CatalogEmbeddingsRetriever(
+                    catalog_v2=self.issue_catalog,  # or just self.issue_catalog as first positional arg
                     model_name=getattr(cfg, "EMBEDDINGS_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2"),
-                    topk=getattr(cfg, "EMBEDDINGS_TOPK", 5),
-                    threshold_defect=getattr(cfg, "EMBEDDINGS_THRESHOLD_DEFECT", 0.58),
-                    threshold_opportunity=getattr(cfg, "EMBEDDINGS_THRESHOLD_OPPORTUNITY", 0.56),
-                    route_by_rough_category=getattr(cfg, "EMBEDDINGS_ROUTE_BY_ROUGH_CATEGORY", True),
+                    default_topk=getattr(cfg, "EMBEDDINGS_TOPK", 5),
                     trust_remote_code=bool(getattr(cfg, "EMBEDDINGS_TRUST_REMOTE_CODE", False)),
                     device=str(getattr(cfg, "EMBEDDINGS_DEVICE", "cpu")),
                 )
@@ -516,11 +531,49 @@ class AutoAnalyzer:
                     toggles=self.pass_toggles,
                     model_overrides=self.model_overrides,
                 )
-                # ✅ Give orchestrator a default catalog if factory supports it
+                # ✅ Build candidate_provider from embeddings matcher or catalog
+                candidate_provider = None
+                if self.catalog_matcher:
+                    candidate_provider = self.catalog_matcher.get_candidates if hasattr(self.catalog_matcher, 'get_candidates') else None
+                    if candidate_provider:
+                        logger.info("Candidate provider: embeddings-based (catalog_matcher.get_candidates)")
+
+                if candidate_provider is None and self.issue_catalog:
+                    # Simple catalog-based provider fallback
+                    def _catalog_candidate_provider(query, rough_category=None, topk=8):
+                        """Simple candidate provider from issue catalog (defects only)."""
+                        candidates = [
+                            item for item in (self.issue_catalog.get("defect_issues", []) or [])
+                            if isinstance(item, dict)
+                        ]
+                        logger.info(f"2d diag: catalog_candidate_pool={len(candidates)} (topk={topk}, query={query[:60]})")
+                        return candidates[:topk]
+
+                    candidate_provider = _catalog_candidate_provider
+                    logger.info("Candidate provider: simple catalog-based fallback")
+
+                # Wrap to normalize signature + output shape
+                if candidate_provider is not None:
+                    candidate_provider = self._wrap_candidate_provider(candidate_provider)
+
+                # ✅ Give orchestrator catalog and candidate_provider
                 try:
-                    self.orchestrator = create_orchestrator_from_config(cfg, issue_catalog=self.issue_catalog)
+                    self.orchestrator = create_orchestrator_from_config(
+                        cfg,
+                        issue_catalog=self.issue_catalog,
+                        candidate_provider=candidate_provider,
+                    )
                 except TypeError:
-                    self.orchestrator = create_orchestrator_from_config(cfg)
+                    # Factory doesn't accept candidate_provider yet
+                    try:
+                        self.orchestrator = create_orchestrator_from_config(cfg, issue_catalog=self.issue_catalog)
+                    except TypeError:
+                        self.orchestrator = create_orchestrator_from_config(cfg)
+                    # Manually attach candidate_provider if orchestrator supports it
+                    if candidate_provider and self.orchestrator:
+                        if hasattr(self.orchestrator, 'candidate_provider'):
+                            self.orchestrator.candidate_provider = candidate_provider
+                            logger.info("Attached candidate_provider to orchestrator post-init")
                 logger.info(f"Pass architecture initialized (premium={self.run_options.premium})")
             except Exception as e:
                 logger.warning(f"Failed to initialize pass architecture: {e}, falling back to direct pass calls")
@@ -563,12 +616,139 @@ class AutoAnalyzer:
             self.summary_model = getattr(cfg, "SUMMARY_MODEL", None)
             logger.info(f"Using STANDARD analysis profile (max_keywords={self.max_keywords})")
 
+    @staticmethod
+    def _toggle(options, key: str, default: bool = True) -> bool:
+        """Robustly read a pass toggle from run_options, handling dict/dataclass/object."""
+        t = getattr(options, "toggles", None) if options else None
+        if t is None:
+            return default
+        if isinstance(t, dict):
+            return bool(t.get(key, default))
+        # dataclass / object: try exact, then common naming patterns
+        for name in (key, f"p{key}", f"_{key}", key.replace("-", "_")):
+            if hasattr(t, name):
+                return bool(getattr(t, name))
+        return default
+
+    @staticmethod
+    def _normalize_candidate(item: dict) -> dict:
+        """Normalize a raw catalog item into the shape run_pass_2d and orchestrator expect."""
+        return {
+            "defect_id": item.get("defect_id") or item.get("id") or item.get("key", ""),
+            "score": item.get("score", 1.0),
+            "name": item.get("name") or item.get("label") or item.get("defect_id") or item.get("id", ""),
+            "category": item.get("category", ""),
+            "aliases": item.get("aliases", []),
+            # preserve original for debugging
+            "_raw": item,
+        }
+
+    def _wrap_candidate_provider(self, raw_provider):
+        """
+        Wrap any candidate provider so it supports both call conventions
+        and returns normalized candidate dicts.
+
+        Supported underlying signatures:
+          (query)                              - simple
+          (query, rough_category=None, topk=8) - catalog fallback
+          (query, context_dict)                - orchestrator convention
+
+        Output: always returns list of {defect_id, score, name, ...}
+        """
+        def wrapped(query, context_or_category=None, topk=8):
+            # Determine topk from context dict if present
+            if isinstance(context_or_category, dict):
+                topk = context_or_category.get("top_k_candidates", topk)
+
+            # Try calling with just query first (safest)
+            try:
+                result = raw_provider(query)
+            except TypeError:
+                try:
+                    result = raw_provider(query, None, topk)
+                except TypeError:
+                    result = raw_provider(query, context_or_category)
+
+            if not isinstance(result, list):
+                logger.info(f"2d diag: raw_provider_type={type(result).__name__} (not list)")
+                return []
+
+            logger.info(f"2d diag: raw_provider_len={len(result)} sample_keys={list(result[0].keys()) if result else []}")
+
+            normalized = [self._normalize_candidate(item) for item in result[:topk]]
+            logger.info(f"2d diag: normalized_len={len(normalized)} sample={normalized[0] if normalized else '{}'}")
+            return normalized
+
+        return wrapped
+
+    async def _call_pass_2d(self, *, model_config, defect_items, candidate_provider):
+        """
+        Run Pass 2d for each defect observation, matching the orchestrator's pattern.
+
+        run_pass_2d accepts: (vlm_client, model_config, observation: str, candidates: List[dict])
+        So we loop through defect_items, get candidates per item, and call once per observation.
+
+        Returns:
+            dict with 'resolved_defects' list and 'pass_2d_results' list
+        """
+        resolved_defects = []
+        pass_2d_results = []
+
+        for obs in defect_items:
+            description = obs.get("description", "") if isinstance(obs, dict) else str(obs)
+            if not description:
+                continue
+
+            # Get candidates for this observation
+            try:
+                candidates = candidate_provider(description)
+            except TypeError:
+                # Some providers accept (query, rough_category, topk)
+                try:
+                    candidates = candidate_provider(description, None, 8)
+                except Exception:
+                    candidates = []
+
+            if not isinstance(candidates, list) or not candidates:
+                logger.info(f"2d diag: no candidates for observation: {description[:80]}")
+                continue
+
+            # Call run_pass_2d for this single observation
+            try:
+                pass_2d_result = await run_pass_2d(
+                    vlm_client=self.vlm_client,
+                    model_config=model_config,
+                    observation=description,
+                    candidates=candidates,
+                )
+                pass_2d_results.append(pass_2d_result)
+
+                top_candidate = candidates[0] if candidates else None
+                resolved_defects.append({
+                    "description": description,
+                    "label": obs.get("label", "defect") if isinstance(obs, dict) else "defect",
+                    "resolved_defect_id": getattr(pass_2d_result, "resolved_defect_id", None),
+                    "top_candidate_id": top_candidate.get("defect_id") if top_candidate else None,
+                    "top_candidate_score": top_candidate.get("score") if top_candidate else None,
+                    "raw_response": getattr(pass_2d_result, "raw_response", ""),
+                })
+            except Exception as e:
+                logger.warning(f"  Pass 2d failed for observation: {e}")
+
+        # Return a namespace-like object so callers can read .resolved_defects
+        class _Result:
+            pass
+        r = _Result()
+        r.resolved_defects = resolved_defects
+        r.pass_2d_results = pass_2d_results
+        return r
+
     def _get_model_config_for_pass(self, pass_key: str) -> Dict[str, Any]:
         """
         Get the appropriate model config for a specific pass.
 
         Args:
-            pass_key: Pass identifier ('1a', '1b', '1c', '2a', '2b', '3', '4a', '4b', '4c')
+            pass_key: Pass identifier ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '3', '4a', '4b', '4c')
 
         Returns:
             Model config dict with 'url', 'model', 'api_key' etc.
@@ -593,9 +773,9 @@ class AutoAnalyzer:
             }
             return base  # no OpenAI cap possible here
 
-        # Premium uses GPT for passes 1b, 2a, 4, 4a, 4b, 4c
+        # Premium uses GPT for passes 1b, 2a, 2d, 4, 4a, 4b, 4c
         if self.analysis_profile == 'premium' and (
-                pass_key in ('1b', '2a', '4', '4a', '4b', '4c') or pass_key.startswith('4')):
+                pass_key in ('1b', '2a', '2d', '4', '4a', '4b', '4c') or pass_key.startswith('4')):
             if self.gpt_config and self.gpt_config.get('api_key'):
                 # Check for pass-specific model override
                 base = self._get_pass_specific_gpt_config(pass_key)
@@ -621,6 +801,7 @@ class AutoAnalyzer:
             '2a': ['GPT_PASS_2A_MODEL', 'OPENAI_PASS2A_MODEL'],
             '2b': ['GPT_PASS_2B_MODEL', 'OPENAI_PASS2B_MODEL', 'OPENAI_CHIP_MODEL'],
             '2c': ['GPT_PASS_2C_MODEL', 'OPENAI_PASS2C_MODEL'],
+            '2d': ['GPT_PASS_2D_MODEL', 'OPENAI_PASS2D_MODEL'],
             '4': ['GPT_PASS_4_MODEL', 'OPENAI_PASS4_MODEL'],
             '4a': ['GPT_PASS_4A_MODEL', 'OPENAI_PASS4A_MODEL'],
             '4b': ['GPT_PASS_4B_MODEL', 'OPENAI_PASS4B_MODEL'],
@@ -658,6 +839,7 @@ class AutoAnalyzer:
             "1b": "OPENAI_PASS_1B_MAX_TOKENS",
             "2a": "OPENAI_PASS_2A_MAX_TOKENS",
             "2c": "OPENAI_PASS_2C_MAX_TOKENS",
+            "2d": "OPENAI_PASS_2D_MAX_TOKENS",
             "4": "OPENAI_PASS_4_MAX_TOKENS",
             "4a": "OPENAI_PASS_4A_MAX_TOKENS",
             "4b": "OPENAI_PASS_4B_MAX_TOKENS",
@@ -936,7 +1118,7 @@ class AutoAnalyzer:
                 'notable_features': [],
                 'feature_notes': '',
                 'positives_notes': '',  # legacy alias
-                'issues_notes': '',
+                'observations_freeform': '',
                 'keywords': [],
                 'catalog_flags': {},
                 'issues_natural_language': [],
@@ -1013,10 +1195,14 @@ class AutoAnalyzer:
                     feature_notes=feature_notes,
                 )
                 results['notable_features'] = pass_1c.notable_features or []
+                results['overall_impression'] = getattr(pass_1c, 'overall_impression', '') or ''
+                results['image_summary'] = getattr(pass_1c, 'image_summary', '') or ''
                 context['notable_features'] = results['notable_features']
 
-                # Store Pass 1c output (only notable_features in current Pass1cResult)
+                # Store Pass 1c output
                 results['passes']['1c'] = {
+                    'overall_impression': results['overall_impression'],
+                    'image_summary': results['image_summary'],
                     'notable_features': results['notable_features'],
                 }
             except Exception as e:
@@ -1090,12 +1276,18 @@ class AutoAnalyzer:
                 labeled_forward = pass_2c.labeled_forward or []
 
                 # Enrich forward items to keep downstream schema happy
+                # Classify kind based on label: default to "defect" since 2a/2b/2c
+                # is the issue detection chain. Known opportunity labels get "opportunity".
+                _OPPORTUNITY_LABELS = {"opportunity", "upgrade", "improvement", "cosmetic_upgrade", "feature"}
+
                 forward_enriched = [
                     {
                         "description": x.get("description", ""),
                         "label": x.get("label", ""),
-                        "rough_category": x.get("label", ""),  # placeholder until real taxonomy
+                        "rough_category": "",  # deprecated — keep empty for schema compatibility
                         "location_hint": "",
+                        "kind": "opportunity" if x.get("label", "").lower() in _OPPORTUNITY_LABELS else "defect",
+                        "searchable": "yes",  # ✅ required for build_grouped_issues gate
                     }
                     for x in labeled_forward
                     if isinstance(x, dict) and x.get("description")
@@ -1113,12 +1305,14 @@ class AutoAnalyzer:
                 results['passes']['2c'] = {
                     'labeled_debug': labeled_debug,
                     'labeled_forward': forward_enriched,
+                    'verified_issues': forward_enriched,           # ✅ embeddings + downstream reads this
+                    'issues_natural_language': forward_enriched,   # ✅ fallback key for compatibility
                 }
             except Exception as e:
                 logger.warning(f"  Pass 2c failed: {e}")
                 # Fallback: bridge observations directly
                 fallback_issues = [
-                    {"description": x.get("description", ""), "label": "", "rough_category": "", "location_hint": ""}
+                    {"description": x.get("description", ""), "label": "", "rough_category": "", "location_hint": "", "kind": "defect", "searchable": "yes"}
                     for x in observations if isinstance(x, dict) and x.get("description")
                 ]
                 results['labeled_debug'] = []
@@ -1126,6 +1320,83 @@ class AutoAnalyzer:
                 results['issues_natural_language'] = fallback_issues
                 results['verified_issues'] = fallback_issues
             results['pass_timings']['2c'] = round(time.time() - t0, 3)
+
+            # Pass 2d: Defect Resolution (optional, requires candidates + defect items)
+            # Gating: only run if toggles allow and there are defect-like items to resolve
+            toggle_2d = self._toggle(self.run_options, "2d", default=True)
+
+            defect_forward = results.get('labeled_forward', []) or []
+            # Accept both conventions: kind=="defect" (direct enrichment) or label=="defect_or_damage" (orchestrator)
+            defect_items = [
+                x for x in defect_forward
+                if isinstance(x, dict) and (
+                    x.get("kind") == "defect" or x.get("label") == "defect_or_damage"
+                )
+            ]
+            has_defects = len(defect_items) > 0
+
+            # Build candidate provider for 2d
+            candidate_provider_2d = None
+            if self.catalog_matcher and hasattr(self.catalog_matcher, 'get_candidates'):
+                candidate_provider_2d = self._wrap_candidate_provider(self.catalog_matcher.get_candidates)
+            elif self.issue_catalog:
+                def _simple_candidates(query, rough_category=None, topk=8):
+                    # ✅ 2d is defect resolution — only use defect_issues, not opportunity_flags
+                    defects = [
+                        item for item in (self.issue_catalog.get("defect_issues", []) or [])
+                        if isinstance(item, dict)
+                    ]
+                    logger.info(f"2d diag: simple_candidate_pool={len(defects)} (topk={topk}, query={query[:60]})")
+                    return defects[:topk]
+                candidate_provider_2d = self._wrap_candidate_provider(_simple_candidates)
+
+            has_candidates = candidate_provider_2d is not None
+
+            # Debug gate status
+            catalog_defect_count = len((self.issue_catalog.get("defect_issues", []) or [])) if self.issue_catalog else 0
+            logger.info(
+                f"  Pass 2d gate: toggle_2d={toggle_2d}, has_defects={has_defects} "
+                f"({len(defect_items)}/{len(defect_forward)} defect/total), "
+                f"has_candidates={has_candidates}, catalog_defects={catalog_defect_count}"
+            )
+
+            if toggle_2d and has_defects and has_candidates:
+                model_config_2d = self._get_model_config_for_pass('2d')
+                logger.info(f"  Pass 2d using model: {model_config_2d.get('model')}")
+                results['models_used']['2d'] = model_config_2d.get('model')
+
+                t0 = time.time()
+                try:
+                    pass_2d = await self._call_pass_2d(
+                        model_config=model_config_2d,
+                        defect_items=defect_items,
+                        candidate_provider=candidate_provider_2d,
+                    )
+                    resolved = pass_2d.resolved_defects if hasattr(pass_2d, 'resolved_defects') else (pass_2d.resolutions if hasattr(pass_2d, 'resolutions') else [])
+                    resolved = resolved or []
+                    results['resolved_defects'] = resolved
+
+                    results['passes']['2d'] = {
+                        'resolutions': resolved,
+                        'resolved_defects': resolved,
+                    }
+                    logger.info(f"  Pass 2d completed: {len(resolved)} resolutions")
+                except Exception as e:
+                    logger.warning(f"  Pass 2d failed: {e}")
+                    results['passes']['2d'] = {'resolutions': [], 'resolved_defects': [], 'error': str(e)}
+                    results['resolved_defects'] = []
+                results['pass_timings']['2d'] = round(time.time() - t0, 3)
+            else:
+                skip_reasons = []
+                if not toggle_2d:
+                    skip_reasons.append("toggle off")
+                if not has_defects:
+                    skip_reasons.append("no defects in labeled_forward")
+                if not has_candidates:
+                    skip_reasons.append("no candidate provider")
+                logger.info(f"  Pass 2d skipped: {', '.join(skip_reasons)}")
+                results['passes']['2d'] = {'resolutions': [], 'skipped': True, 'skip_reasons': skip_reasons}
+                results['resolved_defects'] = []
 
             # Pass 3: Keyword Extraction (text-only, always Qwen)
             model_config_3 = self._get_model_config_for_pass('3')
@@ -1136,7 +1407,11 @@ class AutoAnalyzer:
             try:
                 # Pass 3 context must match new Pass 3 prompt expectations
                 context["scene"] = results.get("scene", "property")
-                context["features_struct"] = {"notable_features": results.get("notable_features", [])}
+                context["features_struct"] = {
+                    "overall_impression": results.get("overall_impression", ""),
+                    "image_summary": results.get("image_summary", ""),
+                    "notable_features": results.get("notable_features", []),
+                }
                 context["observations"] = observations
                 context["labeled_forward"] = results.get("labeled_forward", [])
 
@@ -1213,7 +1488,7 @@ class AutoAnalyzer:
         scene_payload['notable_features'] = data.get('notable_features', []) or []
         scene_payload['feature_notes'] = data.get('feature_notes', '') or data.get('positives_notes', '') or ""
         scene_payload['positives_notes'] = scene_payload['feature_notes']  # legacy alias
-        scene_payload['issues_notes'] = data.get('issues_notes', '') or ""
+        scene_payload['observations_freeform'] = data.get('observations_freeform', '') or ""
         scene_payload['groundingdino_prompt'] = prompt
         scene_payload['catalog_flags'] = data.get('catalog_flags', {})
         scene_payload['issues_natural_language'] = data.get('issues_natural_language', [])
@@ -1238,7 +1513,7 @@ class AutoAnalyzer:
             scene_payload["issues_natural_language"] = [
                 {
                     "description": x.get("description", ""),
-                    "rough_category": x.get("label", ""),   # placeholder mapping
+                    "rough_category": "",  # deprecated
                     "location_hint": "",
                     "label": x.get("label", ""),
                 }
@@ -1310,7 +1585,7 @@ class AutoAnalyzer:
         scene_payload['notable_features'] = results.get('notable_features', []) or []
         scene_payload['feature_notes'] = results.get('feature_notes', '') or results.get('positives_notes', '') or ""
         scene_payload['positives_notes'] = scene_payload['feature_notes']  # legacy alias
-        scene_payload['issues_notes'] = results.get('issues_notes', '') or ""
+        scene_payload['observations_freeform'] = results.get('observations_freeform', '') or ""
         scene_payload['keyword_categories'] = results.get('keyword_categories')
         scene_payload['groundingdino_prompt'] = prompt
 
@@ -1321,6 +1596,11 @@ class AutoAnalyzer:
         # Include models_used if present
         if results.get('models_used'):
             scene_payload['models_used'] = results['models_used']
+
+        # ✅ Forward 2d resolved_defects and pass timings
+        scene_payload['resolved_defects'] = results.get('resolved_defects', []) or []
+        scene_payload['pass_timings'] = results.get('pass_timings', {}) or {}
+        scene_payload['total_pass_time'] = results.get('total_pass_time', 0.0) or 0.0
 
         return (
             scene,
@@ -1818,6 +2098,18 @@ class AutoAnalyzer:
         job_dir = self.artifacts_root / property_key / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
 
+        # ✅ Per-job file handler so UI can always read run.log from artifacts
+        job_log_handler = None
+        try:
+            log_path = job_dir / "run.log"
+            job_log_handler = logging.FileHandler(log_path, encoding="utf-8")
+            job_log_handler.setLevel(logging.DEBUG if self.debug else logging.INFO)
+            job_log_handler.setFormatter(logging.Formatter("%(asctime)s - %(levelname)s - %(message)s"))
+            logging.getLogger().addHandler(job_log_handler)
+            logger.info(f"Logging to: {log_path}")
+        except Exception as e:
+            logger.warning(f"Could not set up per-job log file: {e}")
+
         logger.info(f"\n{'=' * 60}")
         logger.info(f"Property: {property_key}")
         logger.info(f"Job ID: {job_id}")
@@ -1828,6 +2120,10 @@ class AutoAnalyzer:
         if self.analysis_profile == "premium" and self.gpt_config:
             logger.info(f"GPT Model: {self.gpt_config.get('model', 'N/A')}")
         logger.info(f"{'=' * 60}\n")
+
+        # Log live catalog state at run-start (catches mutation between init and run)
+        live_defects = len((self.issue_catalog.get("defect_issues", []) or [])) if self.issue_catalog else 0
+        logger.info(f"Catalog live at run-start: defect_issues={live_defects}, catalog_id={id(self.issue_catalog)}")
 
         results = []
 
@@ -1868,9 +2164,23 @@ class AutoAnalyzer:
         logger.info("✅ ANALYSIS COMPLETE")
         logger.info("=" * 60)
 
+        # ✅ Remove per-job file handler to avoid leaking across jobs
+        if job_log_handler:
+            try:
+                logging.getLogger().removeHandler(job_log_handler)
+                job_log_handler.close()
+            except Exception:
+                pass
+
         return job
 
     def _maybe_apply_embeddings_catalog(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        if not isinstance(payload, dict):
+            return payload
+
+        # ✅ NEW: retriever doesn't generate catalog_flags
+        if not self.catalog_matcher or not hasattr(self.catalog_matcher, "build_catalog_flags_and_annotate"):
+            return payload
         """
         Backfill/override catalog_flags using embeddings based on verified_issues.
         Keeps your downstream renovation_needs + UI schema intact.
@@ -1954,7 +2264,7 @@ class AutoAnalyzer:
         payload.setdefault("notable_features", [])
         payload.setdefault("feature_notes", "")
         payload.setdefault("positives_notes", "")  # legacy alias
-        payload.setdefault("issues_notes", "")
+        payload.setdefault("observations_freeform", "")
         payload.setdefault("reasoning", "" if error is None else error)
         payload.setdefault("targets", [])
         payload.setdefault("gdino_terms", [])
@@ -2056,7 +2366,7 @@ class AutoAnalyzer:
                         "image_summary": payload.get("image_summary", ""),
                         "notable_features": payload.get("notable_features", []) or [],
                     },
-                    "2a": {"issues_notes": payload.get("issues_notes", "")},
+                    "2a": {"observations_freeform": payload.get("observations_freeform", "")},
                     "2b": {
                         "issues_natural_language": payload.get("issues_natural_language", []) or [],
                         "catalog_flags": {},  # canonical: embeddings owns catalog_flags, not 2b
@@ -2091,7 +2401,7 @@ class AutoAnalyzer:
                     sig = (
                         issue.get("description", ""),
                         issue.get("location_hint", ""),
-                        issue.get("rough_category", ""),
+                        issue.get("label", ""),
                     )
                     ordinal = issue_sig_counts.get(sig, 0)
                     issue_sig_counts[sig] = ordinal + 1
@@ -2102,7 +2412,7 @@ class AutoAnalyzer:
                         image_key,
                         sig[0],  # description
                         sig[1],  # location_hint
-                        sig[2],  # rough_category
+                        sig[2],  # label
                         ordinal,
                     )
                     # Add identity and context fields
@@ -2125,7 +2435,7 @@ class AutoAnalyzer:
                         "scene": scene,
                         "scene_group": scene_group,
                         "description": issue.get("description", ""),
-                        "rough_category": issue.get("rough_category", ""),
+                        "label": issue.get("label", ""),
                         "location_hint": issue.get("location_hint", ""),
                         # Phase B placeholders
                         "trade": None,
@@ -2184,9 +2494,9 @@ class AutoAnalyzer:
                     g["positives"]["notable_features"].append(s)
 
             # Issues (prefer verified_issues from 2c, fallback to 2b)
-            issue_notes = ((passes.get("2a", {}) or {}).get("issues_notes") or "").strip()
-            if issue_notes:
-                g["issues"]["notes"].append(issue_notes)
+            obs_freeform = ((passes.get("2a", {}) or {}).get("observations_freeform") or "").strip()
+            if obs_freeform:
+                g["issues"]["notes"].append(obs_freeform)
 
             # Prefer verified_issues (post-2c searchable=yes gate)
             issues = _safe_list((passes.get("2c", {}) or {}).get("verified_issues"))
@@ -2204,7 +2514,7 @@ class AutoAnalyzer:
                         "photo_id": p.get("photo_id"),
                         "photo_key": img_key,
                         "description": it.get("description", ""),
-                        "rough_category": it.get("rough_category", ""),
+                        "label": it.get("label", ""),
                         "location_hint": it.get("location_hint", ""),
                     })
 
@@ -2351,7 +2661,7 @@ class AutoAnalyzer:
                 issues_by_category = {}
                 for group_issues in grouped_issues.values():
                     for issue in group_issues:
-                        cat = issue.get("rough_category", "general")
+                        cat = issue.get("label", "general") or "general"
                         issues_by_category[cat] = issues_by_category.get(cat, 0) + 1
 
                 # --- Pass 4a (room summaries aggregation) ---

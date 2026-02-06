@@ -145,6 +145,20 @@ class CatalogEmbeddingsRetriever:
             blob += f" Kind: {kind}."
         return _norm(blob)
 
+    def get_candidates(self, query: str, rough_category=None, topk: int = 8) -> List[Dict[str, Any]]:
+        cands = self.embeddings_retrieve_defect_candidates(query, topk=topk)
+        return [
+            {
+                "defect_id": c.defect_id,
+                "name": c.name,
+                "kind": c.kind,
+                "trade_bucket": c.trade_bucket,
+                "severity": c.severity,
+                "score": float(c.score),
+            }
+            for c in cands
+        ]
+
     def _build_items(self, items: List[Dict[str, Any]]) -> List[CatalogItemMeta]:
         out: List[CatalogItemMeta] = []
         for it in items:

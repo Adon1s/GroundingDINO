@@ -112,6 +112,9 @@ class ImageAnalysisResult:
     total_pass_time: float = 0.0
     processing_time: float = 0.0
 
+    # Debug info for troubleshooting (serialized to JSON artifact)
+    debug: Dict[str, Any] = field(default_factory=dict)
+
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for JSON serialization."""
         return {
@@ -141,6 +144,7 @@ class ImageAnalysisResult:
             "pass_timings": self.pass_timings,
             "total_pass_time": self.total_pass_time,
             "processing_time": self.processing_time,
+            "debug": self.debug,
         }
 
 
@@ -202,6 +206,20 @@ class SceneClassifierOrchestrator:
         self.candidate_provider = candidate_provider
         self.top_k_candidates = top_k_candidates
         self.max_resolve_per_image = max_resolve_per_image
+
+    @staticmethod
+    def _t(toggles, key: str, default: bool = True) -> bool:
+        """Robustly read a pass toggle, handling dict/dataclass/object."""
+        if toggles is None:
+            return default
+        if isinstance(toggles, dict):
+            return bool(toggles.get(key, default))
+        # dataclass / object: try exact, then common naming patterns
+        k = key.replace("-", "_")
+        for name in (k, f"p{k}", f"_{k}"):
+            if hasattr(toggles, name):
+                return bool(getattr(toggles, name))
+        return default
 
     def _attach_openai_token_cap(self, pass_key: PassKey, model_config: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -320,7 +338,7 @@ class SceneClassifierOrchestrator:
         # ─────────────────────────────────────────────────────────────────────
         # Pass 1a: Scene Type Classification
         # ─────────────────────────────────────────────────────────────────────
-        if toggles['1a']:
+        if self._t(toggles, '1a'):
             model_config = self._get_model_config('1a', options)
             model_name = self._get_model_name('1a', options)
 
@@ -343,7 +361,7 @@ class SceneClassifierOrchestrator:
         # ─────────────────────────────────────────────────────────────────────
         feature_notes = ""
 
-        if toggles['1b']:
+        if self._t(toggles, '1b'):
             model_config = self._get_model_config('1b', options)
             model_name = self._get_model_name('1b', options)
 
@@ -366,7 +384,7 @@ class SceneClassifierOrchestrator:
         # ─────────────────────────────────────────────────────────────────────
         # Pass 1c: Feature Notes -> JSON Structuring (text-only)
         # ─────────────────────────────────────────────────────────────────────
-        if toggles['1c']:
+        if self._t(toggles, '1c'):
             model_config = self._get_model_config('1c', options)
             model_name = self._get_model_name('1c', options)
 
@@ -400,7 +418,7 @@ class SceneClassifierOrchestrator:
         # ─────────────────────────────────────────────────────────────────────
         observations_freeform = ""
 
-        if toggles['2a']:
+        if self._t(toggles, '2a'):
             model_config = self._get_model_config('2a', options)
             model_name = self._get_model_name('2a', options)
 
@@ -422,7 +440,7 @@ class SceneClassifierOrchestrator:
         # ─────────────────────────────────────────────────────────────────────
         # Pass 2b: Observations -> JSON (text-only)
         # ─────────────────────────────────────────────────────────────────────
-        if toggles['2b']:
+        if self._t(toggles, '2b'):
             model_config = self._get_model_config('2b', options)
             model_name = self._get_model_name('2b', options)
 
@@ -445,7 +463,7 @@ class SceneClassifierOrchestrator:
         # ─────────────────────────────────────────────────────────────────────
         # Pass 2c: Label Observations + Debug/Forward Split (text-only)
         # ─────────────────────────────────────────────────────────────────────
-        if toggles['2c']:
+        if self._t(toggles, '2c'):
             model_config = self._get_model_config('2c', options)
             model_name = self._get_model_name('2c', options)
 
@@ -474,7 +492,27 @@ class SceneClassifierOrchestrator:
         # ─────────────────────────────────────────────────────────────────────
         # Pass 2d: Resolve defect_id from candidates (text-only, optional)
         # ─────────────────────────────────────────────────────────────────────
-        if toggles['2d'] and self.candidate_provider:
+        pass_2d_toggle = self._t(toggles, "2d", default=True)
+        pass_2d_provider_present = self.candidate_provider is not None
+
+        # Persist into JSON so you can see it via website artifact
+        result.debug["pass_2d_gate"] = {
+            "toggle": pass_2d_toggle,
+            "candidate_provider_present": pass_2d_provider_present,
+            "labeled_forward_count": len(result.labeled_forward or []),
+            "defect_forward_count": len([x for x in (result.labeled_forward or []) if x.get("label") == "defect_or_damage"]),
+        }
+
+        # Use INFO so it shows up in typical web logs
+        logger.info(
+            "Pass 2d gate: toggle=%s provider=%s labeled_forward=%d defect_forward=%d",
+            pass_2d_toggle,
+            pass_2d_provider_present,
+            result.debug["pass_2d_gate"]["labeled_forward_count"],
+            result.debug["pass_2d_gate"]["defect_forward_count"],
+        )
+
+        if pass_2d_toggle and pass_2d_provider_present:
             model_config = self._get_model_config('2d', options)
             model_name = self._get_model_name('2d', options)
 
@@ -494,16 +532,51 @@ class SceneClassifierOrchestrator:
                 # Context for candidate provider
                 ctx_for_provider = {**context, "top_k_candidates": self.top_k_candidates}
 
+                # Initialize per-observation debug list
+                result.debug["pass_2d_per_observation"] = []
+
                 for obs in defects_to_resolve:
                     description = obs.get("description", "")
                     if not description:
                         continue
 
-                    # Retrieve candidates via provider
-                    candidates = self.candidate_provider(description, ctx_for_provider)
+                    debug_row = {"observation": description, "candidate_count": 0, "skipped_reason": None}
+
+                    # Retrieve candidates via provider (tolerant of signature variants)
+                    try:
+                        candidates = self.candidate_provider(description, ctx_for_provider)
+                    except TypeError:
+                        try:
+                            candidates = self.candidate_provider(description)
+                        except Exception as e2:
+                            debug_row["skipped_reason"] = f"candidate_provider_call_failed ({e2})"
+                            result.debug["pass_2d_per_observation"].append(debug_row)
+                            continue
+
+                    # If provider is async by accident, this will reveal it cleanly in JSON
+                    if hasattr(candidates, "__await__"):
+                        debug_row["skipped_reason"] = "candidate_provider_returned_coroutine (provider must be sync or await it here)"
+                        result.debug["pass_2d_per_observation"].append(debug_row)
+                        continue
+
+                    if not isinstance(candidates, list):
+                        debug_row["skipped_reason"] = f"candidate_provider_returned_nonlist ({type(candidates).__name__})"
+                        result.debug["pass_2d_per_observation"].append(debug_row)
+                        continue
+
+                    debug_row["candidate_count"] = len(candidates)
 
                     if not candidates:
+                        debug_row["skipped_reason"] = "no_candidates"
+                        result.debug["pass_2d_per_observation"].append(debug_row)
                         continue
+
+                    # Keep only top_k if provider returns more
+                    candidates = candidates[: self.top_k_candidates]
+
+                    debug_row["top_candidate_id"] = candidates[0].get("defect_id")
+                    debug_row["top_candidate_score"] = candidates[0].get("score")
+                    result.debug["pass_2d_per_observation"].append(debug_row)
 
                     # Call Pass 2d
                     pass_2d_result = await run_pass_2d(
@@ -534,13 +607,29 @@ class SceneClassifierOrchestrator:
                 result.models_used['2d'] = model_name
 
                 logger.debug(f"Pass 2d resolved {len(resolved_defects)} defects")
+
+                # Add summary debug info
+                result.debug["pass_2d_summary"] = {
+                    "attempted_defects": len(defects_to_resolve),
+                    "resolved_defects": len(result.resolved_defects or []),
+                }
+                logger.info(
+                    "Pass 2d summary: attempted=%d resolved=%d",
+                    result.debug["pass_2d_summary"]["attempted_defects"],
+                    result.debug["pass_2d_summary"]["resolved_defects"],
+                )
             else:
                 logger.debug("Pass 2d: no defect_or_damage observations to resolve.")
+                result.debug["pass_2d_summary"] = {
+                    "attempted_defects": 0,
+                    "resolved_defects": 0,
+                }
+                logger.info("Pass 2d summary: attempted=0 resolved=0")
 
         # ─────────────────────────────────────────────────────────────────────
         # Pass 3: Keyword Extraction (text-only, from structured facts)
         # ─────────────────────────────────────────────────────────────────────
-        if toggles['3']:
+        if self._t(toggles, '3'):
             model_config = self._get_model_config('3', options)
             model_name = self._get_model_name('3', options)
 
