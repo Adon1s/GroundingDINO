@@ -9,7 +9,7 @@ Pass 1c: Feature Notes → JSON Structuring (text-only)
 Pass 2a: Observations freeform (premium uses GPT-5.2)
 Pass 2b: Observations → JSON (text-only)
 Pass 2c: Label observations + debug/forward split (text-only)
-Pass 2d: Resolve defect_id from candidates (text-only, optional)
+Pass 2d: Resolve catalog item ID from candidates (text-only, optional)
 Pass 3:  Keyword Extraction (text-only, from structured facts)
 """
 
@@ -113,10 +113,16 @@ class Pass2cResult:
 
 @dataclass
 class Pass2dResult:
-    """Result from Pass 2d: Resolved defect_id from candidates."""
+    """Result from Pass 2d: Resolved catalog item ID from candidates."""
     observation: str
-    resolved_defect_id: Optional[str]
+    resolved_item_id: Optional[str] = None
+    resolved_kind: Optional[str] = None  # "defect" or "upgrade"
     raw_response: Optional[str] = None
+
+    # Legacy alias so existing code reading .resolved_defect_id still works
+    @property
+    def resolved_defect_id(self) -> Optional[str]:
+        return self.resolved_item_id
 
 
 @dataclass
@@ -662,27 +668,29 @@ async def run_pass_2c(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 2d: Resolve defect_id from Candidates (Text-only, Optional)
+# Pass 2d: Resolve Catalog Item ID from Candidates (Text-only, Optional)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 PASS_2D_SYSTEM_PROMPT = ""
-PASS_2D_USER_PROMPT_TEMPLATE = """Map this observation to a defect catalog ID using ONLY the candidates.
+PASS_2D_USER_PROMPT_TEMPLATE = """Map this observation to a catalog item ID using ONLY the candidates.
 
 OBSERVATION:
 {observation}
+
+ITEM KIND: {kind}
 
 CANDIDATES:
 {candidates_text}
 
 Rules:
-- Choose 0 or 1 defect_id that best matches the observation.
+- Choose 0 or 1 item_id that best matches the observation.
 - If none fit, return null.
-- Use ONLY defect_id values from the candidate list.
+- Use ONLY item_id values from the candidate list.
 
 Return JSON only:
-{
-  "resolved_defect_id": "..." or null
-}
+{{
+  "resolved_item_id": "..." or null
+}}
 """
 
 
@@ -692,12 +700,12 @@ def format_candidates_text(candidates: List[Dict[str, Any]]) -> str:
         return "(none)"
     lines = []
     for c in candidates:
-        defect_id = c.get("defect_id", "")
+        item_id = c.get("defect_id", "")
         name = c.get("name", "")
         trade = c.get("trade_bucket", "")
         kind = c.get("kind", "")
         score = c.get("score", 0.0)
-        lines.append(f"- {defect_id} | {name} | trade={trade} | kind={kind} | score={score:.3f}")
+        lines.append(f"- {item_id} | {name} | trade={trade} | kind={kind} | score={score:.3f}")
     return "\n".join(lines) or "(none)"
 
 
@@ -706,25 +714,29 @@ async def run_pass_2d(
         model_config: dict,
         observation: str,
         candidates: List[Dict[str, Any]],
+        kind: str = "defect",
 ) -> Pass2dResult:
     """
-    Pass 2d: Resolve a defect_id from embedding candidates for a single observation.
+    Pass 2d: Resolve a canonical catalog item ID from embedding candidates.
 
-    This pass is only run on defect_or_damage observations, not upgrades.
+    Handles both defect and upgrade observations. The `kind` parameter
+    controls prompt framing and is passed through to the result.
 
     Args:
         vlm_client: VLM client instance
         model_config: Model configuration
         observation: The observation description string
         candidates: List of candidate dicts from embeddings retrieval
+        kind: "defect" or "upgrade" — determines which pool was searched
 
     Returns:
-        Pass2dResult with resolved_defect_id (str or None)
+        Pass2dResult with resolved_item_id and resolved_kind
     """
     if not observation or not candidates:
         return Pass2dResult(
             observation=observation,
-            resolved_defect_id=None,
+            resolved_item_id=None,
+            resolved_kind=kind,
             raw_response=None,
         )
 
@@ -733,9 +745,10 @@ async def run_pass_2d(
         PASS_2D_USER_PROMPT_TEMPLATE,
         observation=observation,
         candidates_text=candidates_text,
+        kind=kind,
     )
 
-    logger.debug(f"Pass 2d: Resolving defect_id for observation: {observation[:50]}...")
+    logger.debug(f"Pass 2d: Resolving catalog item for {kind} observation: {observation[:50]}...")
 
     try:
         response = await vlm_client.analyze_text(
@@ -747,21 +760,24 @@ async def run_pass_2d(
 
         resolved_id = None
         if isinstance(result, dict):
-            resolved_id = result.get("resolved_defect_id")
+            # Accept both the new key and legacy key
+            resolved_id = result.get("resolved_item_id") or result.get("resolved_defect_id")
             if resolved_id is not None:
                 resolved_id = str(resolved_id).strip() if resolved_id else None
 
         return Pass2dResult(
             observation=observation,
-            resolved_defect_id=resolved_id,
+            resolved_item_id=resolved_id,
+            resolved_kind=kind,
             raw_response=response,
         )
 
     except Exception as e:
-        logger.error(f"Pass 2d: Error resolving defect_id: {e}")
+        logger.error(f"Pass 2d: Error resolving catalog item: {e}")
         return Pass2dResult(
             observation=observation,
-            resolved_defect_id=None,
+            resolved_item_id=None,
+            resolved_kind=kind,
             raw_response=None,
         )
 

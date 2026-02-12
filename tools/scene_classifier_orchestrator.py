@@ -77,7 +77,7 @@ class ImageAnalysisResult:
     pass_2a: Optional[Pass2aResult] = None
     pass_2b: Optional[Pass2bResult] = None
     pass_2c: Optional[Pass2cResult] = None
-    pass_2d: Optional[List[Pass2dResult]] = None  # List because one per defect observation
+    pass_2d: Optional[List[Pass2dResult]] = None  # List because one per resolvable observation
     pass_3: Optional[Pass3Result] = None
 
     # Computed/merged fields for backwards compatibility
@@ -101,7 +101,8 @@ class ImageAnalysisResult:
     labeled_forward: List[Dict[str, Any]] = field(default_factory=list)
 
     # Optional resolver output (2d). Orchestrator stores results if run elsewhere.
-    resolved_defects: List[Dict[str, Any]] = field(default_factory=list)
+    resolved_defects: List[Dict[str, Any]] = field(default_factory=list)  # legacy: defects only
+    resolved_items: List[Dict[str, Any]] = field(default_factory=list)    # unified: defects + upgrades
 
     keywords: List[str] = field(default_factory=list)
 
@@ -137,6 +138,7 @@ class ImageAnalysisResult:
             "labeled_debug": self.labeled_debug,
             "labeled_forward": self.labeled_forward,
             "resolved_defects": self.resolved_defects,
+            "resolved_items": self.resolved_items,
 
             "keywords": self.keywords,
             "passes_run": self.passes_run,
@@ -194,8 +196,9 @@ class SceneClassifierOrchestrator:
                          {'url': '...', 'model': '...', 'api_key': '...'}
             vlm_client: VLM client instance for making API calls
             max_keywords: Maximum keywords for Pass 3
-            candidate_provider: Optional callback to retrieve defect candidates for Pass 2d
+            candidate_provider: Optional callback to retrieve catalog candidates for Pass 2d
                                Signature: (observation_text, context) -> List[Dict]
+                               context may include 'kind' ("defect" or "upgrade") and 'top_k_candidates'
             top_k_candidates: Number of candidates to retrieve per observation
             max_resolve_per_image: Maximum observations to resolve per image in Pass 2d
         """
@@ -490,141 +493,189 @@ class SceneClassifierOrchestrator:
             result.models_used['2c'] = model_name
 
         # ─────────────────────────────────────────────────────────────────────
-        # Pass 2d: Resolve defect_id from candidates (text-only, optional)
+        # Pass 2d: Resolve catalog item ID from candidates (text-only, optional)
         # ─────────────────────────────────────────────────────────────────────
         pass_2d_toggle = self._t(toggles, "2d", default=True)
         pass_2d_provider_present = self.candidate_provider is not None
+
+        LABEL_TO_KIND = {
+            "defect_or_damage": "defect",
+            "upgrade_candidate": "upgrade",
+        }
+
+        labeled_forward = result.labeled_forward or []
+        to_resolve_all = [
+            obs for obs in labeled_forward
+            if obs.get("label") in LABEL_TO_KIND
+        ][:self.max_resolve_per_image]
 
         # Persist into JSON so you can see it via website artifact
         result.debug["pass_2d_gate"] = {
             "toggle": pass_2d_toggle,
             "candidate_provider_present": pass_2d_provider_present,
-            "labeled_forward_count": len(result.labeled_forward or []),
-            "defect_forward_count": len([x for x in (result.labeled_forward or []) if x.get("label") == "defect_or_damage"]),
+            "labeled_forward_count": len(labeled_forward),
+            "defect_forward_count": len([x for x in labeled_forward if x.get("label") == "defect_or_damage"]),
+            "upgrade_forward_count": len([x for x in labeled_forward if x.get("label") == "upgrade_candidate"]),
+            "total_resolve_count": len(to_resolve_all),
         }
 
         # Use INFO so it shows up in typical web logs
         logger.info(
-            "Pass 2d gate: toggle=%s provider=%s labeled_forward=%d defect_forward=%d",
+            "Pass 2d gate: toggle=%s provider=%s labeled_forward=%d defects=%d upgrades=%d total_resolve=%d",
             pass_2d_toggle,
             pass_2d_provider_present,
             result.debug["pass_2d_gate"]["labeled_forward_count"],
             result.debug["pass_2d_gate"]["defect_forward_count"],
+            result.debug["pass_2d_gate"]["upgrade_forward_count"],
+            result.debug["pass_2d_gate"]["total_resolve_count"],
         )
 
-        if pass_2d_toggle and pass_2d_provider_present:
+        if pass_2d_toggle and pass_2d_provider_present and to_resolve_all:
             model_config = self._get_model_config('2d', options)
             model_name = self._get_model_name('2d', options)
 
-            # Only resolve defect_or_damage observations
-            defects_to_resolve = [
-                obs for obs in result.labeled_forward
-                if obs.get("label") == "defect_or_damage"
-            ][:self.max_resolve_per_image]
+            logger.debug(f"Running Pass 2d with {model_name} for {len(to_resolve_all)} observations")
+            t0 = time.time()
 
-            if defects_to_resolve:
-                logger.debug(f"Running Pass 2d with {model_name} for {len(defects_to_resolve)} defects")
-                t0 = time.time()
+            pass_2d_results: List[Pass2dResult] = []
+            resolved_items: List[Dict[str, Any]] = []    # unified list
+            resolved_defects: List[Dict[str, Any]] = []   # legacy list (defects only)
 
-                pass_2d_results: List[Pass2dResult] = []
-                resolved_defects: List[Dict[str, Any]] = []
+            # Base context for candidate provider
+            base_ctx_for_provider = {**context, "top_k_candidates": self.top_k_candidates}
 
-                # Context for candidate provider
-                ctx_for_provider = {**context, "top_k_candidates": self.top_k_candidates}
+            # Initialize per-observation debug list
+            result.debug["pass_2d_per_observation"] = []
 
-                # Initialize per-observation debug list
-                result.debug["pass_2d_per_observation"] = []
+            for obs in to_resolve_all:
+                description = (obs.get("description") or "").strip()
+                label = (obs.get("label") or "").strip().lower()
+                if not description:
+                    continue
 
-                for obs in defects_to_resolve:
-                    description = obs.get("description", "")
-                    if not description:
-                        continue
+                kind = LABEL_TO_KIND.get(label, "defect")
+                ctx_for_provider = {**base_ctx_for_provider, "kind": kind}
 
-                    debug_row = {"observation": description, "candidate_count": 0, "skipped_reason": None}
+                debug_row = {
+                    "observation": description,
+                    "label": label,
+                    "kind": kind,
+                    "candidate_count": 0,
+                    "skipped_reason": None,
+                    "top_candidate_id": None,
+                    "top_candidate_score": None,
+                }
 
-                    # Retrieve candidates via provider (tolerant of signature variants)
+                # Retrieve candidates via provider (tolerant of signature variants)
+                try:
+                    candidates = self.candidate_provider(description, ctx_for_provider)
+                except TypeError:
                     try:
-                        candidates = self.candidate_provider(description, ctx_for_provider)
-                    except TypeError:
-                        try:
-                            candidates = self.candidate_provider(description)
-                        except Exception as e2:
-                            debug_row["skipped_reason"] = f"candidate_provider_call_failed ({e2})"
-                            result.debug["pass_2d_per_observation"].append(debug_row)
-                            continue
-
-                    # If provider is async by accident, this will reveal it cleanly in JSON
-                    if hasattr(candidates, "__await__"):
-                        debug_row["skipped_reason"] = "candidate_provider_returned_coroutine (provider must be sync or await it here)"
+                        candidates = self.candidate_provider(description)
+                        debug_row["skipped_reason"] = "provider_ignored_context (signature lacks ctx; cannot control topk/kind)"
+                    except Exception as e2:
+                        debug_row["skipped_reason"] = f"candidate_provider_call_failed ({e2})"
                         result.debug["pass_2d_per_observation"].append(debug_row)
                         continue
 
-                    if not isinstance(candidates, list):
-                        debug_row["skipped_reason"] = f"candidate_provider_returned_nonlist ({type(candidates).__name__})"
-                        result.debug["pass_2d_per_observation"].append(debug_row)
-                        continue
-
-                    debug_row["candidate_count"] = len(candidates)
-
-                    if not candidates:
-                        debug_row["skipped_reason"] = "no_candidates"
-                        result.debug["pass_2d_per_observation"].append(debug_row)
-                        continue
-
-                    # Keep only top_k if provider returns more
-                    candidates = candidates[: self.top_k_candidates]
-
-                    debug_row["top_candidate_id"] = candidates[0].get("defect_id")
-                    debug_row["top_candidate_score"] = candidates[0].get("score")
+                # If provider is async by accident, this will reveal it cleanly in JSON
+                if hasattr(candidates, "__await__"):
+                    debug_row["skipped_reason"] = "candidate_provider_returned_coroutine (provider must be sync or await it here)"
                     result.debug["pass_2d_per_observation"].append(debug_row)
+                    continue
 
-                    # Call Pass 2d
-                    pass_2d_result = await run_pass_2d(
-                        vlm_client=self.vlm_client,
-                        model_config=model_config,
-                        observation=description,
-                        candidates=candidates,
-                    )
-                    pass_2d_results.append(pass_2d_result)
+                if not isinstance(candidates, list):
+                    debug_row["skipped_reason"] = f"candidate_provider_returned_nonlist ({type(candidates).__name__})"
+                    result.debug["pass_2d_per_observation"].append(debug_row)
+                    continue
 
-                    # Get top candidate for debugging
-                    top_candidate = candidates[0] if candidates else None
+                debug_row["candidate_count"] = len(candidates)
 
-                    resolved_defects.append({
-                        "description": description,
-                        "label": "defect_or_damage",
-                        "resolved_defect_id": pass_2d_result.resolved_defect_id,
-                        "top_candidate_id": top_candidate.get("defect_id") if top_candidate else None,
-                        "top_candidate_score": top_candidate.get("score") if top_candidate else None,
-                        "candidates": candidates,
-                        "raw_response": pass_2d_result.raw_response,
-                    })
+                if not candidates:
+                    debug_row["skipped_reason"] = "no_candidates"
+                    result.debug["pass_2d_per_observation"].append(debug_row)
+                    continue
 
-                result.pass_timings['2d'] = round(time.time() - t0, 3)
-                result.pass_2d = pass_2d_results
-                result.resolved_defects = resolved_defects
-                result.passes_run.append('2d')
-                result.models_used['2d'] = model_name
+                # Keep only top_k if provider returns more
+                candidates = candidates[: self.top_k_candidates]
 
-                logger.debug(f"Pass 2d resolved {len(resolved_defects)} defects")
-
-                # Add summary debug info
-                result.debug["pass_2d_summary"] = {
-                    "attempted_defects": len(defects_to_resolve),
-                    "resolved_defects": len(result.resolved_defects or []),
-                }
-                logger.info(
-                    "Pass 2d summary: attempted=%d resolved=%d",
-                    result.debug["pass_2d_summary"]["attempted_defects"],
-                    result.debug["pass_2d_summary"]["resolved_defects"],
+                # ID key differs for upgrades; be tolerant
+                top_candidate = candidates[0]
+                top_id = (
+                    top_candidate.get("item_id")
+                    or top_candidate.get("defect_id")
+                    or top_candidate.get("upgrade_id")
+                    or top_candidate.get("id")
                 )
-            else:
-                logger.debug("Pass 2d: no defect_or_damage observations to resolve.")
-                result.debug["pass_2d_summary"] = {
-                    "attempted_defects": 0,
-                    "resolved_defects": 0,
+                debug_row["top_candidate_id"] = top_id
+                debug_row["top_candidate_score"] = top_candidate.get("score")
+                result.debug["pass_2d_per_observation"].append(debug_row)
+
+                # Call Pass 2d (pass kind so prompt and result are kind-aware)
+                pass_2d_result = await run_pass_2d(
+                    vlm_client=self.vlm_client,
+                    model_config=model_config,
+                    observation=description,
+                    candidates=candidates,
+                    kind=kind,
+                )
+                pass_2d_results.append(pass_2d_result)
+
+                resolved_item_id = pass_2d_result.resolved_item_id  # canonical
+                row = {
+                    "description": description,
+                    "label": label,
+                    "resolved_item_id": resolved_item_id,
+                    "resolved_kind": kind,
+                    "top_candidate_id": top_id,
+                    "top_candidate_score": top_candidate.get("score"),
+                    "candidates": candidates,
+                    "raw_response": pass_2d_result.raw_response,
                 }
-                logger.info("Pass 2d summary: attempted=0 resolved=0")
+
+                # Add kind-specific legacy key
+                if kind == "defect":
+                    row["resolved_defect_id"] = resolved_item_id
+                    resolved_defects.append(row)
+                else:
+                    row["resolved_upgrade_id"] = resolved_item_id
+
+                resolved_items.append(row)
+
+            result.pass_timings['2d'] = round(time.time() - t0, 3)
+            result.pass_2d = pass_2d_results
+            result.resolved_defects = resolved_defects  # legacy field
+            result.resolved_items = resolved_items       # unified field
+            result.passes_run.append('2d')
+            result.models_used['2d'] = model_name
+
+            logger.debug(f"Pass 2d resolved {len(resolved_items)} items ({len(resolved_defects)} defects, {len(resolved_items) - len(resolved_defects)} upgrades)")
+
+            # Add summary debug info
+            result.debug["pass_2d_summary"] = {
+                "attempted_total": len(to_resolve_all),
+                "resolved_total": len(resolved_items),
+                "resolved_defects": len(resolved_defects),
+                "resolved_upgrades": len([x for x in resolved_items if x.get("resolved_kind") == "upgrade"]),
+            }
+            logger.info(
+                "Pass 2d summary: attempted=%d resolved=%d (defects=%d upgrades=%d)",
+                result.debug["pass_2d_summary"]["attempted_total"],
+                result.debug["pass_2d_summary"]["resolved_total"],
+                result.debug["pass_2d_summary"]["resolved_defects"],
+                result.debug["pass_2d_summary"]["resolved_upgrades"],
+            )
+        else:
+            if to_resolve_all and not pass_2d_provider_present:
+                logger.debug("Pass 2d: %d resolvable items but no candidate provider.", len(to_resolve_all))
+            elif not to_resolve_all:
+                logger.debug("Pass 2d: no resolvable observations (defect_or_damage / upgrade_candidate) in labeled_forward.")
+            result.debug["pass_2d_summary"] = {
+                "attempted_total": 0,
+                "resolved_total": 0,
+                "resolved_defects": 0,
+                "resolved_upgrades": 0,
+            }
 
         # ─────────────────────────────────────────────────────────────────────
         # Pass 3: Keyword Extraction (text-only, from structured facts)
@@ -739,7 +790,7 @@ def create_orchestrator_from_config(
 
     Args:
         config: pipeline_config module with LM_STUDIO_URL, etc.
-        candidate_provider: Optional callback to retrieve defect candidates for Pass 2d
+        candidate_provider: Optional callback to retrieve catalog candidates for Pass 2d
 
     Returns:
         Configured SceneClassifierOrchestrator

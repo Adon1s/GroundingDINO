@@ -50,6 +50,13 @@ except ImportError:
     print("WARNING: renovation_costs.py not found, using empty cost table")
     RENOVATION_COST_TABLE = {}
 
+# Import defect events layer
+try:
+    from tools.defect_events import build_defect_events, generate_work_items, build_search_index
+    DEFECT_EVENTS_AVAILABLE = True
+except ImportError:
+    DEFECT_EVENTS_AVAILABLE = False
+
 # Import NMS postprocessing
 try:
     from tools.postprocess import (
@@ -147,9 +154,10 @@ def load_issue_catalog(path: Path) -> dict:
     """
     Load the issue catalog from JSON.
 
-    Returns a dict with at least keys:
-      - 'defect_issues': list of issue dicts
-      - 'opportunity_flags': list of issue dicts
+    Returns a dict with canonical keys:
+      - 'items': unified list of catalog entries (each has 'id' and 'kind' field)
+      - 'trade_buckets': list of trade bucket definitions
+      - 'version': catalog version string
     """
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -162,34 +170,38 @@ def load_issue_catalog(path: Path) -> dict:
         logger.error(f"Failed to load issue catalog from {path}: {exc}")
         data = {}
 
+    # Normalize trade_buckets: v3 expects a list, tolerate older dict shapes
+    tb = data.get("trade_buckets", [])
+    if isinstance(tb, dict):
+        tb = list(tb.values())
+
     return {
-        # Support both naming conventions: defects (current schema) and defect_issues (legacy)
-        "defect_issues": data.get("defects", []) or data.get("defect_issues", []),
-        "opportunity_flags": data.get("upgrades", []) or data.get("opportunity_flags", []),
-        # Preserve additional catalog metadata
-        "items": data.get("items", []),
-        "trade_buckets": data.get("trade_buckets", {}),
+        # v3 canonical: single "items" array (each has 'id' and 'kind' field)
+        "items": data.get("items", []) or data.get("defects", []) or data.get("defect_issues", []),
+        "trade_buckets": tb,
         "version": data.get("version"),
     }
 
 
 def _log_catalog_load(path: Path, cat: dict):
     """Log catalog load details at INFO so they're always visible."""
-    defects = cat.get("defect_issues", []) or []
-    upgrades = cat.get("opportunity_flags", []) or []
     items = cat.get("items", []) or []
     version = cat.get("version")
+    kind_counts = {}
+    for d in items:
+        k = d.get("kind", "defect") if isinstance(d, dict) else "?"
+        kind_counts[k] = kind_counts.get(k, 0) + 1
     logger.info(
         f"Catalog load: path={path.resolve()} exists={path.exists()} "
-        f"version={version} defect_issues={len(defects)} "
-        f"opportunity_flags={len(upgrades)} items={len(items)} "
+        f"version={version} items={len(items)} "
+        f"kinds={kind_counts} "
         f"keys={list(cat.keys())}"
     )
-    sample = defects[:2]
+    sample = items[:2]
     if sample:
-        logger.info(f"Catalog sample defect_issues[0:2]={sample}")
+        logger.info(f"Catalog sample items[0:2]={[{k: v for k, v in s.items() if k in ('id','name','kind','trade_bucket')} for s in sample if isinstance(s, dict)]}")
     else:
-        logger.info("Catalog sample: defect_issues is EMPTY")
+        logger.info("Catalog sample: items is EMPTY")
 
 
 # Compute default catalog path - prefer tools/issue_catalog.json if it exists
@@ -330,18 +342,14 @@ def build_renovation_needs(job: "PropertyAnalysisJob", issue_catalog: Optional[D
     catalog = issue_catalog or {}
 
     issue_meta: Dict[str, Dict[str, str]] = {}
-    for item in catalog.get("defect_issues", []) or []:
-        if isinstance(item, dict) and item.get("id"):
-            issue_meta[item["id"]] = {
-                "name": item.get("name", item["id"]),
-                "category": item.get("category", "unknown"),
-            }
-    for item in catalog.get("opportunity_flags", []) or []:
-        if isinstance(item, dict) and item.get("id"):
-            issue_meta[item["id"]] = {
-                "name": item.get("name", item["id"]),
-                "category": item.get("category", "unknown"),
-            }
+    for item in catalog.get("items", []) or []:
+        if isinstance(item, dict):
+            iid = item.get("id") or item.get("defect_id")
+            if iid:
+                issue_meta[iid] = {
+                    "name": item.get("name", iid),
+                    "category": item.get("category", "unknown"),
+                }
 
     aggregates: Dict[str, Dict[str, Any]] = {}
     totals_by_category: Dict[str, Dict[str, float]] = {}
@@ -541,10 +549,10 @@ class AutoAnalyzer:
                 if candidate_provider is None and self.issue_catalog:
                     # Simple catalog-based provider fallback
                     def _catalog_candidate_provider(query, rough_category=None, topk=8):
-                        """Simple candidate provider from issue catalog (defects only)."""
+                        """Simple candidate provider from catalog items (kind=='defect' only)."""
                         candidates = [
-                            item for item in (self.issue_catalog.get("defect_issues", []) or [])
-                            if isinstance(item, dict)
+                            item for item in (self.issue_catalog.get("items", []) or [])
+                            if isinstance(item, dict) and item.get("kind", "defect") == "defect"
                         ]
                         logger.info(f"2d diag: catalog_candidate_pool={len(candidates)} (topk={topk}, query={query[:60]})")
                         return candidates[:topk]
@@ -556,24 +564,11 @@ class AutoAnalyzer:
                 if candidate_provider is not None:
                     candidate_provider = self._wrap_candidate_provider(candidate_provider)
 
-                # ✅ Give orchestrator catalog and candidate_provider
-                try:
-                    self.orchestrator = create_orchestrator_from_config(
-                        cfg,
-                        issue_catalog=self.issue_catalog,
-                        candidate_provider=candidate_provider,
-                    )
-                except TypeError:
-                    # Factory doesn't accept candidate_provider yet
-                    try:
-                        self.orchestrator = create_orchestrator_from_config(cfg, issue_catalog=self.issue_catalog)
-                    except TypeError:
-                        self.orchestrator = create_orchestrator_from_config(cfg)
-                    # Manually attach candidate_provider if orchestrator supports it
-                    if candidate_provider and self.orchestrator:
-                        if hasattr(self.orchestrator, 'candidate_provider'):
-                            self.orchestrator.candidate_provider = candidate_provider
-                            logger.info("Attached candidate_provider to orchestrator post-init")
+                # ✅ Give orchestrator candidate_provider (catalog flows through provider, not directly)
+                self.orchestrator = create_orchestrator_from_config(
+                    cfg,
+                    candidate_provider=candidate_provider,
+                )
                 logger.info(f"Pass architecture initialized (premium={self.run_options.premium})")
             except Exception as e:
                 logger.warning(f"Failed to initialize pass architecture: {e}, falling back to direct pass calls")
@@ -632,15 +627,21 @@ class AutoAnalyzer:
 
     @staticmethod
     def _normalize_candidate(item: dict) -> dict:
-        """Normalize a raw catalog item into the shape run_pass_2d and orchestrator expect."""
+        """Normalize a raw catalog item into the shape run_pass_2d and orchestrator expect.
+
+        Accepts both embeddings retriever output (has defect_id, score, trade_bucket)
+        and raw catalog items (has id, aliases, category).
+        """
+        item_id = item.get("defect_id") or item.get("id") or item.get("key", "")
         return {
-            "defect_id": item.get("defect_id") or item.get("id") or item.get("key", ""),
+            "defect_id": item_id,  # run_pass_2d expects this field name
             "score": item.get("score", 1.0),
-            "name": item.get("name") or item.get("label") or item.get("defect_id") or item.get("id", ""),
+            "name": item.get("name") or item.get("label") or item_id,
             "category": item.get("category", ""),
             "aliases": item.get("aliases", []),
-            # preserve original for debugging
-            "_raw": item,
+            "trade_bucket": item.get("trade_bucket", ""),
+            "kind": item.get("kind", ""),
+            "severity": item.get("severity", 0),
         }
 
     def _wrap_candidate_provider(self, raw_provider):
@@ -681,65 +682,109 @@ class AutoAnalyzer:
 
         return wrapped
 
-    async def _call_pass_2d(self, *, model_config, defect_items, candidate_provider):
+    async def _call_pass_2d(self, *, model_config, items, catalog_matcher=None, candidate_provider=None):
         """
-        Run Pass 2d for each defect observation, matching the orchestrator's pattern.
+        Run Pass 2d for each observation (defect OR upgrade), resolving to a canonical catalog item.
 
-        run_pass_2d accepts: (vlm_client, model_config, observation: str, candidates: List[dict])
-        So we loop through defect_items, get candidates per item, and call once per observation.
+        For each item:
+          - Read `kind` field (already set by 2c enrichment: "defect" or "opportunity")
+          - Retrieve kind-filtered candidates via embeddings (preferred) or fallback provider
+          - Call run_pass_2d to pick the best candidate
 
         Returns:
-            dict with 'resolved_defects' list and 'pass_2d_results' list
+            namespace with .resolved_items list and .pass_2d_results list
         """
-        resolved_defects = []
+        resolved_items = []
         pass_2d_results = []
 
-        for obs in defect_items:
+        for obs in items:
             description = obs.get("description", "") if isinstance(obs, dict) else str(obs)
             if not description:
                 continue
 
-            # Get candidates for this observation
-            try:
-                candidates = candidate_provider(description)
-            except TypeError:
-                # Some providers accept (query, rough_category, topk)
+            # Use `kind` set during 2c enrichment — this is the authoritative field
+            kind_field = (obs.get("kind") or "").lower() if isinstance(obs, dict) else ""
+            kind = "upgrade" if kind_field == "opportunity" else "defect"
+
+            # Get kind-filtered candidates — prefer embeddings retriever
+            candidates = []
+            if catalog_matcher:
                 try:
-                    candidates = candidate_provider(description, None, 8)
-                except Exception:
-                    candidates = []
+                    if kind == "upgrade":
+                        raw_cands = catalog_matcher.embeddings_retrieve_upgrade_candidates(description, topk=8)
+                    else:
+                        raw_cands = catalog_matcher.embeddings_retrieve_defect_candidates(description, topk=8)
+                    candidates = [
+                        {
+                            "defect_id": c.defect_id,
+                            "name": c.name,
+                            "kind": c.kind,
+                            "trade_bucket": c.trade_bucket,
+                            "severity": c.severity,
+                            "score": float(c.score),
+                        }
+                        for c in raw_cands
+                    ]
+                except Exception as e:
+                    logger.warning(f"2d diag: embeddings retrieval failed for {kind}: {e}")
+
+            # Fallback to generic candidate provider (already normalized)
+            if not candidates and candidate_provider:
+                try:
+                    candidates = candidate_provider(description)
+                except TypeError:
+                    try:
+                        candidates = candidate_provider(description, None, 8)
+                    except Exception:
+                        candidates = []
 
             if not isinstance(candidates, list) or not candidates:
-                logger.info(f"2d diag: no candidates for observation: {description[:80]}")
+                logger.info(f"2d diag: no {kind} candidates for observation: {description[:80]}")
                 continue
 
-            # Call run_pass_2d for this single observation
+            # Call run_pass_2d with kind parameter
             try:
                 pass_2d_result = await run_pass_2d(
                     vlm_client=self.vlm_client,
                     model_config=model_config,
                     observation=description,
                     candidates=candidates,
+                    kind=kind,
                 )
                 pass_2d_results.append(pass_2d_result)
 
+                # Extract resolved ID — tolerate both dict and dataclass
+                if isinstance(pass_2d_result, dict):
+                    rid = (pass_2d_result.get("resolved_item_id")
+                           or pass_2d_result.get("resolved_defect_id")
+                           or pass_2d_result.get("defect_id"))
+                    raw = pass_2d_result.get("raw_response", "")
+                else:
+                    rid = (getattr(pass_2d_result, "resolved_item_id", None)
+                           or getattr(pass_2d_result, "resolved_defect_id", None))
+                    raw = getattr(pass_2d_result, "raw_response", "")
+
                 top_candidate = candidates[0] if candidates else None
-                resolved_defects.append({
+                resolved_items.append({
                     "description": description,
-                    "label": obs.get("label", "defect") if isinstance(obs, dict) else "defect",
-                    "resolved_defect_id": getattr(pass_2d_result, "resolved_defect_id", None),
+                    "label": obs.get("label", "") if isinstance(obs, dict) else "",
+                    "kind": kind,
+                    "resolved_item_id": rid,
+                    "resolved_kind": kind,
                     "top_candidate_id": top_candidate.get("defect_id") if top_candidate else None,
                     "top_candidate_score": top_candidate.get("score") if top_candidate else None,
-                    "raw_response": getattr(pass_2d_result, "raw_response", ""),
+                    "top_candidate_trade_bucket": top_candidate.get("trade_bucket") if top_candidate else None,
+                    "raw_response": raw,
                 })
             except Exception as e:
-                logger.warning(f"  Pass 2d failed for observation: {e}")
+                logger.warning(f"  Pass 2d failed for {kind} observation: {e}")
 
-        # Return a namespace-like object so callers can read .resolved_defects
+        # Return namespace-like object for backward compat
         class _Result:
             pass
         r = _Result()
-        r.resolved_defects = resolved_defects
+        r.resolved_items = resolved_items
+        r.resolved_defects = resolved_items  # legacy alias
         r.pass_2d_results = pass_2d_results
         return r
 
@@ -1035,7 +1080,6 @@ class AutoAnalyzer:
                 planner_hints = self._maybe_backfill_planner_hints(scene, planner_hints)
                 if isinstance(payload, dict):
                     payload["planner_hints"] = planner_hints
-                    payload = self._maybe_apply_embeddings_catalog(payload)
                 return (scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload)
             except Exception as e:
                 logger.warning(f"  Orchestrator failed: {e}, trying direct pass calls")
@@ -1049,7 +1093,6 @@ class AutoAnalyzer:
                 planner_hints = self._maybe_backfill_planner_hints(scene, planner_hints)
                 if isinstance(payload, dict):
                     payload["planner_hints"] = planner_hints
-                    payload = self._maybe_apply_embeddings_catalog(payload)
                 return (scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload)
             except Exception as e:
                 logger.error(f"  Direct pass calls failed: {e}")
@@ -1075,19 +1118,10 @@ class AutoAnalyzer:
         """
 
         async def run_orchestrator():
-            # ✅ Prefer new signature that accepts issue_catalog
-            try:
-                return await self.orchestrator.analyze_image(
-                    image_path=image_path,
-                    options=self.run_options,
-                    issue_catalog=self.issue_catalog,
-                )
-            except TypeError:
-                # Backward-compatible fallback
-                return await self.orchestrator.analyze_image(
-                    image_path=image_path,
-                    options=self.run_options,
-                )
+            return await self.orchestrator.analyze_image(
+                image_path=image_path,
+                options=self.run_options,
+            )
 
         # Run async orchestrator
         loop = asyncio.new_event_loop()
@@ -1278,7 +1312,7 @@ class AutoAnalyzer:
                 # Enrich forward items to keep downstream schema happy
                 # Classify kind based on label: default to "defect" since 2a/2b/2c
                 # is the issue detection chain. Known opportunity labels get "opportunity".
-                _OPPORTUNITY_LABELS = {"opportunity", "upgrade", "improvement", "cosmetic_upgrade", "feature"}
+                _OPPORTUNITY_LABELS = {"opportunity", "upgrade", "improvement", "cosmetic_upgrade", "feature", "upgrade_candidate"}
 
                 forward_enriched = [
                     {
@@ -1305,7 +1339,7 @@ class AutoAnalyzer:
                 results['passes']['2c'] = {
                     'labeled_debug': labeled_debug,
                     'labeled_forward': forward_enriched,
-                    'verified_issues': forward_enriched,           # ✅ embeddings + downstream reads this
+                    'verified_issues': forward_enriched,           # ✅ downstream reads this
                     'issues_natural_language': forward_enriched,   # ✅ fallback key for compatibility
                 }
             except Exception as e:
@@ -1321,46 +1355,47 @@ class AutoAnalyzer:
                 results['verified_issues'] = fallback_issues
             results['pass_timings']['2c'] = round(time.time() - t0, 3)
 
-            # Pass 2d: Defect Resolution (optional, requires candidates + defect items)
-            # Gating: only run if toggles allow and there are defect-like items to resolve
+            # Pass 2d: Catalog Resolution (optional, defects + upgrades)
+            # Gating: run if toggles allow and there are resolvable items
             toggle_2d = self._toggle(self.run_options, "2d", default=True)
 
-            defect_forward = results.get('labeled_forward', []) or []
-            # Accept both conventions: kind=="defect" (direct enrichment) or label=="defect_or_damage" (orchestrator)
-            defect_items = [
-                x for x in defect_forward
-                if isinstance(x, dict) and (
-                    x.get("kind") == "defect" or x.get("label") == "defect_or_damage"
-                )
+            all_forward = results.get('labeled_forward', []) or []
+            # Gate on `kind` (the semantic field we control) rather than `label` (LLM output)
+            # Exclude safety/good_condition/generic_presence — only defects and upgrades are resolvable
+            resolvable_items = [
+                x for x in all_forward
+                if isinstance(x, dict)
+                and x.get("kind") in {"defect", "opportunity"}
+                and x.get("description")
             ]
-            has_defects = len(defect_items) > 0
+            has_items = len(resolvable_items) > 0
 
-            # Build candidate provider for 2d
-            candidate_provider_2d = None
-            if self.catalog_matcher and hasattr(self.catalog_matcher, 'get_candidates'):
-                candidate_provider_2d = self._wrap_candidate_provider(self.catalog_matcher.get_candidates)
-            elif self.issue_catalog:
+            # 2d needs either embeddings matcher or a fallback candidate provider
+            has_resolver = self.catalog_matcher is not None or bool(self.issue_catalog)
+
+            # Build fallback candidate provider (only used when embeddings unavailable)
+            fallback_candidate_provider = None
+            if not self.catalog_matcher and self.issue_catalog:
                 def _simple_candidates(query, rough_category=None, topk=8):
-                    # ✅ 2d is defect resolution — only use defect_issues, not opportunity_flags
-                    defects = [
-                        item for item in (self.issue_catalog.get("defect_issues", []) or [])
+                    items_pool = [
+                        item for item in (self.issue_catalog.get("items", []) or [])
                         if isinstance(item, dict)
                     ]
-                    logger.info(f"2d diag: simple_candidate_pool={len(defects)} (topk={topk}, query={query[:60]})")
-                    return defects[:topk]
-                candidate_provider_2d = self._wrap_candidate_provider(_simple_candidates)
-
-            has_candidates = candidate_provider_2d is not None
+                    logger.info(f"2d diag: simple_candidate_pool={len(items_pool)} (topk={topk}, query={query[:60]})")
+                    return items_pool[:topk]
+                fallback_candidate_provider = self._wrap_candidate_provider(_simple_candidates)
 
             # Debug gate status
-            catalog_defect_count = len((self.issue_catalog.get("defect_issues", []) or [])) if self.issue_catalog else 0
+            catalog_item_count = len(self.issue_catalog.get("items", []) or []) if self.issue_catalog else 0
+            defect_count = len([x for x in resolvable_items if x.get("kind") == "defect"])
+            upgrade_count = len([x for x in resolvable_items if x.get("kind") == "opportunity"])
             logger.info(
-                f"  Pass 2d gate: toggle_2d={toggle_2d}, has_defects={has_defects} "
-                f"({len(defect_items)}/{len(defect_forward)} defect/total), "
-                f"has_candidates={has_candidates}, catalog_defects={catalog_defect_count}"
+                f"  Pass 2d gate: toggle_2d={toggle_2d}, has_items={has_items} "
+                f"(defects={defect_count}, upgrades={upgrade_count}, total={len(all_forward)}), "
+                f"has_resolver={has_resolver}, catalog_items={catalog_item_count}"
             )
 
-            if toggle_2d and has_defects and has_candidates:
+            if toggle_2d and has_items and has_resolver:
                 model_config_2d = self._get_model_config_for_pass('2d')
                 logger.info(f"  Pass 2d using model: {model_config_2d.get('model')}")
                 results['models_used']['2d'] = model_config_2d.get('model')
@@ -1369,34 +1404,98 @@ class AutoAnalyzer:
                 try:
                     pass_2d = await self._call_pass_2d(
                         model_config=model_config_2d,
-                        defect_items=defect_items,
-                        candidate_provider=candidate_provider_2d,
+                        items=resolvable_items,
+                        catalog_matcher=self.catalog_matcher,
+                        candidate_provider=fallback_candidate_provider,
                     )
-                    resolved = pass_2d.resolved_defects if hasattr(pass_2d, 'resolved_defects') else (pass_2d.resolutions if hasattr(pass_2d, 'resolutions') else [])
+                    resolved = pass_2d.resolved_items if hasattr(pass_2d, 'resolved_items') else (pass_2d.resolved_defects if hasattr(pass_2d, 'resolved_defects') else [])
                     resolved = resolved or []
-                    results['resolved_defects'] = resolved
+                    results['resolved_defects'] = resolved  # legacy key name kept
 
                     results['passes']['2d'] = {
                         'resolutions': resolved,
-                        'resolved_defects': resolved,
+                        'resolved_defects': resolved,  # legacy alias
+                        'resolved_items': resolved,
                     }
                     logger.info(f"  Pass 2d completed: {len(resolved)} resolutions")
+
+                    # ── Join 2d results back into verified_issues ──
+                    # Build catalog item lookup for deterministic trade bucket resolution
+                    catalog_items_by_id: Dict[str, Dict[str, Any]] = {}
+                    for cat_item in (self.issue_catalog.get("items", []) or []):
+                        if isinstance(cat_item, dict):
+                            cid = cat_item.get("defect_id") or cat_item.get("upgrade_id") or cat_item.get("id") or ""
+                            if cid:
+                                catalog_items_by_id[cid] = cat_item
+
+                    bucket_name_map = self._build_trade_bucket_name_map()
+
+                    # Index resolutions by description for joining
+                    resolution_by_desc: Dict[str, Dict[str, Any]] = {}
+                    for res in resolved:
+                        if isinstance(res, dict) and res.get("description"):
+                            resolution_by_desc[res["description"]] = res
+
+                    verified = results.get('verified_issues', []) or []
+                    for issue in verified:
+                        if not isinstance(issue, dict):
+                            continue
+                        desc = issue.get("description", "")
+                        res = resolution_by_desc.get(desc)
+                        if res and res.get("resolved_item_id"):
+                            rid = res["resolved_item_id"]
+                            cat_entry = catalog_items_by_id.get(rid, {})
+                            tb_id = cat_entry.get("trade_bucket", "")
+
+                            issue["catalogItemId"] = rid
+                            issue["catalogItemName"] = cat_entry.get("name", rid)
+                            issue["catalogItemKind"] = res.get("resolved_kind", res.get("kind", ""))
+                            issue["tradeBucketId"] = tb_id
+                            issue["tradeBucketName"] = bucket_name_map.get(tb_id, tb_id)
+                            issue["topCandidateScore"] = res.get("top_candidate_score")
+                        elif not issue.get("catalogItemId"):
+                            # No resolution — null out fields for consistent schema
+                            issue.setdefault("catalogItemId", None)
+                            issue.setdefault("catalogItemName", None)
+                            issue.setdefault("catalogItemKind", None)
+                            issue.setdefault("tradeBucketId", None)
+                            issue.setdefault("tradeBucketName", None)
+                            issue.setdefault("topCandidateScore", None)
+
+                    # Sync all downstream fields
+                    results['verified_issues'] = verified
+                    results['issues_natural_language'] = verified
+                    if isinstance(results.get('passes', {}).get('2c'), dict):
+                        results['passes']['2c']['verified_issues'] = verified
+                        results['passes']['2c']['issues_natural_language'] = verified
+
                 except Exception as e:
                     logger.warning(f"  Pass 2d failed: {e}")
-                    results['passes']['2d'] = {'resolutions': [], 'resolved_defects': [], 'error': str(e)}
+                    results['passes']['2d'] = {'resolutions': [], 'resolved_defects': [], 'resolved_items': [], 'error': str(e)}
                     results['resolved_defects'] = []
+                    # Fallback: use embeddings-only annotation when 2d fails
+                    verified = results.get('verified_issues', []) or []
+                    verified = self._annotate_verified_issues_with_embeddings(verified)
+                    results['verified_issues'] = verified
+                    results['issues_natural_language'] = verified
                 results['pass_timings']['2d'] = round(time.time() - t0, 3)
             else:
                 skip_reasons = []
                 if not toggle_2d:
                     skip_reasons.append("toggle off")
-                if not has_defects:
-                    skip_reasons.append("no defects in labeled_forward")
-                if not has_candidates:
-                    skip_reasons.append("no candidate provider")
+                if not has_items:
+                    skip_reasons.append("no resolvable items in labeled_forward")
+                if not has_resolver:
+                    skip_reasons.append("no catalog matcher or catalog")
                 logger.info(f"  Pass 2d skipped: {', '.join(skip_reasons)}")
                 results['passes']['2d'] = {'resolutions': [], 'skipped': True, 'skip_reasons': skip_reasons}
                 results['resolved_defects'] = []
+
+                # Fallback: use embeddings-only annotation when 2d is skipped
+                verified = results.get('verified_issues', []) or []
+                verified = self._annotate_verified_issues_with_embeddings(verified)
+                results['verified_issues'] = verified
+                results['issues_natural_language'] = verified
 
             # Pass 3: Keyword Extraction (text-only, always Qwen)
             model_config_3 = self._get_model_config_for_pass('3')
@@ -2122,8 +2221,8 @@ class AutoAnalyzer:
         logger.info(f"{'=' * 60}\n")
 
         # Log live catalog state at run-start (catches mutation between init and run)
-        live_defects = len((self.issue_catalog.get("defect_issues", []) or [])) if self.issue_catalog else 0
-        logger.info(f"Catalog live at run-start: defect_issues={live_defects}, catalog_id={id(self.issue_catalog)}")
+        live_items = len((self.issue_catalog.get("items", []) or [])) if self.issue_catalog else 0
+        logger.info(f"Catalog live at run-start: items={live_items}, catalog_id={id(self.issue_catalog)}")
 
         results = []
 
@@ -2174,75 +2273,87 @@ class AutoAnalyzer:
 
         return job
 
-    def _maybe_apply_embeddings_catalog(self, payload: Dict[str, Any]) -> Dict[str, Any]:
-        if not isinstance(payload, dict):
-            return payload
+    def _build_trade_bucket_name_map(self) -> Dict[str, str]:
+        """Build a {bucket_id -> bucket_name} lookup from the issue catalog."""
+        bucket_map: Dict[str, str] = {}
+        if not self.issue_catalog:
+            return bucket_map
+        for tb in self.issue_catalog.get("trade_buckets", []):
+            if isinstance(tb, dict):
+                bid = tb.get("id") or tb.get("bucket_id") or ""
+                bname = tb.get("name") or tb.get("label") or bid
+                if bid:
+                    bucket_map[bid] = bname
+        return bucket_map
 
-        # ✅ NEW: retriever doesn't generate catalog_flags
-        if not self.catalog_matcher or not hasattr(self.catalog_matcher, "build_catalog_flags_and_annotate"):
-            return payload
+    def _annotate_verified_issues_with_embeddings(self, issues: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """
-        Backfill/override catalog_flags using embeddings based on verified_issues.
-        Keeps your downstream renovation_needs + UI schema intact.
+        Annotate each verified issue with trade-bucket and catalog-match info
+        using the embeddings retriever.
+
+        For defect-labeled issues  → retrieve defect candidates
+        For upgrade-labeled issues → retrieve upgrade candidates
+        For unknown labels         → search both, take top match
+
+        Adds to each issue dict:
+          tradeBucketId, tradeBucketName, catalogItemId, catalogItemName,
+          catalogItemKind, topCandidateScore
         """
-        if not isinstance(payload, dict):
-            return payload
+        if not self.catalog_matcher or not issues:
+            return issues
 
-        # Canonical: never store catalog_flags in 2b (clear ASAP, even if we early-return)
-        passes = payload.get("passes") if isinstance(payload.get("passes"), dict) else {}
-        if isinstance(passes, dict):
-            p2b = passes.get("2b")
-            if isinstance(p2b, dict):
-                if p2b.get("catalog_flags"):
-                    logger.warning("Clearing passes['2b'].catalog_flags; embeddings owns catalog_flags.")
-                p2b["catalog_flags"] = {}
+        bucket_map = self._build_trade_bucket_name_map()
 
-        if not self.catalog_matcher:
-            return payload
-        if not getattr(cfg, "USE_EMBEDDINGS_CATALOG", False):
-            return payload
+        for issue in issues:
+            if not isinstance(issue, dict):
+                continue
 
-        override = bool(getattr(cfg, "EMBEDDINGS_OVERRIDE_EXISTING_FLAGS", True))
-        attach = bool(getattr(cfg, "EMBEDDINGS_ATTACH_CANDIDATES", True))
+            desc = issue.get("description", "")
+            if not desc:
+                continue
 
-        # Prefer verified issues from 2c (post-gate), fallback to 2b
-        issues = None
-        if isinstance(passes, dict):
-            p2c = passes.get("2c") if isinstance(passes.get("2c"), dict) else {}
-            issues = p2c.get("verified_issues") or p2c.get("issues_natural_language")
+            # Use `kind` field (set during 2c enrichment) as the authoritative routing
+            kind_field = (issue.get("kind") or "").lower()
 
-            if issues is None:
-                p2b = passes.get("2b") if isinstance(passes.get("2b"), dict) else {}
-                issues = p2b.get("issues_natural_language")
+            # Decide which candidate pool to search
+            candidates = []
+            if kind_field == "opportunity":
+                candidates = self.catalog_matcher.embeddings_retrieve_upgrade_candidates(desc, topk=1)
+                matched_kind = "upgrade"
+            elif kind_field == "defect":
+                candidates = self.catalog_matcher.embeddings_retrieve_defect_candidates(desc, topk=1)
+                matched_kind = "defect"
+            else:
+                # No kind set (e.g. fallback items) — search both, take best
+                defect_cands = self.catalog_matcher.embeddings_retrieve_defect_candidates(desc, topk=1)
+                upgrade_cands = self.catalog_matcher.embeddings_retrieve_upgrade_candidates(desc, topk=1)
+                d_score = defect_cands[0].score if defect_cands else -1
+                u_score = upgrade_cands[0].score if upgrade_cands else -1
+                if u_score > d_score:
+                    candidates = upgrade_cands
+                    matched_kind = "upgrade"
+                else:
+                    candidates = defect_cands
+                    matched_kind = "defect"
 
-        if issues is None:
-            # Flat field fallback
-            issues = payload.get("verified_issues") or payload.get("issues_natural_language")
+            if candidates:
+                top = candidates[0]
+                tb_id = top.trade_bucket or ""
+                issue["tradeBucketId"] = tb_id
+                issue["tradeBucketName"] = bucket_map.get(tb_id, tb_id)
+                issue["catalogItemId"] = top.defect_id  # upgrade_id in practice for upgrades
+                issue["catalogItemName"] = top.name
+                issue["catalogItemKind"] = matched_kind
+                issue["topCandidateScore"] = round(top.score, 4)
+            else:
+                issue["tradeBucketId"] = None
+                issue["tradeBucketName"] = None
+                issue["catalogItemId"] = None
+                issue["catalogItemName"] = None
+                issue["catalogItemKind"] = None
+                issue["topCandidateScore"] = None
 
-        if not isinstance(issues, list) or not issues:
-            return payload
-
-        existing = payload.get("catalog_flags") or {}
-        if existing and not override:
-            return payload
-
-        flags = self.catalog_matcher.build_catalog_flags_and_annotate(
-            issues_natural_language=issues,
-            attach_candidates=attach,
-        )
-
-        payload["catalog_flags"] = flags
-
-        # Keep passes schema consistent - update verified_issues with annotations
-        if isinstance(passes, dict):
-            p2c = passes.setdefault("2c", {})
-            if isinstance(p2c, dict):
-                p2c["verified_issues"] = issues  # (may now have annotations)
-
-        # Also keep flat field in sync
-        payload["verified_issues"] = issues
-
-        return payload
+        return issues
 
     @staticmethod
     def _scene_classifier_payload(
@@ -2550,6 +2661,30 @@ class AutoAnalyzer:
         except Exception as exc:
             logger.error(f"Failed to build renovation_needs: {exc}", exc_info=True)
 
+        # ── Build defect events, work items, and search index ─────────────
+        if DEFECT_EVENTS_AVAILABLE:
+            try:
+                defect_events = build_defect_events(
+                    photos=photos,
+                    catalog=self.issue_catalog,
+                    run_id=job.job_id,
+                )
+                work_items = generate_work_items(defect_events, self.issue_catalog)
+                search_index = build_search_index(defect_events, self.issue_catalog)
+
+                photo_intel["defect_events"] = defect_events
+                photo_intel["work_items"] = work_items
+                photo_intel["search_index"] = search_index
+            except Exception as exc:
+                logger.error(f"Failed to build defect events layer: {exc}", exc_info=True)
+                photo_intel["defect_events"] = []
+                photo_intel["work_items"] = []
+                photo_intel["search_index"] = {}
+        else:
+            photo_intel["defect_events"] = []
+            photo_intel["work_items"] = []
+            photo_intel["search_index"] = {}
+
         output_path = output_path or Path(job.artifacts_dir) / "photo_intel.json"
         output_path.parent.mkdir(parents=True, exist_ok=True)
         with open(output_path, "w", encoding="utf-8") as f:
@@ -2831,6 +2966,24 @@ class AutoAnalyzer:
             summary_data["renovation_needs"] = build_renovation_needs(job, issue_catalog=self.issue_catalog)
         except Exception as exc:
             logger.warning(f"Could not build renovation_needs: {exc}")
+
+        # Add defect events layer from photo_intel (already computed in save_photo_intel)
+        if DEFECT_EVENTS_AVAILABLE and photo_intel_path and photo_intel_path.exists():
+            try:
+                with open(photo_intel_path, 'r', encoding='utf-8') as f:
+                    pi = json.load(f)
+                summary_data["defect_events"] = pi.get("defect_events", [])
+                summary_data["work_items"] = pi.get("work_items", [])
+                summary_data["search_index"] = pi.get("search_index", {})
+            except Exception as exc:
+                logger.warning(f"Could not load defect events from photo_intel: {exc}")
+                summary_data["defect_events"] = []
+                summary_data["work_items"] = []
+                summary_data["search_index"] = {}
+        else:
+            summary_data["defect_events"] = []
+            summary_data["work_items"] = []
+            summary_data["search_index"] = {}
 
         # Write property_summary.json
         output_path.parent.mkdir(parents=True, exist_ok=True)
