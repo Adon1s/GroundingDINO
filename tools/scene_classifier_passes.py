@@ -119,11 +119,6 @@ class Pass2dResult:
     resolved_kind: Optional[str] = None  # "defect" or "upgrade"
     raw_response: Optional[str] = None
 
-    # Legacy alias so existing code reading .resolved_defect_id still works
-    @property
-    def resolved_defect_id(self) -> Optional[str]:
-        return self.resolved_item_id
-
 
 @dataclass
 class Pass3Result:
@@ -694,17 +689,28 @@ Return JSON only:
 """
 
 
+def _candidate_item_id(c: Dict[str, Any]) -> str:
+    """Extract the canonical item ID from a candidate dict, regardless of key convention."""
+    return str(
+        c.get("item_id")
+        or c.get("defect_id")
+        or c.get("upgrade_id")
+        or c.get("id")
+        or ""
+    ).strip()
+
+
 def format_candidates_text(candidates: List[Dict[str, Any]]) -> str:
     """Format candidate list to text for the prompt."""
     if not candidates:
         return "(none)"
     lines = []
     for c in candidates:
-        item_id = c.get("defect_id", "")
+        item_id = _candidate_item_id(c)
         name = c.get("name", "")
         trade = c.get("trade_bucket", "")
         kind = c.get("kind", "")
-        score = c.get("score", 0.0)
+        score = float(c.get("score", 0.0) or 0.0)
         lines.append(f"- {item_id} | {name} | trade={trade} | kind={kind} | score={score:.3f}")
     return "\n".join(lines) or "(none)"
 
@@ -760,8 +766,8 @@ async def run_pass_2d(
 
         resolved_id = None
         if isinstance(result, dict):
-            # Accept both the new key and legacy key
-            resolved_id = result.get("resolved_item_id") or result.get("resolved_defect_id")
+            # Accept both the new key and legacy keys
+            resolved_id = result.get("resolved_item_id") or result.get("resolved_defect_id") or result.get("resolved_upgrade_id")
             if resolved_id is not None:
                 resolved_id = str(resolved_id).strip() if resolved_id else None
 

@@ -101,7 +101,6 @@ class ImageAnalysisResult:
     labeled_forward: List[Dict[str, Any]] = field(default_factory=list)
 
     # Optional resolver output (2d). Orchestrator stores results if run elsewhere.
-    resolved_defects: List[Dict[str, Any]] = field(default_factory=list)  # legacy: defects only
     resolved_items: List[Dict[str, Any]] = field(default_factory=list)    # unified: defects + upgrades
 
     keywords: List[str] = field(default_factory=list)
@@ -137,7 +136,6 @@ class ImageAnalysisResult:
             "observations_struct": self.observations_struct,
             "labeled_debug": self.labeled_debug,
             "labeled_forward": self.labeled_forward,
-            "resolved_defects": self.resolved_defects,
             "resolved_items": self.resolved_items,
 
             "keywords": self.keywords,
@@ -538,8 +536,7 @@ class SceneClassifierOrchestrator:
             t0 = time.time()
 
             pass_2d_results: List[Pass2dResult] = []
-            resolved_items: List[Dict[str, Any]] = []    # unified list
-            resolved_defects: List[Dict[str, Any]] = []   # legacy list (defects only)
+            resolved_items: List[Dict[str, Any]] = []    # unified list (defects + upgrades)
 
             # Base context for candidate provider
             base_ctx_for_provider = {**context, "top_k_candidates": self.top_k_candidates}
@@ -632,38 +629,31 @@ class SceneClassifierOrchestrator:
                     "candidates": candidates,
                     "raw_response": pass_2d_result.raw_response,
                 }
-
-                # Add kind-specific legacy key
-                if kind == "defect":
-                    row["resolved_defect_id"] = resolved_item_id
-                    resolved_defects.append(row)
-                else:
-                    row["resolved_upgrade_id"] = resolved_item_id
-
                 resolved_items.append(row)
 
             result.pass_timings['2d'] = round(time.time() - t0, 3)
             result.pass_2d = pass_2d_results
-            result.resolved_defects = resolved_defects  # legacy field
-            result.resolved_items = resolved_items       # unified field
+            result.resolved_items = resolved_items
             result.passes_run.append('2d')
             result.models_used['2d'] = model_name
 
-            logger.debug(f"Pass 2d resolved {len(resolved_items)} items ({len(resolved_defects)} defects, {len(resolved_items) - len(resolved_defects)} upgrades)")
+            n_defects = sum(1 for x in resolved_items if x.get("resolved_kind") == "defect")
+            n_upgrades = sum(1 for x in resolved_items if x.get("resolved_kind") == "upgrade")
+            logger.debug(f"Pass 2d resolved {len(resolved_items)} items ({n_defects} defects, {n_upgrades} upgrades)")
 
             # Add summary debug info
             result.debug["pass_2d_summary"] = {
                 "attempted_total": len(to_resolve_all),
                 "resolved_total": len(resolved_items),
-                "resolved_defects": len(resolved_defects),
-                "resolved_upgrades": len([x for x in resolved_items if x.get("resolved_kind") == "upgrade"]),
+                "resolved_defects": n_defects,
+                "resolved_upgrades": n_upgrades,
             }
             logger.info(
                 "Pass 2d summary: attempted=%d resolved=%d (defects=%d upgrades=%d)",
                 result.debug["pass_2d_summary"]["attempted_total"],
                 result.debug["pass_2d_summary"]["resolved_total"],
-                result.debug["pass_2d_summary"]["resolved_defects"],
-                result.debug["pass_2d_summary"]["resolved_upgrades"],
+                n_defects,
+                n_upgrades,
             )
         else:
             if to_resolve_all and not pass_2d_provider_present:

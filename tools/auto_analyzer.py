@@ -542,27 +542,33 @@ class AutoAnalyzer:
                 # ✅ Build candidate_provider from embeddings matcher or catalog
                 candidate_provider = None
                 if self.catalog_matcher:
-                    candidate_provider = self.catalog_matcher.get_candidates if hasattr(self.catalog_matcher, 'get_candidates') else None
-                    if candidate_provider:
-                        logger.info("Candidate provider: embeddings-based (catalog_matcher.get_candidates)")
-
-                if candidate_provider is None and self.issue_catalog:
-                    # Simple catalog-based provider fallback
-                    def _catalog_candidate_provider(query, rough_category=None, topk=8):
-                        """Simple candidate provider from catalog items (kind=='defect' only)."""
-                        candidates = [
-                            item for item in (self.issue_catalog.get("items", []) or [])
-                            if isinstance(item, dict) and item.get("kind", "defect") == "defect"
+                    # Kind-aware provider: dispatches to defect or upgrade retrieval based on ctx
+                    def _embeddings_candidate_provider(query, ctx=None):
+                        kind = (ctx or {}).get("kind", "defect") if isinstance(ctx, dict) else "defect"
+                        topk = (ctx or {}).get("top_k_candidates", 8) if isinstance(ctx, dict) else 8
+                        if kind == "upgrade":
+                            cands = self.catalog_matcher.embeddings_retrieve_upgrade_candidates(query, topk=topk)
+                        else:
+                            cands = self.catalog_matcher.embeddings_retrieve_defect_candidates(query, topk=topk)
+                        return [
+                            {
+                                "item_id": c.item_id,
+                                "name": c.name,
+                                "kind": c.kind,
+                                "trade_bucket": c.trade_bucket,
+                                "severity": c.severity,
+                                "score": float(c.score),
+                            }
+                            for c in cands
                         ]
-                        logger.info(f"2d diag: catalog_candidate_pool={len(candidates)} (topk={topk}, query={query[:60]})")
-                        return candidates[:topk]
-
-                    candidate_provider = _catalog_candidate_provider
-                    logger.info("Candidate provider: simple catalog-based fallback")
+                    candidate_provider = _embeddings_candidate_provider
+                    logger.info("Candidate provider: kind-aware embeddings-based")
 
                 # Wrap to normalize signature + output shape
                 if candidate_provider is not None:
                     candidate_provider = self._wrap_candidate_provider(candidate_provider)
+                else:
+                    logger.info("No candidate provider available — 2d will skip (no embeddings matcher)")
 
                 # ✅ Give orchestrator candidate_provider (catalog flows through provider, not directly)
                 self.orchestrator = create_orchestrator_from_config(
@@ -629,12 +635,12 @@ class AutoAnalyzer:
     def _normalize_candidate(item: dict) -> dict:
         """Normalize a raw catalog item into the shape run_pass_2d and orchestrator expect.
 
-        Accepts both embeddings retriever output (has defect_id, score, trade_bucket)
+        Accepts both embeddings retriever output (has item_id, score, trade_bucket)
         and raw catalog items (has id, aliases, category).
         """
-        item_id = item.get("defect_id") or item.get("id") or item.get("key", "")
+        item_id = item.get("item_id") or item.get("defect_id") or item.get("id") or item.get("key", "")
         return {
-            "defect_id": item_id,  # run_pass_2d expects this field name
+            "item_id": item_id,
             "score": item.get("score", 1.0),
             "name": item.get("name") or item.get("label") or item_id,
             "category": item.get("category", ""),
@@ -646,39 +652,29 @@ class AutoAnalyzer:
 
     def _wrap_candidate_provider(self, raw_provider):
         """
-        Wrap any candidate provider so it supports both call conventions
-        and returns normalized candidate dicts.
+        Forward-only wrapper.
 
-        Supported underlying signatures:
-          (query)                              - simple
-          (query, rough_category=None, topk=8) - catalog fallback
-          (query, context_dict)                - orchestrator convention
-
-        Output: always returns list of {defect_id, score, name, ...}
+        Contract:
+          wrapped(query, ctx_dict) -> list[normalized_candidate]
+        We never call providers with (query, category, topk) anymore.
         """
-        def wrapped(query, context_or_category=None, topk=8):
-            # Determine topk from context dict if present
-            if isinstance(context_or_category, dict):
-                topk = context_or_category.get("top_k_candidates", topk)
 
-            # Try calling with just query first (safest)
-            try:
-                result = raw_provider(query)
-            except TypeError:
-                try:
-                    result = raw_provider(query, None, topk)
-                except TypeError:
-                    result = raw_provider(query, context_or_category)
+        def wrapped(query, ctx=None, topk=8):
+            # Coerce ctx into a dict so kind/topk never get lost
+            if not isinstance(ctx, dict):
+                ctx = {}
 
-            if not isinstance(result, list):
-                logger.info(f"2d diag: raw_provider_type={type(result).__name__} (not list)")
+            # Allow caller override; default stays stable
+            topk_eff = int(ctx.get("top_k_candidates", topk))
+            ctx = {**ctx, "top_k_candidates": topk_eff}
+
+            result = raw_provider(query, ctx)
+
+            if not isinstance(result, list) or not result:
                 return []
 
-            logger.info(f"2d diag: raw_provider_len={len(result)} sample_keys={list(result[0].keys()) if result else []}")
-
-            normalized = [self._normalize_candidate(item) for item in result[:topk]]
-            logger.info(f"2d diag: normalized_len={len(normalized)} sample={normalized[0] if normalized else '{}'}")
-            return normalized
+            # Normalize and cap
+            return [self._normalize_candidate(item) for item in result[:topk_eff]]
 
         return wrapped
 
@@ -687,7 +683,7 @@ class AutoAnalyzer:
         Run Pass 2d for each observation (defect OR upgrade), resolving to a canonical catalog item.
 
         For each item:
-          - Read `kind` field (already set by 2c enrichment: "defect" or "opportunity")
+          - Read `kind` field (already set by 2c enrichment: "defect" or "upgrade")
           - Retrieve kind-filtered candidates via embeddings (preferred) or fallback provider
           - Call run_pass_2d to pick the best candidate
 
@@ -702,21 +698,34 @@ class AutoAnalyzer:
             if not description:
                 continue
 
-            # Use `kind` set during 2c enrichment — this is the authoritative field
-            kind_field = (obs.get("kind") or "").lower() if isinstance(obs, dict) else ""
-            kind = "upgrade" if kind_field == "opportunity" else "defect"
+            # Strict: only "defect" and "upgrade" are resolvable kinds
+            kind = (obs.get("kind") or "").strip().lower() if isinstance(obs, dict) else ""
+            if kind not in {"defect", "upgrade"}:
+                continue
 
             # Get kind-filtered candidates — prefer embeddings retriever
             candidates = []
             if catalog_matcher:
+                raw_cands = []
                 try:
                     if kind == "upgrade":
                         raw_cands = catalog_matcher.embeddings_retrieve_upgrade_candidates(description, topk=8)
                     else:
                         raw_cands = catalog_matcher.embeddings_retrieve_defect_candidates(description, topk=8)
+
+                    # Diagnose candidate shape (one-time, before field access)
+                    if raw_cands:
+                        c0 = raw_cands[0]
+                        logger.info(
+                            f"2d diag: candidate_type={type(c0).__name__} "
+                            f"module={getattr(type(c0), '__module__', '?')} "
+                            f"repr={repr(c0)[:200]} "
+                            f"dict={getattr(c0, '__dict__', None)}"
+                        )
+
                     candidates = [
                         {
-                            "defect_id": c.defect_id,
+                            "item_id": c.item_id,
                             "name": c.name,
                             "kind": c.kind,
                             "trade_bucket": c.trade_bucket,
@@ -726,17 +735,36 @@ class AutoAnalyzer:
                         for c in raw_cands
                     ]
                 except Exception as e:
-                    logger.warning(f"2d diag: embeddings retrieval failed for {kind}: {e}")
+                    sample = None
+                    try:
+                        if raw_cands:
+                            c0 = raw_cands[0]
+                            sample = {
+                                "type": type(c0).__name__,
+                                "module": getattr(type(c0), "__module__", None),
+                                "dict": getattr(c0, "__dict__", None),
+                                "repr": repr(c0)[:300],
+                                "has_attrs": {
+                                    "item_id": hasattr(c0, "item_id"),
+                                    "id": hasattr(c0, "id"),
+                                    "defect_id": hasattr(c0, "defect_id"),
+                                    "upgrade_id": hasattr(c0, "upgrade_id"),
+                                    "trade_bucket": hasattr(c0, "trade_bucket"),
+                                    "score": hasattr(c0, "score"),
+                                    "name": hasattr(c0, "name"),
+                                    "kind": hasattr(c0, "kind"),
+                                },
+                            }
+                    except Exception as e2:
+                        sample = {"sample_error": str(e2)}
+                    logger.warning(f"2d diag: embeddings retrieval failed for {kind}: {e}; sample={sample}")
 
-            # Fallback to generic candidate provider (already normalized)
+            # Fallback to candidate provider — pass ctx so kind is preserved
             if not candidates and candidate_provider:
                 try:
-                    candidates = candidate_provider(description)
-                except TypeError:
-                    try:
-                        candidates = candidate_provider(description, None, 8)
-                    except Exception:
-                        candidates = []
+                    candidates = candidate_provider(description, {"kind": kind, "top_k_candidates": 8})
+                except Exception:
+                    candidates = []
 
             if not isinstance(candidates, list) or not candidates:
                 logger.info(f"2d diag: no {kind} candidates for observation: {description[:80]}")
@@ -755,13 +783,14 @@ class AutoAnalyzer:
 
                 # Extract resolved ID — tolerate both dict and dataclass
                 if isinstance(pass_2d_result, dict):
+                    # Dict path: LLM response might use legacy keys
                     rid = (pass_2d_result.get("resolved_item_id")
                            or pass_2d_result.get("resolved_defect_id")
                            or pass_2d_result.get("defect_id"))
                     raw = pass_2d_result.get("raw_response", "")
                 else:
-                    rid = (getattr(pass_2d_result, "resolved_item_id", None)
-                           or getattr(pass_2d_result, "resolved_defect_id", None))
+                    # Dataclass path: canonical field only
+                    rid = getattr(pass_2d_result, "resolved_item_id", None)
                     raw = getattr(pass_2d_result, "raw_response", "")
 
                 top_candidate = candidates[0] if candidates else None
@@ -771,7 +800,7 @@ class AutoAnalyzer:
                     "kind": kind,
                     "resolved_item_id": rid,
                     "resolved_kind": kind,
-                    "top_candidate_id": top_candidate.get("defect_id") if top_candidate else None,
+                    "top_candidate_id": top_candidate.get("item_id") if top_candidate else None,
                     "top_candidate_score": top_candidate.get("score") if top_candidate else None,
                     "top_candidate_trade_bucket": top_candidate.get("trade_bucket") if top_candidate else None,
                     "raw_response": raw,
@@ -784,7 +813,6 @@ class AutoAnalyzer:
             pass
         r = _Result()
         r.resolved_items = resolved_items
-        r.resolved_defects = resolved_items  # legacy alias
         r.pass_2d_results = pass_2d_results
         return r
 
@@ -1310,9 +1338,14 @@ class AutoAnalyzer:
                 labeled_forward = pass_2c.labeled_forward or []
 
                 # Enrich forward items to keep downstream schema happy
-                # Classify kind based on label: default to "defect" since 2a/2b/2c
-                # is the issue detection chain. Known opportunity labels get "opportunity".
-                _OPPORTUNITY_LABELS = {"opportunity", "upgrade", "improvement", "cosmetic_upgrade", "feature", "upgrade_candidate"}
+                # Classify kind based on label: only "defect" and "upgrade" are valid kinds.
+                _UPGRADE_LABELS = {
+                    "opportunity", "upgrade", "improvement", "cosmetic_upgrade",
+                    "feature", "upgrade_candidate",
+                }
+
+                def _label_to_kind(lbl: str) -> str:
+                    return "upgrade" if (lbl or "").strip().lower() in _UPGRADE_LABELS else "defect"
 
                 forward_enriched = [
                     {
@@ -1320,7 +1353,7 @@ class AutoAnalyzer:
                         "label": x.get("label", ""),
                         "rough_category": "",  # deprecated — keep empty for schema compatibility
                         "location_hint": "",
-                        "kind": "opportunity" if x.get("label", "").lower() in _OPPORTUNITY_LABELS else "defect",
+                        "kind": _label_to_kind(x.get("label", "")),  # ✅ defect|upgrade only
                         "searchable": "yes",  # ✅ required for build_grouped_issues gate
                     }
                     for x in labeled_forward
@@ -1365,30 +1398,18 @@ class AutoAnalyzer:
             resolvable_items = [
                 x for x in all_forward
                 if isinstance(x, dict)
-                and x.get("kind") in {"defect", "opportunity"}
+                and x.get("kind") in {"defect", "upgrade"}
                 and x.get("description")
             ]
             has_items = len(resolvable_items) > 0
 
-            # 2d needs either embeddings matcher or a fallback candidate provider
-            has_resolver = self.catalog_matcher is not None or bool(self.issue_catalog)
-
-            # Build fallback candidate provider (only used when embeddings unavailable)
-            fallback_candidate_provider = None
-            if not self.catalog_matcher and self.issue_catalog:
-                def _simple_candidates(query, rough_category=None, topk=8):
-                    items_pool = [
-                        item for item in (self.issue_catalog.get("items", []) or [])
-                        if isinstance(item, dict)
-                    ]
-                    logger.info(f"2d diag: simple_candidate_pool={len(items_pool)} (topk={topk}, query={query[:60]})")
-                    return items_pool[:topk]
-                fallback_candidate_provider = self._wrap_candidate_provider(_simple_candidates)
+            # 2d needs embeddings matcher — no catalog-only fallback (forward-only)
+            has_resolver = self.catalog_matcher is not None
 
             # Debug gate status
             catalog_item_count = len(self.issue_catalog.get("items", []) or []) if self.issue_catalog else 0
             defect_count = len([x for x in resolvable_items if x.get("kind") == "defect"])
-            upgrade_count = len([x for x in resolvable_items if x.get("kind") == "opportunity"])
+            upgrade_count = len([x for x in resolvable_items if x.get("kind") == "upgrade"])
             logger.info(
                 f"  Pass 2d gate: toggle_2d={toggle_2d}, has_items={has_items} "
                 f"(defects={defect_count}, upgrades={upgrade_count}, total={len(all_forward)}), "
@@ -1406,15 +1427,13 @@ class AutoAnalyzer:
                         model_config=model_config_2d,
                         items=resolvable_items,
                         catalog_matcher=self.catalog_matcher,
-                        candidate_provider=fallback_candidate_provider,
                     )
-                    resolved = pass_2d.resolved_items if hasattr(pass_2d, 'resolved_items') else (pass_2d.resolved_defects if hasattr(pass_2d, 'resolved_defects') else [])
+                    resolved = pass_2d.resolved_items if hasattr(pass_2d, 'resolved_items') else []
                     resolved = resolved or []
-                    results['resolved_defects'] = resolved  # legacy key name kept
+                    results['resolved_items'] = resolved
 
                     results['passes']['2d'] = {
                         'resolutions': resolved,
-                        'resolved_defects': resolved,  # legacy alias
                         'resolved_items': resolved,
                     }
                     logger.info(f"  Pass 2d completed: {len(resolved)} resolutions")
@@ -1471,8 +1490,8 @@ class AutoAnalyzer:
 
                 except Exception as e:
                     logger.warning(f"  Pass 2d failed: {e}")
-                    results['passes']['2d'] = {'resolutions': [], 'resolved_defects': [], 'resolved_items': [], 'error': str(e)}
-                    results['resolved_defects'] = []
+                    results['passes']['2d'] = {'resolutions': [], 'resolved_items': [], 'error': str(e)}
+                    results['resolved_items'] = []
                     # Fallback: use embeddings-only annotation when 2d fails
                     verified = results.get('verified_issues', []) or []
                     verified = self._annotate_verified_issues_with_embeddings(verified)
@@ -1489,7 +1508,7 @@ class AutoAnalyzer:
                     skip_reasons.append("no catalog matcher or catalog")
                 logger.info(f"  Pass 2d skipped: {', '.join(skip_reasons)}")
                 results['passes']['2d'] = {'resolutions': [], 'skipped': True, 'skip_reasons': skip_reasons}
-                results['resolved_defects'] = []
+                results['resolved_items'] = []
 
                 # Fallback: use embeddings-only annotation when 2d is skipped
                 verified = results.get('verified_issues', []) or []
@@ -1600,7 +1619,7 @@ class AutoAnalyzer:
         scene_payload["observations_struct"] = data.get("observations_struct", {}) or {}
         scene_payload["labeled_debug"] = data.get("labeled_debug", []) or []
         scene_payload["labeled_forward"] = data.get("labeled_forward", []) or []
-        scene_payload["resolved_defects"] = data.get("resolved_defects", []) or []
+        scene_payload["resolved_items"] = data.get("resolved_items", []) or []
 
         # Keep meta
         scene_payload["passes_run"] = data.get("passes_run", []) or []
@@ -1648,7 +1667,7 @@ class AutoAnalyzer:
                     "labeled_debug": scene_payload.get("labeled_debug", []),
                     "labeled_forward": scene_payload.get("labeled_forward", []),
                 },
-                "2d": {"resolutions": scene_payload.get("resolved_defects", [])},
+                "2d": {"resolutions": scene_payload.get("resolved_items", [])},
                 "3": {
                     "keywords": keywords,
                     "categories": kw_cats,
@@ -1696,8 +1715,8 @@ class AutoAnalyzer:
         if results.get('models_used'):
             scene_payload['models_used'] = results['models_used']
 
-        # ✅ Forward 2d resolved_defects and pass timings
-        scene_payload['resolved_defects'] = results.get('resolved_defects', []) or []
+        # ✅ Forward 2d resolved_items and pass timings
+        scene_payload['resolved_items'] = results.get('resolved_items', []) or []
         scene_payload['pass_timings'] = results.get('pass_timings', {}) or {}
         scene_payload['total_pass_time'] = results.get('total_pass_time', 0.0) or 0.0
 
@@ -2293,7 +2312,7 @@ class AutoAnalyzer:
 
         For defect-labeled issues  → retrieve defect candidates
         For upgrade-labeled issues → retrieve upgrade candidates
-        For unknown labels         → search both, take top match
+        Unknown kinds              → skip (forward-only: don't guess)
 
         Adds to each issue dict:
           tradeBucketId, tradeBucketName, catalogItemId, catalogItemName,
@@ -2312,38 +2331,26 @@ class AutoAnalyzer:
             if not desc:
                 continue
 
-            # Use `kind` field (set during 2c enrichment) as the authoritative routing
-            kind_field = (issue.get("kind") or "").lower()
+            # Strict: only "defect" and "upgrade" are valid kinds
+            kind = (issue.get("kind") or "").strip().lower()
 
-            # Decide which candidate pool to search
             candidates = []
-            if kind_field == "opportunity":
+            if kind == "upgrade":
                 candidates = self.catalog_matcher.embeddings_retrieve_upgrade_candidates(desc, topk=1)
-                matched_kind = "upgrade"
-            elif kind_field == "defect":
+            elif kind == "defect":
                 candidates = self.catalog_matcher.embeddings_retrieve_defect_candidates(desc, topk=1)
-                matched_kind = "defect"
             else:
-                # No kind set (e.g. fallback items) — search both, take best
-                defect_cands = self.catalog_matcher.embeddings_retrieve_defect_candidates(desc, topk=1)
-                upgrade_cands = self.catalog_matcher.embeddings_retrieve_upgrade_candidates(desc, topk=1)
-                d_score = defect_cands[0].score if defect_cands else -1
-                u_score = upgrade_cands[0].score if upgrade_cands else -1
-                if u_score > d_score:
-                    candidates = upgrade_cands
-                    matched_kind = "upgrade"
-                else:
-                    candidates = defect_cands
-                    matched_kind = "defect"
+                # Forward-only: unknown kind → don't guess, leave unresolved
+                continue
 
             if candidates:
                 top = candidates[0]
                 tb_id = top.trade_bucket or ""
                 issue["tradeBucketId"] = tb_id
                 issue["tradeBucketName"] = bucket_map.get(tb_id, tb_id)
-                issue["catalogItemId"] = top.defect_id  # upgrade_id in practice for upgrades
+                issue["catalogItemId"] = top.item_id
                 issue["catalogItemName"] = top.name
-                issue["catalogItemKind"] = matched_kind
+                issue["catalogItemKind"] = kind
                 issue["topCandidateScore"] = round(top.score, 4)
             else:
                 issue["tradeBucketId"] = None

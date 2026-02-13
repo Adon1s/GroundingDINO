@@ -49,7 +49,7 @@ def _cosine_topk(q: np.ndarray, mat: np.ndarray, k: int) -> Tuple[np.ndarray, np
 
 @dataclass(frozen=True)
 class CatalogItemMeta:
-    defect_id: str
+    item_id: str
     name: str
     kind: str              # defect | upgrade (safety/opportunity filtered out)
     trade_bucket: str
@@ -59,7 +59,7 @@ class CatalogItemMeta:
 
 @dataclass(frozen=True)
 class MatchCandidate:
-    defect_id: str
+    item_id: str
     name: str
     kind: str
     trade_bucket: str
@@ -83,7 +83,7 @@ class CatalogEmbeddingsRetriever:
         device: str = "cpu",
         trust_remote_code: bool = False,
         default_topk: int = 10,
-        # Optional: lexical guardrails keyed by defect_id
+        # Optional: lexical guardrails keyed by item_id
         guardrails: Optional[Dict[str, Dict[str, List[str]]]] = None,
     ):
         if not _ST_OK:
@@ -127,7 +127,7 @@ class CatalogEmbeddingsRetriever:
 
     def _catalog_text(self, it: Dict[str, Any]) -> str:
         # Embed the stable semantics: name + description + aliases + trade bucket
-        name = str(it.get("name") or it.get("defect_id") or "").strip()
+        name = str(it.get("name") or it.get("id") or it.get("defect_id") or "").strip()
         desc = str(it.get("description") or "").strip()
         aliases = it.get("aliases") or []
         if isinstance(aliases, str):
@@ -145,28 +145,14 @@ class CatalogEmbeddingsRetriever:
             blob += f" Kind: {kind}."
         return _norm(blob)
 
-    def get_candidates(self, query: str, rough_category=None, topk: int = 8) -> List[Dict[str, Any]]:
-        cands = self.embeddings_retrieve_defect_candidates(query, topk=topk)
-        return [
-            {
-                "defect_id": c.defect_id,
-                "name": c.name,
-                "kind": c.kind,
-                "trade_bucket": c.trade_bucket,
-                "severity": c.severity,
-                "score": float(c.score),
-            }
-            for c in cands
-        ]
-
     def _build_items(self, items: List[Dict[str, Any]]) -> List[CatalogItemMeta]:
         out: List[CatalogItemMeta] = []
         for it in items:
             if not isinstance(it, dict):
                 continue
 
-            # Accept defect_id OR upgrade_id as the identifier
-            item_id = str(it.get("defect_id") or it.get("upgrade_id") or "").strip()
+            # Accept id, defect_id, or upgrade_id as the identifier
+            item_id = str(it.get("id") or it.get("defect_id") or it.get("upgrade_id") or "").strip()
             if not item_id:
                 continue
 
@@ -179,16 +165,10 @@ class CatalogEmbeddingsRetriever:
             if kind in {"safety", "opportunity"}:
                 continue
 
-            # Make sure _catalog_text sees an id even if this is an upgrade
-            # (since _catalog_text currently checks defect_id)
-            it2 = dict(it)
-            if "defect_id" not in it2 and "upgrade_id" in it2:
-                it2["defect_id"] = item_id
-
-            text = self._catalog_text(it2)
+            text = self._catalog_text(it)
 
             out.append(CatalogItemMeta(
-                defect_id=item_id,  # yes, field name stays defect_id for now
+                item_id=item_id,
                 name=name,
                 kind=kind,
                 trade_bucket=trade_bucket,
@@ -211,8 +191,8 @@ class CatalogEmbeddingsRetriever:
         )
         return vecs.astype(np.float32)
 
-    def _passes_guardrails(self, text: str, defect_id: str) -> bool:
-        g = self.guardrails.get(defect_id)
+    def _passes_guardrails(self, text: str, item_id: str) -> bool:
+        g = self.guardrails.get(item_id)
         if not g:
             return True
         t = text.lower()
@@ -267,10 +247,10 @@ class CatalogEmbeddingsRetriever:
         out: List[MatchCandidate] = []
         for s, i in zip(scores.tolist(), rel.tolist()):
             meta = pack[i]
-            if not self._passes_guardrails(t, meta.defect_id):
+            if not self._passes_guardrails(t, meta.item_id):
                 continue
             out.append(MatchCandidate(
-                defect_id=meta.defect_id,
+                item_id=meta.item_id,
                 name=meta.name,
                 kind=meta.kind,
                 trade_bucket=meta.trade_bucket,
