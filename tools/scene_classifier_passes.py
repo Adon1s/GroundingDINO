@@ -16,6 +16,7 @@ Pass 3:  Keyword Extraction (text-only, from structured facts)
 from tools.llm_json import extract_json_object
 import json
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -58,6 +59,54 @@ def _is_effectively_empty_notes(s: str) -> bool:
         return True
     t = s.strip().lower()
     return t in {"none", "no", "no issues", "no issue", "n/a", "na", "nothing", "nothing notable"}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Dimension-string detection (MLS floorplan labels like "12'6 x 10'")
+# ─────────────────────────────────────────────────────────────────────────────
+
+_DIM_RE = re.compile(
+    r"""
+    (?<!\w)                              # not preceded by a word char (no \b — avoids quote edge cases)
+    \d{1,2}                              # first number (feet or plain)
+    (?:\s*'\s*\d{1,2}\s*"?              # ...feet-inches: 14'6  or 14'6"
+     |\s*'                              # ...feet only:   14'
+     |\s*\d{1,2}\s*"                    # ...bare inches: 14"
+    )?                                   # whole foot/inch group is optional -> matches plain "14"
+    \s*[x\xd7]\s*                        # separator: x or x, with optional surrounding spaces
+    \d{1,2}                              # second number
+    (?:\s*'\s*\d{1,2}\s*"?
+     |\s*'
+     |\s*\d{1,2}\s*"
+    )?
+    (?!\w)                               # not followed by a word char
+    """,
+    re.IGNORECASE | re.VERBOSE,
+)
+
+
+def force_other_if_dimensions(labeled: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Force label to 'other' for any observation whose description contains
+    a room-dimension string (e.g. "12'6 x 10'", "14 x 12", "10'x8'6\"").
+
+    MLS floorplan overlay text frequently gets OCR'd into photo descriptions.
+    These are measurement artefacts, not real observations, and should never
+    reach labeled_forward (or the UI as defects/upgrades).
+    """
+    out = []
+    for x in labeled or []:
+        desc = str(x.get("description") or "").strip()
+        if not desc:
+            continue
+        if _DIM_RE.search(desc) and x.get("label") in {"defect_or_damage", "upgrade_candidate"}:
+            logger.debug(f"Pass 2c: Forcing label=other (dimension string) → {desc!r}")
+            x2 = dict(x)
+            x2["label"] = "other"
+            out.append(x2)
+        else:
+            out.append(x)
+    return out
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -559,7 +608,7 @@ PASS_2C_SYSTEM_PROMPT = """Label each observation with a simple type.
 Allowed labels:
 - defect_or_damage: visible wear, damage, missing, broken, poor condition
 - safety: tripping hazards, exposed wiring, unsafe conditions
-- upgrade_candidate: dated/cheap fixture/finish that a renovator would likely replace
+- upgrade_candidate: dated/cheap fixture/finish that a renovator would likely replace or update
 - good_condition: explicitly says looks good / intact / clean
 - generic_presence: neutral existence of an item (e.g., "there is a door")
 - other: anything else
@@ -568,6 +617,9 @@ Rules:
 - Do NOT add new observations.
 - Use ONLY the provided descriptions.
 - One label per item.
+- If the description is advice/process language (e.g., “needs inspection”, “recommend evaluation”, “cannot determine from photo”), label "other".
+- If the description mentions hidden systems (structural/foundation, electrical, plumbing, HVAC) but does NOT mention a specific visible sign (e.g., stain, crack, leak, rust, exposed wire, damage), label "other".
+- If the description suggests a renovation action for a visible finish/surface (refinish/replace/update/paint) such as floors, cabinets, counters, fixtures, tile, paint, label "upgrade_candidate".
 
 Return JSON only:
 {
@@ -640,6 +692,10 @@ async def run_pass_2c(
         )
         result = extract_json_object(response) or {}
         labeled_debug = _coerce_labeled_2c(result.get("labeled"))
+
+        # Override label → "other" for any observation that contains a room
+        # dimension string (e.g. MLS floorplan overlays like "12'6 x 10'").
+        labeled_debug = force_other_if_dimensions(labeled_debug)
 
         # Split: labeled_forward = defect_or_damage + upgrade_candidate only
         labeled_forward = [

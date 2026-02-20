@@ -58,689 +58,8 @@
       "name": "Safety"
     }
   ],
-  "defects": [
-    {
-      "defect_id": "water_stain_ceiling",
-      "name": "Water Stain on Ceiling",
-      "category": "moisture",
-      "severity": 3,
-      "trade_bucket": "moisture_mold",
-      "work_item_code": "MOISTURE_REMEDIATION",
-      "description": "Visible brown or dark discoloration on the ceiling suggesting past or active moisture intrusion.",
-      "keywords_any": [
-        "water stain",
-        "stain",
-        "discoloration",
-        "ceiling",
-        "brown"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Water stain on ceiling. Brown/dark ceiling discoloration from moisture intrusion or leak. Moisture remediation."
-    },
-    {
-      "defect_id": "peeling_or_discolored_paint",
-      "name": "Peeling or Discolored Paint",
-      "category": "cosmetic",
-      "severity": 1,
-      "trade_bucket": "paint_drywall",
-      "work_item_code": "PAINT_INTERIOR",
-      "description": "Paint that is peeling, bubbling, cracked, or visibly aged.",
-      "keywords_any": [
-        "peeling",
-        "bubbling",
-        "cracked paint",
-        "flaking",
-        "discolored paint"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Peeling or discolored paint. Flaking, bubbling, cracked, aged paint. Prep and repaint."
-    },
-    {
-      "defect_id": "visible_mold_or_mildew",
-      "name": "Visible Mold or Mildew",
-      "category": "moisture",
-      "severity": 4,
-      "trade_bucket": "moisture_mold",
-      "work_item_code": "MOISTURE_REMEDIATION",
-      "description": "Dark, fuzzy, or patchy growth on surfaces indicative of active or past moisture problems.",
-      "keywords_any": [
-        "mold",
-        "mildew",
-        "fungus",
-        "black spots",
-        "growth"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Visible mold or mildew. Patchy/dark growth on surfaces from moisture. Mold remediation and moisture control."
-    },
-    {
-      "defect_id": "damaged_drywall_or_cracks",
-      "name": "Drywall Damage or Cracks",
-      "category": "structure",
-      "severity": 2,
-      "trade_bucket": "paint_drywall",
-      "work_item_code": "DRYWALL_PATCH",
-      "description": "Cracks, holes, nail pops, or uneven drywall indicating settling, impact damage, or poor repairs.",
-      "keywords_any": [
-        "drywall",
-        "crack",
-        "hole",
-        "nail pop",
-        "patch",
-        "uneven"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Drywall damage or cracks. Holes, cracks, nail pops, uneven drywall. Patch and repair."
-    },
-    {
-      "defect_id": "ceiling_cracks_or_sagging",
-      "name": "Ceiling Cracks or Sagging",
-      "category": "structure",
-      "severity": 3,
-      "trade_bucket": "foundation_structure",
-      "work_item_code": "DRYWALL_PATCH",
-      "description": "Cracks, separation at joints, or sagging areas in ceiling indicating movement or moisture damage.",
-      "keywords_any": [
-        "ceiling crack",
-        "sagging",
-        "separation",
-        "bowing"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Ceiling cracks or sagging. Separation, sagging ceiling areas. Investigate and repair ceiling/drywall."
-    },
-    {
-      "defect_id": "worn_or_stained_carpet",
-      "name": "Worn or Stained Carpet",
-      "category": "cosmetic",
-      "severity": 1,
-      "trade_bucket": "flooring",
-      "work_item_code": "CARPET_REPLACE",
-      "description": "Carpet that is visibly dirty, stained, frayed, or heavily worn.",
-      "keywords_any": [
-        "carpet",
-        "stain",
-        "dirty",
-        "worn",
-        "frayed"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Worn or stained carpet. Dirty, stained, frayed carpet. Replace carpet."
-    },
-    {
-      "defect_id": "scratched_or_damaged_flooring",
-      "name": "Scratched or Damaged Hard Flooring",
-      "category": "cosmetic",
-      "severity": 1,
-      "trade_bucket": "flooring",
-      "work_item_code": "FLOORING_REPLACE",
-      "description": "Hardwood/laminate/vinyl/tile with scratches, chips, warping, broken tiles, or visible damage.",
-      "keywords_any": [
-        "scratch",
-        "scuff",
-        "worn floor",
-        "damaged floor",
-        "warped",
-        "chip",
-        "broken tile"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Scratched or damaged hard flooring. Scratches, scuffs, chips, warping, broken tiles. Flooring replacement or repair."
-    },
-    {
-      "defect_id": "trip_hazard_or_unlevel_floor",
-      "name": "Trip Hazard or Unlevel Floor",
-      "category": "safety",
-      "severity": 3,
-      "trade_bucket": "safety_general",
-      "work_item_code": "FLOORING_REPLACE",
-      "description": "Uneven flooring, loose thresholds, or abrupt height changes posing a trip risk or indicating settlement.",
-      "keywords_any": [
-        "trip hazard",
-        "uneven",
-        "unlevel",
-        "raised",
-        "lip",
-        "threshold"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Trip hazard or unlevel floor. Uneven floors, loose thresholds, height changes. Correct flooring/transition."
-    },
-    {
-      "defect_id": "damaged_or_rotted_siding_or_trim",
-      "name": "Damaged or Rotted Exterior Siding/Trim",
-      "category": "exterior",
-      "severity": 3,
-      "trade_bucket": "exterior_siding_trim",
-      "work_item_code": "EXTERIOR_REPAIR",
-      "description": "Exterior siding/trim showing rot, warping, cracks, missing sections, or deterioration.",
-      "keywords_any": [
-        "rot",
-        "rotted",
-        "siding",
-        "trim",
-        "warp",
-        "crack",
-        "missing"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Damaged or rotted exterior siding or trim. Rot, warping, cracking, missing sections. Exterior repair."
-    },
-    {
-      "defect_id": "damaged_or_aged_roof_shingles",
-      "name": "Damaged or Aged Roof Shingles",
-      "category": "exterior",
-      "severity": 3,
-      "trade_bucket": "roof_gutters",
-      "work_item_code": "ROOF_REPAIR",
-      "description": "Missing, curling, patchy, worn shingles or debris suggesting reduced remaining life.",
-      "keywords_any": [
-        "roof",
-        "shingle",
-        "curling",
-        "missing",
-        "worn",
-        "moss",
-        "debris"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Damaged or aged roof shingles. Missing/curling/worn shingles, moss, debris. Roof repair."
-    },
-    {
-      "defect_id": "damaged_or_unsafe_deck_or_porch",
-      "name": "Damaged or Unsafe Deck/Porch",
-      "category": "exterior",
-      "severity": 3,
-      "trade_bucket": "exterior_siding_trim",
-      "work_item_code": "EXTERIOR_REPAIR",
-      "description": "Deck/porch/stairs with loose, rotted, or missing boards or railings appearing unsafe.",
-      "keywords_any": [
-        "deck",
-        "porch",
-        "railing",
-        "stairs",
-        "loose",
-        "rotted",
-        "missing"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Damaged or unsafe deck or porch. Loose/rotted/missing boards or railings. Exterior repair."
-    },
-    {
-      "defect_id": "broken_or_fogged_windows",
-      "name": "Broken or Fogged Windows",
-      "category": "exterior",
-      "severity": 2,
-      "trade_bucket": "trim_doors_windows",
-      "work_item_code": "WINDOW_REPAIR",
-      "description": "Cracked glass, damaged frames, missing panes, or fogged double-pane windows indicating failed seals.",
-      "keywords_any": [
-        "window",
-        "fogged",
-        "condensation",
-        "failed seal",
-        "cracked",
-        "broken glass"
-      ],
-      "keywords_deny": [
-        "floor",
-        "ceiling",
-        "paint",
-        "drywall"
-      ],
-      "embed_text": "Broken or fogged windows. Cracked glass, fogged panes, failed seals, damaged frames. Window repair or replacement."
-    },
-    {
-      "defect_id": "outdated_or_damaged_cabinets",
-      "name": "Damaged or Outdated Cabinets",
-      "category": "cosmetic",
-      "severity": 2,
-      "trade_bucket": "kitchen_cabinets_counters",
-      "work_item_code": "CABINET_REPLACE",
-      "description": "Cabinets with visible wear, damaged doors/drawers, water staining, or dated style.",
-      "keywords_any": [
-        "cabinet",
-        "drawer",
-        "damaged",
-        "dated",
-        "worn",
-        "water stain"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Damaged or outdated cabinets. Worn or dated cabinetry, damaged doors/drawers. Cabinet repair, refinish, or replacement."
-    },
-    {
-      "defect_id": "countertop_damage",
-      "name": "Damaged Countertops",
-      "category": "cosmetic",
-      "severity": 2,
-      "trade_bucket": "kitchen_cabinets_counters",
-      "work_item_code": "COUNTERTOP_REPLACE",
-      "description": "Countertops with burns, chips, cracks, swollen seams, or missing sections.",
-      "keywords_any": [
-        "countertop",
-        "chip",
-        "crack",
-        "burn",
-        "swollen",
-        "missing section"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Damaged countertops. Chips, cracks, burns, swollen seams. Countertop replacement."
-    },
-    {
-      "defect_id": "tile_or_grout_damage",
-      "name": "Damaged Tile or Grout",
-      "category": "cosmetic",
-      "severity": 2,
-      "trade_bucket": "bathroom_fixtures_tile",
-      "work_item_code": "EXTERIOR_REPAIR",
-      "description": "Broken/loose/missing tile or grout that may allow moisture intrusion.",
-      "keywords_any": [
-        "tile",
-        "grout",
-        "cracked tile",
-        "missing tile",
-        "loose tile"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Damaged tile or grout. Cracked, loose, missing tiles or grout. Tile/grout repair to prevent moisture intrusion."
-    },
-    {
-      "defect_id": "appliance_damage_or_missing",
-      "name": "Appliance Damage or Missing",
-      "category": "systems",
-      "severity": 2,
-      "trade_bucket": "kitchen_cabinets_counters",
-      "work_item_code": "APPLIANCE_REPLACE",
-      "description": "Key appliances missing, visibly broken, significantly aged or neglected.",
-      "keywords_any": [
-        "appliance",
-        "missing",
-        "broken",
-        "old",
-        "range",
-        "oven",
-        "dishwasher"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Appliance damage or missing. Missing/broken/aged kitchen appliances. Replace appliances."
-    },
-    {
-      "defect_id": "plumbing_fixture_leaking_stained",
-      "name": "Leaking or Stained Plumbing Fixtures",
-      "category": "systems",
-      "severity": 3,
-      "trade_bucket": "plumbing",
-      "work_item_code": "PLUMBING_REPAIR",
-      "description": "Leaks, corrosion, staining, or mineral buildup at sinks/toilets/tubs/showers.",
-      "keywords_any": [
-        "leak",
-        "leaking",
-        "corrosion",
-        "rust",
-        "mineral buildup",
-        "sink",
-        "toilet",
-        "faucet"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Leaking or stained plumbing fixtures. Leaks, corrosion, staining, buildup at sink/toilet/tub/shower. Plumbing repair."
-    },
-    {
-      "defect_id": "stained_or_damaged_bath_fixtures",
-      "name": "Stained or Damaged Bath Fixtures",
-      "category": "cosmetic",
-      "severity": 1,
-      "trade_bucket": "bathroom_fixtures_tile",
-      "work_item_code": "FIXTURES_UPDATE",
-      "description": "Tubs/showers/toilets with heavy staining, chipped enamel, or worn finishes.",
-      "keywords_any": [
-        "tub",
-        "shower",
-        "toilet",
-        "stained",
-        "chipped enamel",
-        "worn"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Stained or damaged bath fixtures. Worn finishes, staining, chipped enamel. Fixture update or replacement."
-    },
-    {
-      "defect_id": "visible_electrical_risks",
-      "name": "Visible Electrical Risks",
-      "category": "systems",
-      "severity": 4,
-      "trade_bucket": "electrical",
-      "work_item_code": "ELECTRICAL_REPAIR",
-      "description": "Exposed wiring, missing covers, scorch marks, overloaded strips, unsafe components.",
-      "keywords_any": [
-        "exposed wire",
-        "wiring",
-        "missing cover",
-        "scorch",
-        "burn mark",
-        "overloaded",
-        "power strip"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Visible electrical risks. Exposed wiring, missing outlet covers, scorch marks, overloaded power strips. Electrical repair."
-    },
-    {
-      "defect_id": "missing_or_damaged_handrails",
-      "name": "Missing or Damaged Handrails/Guardrails",
-      "category": "safety",
-      "severity": 3,
-      "trade_bucket": "safety_general",
-      "work_item_code": "EXTERIOR_REPAIR",
-      "description": "Missing/loose/broken railings on stairs, balconies, decks.",
-      "keywords_any": [
-        "handrail",
-        "guardrail",
-        "railing",
-        "missing",
-        "loose",
-        "broken"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Missing or damaged handrails or guardrails. Loose/broken/missing railings. Safety repair."
-    },
-    {
-      "defect_id": "garage_or_basement_damage",
-      "name": "Basement or Garage Damage",
-      "category": "structure",
-      "severity": 3,
-      "trade_bucket": "foundation_structure",
-      "work_item_code": "EXTERIOR_REPAIR",
-      "description": "Cracking, moisture intrusion, efflorescence, or structural wear in basement/garage walls or floors.",
-      "keywords_any": [
-        "basement",
-        "garage",
-        "crack",
-        "efflorescence",
-        "moisture",
-        "structural"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Basement or garage damage. Cracks, moisture intrusion, efflorescence, structural wear. Structural repair evaluation."
-    },
-    {
-      "defect_id": "major_foundation_or_settlement_signs",
-      "name": "Major Foundation or Settlement Signs",
-      "category": "structure",
-      "severity": 4,
-      "trade_bucket": "foundation_structure",
-      "work_item_code": "EXTERIOR_REPAIR",
-      "description": "Large step cracks, sloped floors, misaligned doors/windows, signs of notable settlement.",
-      "keywords_any": [
-        "foundation",
-        "settlement",
-        "step crack",
-        "sloped floor",
-        "misaligned door",
-        "misaligned window"
-      ],
-      "keywords_deny": [
-        "minor crack",
-        "hairline"
-      ],
-      "embed_text": "Major foundation or settlement signs. Step cracks, sloped floors, misaligned doors/windows. Foundation/structure evaluation."
-    },
-    {
-      "defect_id": "pest_or_rodent_evidence",
-      "name": "Visible Pest or Rodent Evidence",
-      "category": "systems",
-      "severity": 2,
-      "trade_bucket": "safety_general",
-      "work_item_code": "EXTERIOR_REPAIR",
-      "description": "Droppings, chewed materials, nests, or clear signs of insects/rodents.",
-      "keywords_any": [
-        "droppings",
-        "rodent",
-        "pest",
-        "nest",
-        "chewed"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Visible pest or rodent evidence. Droppings, nests, chewed materials. Pest control and cleanup."
-    },
-    {
-      "defect_id": "standing_water_or_poor_grading",
-      "name": "Standing Water or Poor Grading",
-      "category": "exterior",
-      "severity": 3,
-      "trade_bucket": "landscaping_drains",
-      "work_item_code": "EXTERIOR_REPAIR",
-      "description": "Standing water, negative grading, saturated soil near structure increasing moisture risk.",
-      "keywords_any": [
-        "standing water",
-        "poor grading",
-        "negative grading",
-        "saturated",
-        "pooling"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Standing water or poor grading. Water pooling, negative grading near foundation. Drainage and grading correction."
-    },
-    {
-      "defect_id": "driveway_or_walkway_cracking",
-      "name": "Driveway or Walkway Cracking/Settlement",
-      "category": "exterior",
-      "severity": 2,
-      "trade_bucket": "landscaping_drains",
-      "work_item_code": "EXTERIOR_REPAIR",
-      "description": "Cracks, heaving, spalling, or settlement in concrete/paved areas impacting safety or curb appeal.",
-      "keywords_any": [
-        "driveway",
-        "walkway",
-        "crack",
-        "heaving",
-        "spalling",
-        "settlement"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Driveway or walkway cracking/settlement. Cracks, heaving, spalling. Concrete repair."
-    },
-    {
-      "defect_id": "clogged_or_damaged_gutters",
-      "name": "Clogged or Damaged Gutters/Downspouts",
-      "category": "exterior",
-      "severity": 3,
-      "trade_bucket": "roof_gutters",
-      "work_item_code": "EXTERIOR_REPAIR",
-      "description": "Gutters/downspouts clogged, sagging, disconnected, or dumping water near foundation.",
-      "keywords_any": [
-        "gutter",
-        "downspout",
-        "clogged",
-        "sagging",
-        "disconnected"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Clogged or damaged gutters/downspouts. Sagging, clogged, disconnected gutters. Gutter repair/cleaning."
-    },
-    {
-      "defect_id": "trees_or_vegetation_too_close",
-      "name": "Trees or Vegetation Too Close to Structure",
-      "category": "exterior",
-      "severity": 2,
-      "trade_bucket": "landscaping_drains",
-      "work_item_code": "EXTERIOR_REPAIR",
-      "description": "Vegetation contacting or very close to siding/roof/foundation promoting moisture, pests, or damage.",
-      "keywords_any": [
-        "tree",
-        "vegetation",
-        "overgrown",
-        "touching house",
-        "too close"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Trees or vegetation too close to structure. Overgrowth contacting siding/roof. Trim and clear vegetation."
-    }
-  ],
-  "upgrades": [
-    {
-      "upgrade_id": "outdated_kitchen_finishes",
-      "name": "Outdated Kitchen Finishes",
-      "category": "opportunity",
-      "severity": 3,
-      "trade_bucket": "kitchen_cabinets_counters",
-      "work_item_code": "CABINET_REPLACE",
-      "description": "Older cabinetry, counters, appliances, or finishes that would benefit from modernization.",
-      "keywords_any": [
-        "dated",
-        "outdated",
-        "old",
-        "builder grade",
-        "kitchen"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Outdated kitchen finishes. Dated cabinetry, countertops, appliances. Kitchen update and modernization."
-    },
-    {
-      "upgrade_id": "outdated_bathroom_finishes",
-      "name": "Outdated Bathroom Finishes",
-      "category": "opportunity",
-      "severity": 3,
-      "trade_bucket": "bathroom_fixtures_tile",
-      "work_item_code": "FIXTURES_UPDATE",
-      "description": "Older tile, vanity, fixtures, or layout where an update would improve appeal.",
-      "keywords_any": [
-        "dated",
-        "outdated",
-        "old",
-        "bathroom",
-        "vanity",
-        "tile"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Outdated bathroom finishes. Dated tile, vanity, fixtures. Bathroom update."
-    },
-    {
-      "upgrade_id": "older_flooring_style",
-      "name": "Outdated Flooring Style",
-      "category": "opportunity",
-      "severity": 2,
-      "trade_bucket": "flooring",
-      "work_item_code": "FLOORING_REPLACE",
-      "description": "Flooring is clean but visually outdated (older carpet, laminate, linoleum, dated tile).",
-      "keywords_any": [
-        "dated flooring",
-        "old carpet",
-        "old laminate",
-        "linoleum"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Outdated flooring style. Visually dated carpet/laminate/linoleum/tile. Flooring update."
-    },
-    {
-      "upgrade_id": "dated_lighting_fixtures",
-      "name": "Outdated Lighting Fixtures",
-      "category": "opportunity",
-      "severity": 1,
-      "trade_bucket": "electrical",
-      "work_item_code": "FIXTURES_UPDATE",
-      "description": "Older ceiling lights, fans, sconces, or track lighting where modern fixtures improve the look.",
-      "keywords_any": [
-        "dated light",
-        "old fixture",
-        "ceiling fan",
-        "brass",
-        "builder grade"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Outdated lighting fixtures. Dated ceiling light or ceiling fan. Fixture update."
-    },
-    {
-      "upgrade_id": "paint_refresh_recommended",
-      "name": "Paint Refresh Opportunity",
-      "category": "opportunity",
-      "severity": 1,
-      "trade_bucket": "paint_drywall",
-      "work_item_code": "PAINT_INTERIOR",
-      "description": "Older or highly personalized colors where repainting in modern neutrals would improve appeal.",
-      "keywords_any": [
-        "repaint",
-        "paint refresh",
-        "dated paint",
-        "bold color"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Paint refresh recommended. Repaint interior to modern neutral colors."
-    },
-    {
-      "upgrade_id": "landscape_improvement_needed",
-      "name": "Landscape Improvement",
-      "category": "exterior",
-      "severity": 2,
-      "trade_bucket": "landscaping_drains",
-      "work_item_code": "EXTERIOR_REPAIR",
-      "description": "Exterior/yard appears sparse, overgrown, or tired; could improve with landscaping cleanup.",
-      "keywords_any": [
-        "overgrown",
-        "weeds",
-        "yard",
-        "landscaping",
-        "cleanup"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Landscape improvement. Yard cleanup, trimming, refresh for curb appeal."
-    },
-    {
-      "upgrade_id": "curb_appeal_upgrade",
-      "name": "Curb Appeal Upgrade",
-      "category": "exterior",
-      "severity": 2,
-      "trade_bucket": "exterior_siding_trim",
-      "work_item_code": "EXTERIOR_REPAIR",
-      "description": "Entry/porch/facade could benefit from cosmetic updates (paint, hardware, accents).",
-      "keywords_any": [
-        "curb appeal",
-        "entry",
-        "front door",
-        "porch",
-        "facade"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Curb appeal upgrade. Improve entry, porch, exterior accents. Exterior cosmetic updates."
-    },
-    {
-      "upgrade_id": "unfinished_basement_present",
-      "name": "Unfinished Basement",
-      "category": "structure",
-      "severity": 3,
-      "trade_bucket": "foundation_structure",
-      "work_item_code": "DRYWALL_PATCH",
-      "description": "Unfinished basement suggests opportunity for added space through future finishing.",
-      "keywords_any": [
-        "unfinished basement",
-        "basement",
-        "unfinished"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Unfinished basement. Opportunity to finish space and add living area."
-    },
-    {
-      "upgrade_id": "staging_or_decluttering_opportunity",
-      "name": "Staging or Decluttering Opportunity",
-      "category": "opportunity",
-      "severity": 1,
-      "trade_bucket": "safety_general",
-      "work_item_code": "EXTERIOR_REPAIR",
-      "description": "Rooms appear cluttered/personalized; decluttering or staging improves perception.",
-      "keywords_any": [
-        "clutter",
-        "messy",
-        "staging",
-        "declutter"
-      ],
-      "keywords_deny": [],
-      "embed_text": "Staging or decluttering opportunity. Clean up clutter to improve presentation."
-    }
-  ],
   "items": [
     {
-      "defect_id": "water_stain_ceiling",
       "name": "Water Stain on Ceiling",
       "category": "moisture",
       "severity": 3,
@@ -757,10 +76,11 @@
       "keywords_deny": [],
       "embed_text": "Water stain on ceiling. Brown/dark ceiling discoloration from moisture intrusion or leak. Moisture remediation.",
       "kind": "defect",
-      "id": "water_stain_ceiling"
+      "id": "water_stain_ceiling",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "peeling_or_discolored_paint",
       "name": "Peeling or Discolored Paint",
       "category": "cosmetic",
       "severity": 1,
@@ -777,10 +97,11 @@
       "keywords_deny": [],
       "embed_text": "Peeling or discolored paint. Flaking, bubbling, cracked, aged paint. Prep and repaint.",
       "kind": "defect",
-      "id": "peeling_or_discolored_paint"
+      "id": "peeling_or_discolored_paint",
+      "scope": "cosmetic",
+      "defaultHidden": false
     },
     {
-      "defect_id": "visible_mold_or_mildew",
       "name": "Visible Mold or Mildew",
       "category": "moisture",
       "severity": 4,
@@ -797,10 +118,11 @@
       "keywords_deny": [],
       "embed_text": "Visible mold or mildew. Patchy/dark growth on surfaces from moisture. Mold remediation and moisture control.",
       "kind": "defect",
-      "id": "visible_mold_or_mildew"
+      "id": "visible_mold_or_mildew",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "damaged_drywall_or_cracks",
       "name": "Drywall Damage or Cracks",
       "category": "structure",
       "severity": 2,
@@ -818,10 +140,11 @@
       "keywords_deny": [],
       "embed_text": "Drywall damage or cracks. Holes, cracks, nail pops, uneven drywall. Patch and repair.",
       "kind": "defect",
-      "id": "damaged_drywall_or_cracks"
+      "id": "damaged_drywall_or_cracks",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "ceiling_cracks_or_sagging",
       "name": "Ceiling Cracks or Sagging",
       "category": "structure",
       "severity": 3,
@@ -837,10 +160,11 @@
       "keywords_deny": [],
       "embed_text": "Ceiling cracks or sagging. Separation, sagging ceiling areas. Investigate and repair ceiling/drywall.",
       "kind": "defect",
-      "id": "ceiling_cracks_or_sagging"
+      "id": "ceiling_cracks_or_sagging",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "worn_or_stained_carpet",
       "name": "Worn or Stained Carpet",
       "category": "cosmetic",
       "severity": 1,
@@ -857,10 +181,11 @@
       "keywords_deny": [],
       "embed_text": "Worn or stained carpet. Dirty, stained, frayed carpet. Replace carpet.",
       "kind": "defect",
-      "id": "worn_or_stained_carpet"
+      "id": "worn_or_stained_carpet",
+      "scope": "replace",
+      "defaultHidden": false
     },
     {
-      "defect_id": "scratched_or_damaged_flooring",
       "name": "Scratched or Damaged Hard Flooring",
       "category": "cosmetic",
       "severity": 1,
@@ -879,10 +204,11 @@
       "keywords_deny": [],
       "embed_text": "Scratched or damaged hard flooring. Scratches, scuffs, chips, warping, broken tiles. Flooring replacement or repair.",
       "kind": "defect",
-      "id": "scratched_or_damaged_flooring"
+      "id": "scratched_or_damaged_flooring",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "trip_hazard_or_unlevel_floor",
       "name": "Trip Hazard or Unlevel Floor",
       "category": "safety",
       "severity": 3,
@@ -900,10 +226,11 @@
       "keywords_deny": [],
       "embed_text": "Trip hazard or unlevel floor. Uneven floors, loose thresholds, height changes. Correct flooring/transition.",
       "kind": "defect",
-      "id": "trip_hazard_or_unlevel_floor"
+      "id": "trip_hazard_or_unlevel_floor",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "damaged_or_rotted_siding_or_trim",
       "name": "Damaged or Rotted Exterior Siding/Trim",
       "category": "exterior",
       "severity": 3,
@@ -922,10 +249,11 @@
       "keywords_deny": [],
       "embed_text": "Damaged or rotted exterior siding or trim. Rot, warping, cracking, missing sections. Exterior repair.",
       "kind": "defect",
-      "id": "damaged_or_rotted_siding_or_trim"
+      "id": "damaged_or_rotted_siding_or_trim",
+      "scope": "replace",
+      "defaultHidden": false
     },
     {
-      "defect_id": "damaged_or_aged_roof_shingles",
       "name": "Damaged or Aged Roof Shingles",
       "category": "exterior",
       "severity": 3,
@@ -944,15 +272,16 @@
       "keywords_deny": [],
       "embed_text": "Damaged or aged roof shingles. Missing/curling/worn shingles, moss, debris. Roof repair.",
       "kind": "defect",
-      "id": "damaged_or_aged_roof_shingles"
+      "id": "damaged_or_aged_roof_shingles",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "damaged_or_unsafe_deck_or_porch",
       "name": "Damaged or Unsafe Deck/Porch",
       "category": "exterior",
       "severity": 3,
       "trade_bucket": "exterior_siding_trim",
-      "work_item_code": "EXTERIOR_REPAIR",
+      "work_item_code": "DECK_REPAIR",
       "description": "Deck/porch/stairs with loose, rotted, or missing boards or railings appearing unsafe.",
       "keywords_any": [
         "deck",
@@ -966,10 +295,11 @@
       "keywords_deny": [],
       "embed_text": "Damaged or unsafe deck or porch. Loose/rotted/missing boards or railings. Exterior repair.",
       "kind": "defect",
-      "id": "damaged_or_unsafe_deck_or_porch"
+      "id": "damaged_or_unsafe_deck_or_porch",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "broken_or_fogged_windows",
       "name": "Broken or Fogged Windows",
       "category": "exterior",
       "severity": 2,
@@ -992,10 +322,11 @@
       ],
       "embed_text": "Broken or fogged windows. Cracked glass, fogged panes, failed seals, damaged frames. Window repair or replacement.",
       "kind": "defect",
-      "id": "broken_or_fogged_windows"
+      "id": "broken_or_fogged_windows",
+      "scope": "replace",
+      "defaultHidden": false
     },
     {
-      "defect_id": "outdated_or_damaged_cabinets",
       "name": "Damaged or Outdated Cabinets",
       "category": "cosmetic",
       "severity": 2,
@@ -1013,10 +344,11 @@
       "keywords_deny": [],
       "embed_text": "Damaged or outdated cabinets. Worn or dated cabinetry, damaged doors/drawers. Cabinet repair, refinish, or replacement.",
       "kind": "defect",
-      "id": "outdated_or_damaged_cabinets"
+      "id": "outdated_or_damaged_cabinets",
+      "scope": "replace",
+      "defaultHidden": false
     },
     {
-      "defect_id": "countertop_damage",
       "name": "Damaged Countertops",
       "category": "cosmetic",
       "severity": 2,
@@ -1034,15 +366,16 @@
       "keywords_deny": [],
       "embed_text": "Damaged countertops. Chips, cracks, burns, swollen seams. Countertop replacement.",
       "kind": "defect",
-      "id": "countertop_damage"
+      "id": "countertop_damage",
+      "scope": "replace",
+      "defaultHidden": false
     },
     {
-      "defect_id": "tile_or_grout_damage",
       "name": "Damaged Tile or Grout",
       "category": "cosmetic",
       "severity": 2,
       "trade_bucket": "bathroom_fixtures_tile",
-      "work_item_code": "EXTERIOR_REPAIR",
+      "work_item_code": "TILE_GROUT_REPAIR",
       "description": "Broken/loose/missing tile or grout that may allow moisture intrusion.",
       "keywords_any": [
         "tile",
@@ -1054,10 +387,11 @@
       "keywords_deny": [],
       "embed_text": "Damaged tile or grout. Cracked, loose, missing tiles or grout. Tile/grout repair to prevent moisture intrusion.",
       "kind": "defect",
-      "id": "tile_or_grout_damage"
+      "id": "tile_or_grout_damage",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "appliance_damage_or_missing",
       "name": "Appliance Damage or Missing",
       "category": "systems",
       "severity": 2,
@@ -1076,10 +410,11 @@
       "keywords_deny": [],
       "embed_text": "Appliance damage or missing. Missing/broken/aged kitchen appliances. Replace appliances.",
       "kind": "defect",
-      "id": "appliance_damage_or_missing"
+      "id": "appliance_damage_or_missing",
+      "scope": "replace",
+      "defaultHidden": false
     },
     {
-      "defect_id": "plumbing_fixture_leaking_stained",
       "name": "Leaking or Stained Plumbing Fixtures",
       "category": "systems",
       "severity": 3,
@@ -1099,10 +434,11 @@
       "keywords_deny": [],
       "embed_text": "Leaking or stained plumbing fixtures. Leaks, corrosion, staining, buildup at sink/toilet/tub/shower. Plumbing repair.",
       "kind": "defect",
-      "id": "plumbing_fixture_leaking_stained"
+      "id": "plumbing_fixture_leaking_stained",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "stained_or_damaged_bath_fixtures",
       "name": "Stained or Damaged Bath Fixtures",
       "category": "cosmetic",
       "severity": 1,
@@ -1120,10 +456,11 @@
       "keywords_deny": [],
       "embed_text": "Stained or damaged bath fixtures. Worn finishes, staining, chipped enamel. Fixture update or replacement.",
       "kind": "defect",
-      "id": "stained_or_damaged_bath_fixtures"
+      "id": "stained_or_damaged_bath_fixtures",
+      "scope": "replace",
+      "defaultHidden": false
     },
     {
-      "defect_id": "visible_electrical_risks",
       "name": "Visible Electrical Risks",
       "category": "systems",
       "severity": 4,
@@ -1142,15 +479,16 @@
       "keywords_deny": [],
       "embed_text": "Visible electrical risks. Exposed wiring, missing outlet covers, scorch marks, overloaded power strips. Electrical repair.",
       "kind": "defect",
-      "id": "visible_electrical_risks"
+      "id": "visible_electrical_risks",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "missing_or_damaged_handrails",
       "name": "Missing or Damaged Handrails/Guardrails",
       "category": "safety",
       "severity": 3,
       "trade_bucket": "safety_general",
-      "work_item_code": "EXTERIOR_REPAIR",
+      "work_item_code": "RAILING_REPAIR",
       "description": "Missing/loose/broken railings on stairs, balconies, decks.",
       "keywords_any": [
         "handrail",
@@ -1163,15 +501,16 @@
       "keywords_deny": [],
       "embed_text": "Missing or damaged handrails or guardrails. Loose/broken/missing railings. Safety repair.",
       "kind": "defect",
-      "id": "missing_or_damaged_handrails"
+      "id": "missing_or_damaged_handrails",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "garage_or_basement_damage",
       "name": "Basement or Garage Damage",
       "category": "structure",
       "severity": 3,
       "trade_bucket": "foundation_structure",
-      "work_item_code": "EXTERIOR_REPAIR",
+      "work_item_code": "FOUNDATION_REPAIR",
       "description": "Cracking, moisture intrusion, efflorescence, or structural wear in basement/garage walls or floors.",
       "keywords_any": [
         "basement",
@@ -1184,15 +523,16 @@
       "keywords_deny": [],
       "embed_text": "Basement or garage damage. Cracks, moisture intrusion, efflorescence, structural wear. Structural repair evaluation.",
       "kind": "defect",
-      "id": "garage_or_basement_damage"
+      "id": "garage_or_basement_damage",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "major_foundation_or_settlement_signs",
       "name": "Major Foundation or Settlement Signs",
       "category": "structure",
       "severity": 4,
       "trade_bucket": "foundation_structure",
-      "work_item_code": "EXTERIOR_REPAIR",
+      "work_item_code": "STRUCTURAL_REPAIR",
       "description": "Large step cracks, sloped floors, misaligned doors/windows, signs of notable settlement.",
       "keywords_any": [
         "foundation",
@@ -1208,15 +548,16 @@
       ],
       "embed_text": "Major foundation or settlement signs. Step cracks, sloped floors, misaligned doors/windows. Foundation/structure evaluation.",
       "kind": "defect",
-      "id": "major_foundation_or_settlement_signs"
+      "id": "major_foundation_or_settlement_signs",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "pest_or_rodent_evidence",
       "name": "Visible Pest or Rodent Evidence",
       "category": "systems",
       "severity": 2,
       "trade_bucket": "safety_general",
-      "work_item_code": "EXTERIOR_REPAIR",
+      "work_item_code": "PEST_CONTROL",
       "description": "Droppings, chewed materials, nests, or clear signs of insects/rodents.",
       "keywords_any": [
         "droppings",
@@ -1228,15 +569,16 @@
       "keywords_deny": [],
       "embed_text": "Visible pest or rodent evidence. Droppings, nests, chewed materials. Pest control and cleanup.",
       "kind": "defect",
-      "id": "pest_or_rodent_evidence"
+      "id": "pest_or_rodent_evidence",
+      "scope": "service",
+      "defaultHidden": false
     },
     {
-      "defect_id": "standing_water_or_poor_grading",
       "name": "Standing Water or Poor Grading",
       "category": "exterior",
       "severity": 3,
       "trade_bucket": "landscaping_drains",
-      "work_item_code": "EXTERIOR_REPAIR",
+      "work_item_code": "GRADING_DRAINAGE",
       "description": "Standing water, negative grading, saturated soil near structure increasing moisture risk.",
       "keywords_any": [
         "standing water",
@@ -1248,15 +590,16 @@
       "keywords_deny": [],
       "embed_text": "Standing water or poor grading. Water pooling, negative grading near foundation. Drainage and grading correction.",
       "kind": "defect",
-      "id": "standing_water_or_poor_grading"
+      "id": "standing_water_or_poor_grading",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "driveway_or_walkway_cracking",
       "name": "Driveway or Walkway Cracking/Settlement",
       "category": "exterior",
       "severity": 2,
       "trade_bucket": "landscaping_drains",
-      "work_item_code": "EXTERIOR_REPAIR",
+      "work_item_code": "CONCRETE_REPAIR",
       "description": "Cracks, heaving, spalling, or settlement in concrete/paved areas impacting safety or curb appeal.",
       "keywords_any": [
         "driveway",
@@ -1269,15 +612,16 @@
       "keywords_deny": [],
       "embed_text": "Driveway or walkway cracking/settlement. Cracks, heaving, spalling. Concrete repair.",
       "kind": "defect",
-      "id": "driveway_or_walkway_cracking"
+      "id": "driveway_or_walkway_cracking",
+      "scope": "repair",
+      "defaultHidden": false
     },
     {
-      "defect_id": "clogged_or_damaged_gutters",
       "name": "Clogged or Damaged Gutters/Downspouts",
       "category": "exterior",
       "severity": 3,
       "trade_bucket": "roof_gutters",
-      "work_item_code": "EXTERIOR_REPAIR",
+      "work_item_code": "GUTTER_REPAIR",
       "description": "Gutters/downspouts clogged, sagging, disconnected, or dumping water near foundation.",
       "keywords_any": [
         "gutter",
@@ -1289,15 +633,16 @@
       "keywords_deny": [],
       "embed_text": "Clogged or damaged gutters/downspouts. Sagging, clogged, disconnected gutters. Gutter repair/cleaning.",
       "kind": "defect",
-      "id": "clogged_or_damaged_gutters"
+      "id": "clogged_or_damaged_gutters",
+      "scope": "service",
+      "defaultHidden": false
     },
     {
-      "defect_id": "trees_or_vegetation_too_close",
       "name": "Trees or Vegetation Too Close to Structure",
       "category": "exterior",
       "severity": 2,
       "trade_bucket": "landscaping_drains",
-      "work_item_code": "EXTERIOR_REPAIR",
+      "work_item_code": "LANDSCAPE_TRIM",
       "description": "Vegetation contacting or very close to siding/roof/foundation promoting moisture, pests, or damage.",
       "keywords_any": [
         "tree",
@@ -1309,10 +654,11 @@
       "keywords_deny": [],
       "embed_text": "Trees or vegetation too close to structure. Overgrowth contacting siding/roof. Trim and clear vegetation.",
       "kind": "defect",
-      "id": "trees_or_vegetation_too_close"
+      "id": "trees_or_vegetation_too_close",
+      "scope": "service",
+      "defaultHidden": false
     },
     {
-      "upgrade_id": "outdated_kitchen_finishes",
       "name": "Outdated Kitchen Finishes",
       "category": "opportunity",
       "severity": 3,
@@ -1329,10 +675,11 @@
       "keywords_deny": [],
       "embed_text": "Outdated kitchen finishes. Dated cabinetry, countertops, appliances. Kitchen update and modernization.",
       "kind": "upgrade",
-      "id": "outdated_kitchen_finishes"
+      "id": "outdated_kitchen_finishes",
+      "scope": "replace",
+      "defaultHidden": false
     },
     {
-      "upgrade_id": "outdated_bathroom_finishes",
       "name": "Outdated Bathroom Finishes",
       "category": "opportunity",
       "severity": 3,
@@ -1350,10 +697,11 @@
       "keywords_deny": [],
       "embed_text": "Outdated bathroom finishes. Dated tile, vanity, fixtures. Bathroom update.",
       "kind": "upgrade",
-      "id": "outdated_bathroom_finishes"
+      "id": "outdated_bathroom_finishes",
+      "scope": "replace",
+      "defaultHidden": false
     },
     {
-      "upgrade_id": "older_flooring_style",
       "name": "Outdated Flooring Style",
       "category": "opportunity",
       "severity": 2,
@@ -1369,10 +717,11 @@
       "keywords_deny": [],
       "embed_text": "Outdated flooring style. Visually dated carpet/laminate/linoleum/tile. Flooring update.",
       "kind": "upgrade",
-      "id": "older_flooring_style"
+      "id": "older_flooring_style",
+      "scope": "replace",
+      "defaultHidden": false
     },
     {
-      "upgrade_id": "dated_lighting_fixtures",
       "name": "Outdated Lighting Fixtures",
       "category": "opportunity",
       "severity": 1,
@@ -1389,10 +738,11 @@
       "keywords_deny": [],
       "embed_text": "Outdated lighting fixtures. Dated ceiling light or ceiling fan. Fixture update.",
       "kind": "upgrade",
-      "id": "dated_lighting_fixtures"
+      "id": "dated_lighting_fixtures",
+      "scope": "replace",
+      "defaultHidden": false
     },
     {
-      "upgrade_id": "paint_refresh_recommended",
       "name": "Paint Refresh Opportunity",
       "category": "opportunity",
       "severity": 1,
@@ -1408,15 +758,16 @@
       "keywords_deny": [],
       "embed_text": "Paint refresh recommended. Repaint interior to modern neutral colors.",
       "kind": "upgrade",
-      "id": "paint_refresh_recommended"
+      "id": "paint_refresh_recommended",
+      "scope": "cosmetic",
+      "defaultHidden": false
     },
     {
-      "upgrade_id": "landscape_improvement_needed",
       "name": "Landscape Improvement",
       "category": "exterior",
       "severity": 2,
       "trade_bucket": "landscaping_drains",
-      "work_item_code": "EXTERIOR_REPAIR",
+      "work_item_code": "LANDSCAPE_CLEANUP",
       "description": "Exterior/yard appears sparse, overgrown, or tired; could improve with landscaping cleanup.",
       "keywords_any": [
         "overgrown",
@@ -1428,15 +779,16 @@
       "keywords_deny": [],
       "embed_text": "Landscape improvement. Yard cleanup, trimming, refresh for curb appeal.",
       "kind": "upgrade",
-      "id": "landscape_improvement_needed"
+      "id": "landscape_improvement_needed",
+      "scope": "service",
+      "defaultHidden": false
     },
     {
-      "upgrade_id": "curb_appeal_upgrade",
       "name": "Curb Appeal Upgrade",
       "category": "exterior",
       "severity": 2,
       "trade_bucket": "exterior_siding_trim",
-      "work_item_code": "EXTERIOR_REPAIR",
+      "work_item_code": "EXTERIOR_COSMETIC_UPDATE",
       "description": "Entry/porch/facade could benefit from cosmetic updates (paint, hardware, accents).",
       "keywords_any": [
         "curb appeal",
@@ -1448,10 +800,11 @@
       "keywords_deny": [],
       "embed_text": "Curb appeal upgrade. Improve entry, porch, exterior accents. Exterior cosmetic updates.",
       "kind": "upgrade",
-      "id": "curb_appeal_upgrade"
+      "id": "curb_appeal_upgrade",
+      "scope": "cosmetic",
+      "defaultHidden": false
     },
     {
-      "upgrade_id": "unfinished_basement_present",
       "name": "Unfinished Basement",
       "category": "structure",
       "severity": 3,
@@ -1466,15 +819,16 @@
       "keywords_deny": [],
       "embed_text": "Unfinished basement. Opportunity to finish space and add living area.",
       "kind": "upgrade",
-      "id": "unfinished_basement_present"
+      "id": "unfinished_basement_present",
+      "scope": "replace",
+      "defaultHidden": false
     },
     {
-      "upgrade_id": "staging_or_decluttering_opportunity",
       "name": "Staging or Decluttering Opportunity",
       "category": "opportunity",
       "severity": 1,
       "trade_bucket": "safety_general",
-      "work_item_code": "EXTERIOR_REPAIR",
+      "work_item_code": "STAGING_DECLUTTER",
       "description": "Rooms appear cluttered/personalized; decluttering or staging improves perception.",
       "keywords_any": [
         "clutter",
@@ -1485,7 +839,916 @@
       "keywords_deny": [],
       "embed_text": "Staging or decluttering opportunity. Clean up clutter to improve presentation.",
       "kind": "upgrade",
-      "id": "staging_or_decluttering_opportunity"
+      "id": "staging_or_decluttering_opportunity",
+      "scope": "cosmetic",
+      "defaultHidden": true
+    },
+    {
+      "name": "Baseboard Wear or Scuffs",
+      "category": "cosmetic",
+      "severity": 1,
+      "trade_bucket": "trim_doors_windows",
+      "work_item_code": "TRIM_REPAIR",
+      "description": "Baseboards show scuffs, paint loss, dents, or general wear that reduces perceived condition.",
+      "keywords_any": [
+        "baseboard",
+        "baseboards",
+        "scuff",
+        "scuffed",
+        "wear",
+        "worn",
+        "chipped",
+        "ding",
+        "dented"
+      ],
+      "keywords_deny": [],
+      "embed_text": "Baseboard wear or scuffs. Scuffed/dented/chipped baseboards and trim. Repair and repaint trim.",
+      "kind": "defect",
+      "id": "baseboard_wear_scuffs",
+      "scope": "cosmetic",
+      "defaultHidden": true
+    },
+    {
+      "name": "Wall Scuffs, Marks, or Dents",
+      "category": "cosmetic",
+      "severity": 1,
+      "trade_bucket": "paint_drywall",
+      "work_item_code": "DRYWALL_PATCH",
+      "description": "Walls show visible scuffs, stains, dents, or minor damage indicating heavy use or deferred maintenance.",
+      "keywords_any": [
+        "wall",
+        "walls",
+        "scuff",
+        "scuffed",
+        "marks",
+        "stain",
+        "stained",
+        "dent",
+        "dented",
+        "dings"
+      ],
+      "keywords_deny": [
+        "mold",
+        "mildew",
+        "water stain"
+      ],
+      "embed_text": "Wall scuffs, marks, or dents. Visible wear on walls: scuffs, stains, dents. Patch and prep for paint.",
+      "kind": "defect",
+      "id": "wall_scuffs_marks_or_dents",
+      "scope": "cosmetic",
+      "defaultHidden": true
+    },
+    {
+      "name": "Ceiling Fan with Mismatched Blades",
+      "category": "cosmetic",
+      "severity": 1,
+      "trade_bucket": "electrical",
+      "work_item_code": "FIXTURES_UPDATE",
+      "description": "Ceiling fan has mismatched or damaged blades, indicating a repair issue and reduced visual appeal.",
+      "keywords_any": [
+        "ceiling fan",
+        "fan",
+        "mismatched blades",
+        "mismatched",
+        "uneven blades",
+        "damaged blade",
+        "missing blade"
+      ],
+      "keywords_deny": [
+        "window",
+        "fogged",
+        "condensation"
+      ],
+      "embed_text": "Ceiling fan with mismatched blades. Fan blades mismatched/damaged. Replace fan or blades.",
+      "kind": "defect",
+      "id": "ceiling_fan_mismatched_blades",
+      "scope": "replace",
+      "defaultHidden": true
+    },
+    {
+      "name": "Outdated Ceiling Fan Style",
+      "category": "opportunity",
+      "severity": 1,
+      "trade_bucket": "electrical",
+      "work_item_code": "FIXTURES_UPDATE",
+      "description": "Ceiling fan appears older/builder-grade; a modern replacement improves lighting and overall look.",
+      "keywords_any": [
+        "ceiling fan",
+        "older fan",
+        "dated fan",
+        "builder grade",
+        "brass fan",
+        "old fan"
+      ],
+      "keywords_deny": [
+        "broken",
+        "missing blade",
+        "exposed wire"
+      ],
+      "embed_text": "Outdated ceiling fan style. Older/builder-grade ceiling fan. Upgrade to modern fan/fixture.",
+      "kind": "upgrade",
+      "id": "older_ceiling_fan_style",
+      "scope": "replace",
+      "defaultHidden": false
+    },
+    {
+      "name": "Popcorn/Acoustic Ceiling Texture",
+      "category": "opportunity",
+      "severity": 2,
+      "trade_bucket": "paint_drywall",
+      "work_item_code": "CEILING_TEXTURE_UPDATE",
+      "description": "Ceiling has popcorn/acoustic texture; smoothing or re-texturing modernizes the interior.",
+      "keywords_any": [
+        "popcorn ceiling",
+        "acoustic texture",
+        "textured ceiling",
+        "ceiling texture",
+        "popcorn texture"
+      ],
+      "keywords_deny": [
+        "water stain",
+        "sagging",
+        "crack"
+      ],
+      "embed_text": "Popcorn or acoustic ceiling texture. Textured ceiling (popcorn). Modernize by smoothing or re-texturing.",
+      "kind": "upgrade",
+      "id": "popcorn_or_acoustic_ceiling_texture",
+      "scope": "repair",
+      "defaultHidden": false
+    },
+    {
+      "name": "Unfinished Interior Wall (OSB Exposed)",
+      "category": "structure",
+      "severity": 3,
+      "trade_bucket": "paint_drywall",
+      "work_item_code": "FRAMING_DRYWALL_FINISH",
+      "description": "Exposed OSB/sheathing on an interior wall indicates an unfinished or incomplete wall assembly requiring proper finishing.",
+      "keywords_any": [
+        "osb",
+        "exposed osb",
+        "sheathing",
+        "unfinished wall",
+        "exposed wall",
+        "plywood wall"
+      ],
+      "keywords_deny": [
+        "siding",
+        "exterior"
+      ],
+      "embed_text": "Unfinished interior wall with exposed OSB. Interior wall not finished (OSB/sheathing visible). Frame/drywall/finish.",
+      "kind": "defect",
+      "id": "unfinished_interior_wall_osb_exposed",
+      "scope": "repair",
+      "defaultHidden": false
+    },
+    {
+      "name": "Dirty or Heavily Soiled Floor",
+      "category": "cosmetic",
+      "severity": 1,
+      "trade_bucket": "flooring",
+      "work_item_code": "FLOOR_CLEAN_RESTORE",
+      "description": "Floor appears visibly dirty or heavily soiled, reducing perceived condition and possibly indicating deeper wear.",
+      "keywords_any": [
+        "dirty floor",
+        "floor is dirty",
+        "soiled",
+        "grimy",
+        "filthy",
+        "stained floor"
+      ],
+      "keywords_deny": [
+        "water damage",
+        "warped",
+        "broken tile"
+      ],
+      "embed_text": "Dirty or heavily soiled floor. Visible grime/soil. Clean, restore, and evaluate for replacement if needed.",
+      "kind": "defect",
+      "id": "floor_dirty_or_heavily_soiled",
+      "scope": "cosmetic",
+      "defaultHidden": true
+    },
+    {
+      "name": "Vintage Tile Pattern/Style",
+      "category": "opportunity",
+      "severity": 2,
+      "trade_bucket": "bathroom_fixtures_tile",
+      "work_item_code": "TILE_UPDATE",
+      "description": "Tile pattern/style reads as vintage or dated; updating tile can modernize the bathroom.",
+      "keywords_any": [
+        "vintage tile",
+        "dated tile",
+        "old tile",
+        "retro tile",
+        "tile pattern",
+        "vintage pattern"
+      ],
+      "keywords_deny": [
+        "cracked tile",
+        "missing tile",
+        "loose tile"
+      ],
+      "embed_text": "Vintage tile pattern/style. Dated bathroom tile pattern. Update tile for a modern look.",
+      "kind": "upgrade",
+      "id": "vintage_tile_pattern_style",
+      "scope": "replace",
+      "defaultHidden": false
+    },
+    {
+      "name": "Ornate/Vintage Mirror Style",
+      "category": "opportunity",
+      "severity": 1,
+      "trade_bucket": "bathroom_fixtures_tile",
+      "work_item_code": "FIXTURES_UPDATE",
+      "description": "Ornate or vintage-style mirror (e.g., oval ornate frame) reads dated; swapping improves appeal.",
+      "keywords_any": [
+        "ornate mirror",
+        "oval mirror",
+        "vintage mirror",
+        "decorative frame",
+        "gold mirror"
+      ],
+      "keywords_deny": [
+        "broken mirror",
+        "cracked"
+      ],
+      "embed_text": "Ornate/vintage mirror style. Oval ornate framed mirror. Replace with modern mirror/vanity setup.",
+      "kind": "upgrade",
+      "id": "ornate_vintage_mirror",
+      "scope": "replace",
+      "defaultHidden": false
+    },
+    {
+      "name": "Stained-Glass or Vintage Light Fixture",
+      "category": "opportunity",
+      "severity": 1,
+      "trade_bucket": "electrical",
+      "work_item_code": "FIXTURES_UPDATE",
+      "description": "Stained-glass or vintage-style light fixture reads dated; replacing can modernize the space.",
+      "keywords_any": [
+        "stained glass light",
+        "vintage light",
+        "old-style fixture",
+        "dated fixture",
+        "antique light"
+      ],
+      "keywords_deny": [
+        "exposed wire",
+        "scorch",
+        "burn mark"
+      ],
+      "embed_text": "Stained-glass or vintage light fixture. Dated lighting style. Replace with modern fixture.",
+      "kind": "upgrade",
+      "id": "stained_glass_or_vintage_light_fixture",
+      "scope": "replace",
+      "defaultHidden": false
+    },
+    {
+      "name": "Dated Window Treatment/Valance",
+      "category": "opportunity",
+      "severity": 1,
+      "trade_bucket": "trim_doors_windows",
+      "work_item_code": "WINDOW_TREATMENT_UPDATE",
+      "description": "Vintage-style valance or dated window treatments reduce perceived condition; updating improves appeal.",
+      "keywords_any": [
+        "valance",
+        "window treatment",
+        "dated curtains",
+        "vintage curtains",
+        "drapes",
+        "blinds"
+      ],
+      "keywords_deny": [
+        "broken window",
+        "fogged window",
+        "failed seal"
+      ],
+      "embed_text": "Dated window treatment/valance. Vintage window valance/curtains. Update treatments for a modern look.",
+      "kind": "upgrade",
+      "id": "dated_window_treatment_valance",
+      "scope": "replace",
+      "defaultHidden": false
+    },
+    {
+      "name": "Dated Wallpaper",
+      "category": "opportunity",
+      "severity": 2,
+      "trade_bucket": "paint_drywall",
+      "work_item_code": "WALLPAPER_REMOVE_PAINT",
+      "description": "Wallpaper appears dated or visually busy; removal and repainting improves market appeal.",
+      "keywords_any": [
+        "wallpaper",
+        "dated wallpaper",
+        "busy wallpaper",
+        "old wallpaper",
+        "patterned wallpaper"
+      ],
+      "keywords_deny": [
+        "peeling paint",
+        "mold"
+      ],
+      "embed_text": "Dated wallpaper present. Old/patterned wallpaper. Remove and repaint walls.",
+      "kind": "upgrade",
+      "id": "dated_wallpaper_present",
+      "scope": "repair",
+      "defaultHidden": false
+    },
+    {
+      "name": "Dated Wood Paneling",
+      "category": "opportunity",
+      "severity": 2,
+      "trade_bucket": "paint_drywall",
+      "work_item_code": "PANELING_UPDATE",
+      "description": "Wood paneling appears dated; painting, removing, or replacing can modernize the room.",
+      "keywords_any": [
+        "wood paneling",
+        "paneling",
+        "dated paneling",
+        "wall paneling",
+        "wood-paneled walls"
+      ],
+      "keywords_deny": [
+        "structural crack",
+        "water stain"
+      ],
+      "embed_text": "Dated wood paneling. Wood-paneled walls that look dated. Update by painting, removing, or replacing.",
+      "kind": "upgrade",
+      "id": "dated_wood_paneling",
+      "scope": "repair",
+      "defaultHidden": false
+    },
+    {
+      "name": "Mismatched Furniture/Staging Opportunity",
+      "category": "opportunity",
+      "severity": 1,
+      "trade_bucket": "safety_general",
+      "work_item_code": "STAGING_REFRESH",
+      "description": "Furniture and decor appear mismatched or distracting; staging improvements can improve perception and photos.",
+      "keywords_any": [
+        "mismatched furniture",
+        "cow-print",
+        "staging",
+        "distracting decor",
+        "inconsistent decor",
+        "odd furniture"
+      ],
+      "keywords_deny": [],
+      "embed_text": "Mismatched furniture/staging opportunity. Distracting or inconsistent decor. Improve staging for listing photos.",
+      "kind": "upgrade",
+      "id": "mismatched_or_inconsistent_furniture_staging",
+      "scope": "cosmetic",
+      "defaultHidden": true
+    },
+    {
+      "name": "Overall Decor Style Appears Dated",
+      "category": "opportunity",
+      "severity": 2,
+      "trade_bucket": "safety_general",
+      "work_item_code": "COSMETIC_MODERNIZATION",
+      "description": "Overall decor/finish selections feel dated; targeted cosmetic modernization may increase appeal.",
+      "keywords_any": [
+        "dated decor",
+        "overall decor",
+        "dated style",
+        "old-fashioned",
+        "tired decor"
+      ],
+      "keywords_deny": [
+        "broken",
+        "leaking",
+        "mold"
+      ],
+      "embed_text": "Overall decor style appears dated. General dated finishes and decor. Targeted cosmetic modernization.",
+      "kind": "upgrade",
+      "id": "dated_overall_decor_style",
+      "scope": "cosmetic",
+      "defaultHidden": false
+    },
+    {
+      "name": "Yard Debris / Overgrown with Leaves",
+      "category": "exterior",
+      "severity": 1,
+      "trade_bucket": "landscaping_drains",
+      "work_item_code": "LANDSCAPE_CLEANUP",
+      "description": "Landscaping appears overgrown with fallen leaves or debris; cleanup improves curb appeal and drainage performance.",
+      "keywords_any": [
+        "overgrown",
+        "fallen leaves",
+        "leaves",
+        "yard debris",
+        "debris",
+        "uncleared",
+        "neglected yard"
+      ],
+      "keywords_deny": [
+        "standing water",
+        "pooling"
+      ],
+      "embed_text": "Yard debris/overgrown with leaves. Landscaping overgrown and littered with leaves. Cleanup and trim.",
+      "kind": "defect",
+      "id": "yard_debris_overgrown_leaves",
+      "scope": "cosmetic",
+      "defaultHidden": true
+    },
+    {
+      "name": "Possible Water Damage at Roofline",
+      "category": "exterior",
+      "severity": 3,
+      "trade_bucket": "roof_gutters",
+      "work_item_code": "ROOF_REPAIR",
+      "description": "Discoloration, staining, or deterioration near the roofline suggests possible moisture intrusion requiring evaluation.",
+      "keywords_any": [
+        "roofline",
+        "water damage",
+        "staining",
+        "discoloration",
+        "fascia",
+        "soffit",
+        "eave",
+        "rot"
+      ],
+      "keywords_deny": [
+        "interior ceiling",
+        "water stain on ceiling"
+      ],
+      "embed_text": "Possible water damage at roofline. Staining/deterioration at eaves/fascia/soffit. Inspect and repair leak source.",
+      "kind": "defect",
+      "id": "roofline_water_damage_suspected",
+      "scope": "repair",
+      "defaultHidden": false
+    },
+    {
+      "name": "Gutter Maintenance Needed",
+      "category": "exterior",
+      "severity": 2,
+      "trade_bucket": "roof_gutters",
+      "work_item_code": "GUTTER_SERVICE",
+      "description": "Gutters/downspouts appear to need cleaning, inspection, or minor service to ensure proper drainage.",
+      "keywords_any": [
+        "gutters",
+        "downspouts",
+        "needs cleaning",
+        "inspection",
+        "gutter cleaning",
+        "gutter maintenance"
+      ],
+      "keywords_deny": [
+        "sagging",
+        "disconnected",
+        "missing"
+      ],
+      "embed_text": "Gutter maintenance needed. Gutters/downspouts likely need cleaning/inspection to ensure proper drainage.",
+      "kind": "defect",
+      "id": "gutter_maintenance_needed",
+      "scope": "service",
+      "defaultHidden": true
+    },
+    {
+      "name": "Shed Exterior Paint Failure",
+      "category": "exterior",
+      "severity": 1,
+      "trade_bucket": "exterior_siding_trim",
+      "work_item_code": "PAINT_EXTERIOR",
+      "description": "Shed shows peeling or failing exterior paint, indicating deferred maintenance and exposure wear.",
+      "keywords_any": [
+        "shed",
+        "peeling paint",
+        "paint failure",
+        "flaking paint",
+        "exterior shed"
+      ],
+      "keywords_deny": [],
+      "embed_text": "Shed exterior paint failure. Peeling/flaking paint on shed. Scrape, prep, and repaint exterior.",
+      "kind": "defect",
+      "id": "shed_exterior_paint_failure",
+      "scope": "cosmetic",
+      "defaultHidden": true
+    },
+    {
+      "name": "Concrete Driveway Surface Wear",
+      "category": "exterior",
+      "severity": 1,
+      "trade_bucket": "landscaping_drains",
+      "work_item_code": "CONCRETE_REPAIR",
+      "description": "Concrete driveway shows surface wear (spalling, rough patches, discoloration) beyond simple hairline cracking.",
+      "keywords_any": [
+        "concrete driveway",
+        "driveway",
+        "surface wear",
+        "spalling",
+        "pitted",
+        "rough",
+        "worn concrete"
+      ],
+      "keywords_deny": [
+        "asphalt"
+      ],
+      "embed_text": "Concrete driveway surface wear. Spalling/pitting/worn concrete driveway. Repair, resurface, or replace as needed.",
+      "kind": "defect",
+      "id": "concrete_driveway_surface_wear",
+      "scope": "cosmetic",
+      "defaultHidden": true
+    },
+    {
+      "name": "Heavy Indoor Storage/Clutter",
+      "category": "opportunity",
+      "severity": 1,
+      "trade_bucket": "safety_general",
+      "work_item_code": "DECLUTTER_CLEAN",
+      "description": "Visible storage piles or heavy clutter reduces usable perception of space and harms listing presentation.",
+      "keywords_any": [
+        "clutter",
+        "storage items",
+        "boxes",
+        "piles",
+        "messy",
+        "stored items",
+        "packed room"
+      ],
+      "keywords_deny": [],
+      "embed_text": "Heavy indoor storage/clutter. Storage items and clutter visible. Declutter, organize, and clean for showings/photos.",
+      "kind": "defect",
+      "id": "indoor_storage_clutter_heavy",
+      "scope": "cosmetic",
+      "defaultHidden": true
+    },
+    {
+      "name": "Metal Carport Rust or Corrosion",
+      "category": "exterior",
+      "severity": 2,
+      "trade_bucket": "exterior_siding_trim",
+      "work_item_code": "EXTERIOR_REPAIR",
+      "description": "Metal carport or similar exterior metal structure shows visible rust, corrosion, or deterioration along seams, edges, or roof panels.",
+      "keywords_any": [
+        "carport",
+        "metal carport",
+        "rust",
+        "corrosion",
+        "rusted metal",
+        "rust along seams",
+        "metal roof seam",
+        "oxidation"
+      ],
+      "keywords_deny": [
+        "roof shingle",
+        "asphalt shingle"
+      ],
+      "embed_text": "Metal carport rust or corrosion. Rusted or corroded metal carport structure, seams, or roof panels. Repair, treat rust, or replace affected components.",
+      "kind": "defect",
+      "id": "metal_carport_rust_corrosion",
+      "scope": "repair",
+      "defaultHidden": false
+    },
+    {
+      "name": "Exterior Siding Discoloration or Fading",
+      "category": "exterior",
+      "severity": 1,
+      "trade_bucket": "exterior_siding_trim",
+      "work_item_code": "PAINT_EXTERIOR",
+      "description": "Exterior siding or trim shows fading, chalking, staining, or uneven discoloration indicating aging finishes and reduced curb appeal.",
+      "keywords_any": [
+        "discoloration",
+        "faded siding",
+        "chalky siding",
+        "stained siding",
+        "worn exterior",
+        "color fading",
+        "uneven color"
+      ],
+      "keywords_deny": [
+        "rotted",
+        "missing siding",
+        "cracked siding"
+      ],
+      "embed_text": "Exterior siding discoloration or fading. Faded, chalky, or stained exterior siding. Repaint, refinish, or update exterior finishes.",
+      "kind": "defect",
+      "id": "exterior_siding_discoloration_fading",
+      "scope": "cosmetic",
+      "defaultHidden": true
+    },
+    {
+      "name": "Uneven Gravel Drive or Parking Area",
+      "category": "exterior",
+      "severity": 2,
+      "trade_bucket": "landscaping_drains",
+      "work_item_code": "HARDSCAPE_REPAIR",
+      "description": "Gravel driveway or parking surface appears uneven, rutted, or loosely scattered, creating potential drainage or trip concerns.",
+      "keywords_any": [
+        "gravel driveway",
+        "gravel surface",
+        "uneven gravel",
+        "rutted",
+        "loose gravel",
+        "scattered gravel",
+        "gravel parking"
+      ],
+      "keywords_deny": [
+        "concrete",
+        "asphalt"
+      ],
+      "embed_text": "Uneven gravel drive or parking area. Rutted or loose gravel surface. Regrade, compact, and refresh gravel as needed.",
+      "kind": "defect",
+      "id": "uneven_gravel_drive_or_parking",
+      "scope": "repair",
+      "defaultHidden": false
+    },
+    {
+      "name": "Dated Exterior Finishes",
+      "category": "opportunity",
+      "severity": 2,
+      "trade_bucket": "exterior_siding_trim",
+      "work_item_code": "EXTERIOR_COSMETIC_UPDATE",
+      "description": "Overall exterior appearance feels dated due to color palette, materials, or trim details; cosmetic updates may improve curb appeal.",
+      "keywords_any": [
+        "dated exterior",
+        "old exterior style",
+        "outdated facade",
+        "tired exterior",
+        "dated curb appeal"
+      ],
+      "keywords_deny": [
+        "rot",
+        "structural damage",
+        "water intrusion"
+      ],
+      "embed_text": "Dated exterior finishes. Overall exterior style appears outdated. Cosmetic modernization of facade, trim, or color scheme.",
+      "kind": "upgrade",
+      "id": "dated_exterior_finishes",
+      "scope": "cosmetic",
+      "defaultHidden": false
+    },
+    {
+      "name": "Layout Modernization Opportunity",
+      "category": "opportunity",
+      "severity": 3,
+      "trade_bucket": "foundation_structure",
+      "work_item_code": "LAYOUT_RECONFIGURE",
+      "description": "Interior layout suggests potential for modernization (e.g., opening walls, reconfiguring rooms) to improve flow and market appeal.",
+      "keywords_any": [
+        "dated layout",
+        "closed floor plan",
+        "compartmentalized",
+        "reconfigure",
+        "open concept",
+        "layout modernization",
+        "poor flow"
+      ],
+      "keywords_deny": [
+        "structural crack",
+        "foundation failure"
+      ],
+      "embed_text": "Layout modernization opportunity. Potential to open walls or reconfigure floor plan for improved flow and appeal.",
+      "kind": "upgrade",
+      "id": "layout_modernization_opportunity",
+      "scope": "repair",
+      "defaultHidden": false
+    },
+    {
+      "name": "Exposed Sheathing or Missing Exterior Siding",
+      "category": "exterior",
+      "severity": 3,
+      "trade_bucket": "exterior_siding_trim",
+      "work_item_code": "EXTERIOR_REPAIR",
+      "description": "Exterior wall area shows exposed OSB/sheathing or missing siding panels, indicating incomplete or damaged exterior cladding.",
+      "keywords_any": [
+        "exposed osb",
+        "exposed sheathing",
+        "missing siding",
+        "unfinished exterior wall",
+        "bare plywood exterior",
+        "no siding"
+      ],
+      "keywords_deny": [
+        "interior wall"
+      ],
+      "embed_text": "Exposed sheathing or missing exterior siding. Exterior wall with visible OSB or missing cladding. Replace siding and properly weatherproof.",
+      "kind": "defect",
+      "id": "exposed_sheathing_or_missing_siding",
+      "scope": "replace",
+      "defaultHidden": false
+    },
+    {
+      "name": "Deck Surface Weathering",
+      "category": "exterior",
+      "severity": 1,
+      "trade_bucket": "exterior_siding_trim",
+      "work_item_code": "DECK_REFINISH",
+      "description": "Deck surface shows fading, graying, or surface wear consistent with weather exposure but not obvious structural failure.",
+      "keywords_any": [
+        "weathered deck",
+        "faded deck",
+        "gray wood",
+        "deck wear",
+        "sun-faded",
+        "aging deck boards"
+      ],
+      "keywords_deny": [
+        "rotted",
+        "loose boards",
+        "unsafe",
+        "missing railing"
+      ],
+      "embed_text": "Deck surface weathering. Sun-faded or grayed wood deck boards. Clean, sand, stain, or refinish.",
+      "kind": "defect",
+      "id": "deck_surface_weathering",
+      "scope": "cosmetic",
+      "defaultHidden": true
+    },
+    {
+      "name": "Tree Stump Present in Yard",
+      "category": "exterior",
+      "severity": 1,
+      "trade_bucket": "landscaping_drains",
+      "work_item_code": "STUMP_REMOVAL",
+      "description": "Visible tree stump remaining in yard area, affecting curb appeal and potentially posing a trip hazard.",
+      "keywords_any": [
+        "tree stump",
+        "stump",
+        "cut tree",
+        "remaining stump"
+      ],
+      "keywords_deny": [],
+      "embed_text": "Tree stump present in yard. Visible leftover stump. Remove and regrade landscaping.",
+      "kind": "defect",
+      "id": "tree_stump_present_in_yard",
+      "scope": "service",
+      "defaultHidden": true
+    },
+    {
+      "name": "Exterior Door Paint Failure",
+      "category": "exterior",
+      "severity": 1,
+      "trade_bucket": "trim_doors_windows",
+      "work_item_code": "PAINT_EXTERIOR",
+      "description": "Exterior door paint appears worn, chipped, or peeling around edges, panels, or trim.",
+      "keywords_any": [
+        "door paint",
+        "chipped door",
+        "peeling door",
+        "worn door paint",
+        "flaking door"
+      ],
+      "keywords_deny": [
+        "shed"
+      ],
+      "embed_text": "Exterior door paint failure. Worn or chipped paint on entry door. Sand, prep, and repaint.",
+      "kind": "defect",
+      "id": "exterior_door_paint_failure",
+      "scope": "cosmetic",
+      "defaultHidden": true
+    },
+    {
+      "name": "Brick Weathering or Mortar Deterioration",
+      "category": "exterior",
+      "severity": 2,
+      "trade_bucket": "exterior_siding_trim",
+      "work_item_code": "MASONRY_REPAIR",
+      "description": "Brickwork shows weathering, discoloration, or deteriorating mortar joints that may require cleaning, sealing, or repointing.",
+      "keywords_any": [
+        "brick weathering",
+        "discolored brick",
+        "repoint",
+        "mortar deterioration",
+        "crumbling mortar",
+        "brick staining"
+      ],
+      "keywords_deny": [],
+      "embed_text": "Brick weathering or mortar deterioration. Discolored brick or failing mortar joints. Clean, seal, or repoint masonry.",
+      "kind": "defect",
+      "id": "brick_weathering_or_mortar_deterioration",
+      "scope": "repair",
+      "defaultHidden": false
+    },
+    {
+      "name": "Patio or Porch Surface Wear",
+      "category": "exterior",
+      "severity": 1,
+      "trade_bucket": "exterior_siding_trim",
+      "work_item_code": "SURFACE_RESURFACE",
+      "description": "Covered patio or porch surface shows aging, surface wear, or coating breakdown suggesting resurfacing or sealing.",
+      "keywords_any": [
+        "patio surface",
+        "porch surface",
+        "resurface",
+        "reseal",
+        "worn concrete",
+        "aged patio"
+      ],
+      "keywords_deny": [
+        "structural crack",
+        "settlement"
+      ],
+      "embed_text": "Patio or porch surface wear. Aging or worn surface needing resurfacing or resealing.",
+      "kind": "defect",
+      "id": "patio_or_porch_surface_wear",
+      "scope": "cosmetic",
+      "defaultHidden": true
+    },
+    {
+      "name": "Missing Base Cabinets with Exposed Subfloor/Framing",
+      "category": "structure",
+      "severity": 4,
+      "trade_bucket": "kitchen_cabinets_counters",
+      "work_item_code": "CABINET_REPLACE",
+      "description": "Lower cabinets are missing, exposing subflooring, framing, or plumbing areas. Indicates significant renovation required.",
+      "keywords_any": [
+        "missing cabinets",
+        "no cabinets",
+        "exposed subfloor",
+        "exposed framing",
+        "under sink missing",
+        "cabinet removed"
+      ],
+      "keywords_deny": [],
+      "embed_text": "Missing base cabinets with exposed subfloor or framing. Major cabinetry replacement and substrate repair required.",
+      "kind": "defect",
+      "id": "missing_base_cabinets_exposed_subfloor",
+      "scope": "replace",
+      "defaultHidden": false
+    },
+    {
+      "name": "Rotted Subfloor or Structural Framing",
+      "category": "structure",
+      "severity": 5,
+      "trade_bucket": "foundation_structure",
+      "work_item_code": "STRUCTURAL_REPAIR",
+      "description": "Subflooring or framing members appear saturated, deteriorated, or structurally compromised due to prolonged moisture exposure.",
+      "keywords_any": [
+        "rotted subfloor",
+        "saturated framing",
+        "wood rot",
+        "structural rot",
+        "soft floor",
+        "compromised framing"
+      ],
+      "keywords_deny": [],
+      "embed_text": "Rotted subfloor or structural framing. Severe moisture damage affecting load-bearing components. Structural repair required.",
+      "kind": "defect",
+      "id": "rotted_subfloor_or_structural_framing",
+      "scope": "repair",
+      "defaultHidden": false
+    },
+    {
+      "name": "Interior Wall Stripped to Studs / Exposed Insulation",
+      "category": "structure",
+      "severity": 4,
+      "trade_bucket": "paint_drywall",
+      "work_item_code": "FRAMING_DRYWALL_FINISH",
+      "description": "Interior wall has drywall removed, exposing studs and insulation, indicating incomplete renovation or severe damage.",
+      "keywords_any": [
+        "stripped to studs",
+        "exposed insulation",
+        "no drywall",
+        "open framing",
+        "wall demolition"
+      ],
+      "keywords_deny": [],
+      "embed_text": "Interior wall stripped to studs with exposed insulation. Requires full drywall installation and finishing.",
+      "kind": "defect",
+      "id": "interior_wall_stripped_to_studs",
+      "scope": "repair",
+      "defaultHidden": false
+    },
+    {
+      "name": "Boarded-Up Entry or Window",
+      "category": "safety",
+      "severity": 4,
+      "trade_bucket": "trim_doors_windows",
+      "work_item_code": "DOOR_WINDOW_REPLACE",
+      "description": "Door or window opening is boarded over, indicating damage, vacancy security measures, or structural compromise.",
+      "keywords_any": [
+        "boarded up",
+        "plywood door",
+        "covered window",
+        "secured opening",
+        "temporary covering"
+      ],
+      "keywords_deny": [],
+      "embed_text": "Boarded-up entry or window. Opening secured with plywood. Replace and restore door or window assembly.",
+      "kind": "defect",
+      "id": "boarded_up_entry_or_window",
+      "scope": "replace",
+      "defaultHidden": false
+    },
+    {
+      "name": "Retaining Wall Failure or Missing Section",
+      "category": "structure",
+      "severity": 4,
+      "trade_bucket": "landscaping_drains",
+      "work_item_code": "MASONRY_REPAIR",
+      "description": "Retaining wall section appears missing, collapsed, or structurally compromised, affecting grading and soil stability.",
+      "keywords_any": [
+        "retaining wall",
+        "collapsed wall",
+        "missing section",
+        "soil erosion",
+        "failing wall"
+      ],
+      "keywords_deny": [],
+      "embed_text": "Retaining wall failure or missing section. Structural repair required to stabilize grading and soil.",
+      "kind": "defect",
+      "id": "retaining_wall_failure_or_missing_section",
+      "scope": "repair",
+      "defaultHidden": false
     }
   ]
 }
