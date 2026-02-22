@@ -21,14 +21,14 @@ Legacy passes (not currently executed by orchestrator but still supported):
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, Literal, Optional, TypeAlias
+from typing import Any, Dict, Literal, Optional, TypeAlias
 
 # Type definitions
-PassKey: TypeAlias = Literal['1a', '1b', '1c', '2a', '2b', '2c', '2d', '3', '4', '4a', '4b', '4c']
+PassKey: TypeAlias = Literal['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '3', '4', '4a', '4b', '4c']
 ModelName = Literal['qwen', 'gpt5']
 
 # All valid pass keys (in execution order)
-ALL_PASSES: tuple[PassKey, ...] = ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '3', '4', '4a', '4b', '4c')
+ALL_PASSES: tuple[PassKey, ...] = ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '3', '4', '4a', '4b', '4c')
 
 
 @dataclass
@@ -41,6 +41,7 @@ class PassToggles:
     pass_2b: bool = True   # Observations -> JSON
     pass_2c: bool = True   # Label observations + debug/forward split
     pass_2d: bool = False  # Resolve defect_id from candidates (optional, requires candidate_provider)
+    pass_2e: bool = True   # Normalize / filter / dedupe verified issues (rule-based, no LLM)
     pass_3: bool = True    # Keyword extraction
     pass_4: bool = False   # Property summary (legacy, not executed by current orchestrator)
     pass_4a: bool = False  # Room summaries (legacy, not executed by current orchestrator)
@@ -62,6 +63,7 @@ class PassToggles:
             '2b': self.pass_2b,
             '2c': self.pass_2c,
             '2d': self.pass_2d,
+            '2e': self.pass_2e,
             '3': self.pass_3,
             '4': self.pass_4,
             '4a': self.pass_4a,
@@ -81,6 +83,7 @@ class PassToggles:
             pass_2b=d.get('2b', True),
             pass_2c=d.get('2c', True),
             pass_2d=d.get('2d', False),  # default False - requires candidate_provider
+            pass_2e=d.get('2e', True),
             pass_3=d.get('3', True),
             pass_4=d.get('4', False),
             pass_4a=d.get('4a', False),
@@ -99,6 +102,7 @@ class PassModelOverrides:
     model_2b: Optional[ModelName] = None
     model_2c: Optional[ModelName] = None
     model_2d: Optional[ModelName] = None
+    model_2e: Optional[ModelName] = None
     model_3: Optional[ModelName] = None
     model_4: Optional[ModelName] = None
     model_4a: Optional[ModelName] = None
@@ -120,6 +124,7 @@ class PassModelOverrides:
             '2b': self.model_2b,
             '2c': self.model_2c,
             '2d': self.model_2d,
+            '2e': self.model_2e,
             '3': self.model_3,
             '4': self.model_4,
             '4a': self.model_4a,
@@ -145,6 +150,7 @@ class PassModelOverrides:
             model_2b=to_model(d.get('2b')),
             model_2c=to_model(d.get('2c')),
             model_2d=to_model(d.get('2d')),
+            model_2e=to_model(d.get('2e')),
             model_3=to_model(d.get('3')),
             model_4=to_model(d.get('4')),
             model_4a=to_model(d.get('4a')),
@@ -159,6 +165,20 @@ class SceneClassifierRunOptions:
     premium: bool = False
     toggles: PassToggles = field(default_factory=PassToggles)
     model_overrides: PassModelOverrides = field(default_factory=PassModelOverrides)
+    # Runtime metadata passed from AutoAnalyzer (run_id, property_key, photo_key, etc.)
+    # Used by the orchestrator to build deterministic issue_ids per image.
+    meta: Dict[str, Any] = field(default_factory=dict)
+
+    def with_meta(self, **kwargs) -> "SceneClassifierRunOptions":
+        """Return a copy of this options object with extra meta fields merged in."""
+        m = dict(self.meta or {})
+        m.update(kwargs)
+        return SceneClassifierRunOptions(
+            premium=self.premium,
+            toggles=self.toggles,
+            model_overrides=self.model_overrides,
+            meta=m,
+        )
 
     @classmethod
     def from_analysis_profile(
@@ -198,6 +218,7 @@ PREMIUM_MODEL_MAP: Dict[PassKey, ModelName] = {
     '2b': 'qwen',
     '2c': 'qwen',
     '2d': 'gpt5',  # resolver benefits from GPT reasoning
+    '2e': 'qwen',  # rule-based normalizer, Qwen is fine (or ignored since no LLM call)
     '3': 'qwen',
     '4': 'gpt5',
     '4a': 'gpt5',
@@ -213,6 +234,7 @@ STANDARD_MODEL_MAP: Dict[PassKey, ModelName] = {
     '2b': 'qwen',
     '2c': 'qwen',
     '2d': 'qwen',
+    '2e': 'qwen',
     '3': 'qwen',
     '4': 'qwen',
     '4a': 'qwen',
@@ -289,6 +311,7 @@ PASS_DESCRIPTIONS: Dict[PassKey, str] = {
     '2b': 'Observations → JSON',
     '2c': 'Label Observations (debug/forward)',
     '2d': 'Resolve defect_id from candidates',
+    '2e': 'Normalize / Filter / Deduplicate Issues',
     '3': 'Keyword Extraction',
     '4': 'Property Summary (legacy)',
     '4a': 'Room Summaries (legacy)',

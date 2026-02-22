@@ -127,6 +127,7 @@ try:
         run_pass_2b,
         run_pass_2c,
         run_pass_2d,
+        run_pass_2e,
         run_pass_3_keyword_extraction,
     )
 
@@ -556,8 +557,7 @@ class AutoAnalyzer:
                                 "name": c.name,
                                 "kind": c.kind,
                                 "trade_bucket": c.trade_bucket,
-                                "severity": c.severity,
-                                "score": float(c.score),
+                                # score/severity intentionally omitted — not persisted in outputs
                             }
                             for c in cands
                         ]
@@ -729,8 +729,7 @@ class AutoAnalyzer:
                             "name": c.name,
                             "kind": c.kind,
                             "trade_bucket": c.trade_bucket,
-                            "severity": c.severity,
-                            "score": float(c.score),
+                            # score/severity omitted — not persisted
                         }
                         for c in raw_cands
                     ]
@@ -795,13 +794,12 @@ class AutoAnalyzer:
 
                 top_candidate = candidates[0] if candidates else None
                 resolved_items.append({
+                    "issue_id": obs.get("issue_id") if isinstance(obs, dict) else None,
                     "description": description,
                     "label": obs.get("label", "") if isinstance(obs, dict) else "",
                     "kind": kind,
                     "resolved_item_id": rid,
                     "resolved_kind": kind,
-                    "top_candidate_id": top_candidate.get("item_id") if top_candidate else None,
-                    "top_candidate_score": top_candidate.get("score") if top_candidate else None,
                     "top_candidate_trade_bucket": top_candidate.get("trade_bucket") if top_candidate else None,
                     "raw_response": raw,
                 })
@@ -875,6 +873,7 @@ class AutoAnalyzer:
             '2b': ['GPT_PASS_2B_MODEL', 'OPENAI_PASS2B_MODEL', 'OPENAI_CHIP_MODEL'],
             '2c': ['GPT_PASS_2C_MODEL', 'OPENAI_PASS2C_MODEL'],
             '2d': ['GPT_PASS_2D_MODEL', 'OPENAI_PASS2D_MODEL'],
+            '2e': ['GPT_PASS_2E_MODEL', 'OPENAI_PASS2E_MODEL'],
             '4': ['GPT_PASS_4_MODEL', 'OPENAI_PASS4_MODEL'],
             '4a': ['GPT_PASS_4A_MODEL', 'OPENAI_PASS4A_MODEL'],
             '4b': ['GPT_PASS_4B_MODEL', 'OPENAI_PASS4B_MODEL'],
@@ -913,6 +912,7 @@ class AutoAnalyzer:
             "2a": "OPENAI_PASS_2A_MAX_TOKENS",
             "2c": "OPENAI_PASS_2C_MAX_TOKENS",
             "2d": "OPENAI_PASS_2D_MAX_TOKENS",
+            "2e": "OPENAI_PASS_2E_MAX_TOKENS",
             "4": "OPENAI_PASS_4_MAX_TOKENS",
             "4a": "OPENAI_PASS_4A_MAX_TOKENS",
             "4b": "OPENAI_PASS_4B_MAX_TOKENS",
@@ -1144,11 +1144,19 @@ class AutoAnalyzer:
         Classify scene using the pass architecture orchestrator.
         This runs the full multi-pass pipeline with premium model routing.
         """
+        # Build image-specific options carrying run_id + photo_key for deterministic issue IDs
+        run_id = getattr(self, "_active_run_id", "") or ""
+        photo_key = image_path.name
+        property_key = getattr(self, "_active_property_key", "") or ""
+
+        options = self.run_options
+        if options is not None and hasattr(options, "with_meta"):
+            options = options.with_meta(run_id=run_id, photo_key=photo_key, property_key=property_key)
 
         async def run_orchestrator():
             return await self.orchestrator.analyze_image(
                 image_path=image_path,
-                options=self.run_options,
+                options=options,
             )
 
         # Run async orchestrator
@@ -1337,7 +1345,7 @@ class AutoAnalyzer:
                 labeled_debug = pass_2c.labeled_debug or []
                 labeled_forward = pass_2c.labeled_forward or []
 
-                # Enrich forward items to keep downstream schema happy
+                # Enrich forward items to keep downstream schema happy.
                 # Classify kind based on label: only "defect" and "upgrade" are valid kinds.
                 _UPGRADE_LABELS = {
                     "opportunity", "upgrade", "improvement", "cosmetic_upgrade",
@@ -1347,18 +1355,31 @@ class AutoAnalyzer:
                 def _label_to_kind(lbl: str) -> str:
                     return "upgrade" if (lbl or "").strip().lower() in _UPGRADE_LABELS else "defect"
 
-                forward_enriched = [
-                    {
-                        "description": x.get("description", ""),
-                        "label": x.get("label", ""),
+                # Stamp deterministic issue_id on each forward item right here, before 2d runs,
+                # so 2d can carry it and the join-back works by ID not description.
+                _run_id = getattr(self, "_active_run_id", "") or ""
+                _photo_key_2c = image_path.name
+                _sig_counts_2c: Dict[Tuple[str, str, str], int] = {}
+
+                forward_enriched = []
+                for x in labeled_forward:
+                    if not (isinstance(x, dict) and x.get("description")):
+                        continue
+                    _desc = (x.get("description") or "").strip()
+                    _lbl = (x.get("label") or "").strip()
+                    _loc = (x.get("location_hint") or "").strip()
+                    _sig = (_desc, _loc, _lbl)
+                    _ord = _sig_counts_2c.get(_sig, 0)
+                    _sig_counts_2c[_sig] = _ord + 1
+                    forward_enriched.append({
+                        "issue_id": x.get("issue_id") or _make_issue_id(_run_id, _photo_key_2c, _desc, _loc, _lbl, _ord),
+                        "description": _desc,
+                        "label": _lbl,
+                        "location_hint": _loc,
                         "rough_category": "",  # deprecated — keep empty for schema compatibility
-                        "location_hint": "",
-                        "kind": _label_to_kind(x.get("label", "")),  # ✅ defect|upgrade only
-                        "searchable": "yes",  # ✅ required for build_grouped_issues gate
-                    }
-                    for x in labeled_forward
-                    if isinstance(x, dict) and x.get("description")
-                ]
+                        "kind": _label_to_kind(_lbl),  # defect|upgrade only
+                        "source_photo_key": _photo_key_2c,
+                    })
 
                 results['labeled_debug'] = labeled_debug
                 results['labeled_forward'] = forward_enriched
@@ -1377,9 +1398,9 @@ class AutoAnalyzer:
                 }
             except Exception as e:
                 logger.warning(f"  Pass 2c failed: {e}")
-                # Fallback: bridge observations directly
+                # Fallback: bridge observations directly with minimal normalization
                 fallback_issues = [
-                    {"description": x.get("description", ""), "label": "", "rough_category": "", "location_hint": "", "kind": "defect", "searchable": "yes"}
+                    {"description": x.get("description", ""), "label": "", "rough_category": "", "location_hint": "", "kind": "defect"}
                     for x in observations if isinstance(x, dict) and x.get("description")
                 ]
                 results['labeled_debug'] = []
@@ -1449,18 +1470,18 @@ class AutoAnalyzer:
 
                     bucket_name_map = self._build_trade_bucket_name_map()
 
-                    # Index resolutions by description for joining
-                    resolution_by_desc: Dict[str, Dict[str, Any]] = {}
+                    # Index resolutions by issue_id for joining (stable, no cross-wiring on duplicates)
+                    resolution_by_id: Dict[str, Dict[str, Any]] = {}
                     for res in resolved:
-                        if isinstance(res, dict) and res.get("description"):
-                            resolution_by_desc[res["description"]] = res
+                        if isinstance(res, dict) and res.get("issue_id"):
+                            resolution_by_id[str(res["issue_id"])] = res
 
                     verified = results.get('verified_issues', []) or []
                     for issue in verified:
                         if not isinstance(issue, dict):
                             continue
-                        desc = issue.get("description", "")
-                        res = resolution_by_desc.get(desc)
+                        iid = issue.get("issue_id")
+                        res = resolution_by_id.get(str(iid)) if iid else None
                         if res and res.get("resolved_item_id"):
                             rid = res["resolved_item_id"]
                             cat_entry = catalog_items_by_id.get(rid, {})
@@ -1468,18 +1489,20 @@ class AutoAnalyzer:
 
                             issue["catalogItemId"] = rid
                             issue["catalogItemName"] = cat_entry.get("name", rid)
-                            issue["catalogItemKind"] = res.get("resolved_kind", res.get("kind", ""))
-                            issue["tradeBucketId"] = tb_id
-                            issue["tradeBucketName"] = bucket_name_map.get(tb_id, tb_id)
-                            issue["topCandidateScore"] = res.get("top_candidate_score")
-                        elif not issue.get("catalogItemId"):
+                            issue["catalogItemKind"] = res.get("resolved_kind") or None
+                            issue["tradeBucketId"] = tb_id or None
+                            issue["tradeBucketName"] = bucket_name_map.get(tb_id, tb_id) if tb_id else None
+                        else:
                             # No resolution — null out fields for consistent schema
                             issue.setdefault("catalogItemId", None)
                             issue.setdefault("catalogItemName", None)
                             issue.setdefault("catalogItemKind", None)
                             issue.setdefault("tradeBucketId", None)
                             issue.setdefault("tradeBucketName", None)
-                            issue.setdefault("topCandidateScore", None)
+
+                        # Remove ranking/scoring fields — not persisted in stored outputs
+                        issue.pop("topCandidateScore", None)
+                        issue.pop("top_candidate_score", None)
 
                     # Sync all downstream fields
                     results['verified_issues'] = verified
@@ -1515,6 +1538,59 @@ class AutoAnalyzer:
                 verified = self._annotate_verified_issues_with_embeddings(verified)
                 results['verified_issues'] = verified
                 results['issues_natural_language'] = verified
+
+            # ─────────────────────────────────────────────────────────────────
+            # Pass 2e: Normalize / Filter / Deduplicate Verified Issues
+            # ─────────────────────────────────────────────────────────────────
+            toggle_2e = self._toggle(self.run_options, "2e", default=True)
+            if toggle_2e:
+                model_config_2e = self._get_model_config_for_pass("2e")
+                t0 = time.time()
+                try:
+                    _input_issues = results.get("verified_issues", []) or []
+                    pass_2e = await run_pass_2e(
+                        vlm_client=self.vlm_client,
+                        model_config=model_config_2e,
+                        verified_issues=_input_issues,
+                        context=context,
+                    )
+                    final_issues = pass_2e.verified_issues or []
+                    removed = pass_2e.removed or []
+                    results["verified_issues"] = final_issues
+                    results["issues_natural_language"] = final_issues
+                    results["passes"]["2e"] = {
+                        "notes": pass_2e.notes,
+                        "input_count": len(_input_issues),
+                        "kept_count": len(final_issues),
+                        "removed_count": len(removed),
+                        "kept_issue_ids": [
+                            x["issue_id"] for x in final_issues if x.get("issue_id")
+                        ],
+                        "removed": [
+                            {
+                                "issue_id": x.get("issue_id"),
+                                "description": x.get("description", ""),
+                                "reason": x.get("removed_reason", ""),
+                            }
+                            for x in removed
+                        ],
+                        "verified_issues": final_issues,
+                    }
+                    # Keep 2c in sync so downstream reads still find the final list there
+                    if isinstance(results.get("passes", {}).get("2c"), dict):
+                        results["passes"]["2c"]["verified_issues"] = final_issues
+                        results["passes"]["2c"]["issues_natural_language"] = final_issues
+                    logger.info(
+                        f"  Pass 2e: kept={len(final_issues)} "
+                        f"removed={len(pass_2e.removed or [])} "
+                        f"notes={pass_2e.notes}"
+                    )
+                except Exception as exc:
+                    logger.warning(f"  Pass 2e failed: {exc}")
+                    results["passes"]["2e"] = {"error": str(exc)}
+                results["pass_timings"]["2e"] = round(time.time() - t0, 3)
+            else:
+                results["passes"]["2e"] = {"skipped": True}
 
             # Pass 3: Keyword Extraction (text-only, always Qwen)
             model_config_3 = self._get_model_config_for_pass('3')
@@ -1626,7 +1702,8 @@ class AutoAnalyzer:
         scene_payload["pass_timings"] = data.get("pass_timings", {}) or {}
         scene_payload["total_pass_time"] = data.get("total_pass_time", 0.0) or 0.0
 
-        # TEMP bridge: treat labeled_forward as "issues" so legacy paths still function
+        # TEMP bridge: populate issues_natural_language for legacy paths that still read it.
+        # Only sets the legacy alias — never overwrites verified_issues, which is authoritative.
         if scene_payload["labeled_forward"] and not scene_payload.get("issues_natural_language"):
             scene_payload["issues_natural_language"] = [
                 {
@@ -1638,14 +1715,17 @@ class AutoAnalyzer:
                 for x in (scene_payload["labeled_forward"] or [])
                 if isinstance(x, dict) and x.get("description")
             ]
-            scene_payload["verified_issues"] = scene_payload["issues_natural_language"]
+            # Do NOT assign to verified_issues here — it is already set from result.to_dict()
+            # above at scene_payload['verified_issues'] = data.get('verified_issues', []),
+            # which contains the post-2e output.
 
         # Build passes dict for consistent schema - preserve orchestrator passes if present
         existing_passes = data.get("passes")
         if isinstance(existing_passes, dict) and existing_passes:
             scene_payload["passes"] = existing_passes
         else:
-            # Fallback only if orchestrator didn't provide passes
+            # Fallback only if orchestrator didn't provide passes.
+            # Include "2e" so save_photo_intel's priority chain (2e → 2c → ...) finds it.
             scene_payload['passes'] = {
                 "1a": {
                     "scene": scene,
@@ -1668,6 +1748,17 @@ class AutoAnalyzer:
                     "labeled_forward": scene_payload.get("labeled_forward", []),
                 },
                 "2d": {"resolutions": scene_payload.get("resolved_items", [])},
+                "2e": {
+                    # Fallback only: orchestrator path now writes passes["2e"] via to_dict().
+                    # This entry is used only for pre-2e legacy runs or if passes wasn't populated.
+                    "verified_issues": scene_payload.get("verified_issues", []),
+                    **({
+                        "input_count": data.get("debug", {}).get("pass_2e_summary", {}).get("input_count"),
+                        "kept_count": data.get("debug", {}).get("pass_2e_summary", {}).get("kept_count"),
+                        "removed_count": data.get("debug", {}).get("pass_2e_summary", {}).get("removed_count"),
+                        "notes": data.get("debug", {}).get("pass_2e_summary", {}).get("notes"),
+                    } if data.get("debug", {}).get("pass_2e_summary") else {}),
+                },
                 "3": {
                     "keywords": keywords,
                     "categories": kw_cats,
@@ -2216,6 +2307,10 @@ class AutoAnalyzer:
         job_dir = self.artifacts_root / property_key / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
 
+        # Make run_id available to _classify_scene_with_orchestrator for deterministic issue IDs
+        self._active_run_id = job_id
+        self._active_property_key = property_key
+
         # ✅ Per-job file handler so UI can always read run.log from artifacts
         job_log_handler = None
         try:
@@ -2289,6 +2384,10 @@ class AutoAnalyzer:
                 job_log_handler.close()
             except Exception:
                 pass
+
+        # Clear run-scoped identifiers
+        self._active_run_id = None
+        self._active_property_key = None
 
         return job
 
@@ -2505,12 +2604,14 @@ class AutoAnalyzer:
             # Track signature counts to handle duplicate issues in same photo
             issue_sig_counts: Dict[Tuple[str, str, str], int] = {}
 
-            # Prefer verified_issues (post-2c searchable=yes gate)
-            issues_nl = _safe_list((passes.get("2c", {}) or {}).get("verified_issues"))
+            # Read verified issues — prefer post-2e (final truth), fall back through 2c → top-level → 2b
+            issues_nl = _safe_list((passes.get("2e", {}) or {}).get("verified_issues"))
+            if not issues_nl:
+                issues_nl = _safe_list((passes.get("2c", {}) or {}).get("verified_issues"))
             if not issues_nl:
                 issues_nl = _safe_list(payload.get("verified_issues"))
             if not issues_nl:
-                # Fallback to 2b if 2c not available
+                # Fallback to 2b if neither 2e nor 2c ran
                 issues_nl = _safe_list((passes.get("2b", {}) or {}).get("issues_natural_language"))
 
             for issue in issues_nl:
@@ -2524,17 +2625,17 @@ class AutoAnalyzer:
                     ordinal = issue_sig_counts.get(sig, 0)
                     issue_sig_counts[sig] = ordinal + 1
 
-                    # Generate stable issue ID with ordinal to handle duplicates
-                    issue_id = _make_issue_id(
-                        job.job_id,
-                        image_key,
-                        sig[0],  # description
-                        sig[1],  # location_hint
-                        sig[2],  # label
-                        ordinal,
-                    )
-                    # Add identity and context fields
-                    issue["issue_id"] = issue_id
+                    # Use existing issue_id if already stamped (e.g. by orchestrator after Pass 2c)
+                    if not issue.get("issue_id"):
+                        issue["issue_id"] = _make_issue_id(
+                            job.job_id,
+                            image_key,
+                            sig[0],  # description
+                            sig[1],  # location_hint
+                            sig[2],  # label
+                            ordinal,
+                        )
+                    issue_id = issue["issue_id"]
                     issue["source_photo_key"] = image_key
                     issue["source_photo_id"] = photo_id
                     issue["scene"] = scene
@@ -2616,12 +2717,14 @@ class AutoAnalyzer:
             if obs_freeform:
                 g["issues"]["notes"].append(obs_freeform)
 
-            # Prefer verified_issues (post-2c searchable=yes gate)
-            issues = _safe_list((passes.get("2c", {}) or {}).get("verified_issues"))
+            # Read verified issues — prefer post-2e (final truth), fall back through 2c → top-level → 2b
+            issues = _safe_list((passes.get("2e", {}) or {}).get("verified_issues"))
+            if not issues:
+                issues = _safe_list((passes.get("2c", {}) or {}).get("verified_issues"))
             if not issues:
                 issues = _safe_list(p.get("verified_issues"))
             if not issues:
-                # Fallback to 2b if 2c not available
+                # Fallback to 2b if neither 2e nor 2c ran
                 issues = _safe_list((passes.get("2b", {}) or {}).get("issues_natural_language"))
 
             for it in issues:
@@ -2663,10 +2766,8 @@ class AutoAnalyzer:
             "issues_flat_count": len(issues_flat),
         }
 
-        try:
-            photo_intel["renovation_needs"] = build_renovation_needs(job, issue_catalog=self.issue_catalog)
-        except Exception as exc:
-            logger.error(f"Failed to build renovation_needs: {exc}", exc_info=True)
+        # renovation_needs disabled: severity not reliable at this stage
+        photo_intel["renovation_needs"] = None
 
         # ── Build defect events, work items, and search index ─────────────
         if DEFECT_EVENTS_AVAILABLE:
@@ -2793,8 +2894,9 @@ class AutoAnalyzer:
                 error_msg = f"Pass 4 imports unavailable: {e}"
                 # Fall through to write empty summary
             else:
-                # Compute grouped_issues ONCE from all_results (single source of truth)
-                # build_grouped_issues filters to searchable=yes issues only
+                # Compute grouped_issues ONCE from all_results.
+                # build_grouped_issues reads passes["2e"]["verified_issues"] (post-2e truth),
+                # falling back to passes["2c"]["verified_issues"] for pre-2e runs.
                 grouped_issues, _fallback_count = build_grouped_issues(all_results)
 
                 # Compute deterministic totals from verified issues
@@ -2968,11 +3070,8 @@ class AutoAnalyzer:
             "errors": errors if errors else None,
         }
 
-        # Add renovation_needs if available
-        try:
-            summary_data["renovation_needs"] = build_renovation_needs(job, issue_catalog=self.issue_catalog)
-        except Exception as exc:
-            logger.warning(f"Could not build renovation_needs: {exc}")
+        # renovation_needs disabled: severity not reliable at this stage
+        summary_data["renovation_needs"] = None
 
         # Add defect events layer from photo_intel (already computed in save_photo_intel)
         if DEFECT_EVENTS_AVAILABLE and photo_intel_path and photo_intel_path.exists():

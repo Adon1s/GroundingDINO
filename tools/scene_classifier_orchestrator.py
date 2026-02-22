@@ -20,8 +20,10 @@ Usage:
     )
 """
 
+import hashlib
 import logging
 import os
+from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 import json
@@ -51,6 +53,7 @@ from scene_classifier_passes import (
     Pass2bResult,
     Pass2cResult,
     Pass2dResult,
+    Pass2eResult,
     Pass3Result,
     run_pass_1a_scene_type,
     run_pass_1b_feature_notes,
@@ -59,10 +62,152 @@ from scene_classifier_passes import (
     run_pass_2b,
     run_pass_2c,
     run_pass_2d,
+    run_pass_2e,
     run_pass_3_keyword_extraction,
 )
 
 logger = logging.getLogger(__name__)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Deterministic ID helpers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _stable_issue_id(image_path: str, label: str, description: str) -> str:
+    """
+    Deterministic ID for an observation within an image.
+    Stable across reruns; changes only if description changes.
+    16 hex chars (64 bits) — plenty for this scale.
+    """
+    base = f"{image_path}||{label}||{description}".strip()
+    return hashlib.blake2s(base.encode("utf-8"), digest_size=8).hexdigest()
+
+
+def _photo_key_from_path(image_path: str) -> str:
+    """Return just the filename portion of a path (e.g. 'photo_034.jpg')."""
+    try:
+        return Path(image_path).name
+    except Exception:
+        return str(image_path)
+
+
+def _stable_hash_id(*parts: str, length: int = 16) -> str:
+    """SHA-256 based deterministic short ID. Matches AutoAnalyzer's scheme."""
+    combined = "|".join(str(p) if p is not None else "" for p in parts)
+    return hashlib.sha256(combined.encode("utf-8")).hexdigest()[:length]
+
+
+def _make_issue_id(run_id: str, photo_key: str, description: str,
+                   location_hint: str, label: str, ordinal: int) -> str:
+    """Deterministic issue ID — matches the scheme used in AutoAnalyzer.save_photo_intel()."""
+    return _stable_hash_id(run_id, photo_key, description, location_hint, label, str(ordinal), length=16)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Property-level canonical aggregation
+# ─────────────────────────────────────────────────────────────────────────────
+
+def build_canonical_items(image_results: List["ImageAnalysisResult"]) -> List[Dict[str, Any]]:
+    """
+    Deterministic aggregation across all images for a property.
+
+    Source: r.verified_issues (post-2e truth — filtered, deduplicated, normalized).
+    Falls back to r.resolved_items only if verified_issues is empty and resolved_items
+    has entries, which covers runs that predate 2e.
+
+    Key = (catalogItemId, photo_key) — one instance per catalog item per photo.
+    Issues without a catalogItemId are skipped (unresolved observations are not
+    aggregated at the property level).
+
+    Returns a stable-ordered list of canonical instances with evidence notes.
+    """
+    instances: Dict[str, Dict[str, Any]] = {}
+    seen_evidence: set = set()
+
+    def get_or_create(instance_key: str, item_id: str, kind: str, scene: str) -> Dict[str, Any]:
+        if instance_key in instances:
+            return instances[instance_key]
+        inst = {
+            "instance_id": instance_key,       # e.g. "water_stain_ceiling::photo_034.jpg"
+            "item_id": item_id,
+            "kind": kind,
+            "scene": scene,
+            "photo_keys": [],
+            "image_paths": [],
+            "evidence_notes": [],              # list[{photo_key,image_path,issue_id,text,label}]
+        }
+        instances[instance_key] = inst
+        return inst
+
+    for r in image_results:
+        scene = (r.scene or "other").strip() or "other"
+        image_path = r.image_path
+        photo_key = _photo_key_from_path(image_path)
+
+        # Prefer verified_issues (post-2e: filtered, deduplicated, kind-guaranteed).
+        # Fall back to resolved_items for backward-compat with pre-2e runs.
+        rows = r.verified_issues if r.verified_issues else (r.resolved_items or [])
+
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+
+            # catalogItemId is the resolved catalog reference set during 2d join;
+            # resolved_item_id is the same value under its original key (resolved_items path).
+            item_id = (
+                row.get("catalogItemId")
+                or row.get("resolved_item_id")
+                or ""
+            ).strip()
+            if not item_id:
+                continue  # unresolved observation — not aggregated at property level
+
+            kind = (row.get("catalogItemKind") or row.get("resolved_kind") or row.get("kind") or "").strip() or "unknown"
+            label = (row.get("label") or "").strip()
+            issue_id = (row.get("issue_id") or "").strip()
+            text = (row.get("description") or "").strip()
+            if not text:
+                continue
+
+            instance_key = f"{item_id}::{photo_key}"
+            inst = get_or_create(instance_key, item_id=item_id, kind=kind, scene=scene)
+
+            # Aggregate photo references
+            if photo_key not in inst["photo_keys"]:
+                inst["photo_keys"].append(photo_key)
+            if image_path not in inst["image_paths"]:
+                inst["image_paths"].append(image_path)
+
+            # Evidence deduplication: prefer issue_id when present
+            if issue_id:
+                ev_key = (instance_key, issue_id)
+            else:
+                ev_key = (instance_key, image_path, text)
+
+            if ev_key in seen_evidence:
+                continue
+            seen_evidence.add(ev_key)
+
+            inst["evidence_notes"].append({
+                "photo_key": photo_key,
+                "image_path": image_path,
+                "issue_id": issue_id or None,
+                "label": label or None,
+                "text": text,
+            })
+
+    # Stable ordering: (item_id, photo_key) from instance_id, then evidence count desc for UX tie-breaking
+    out = list(instances.values())
+    out.sort(key=lambda x: (x["item_id"], x["instance_id"], -len(x["photo_keys"])))
+
+    # Add informational counts
+    for inst in out:
+        inst["counts"] = {
+            "photos": len(inst["photo_keys"]),
+            "evidence_notes": len(inst["evidence_notes"]),
+        }
+
+    return out
 
 
 @dataclass
@@ -82,6 +227,7 @@ class ImageAnalysisResult:
 
     # Computed/merged fields for backwards compatibility
     scene: str = "other"
+    photo_key: str = ""  # filename only, e.g. "photo_034.jpg"
 
     # Structured positives (from 1c)
     overall_impression: str = ""
@@ -103,10 +249,14 @@ class ImageAnalysisResult:
     # Optional resolver output (2d). Orchestrator stores results if run elsewhere.
     resolved_items: List[Dict[str, Any]] = field(default_factory=list)    # unified: defects + upgrades
 
+    # Final normalized/filtered issues after Pass 2e (populated if 2e ran)
+    verified_issues: List[Dict[str, Any]] = field(default_factory=list)
+
     keywords: List[str] = field(default_factory=list)
 
     # Metadata
     passes_run: List[str] = field(default_factory=list)
+    passes: Dict[str, Any] = field(default_factory=dict)   # per-pass structured output (mirrors direct-path schema)
     models_used: Dict[str, str] = field(default_factory=dict)
     pass_timings: Dict[str, float] = field(default_factory=dict)
     total_pass_time: float = 0.0
@@ -119,6 +269,7 @@ class ImageAnalysisResult:
         """Convert to dictionary for JSON serialization."""
         return {
             "image_path": self.image_path,
+            "photo_key": self.photo_key,
             "scene": self.scene,
 
             # structured positives (UI + pass3)
@@ -137,9 +288,11 @@ class ImageAnalysisResult:
             "labeled_debug": self.labeled_debug,
             "labeled_forward": self.labeled_forward,
             "resolved_items": self.resolved_items,
+            "verified_issues": self.verified_issues,
 
             "keywords": self.keywords,
             "passes_run": self.passes_run,
+            "passes": self.passes,
             "models_used": self.models_used,
             "pass_timings": self.pass_timings,
             "total_pass_time": self.total_pass_time,
@@ -154,12 +307,18 @@ class PropertyAnalysisResult:
     property_key: str
     image_results: List[ImageAnalysisResult] = field(default_factory=list)
     total_processing_time: float = 0.0
+    # Property-level canonical rollup (populated by analyze_property)
+    canonical_items: List[Dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
             "property_key": self.property_key,
             "total_processing_time": self.total_processing_time,
-            "images": {r.image_path: r.to_dict() for r in self.image_results},
+            "images": {
+                (r.photo_key or Path(r.image_path).name): r.to_dict()
+                for r in self.image_results
+            },
+            "canonical_items": self.canonical_items,
         }
 
 
@@ -242,6 +401,7 @@ class SceneClassifierOrchestrator:
             "2b": "OPENAI_PASS_2B_MAX_TOKENS",
             "2c": "OPENAI_PASS_2C_MAX_TOKENS",
             "2d": "OPENAI_PASS_2D_MAX_TOKENS",
+            "2e": "OPENAI_PASS_2E_MAX_TOKENS",
             "3":  "OPENAI_PASS_3_MAX_TOKENS",
         }
 
@@ -331,6 +491,7 @@ class SceneClassifierOrchestrator:
         toggles = options.toggles
 
         result = ImageAnalysisResult(image_path=str(image_path))
+        result.photo_key = image_path.name
         context: Dict[str, Any] = {}
 
         logger.info(f"Analyzing image: {image_path.name}")
@@ -487,6 +648,28 @@ class SceneClassifierOrchestrator:
             context["labeled_debug"] = result.labeled_debug
             context["labeled_forward"] = result.labeled_forward
 
+            # ── Stamp deterministic issue_id on every forward observation ──
+            # Uses the same _make_issue_id() scheme as AutoAnalyzer.save_photo_intel()
+            # so IDs are stable and joinable across both paths.
+            _run_id = (getattr(options, "meta", None) or {}).get("run_id", "")
+            _photo_key = (getattr(options, "meta", None) or {}).get("photo_key") or image_path.name
+            _sig_counts: Dict[tuple, int] = {}
+            for _obs in (result.labeled_forward or []):
+                if not isinstance(_obs, dict):
+                    continue
+                _desc = (_obs.get("description") or "").strip()
+                if not _desc:
+                    continue
+                _label = (_obs.get("label") or "").strip()
+                _loc = (_obs.get("location_hint") or "").strip()
+                _sig = (_desc, _loc, _label)
+                _ordinal = _sig_counts.get(_sig, 0)
+                _sig_counts[_sig] = _ordinal + 1
+                # Forward-only: only assign if missing
+                if not _obs.get("issue_id"):
+                    _obs["issue_id"] = _make_issue_id(_run_id, _photo_key, _desc, _loc, _label, _ordinal)
+                _obs.setdefault("source_photo_key", _photo_key)
+
             result.passes_run.append('2c')
             result.models_used['2c'] = model_name
 
@@ -619,14 +802,28 @@ class SceneClassifierOrchestrator:
                 pass_2d_results.append(pass_2d_result)
 
                 resolved_item_id = pass_2d_result.resolved_item_id  # canonical
+                # Read issue_id stamped during Pass 2c (forward-only: generate as fallback)
+                issue_id = (obs.get("issue_id") or "").strip()
+                if not issue_id:
+                    issue_id = _stable_issue_id(
+                        image_path=str(image_path),
+                        label=label,
+                        description=description,
+                    )
+                photo_key = _photo_key_from_path(str(image_path))
                 row = {
+                    "issue_id": issue_id,
+                    "source_image_path": str(image_path),
+                    "source_photo_key": photo_key,
                     "description": description,
                     "label": label,
                     "resolved_item_id": resolved_item_id,
                     "resolved_kind": kind,
-                    "top_candidate_id": top_id,
-                    "top_candidate_score": top_candidate.get("score"),
-                    "candidates": candidates,
+                    # Candidates: keep for auditability but strip score (no ranking in stored output)
+                    "candidates": [
+                        {"item_id": c.get("item_id"), "name": c.get("name"), "trade_bucket": c.get("trade_bucket")}
+                        for c in candidates
+                    ],
                     "raw_response": pass_2d_result.raw_response,
                 }
                 resolved_items.append(row)
@@ -666,6 +863,103 @@ class SceneClassifierOrchestrator:
                 "resolved_defects": 0,
                 "resolved_upgrades": 0,
             }
+
+        # ─────────────────────────────────────────────────────────────────────
+        # Pass 2e: Normalize / Filter / Deduplicate Verified Issues (rule-based)
+        # Input:  labeled_forward (already has issue_id, kind, description stamped)
+        # Output: result.verified_issues — clean, deduplicated, scoring-free
+        # ─────────────────────────────────────────────────────────────────────
+        if self._t(toggles, '2e'):
+            model_config = self._get_model_config('2e', options)
+            model_name = self._get_model_name('2e', options)
+
+            # Build input: start from labeled_forward; enrich with resolution data where available
+            resolution_index: Dict[str, Dict[str, Any]] = {
+                row["issue_id"]: row
+                for row in (result.resolved_items or [])
+                if row.get("issue_id")
+            }
+
+            issues_for_2e: List[Dict[str, Any]] = []
+            for obs in (result.labeled_forward or []):
+                if not isinstance(obs, dict):
+                    continue
+                issue = dict(obs)  # shallow copy — don't mutate labeled_forward
+                # Merge resolution data if available (catalogItemId etc.)
+                res = resolution_index.get(str(issue.get("issue_id") or ""))
+                if res and res.get("resolved_item_id"):
+                    issue.setdefault("catalogItemId", res["resolved_item_id"])
+                    issue.setdefault("catalogItemKind", res.get("resolved_kind"))
+                # Map label → kind if kind not already set
+                if not issue.get("kind"):
+                    _LABEL_TO_KIND = {"defect_or_damage": "defect", "upgrade_candidate": "upgrade"}
+                    issue["kind"] = _LABEL_TO_KIND.get(issue.get("label", ""), "")
+                issues_for_2e.append(issue)
+
+            t0 = time.time()
+            try:
+                pass_2e_result = await run_pass_2e(
+                    vlm_client=self.vlm_client,
+                    model_config=model_config,
+                    verified_issues=issues_for_2e,
+                    context=context,
+                )
+                result.verified_issues = pass_2e_result.verified_issues or []
+                result.passes_run.append('2e')
+                result.models_used['2e'] = model_name
+
+                removed = pass_2e_result.removed or []
+                result.passes["2e"] = {
+                    "notes": pass_2e_result.notes,
+                    "input_count": len(issues_for_2e),
+                    "kept_count": len(result.verified_issues),
+                    "removed_count": len(removed),
+                    "kept_issue_ids": [
+                        x["issue_id"] for x in result.verified_issues if x.get("issue_id")
+                    ],
+                    "removed": [
+                        {
+                            "issue_id": x.get("issue_id"),
+                            "description": x.get("description", ""),
+                            "reason": x.get("removed_reason", ""),
+                        }
+                        for x in removed
+                    ],
+                    "verified_issues": result.verified_issues,
+                }
+                result.debug["pass_2e_summary"] = {
+                    "input_count": len(issues_for_2e),
+                    "kept_count": len(result.verified_issues),
+                    "removed_count": len(removed),
+                    "notes": pass_2e_result.notes,
+                }
+                logger.info(
+                    "Pass 2e: input=%d kept=%d removed=%d",
+                    len(issues_for_2e),
+                    len(result.verified_issues),
+                    len(removed),
+                )
+            except Exception as exc:
+                logger.warning(f"Pass 2e failed: {exc}")
+                # Fallback: pass labeled_forward through unchanged as verified_issues
+                result.verified_issues = list(result.labeled_forward or [])
+                result.passes["2e"] = {"error": str(exc)}
+                result.debug["pass_2e_summary"] = {"error": str(exc)}
+            result.pass_timings['2e'] = round(time.time() - t0, 3)
+        else:
+            # 2e skipped — promote labeled_forward to verified_issues with minimal normalization
+            # so downstream always gets kind regardless of which path ran.
+            _LABEL_TO_KIND = {"defect_or_damage": "defect", "upgrade_candidate": "upgrade"}
+            _out: List[Dict[str, Any]] = []
+            for _obs in (result.labeled_forward or []):
+                if not isinstance(_obs, dict):
+                    continue
+                _x = dict(_obs)
+                _x["kind"] = _x.get("kind") or _LABEL_TO_KIND.get(_x.get("label", ""), "")
+                _out.append(_x)
+            result.verified_issues = _out
+            result.passes["2e"] = {"skipped": True}
+            result.debug["pass_2e_summary"] = {"skipped": True}
 
         # ─────────────────────────────────────────────────────────────────────
         # Pass 3: Keyword Extraction (text-only, from structured facts)
@@ -751,6 +1045,9 @@ class SceneClassifierOrchestrator:
             result.image_results.append(image_result)
 
         result.total_processing_time = time.time() - start_time
+
+        # Build property-level canonical rollup
+        result.canonical_items = build_canonical_items(result.image_results)
 
         if on_progress:
             on_progress({

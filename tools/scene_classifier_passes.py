@@ -10,6 +10,7 @@ Pass 2a: Observations freeform (premium uses GPT-5.2)
 Pass 2b: Observations → JSON (text-only)
 Pass 2c: Label observations + debug/forward split (text-only)
 Pass 2d: Resolve catalog item ID from candidates (text-only, optional)
+Pass 2e: Normalize / filter / dedupe verified issues (rule-based, no LLM)
 Pass 3:  Keyword Extraction (text-only, from structured facts)
 """
 
@@ -734,7 +735,7 @@ CANDIDATES:
 {candidates_text}
 
 Rules:
-- Choose 0 or 1 item_id that best matches the observation.
+- Choose 0 or 1 item_id whose name and trade best match the observation semantically.
 - If none fit, return null.
 - Use ONLY item_id values from the candidate list.
 
@@ -766,8 +767,7 @@ def format_candidates_text(candidates: List[Dict[str, Any]]) -> str:
         name = c.get("name", "")
         trade = c.get("trade_bucket", "")
         kind = c.get("kind", "")
-        score = float(c.get("score", 0.0) or 0.0)
-        lines.append(f"- {item_id} | {name} | trade={trade} | kind={kind} | score={score:.3f}")
+        lines.append(f"- {item_id} | {name} | trade={trade} | kind={kind}")
     return "\n".join(lines) or "(none)"
 
 
@@ -844,6 +844,159 @@ async def run_pass_2d(
         )
 
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# Pass 2e: Normalize / Filter / Deduplicate Verified Issues (rule-based, no LLM)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Default deny phrases — loaded from cfg.PASS_2E_DENY_PHRASES at call time when available
+_DEFAULT_DENY_PHRASES: List[str] = [
+    # Generic upgrade suggestions that aren't real defects
+    "updated lighting",
+    "update lighting",
+    "new lighting",
+    "replace lighting",
+    "modern lighting",
+    "add lighting",
+    # Weasel-word improvement suggestions without a concrete finding
+    "could be enhanced",
+    "could be improved",
+    "would benefit from",
+    "might be improved",
+    "consider updating",
+    "consider adding",
+]
+
+# Regex patterns for generic advice without a concrete observation
+_GENERIC_ADVICE_PATTERNS: List[str] = [
+    r"\badd\b.*\blighting\b",
+    r"\bupdate\b.*\blighting\b",
+    r"\breplace\b.*\blighting\b",
+    r"\bupgrade\b.*\blighting\b",
+]
+
+
+@dataclass
+class Pass2eResult:
+    """Result from Pass 2e: normalized, filtered, deduplicated issues."""
+    verified_issues: List[Dict[str, Any]]
+    removed: List[Dict[str, Any]]
+    notes: Optional[str] = None
+
+
+def _2e_norm_text(s: str) -> str:
+    """Normalize whitespace in a string."""
+    return re.sub(r"\s+", " ", (s or "").strip())
+
+
+def _2e_is_junk(description: str, deny_phrases: List[str]) -> bool:
+    """Return True if the description matches any deny phrase or generic advice pattern."""
+    d = _2e_norm_text(description).lower()
+    if not d:
+        return True
+    for phrase in deny_phrases:
+        if phrase.lower() in d:
+            return True
+    for pat in _GENERIC_ADVICE_PATTERNS:
+        if re.search(pat, d):
+            return True
+    return False
+
+
+def _2e_dedupe_key(issue: Dict[str, Any]) -> str:
+    """
+    Stable deduplication key.
+    Prefers catalogItemId when available (catalog-resolved runs);
+    falls back to normalized description (pre-resolution or orchestrator path).
+    """
+    cid = (issue.get("catalogItemId") or "").strip()
+    if cid:
+        return f"cid:{cid}"
+    return f"desc:{_2e_norm_text(issue.get('description', '')).lower()}"
+
+
+async def run_pass_2e(
+    *,
+    vlm_client: Any,
+    model_config: Dict[str, Any],
+    verified_issues: List[Dict[str, Any]],
+    context: Optional[Dict[str, Any]] = None,
+) -> Pass2eResult:
+    """
+    Pass 2e: Rule-based normalization, filtering, and deduplication.
+
+    No LLM call — deterministic and fast.
+
+    Actions performed:
+    - Remove issues matching deny phrases or generic advice patterns
+    - Remove issues with invalid kind (not 'defect' or 'upgrade')
+    - Normalize description whitespace
+    - Strip any persisted score/severity fields
+    - Deduplicate by catalogItemId (if present) else normalized description
+
+    Deny phrases are loaded from context['deny_phrases'] if provided,
+    otherwise from cfg.PASS_2E_DENY_PHRASES if available, else built-in defaults.
+    """
+    # Load deny phrases: context override → cfg → built-in defaults
+    deny_phrases: List[str] = []
+    if context and isinstance(context.get("deny_phrases"), list):
+        deny_phrases = context["deny_phrases"]
+    else:
+        try:
+            from tools import pipeline_config as _cfg  # type: ignore
+            deny_phrases = list(getattr(_cfg, "PASS_2E_DENY_PHRASES", None) or [])
+        except Exception:
+            pass
+    if not deny_phrases:
+        deny_phrases = list(_DEFAULT_DENY_PHRASES)
+
+    kept: List[Dict[str, Any]] = []
+    removed: List[Dict[str, Any]] = []
+    seen: set = set()
+
+    for issue in (verified_issues or []):
+        if not isinstance(issue, dict):
+            continue
+
+        desc = issue.get("description", "")
+
+        # Filter: junk / deny phrase / generic advice
+        if _2e_is_junk(desc, deny_phrases):
+            removed.append({**issue, "removed_reason": "deny_phrase_or_generic_advice"})
+            continue
+
+        # Filter: kind must be defect or upgrade (forward-only constraint)
+        kind = (issue.get("kind") or "").strip().lower()
+        if kind not in {"defect", "upgrade"}:
+            removed.append({**issue, "removed_reason": f"invalid_kind:{kind or 'missing'}"})
+            continue
+
+        # Normalize description whitespace in-place
+        issue["description"] = _2e_norm_text(desc)
+
+        # Strip ranking/scoring fields — hard guarantee, never persisted past 2e
+        issue.pop("topCandidateScore", None)
+        issue.pop("top_candidate_score", None)
+        issue.pop("score", None)
+        issue.pop("severity", None)
+
+        # Deduplicate
+        key = _2e_dedupe_key(issue)
+        if key in seen:
+            removed.append({**issue, "removed_reason": "duplicate"})
+            continue
+        seen.add(key)
+
+        kept.append(issue)
+
+    logger.debug(
+        "Pass 2e: kept=%d removed=%d (input=%d)",
+        len(kept), len(removed), len(verified_issues or []),
+    )
+    return Pass2eResult(
+        verified_issues=kept,
+        removed=removed,
+        notes="rule_based_normalization",
+    )
 # ═══════════════════════════════════════════════════════════════════════════════
 # Pass 3: Keyword Extraction (Text-only, from structured facts)
 # ═══════════════════════════════════════════════════════════════════════════════
