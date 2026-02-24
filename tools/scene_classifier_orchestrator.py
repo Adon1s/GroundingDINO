@@ -94,113 +94,6 @@ def _make_issue_id(run_id: str, photo_key: str, description: str,
     return _stable_hash_id(run_id, photo_key, description, location_hint, label, str(ordinal), length=16)
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Property-level canonical aggregation
-# ─────────────────────────────────────────────────────────────────────────────
-
-def build_canonical_items(image_results: List["ImageAnalysisResult"]) -> List[Dict[str, Any]]:
-    """
-    Deterministic aggregation across all images for a property.
-
-    Source: r.verified_issues (post-2e truth — filtered, deduplicated, normalized).
-    Falls back to r.resolved_items only if verified_issues is empty and resolved_items
-    has entries, which covers runs that predate 2e.
-
-    Key = (catalogItemId, photo_key) — one instance per catalog item per photo.
-    Issues without a catalogItemId are skipped (unresolved observations are not
-    aggregated at the property level).
-
-    Returns a stable-ordered list of canonical instances with evidence notes.
-    """
-    instances: Dict[str, Dict[str, Any]] = {}
-    seen_evidence: set = set()
-
-    def get_or_create(instance_key: str, item_id: str, kind: str, scene: str) -> Dict[str, Any]:
-        if instance_key in instances:
-            return instances[instance_key]
-        inst = {
-            "instance_id": instance_key,       # e.g. "water_stain_ceiling::photo_034.jpg"
-            "item_id": item_id,
-            "kind": kind,
-            "scene": scene,
-            "photo_keys": [],
-            "image_paths": [],
-            "evidence_notes": [],              # list[{photo_key,image_path,issue_id,text,label}]
-        }
-        instances[instance_key] = inst
-        return inst
-
-    for r in image_results:
-        scene = (r.scene or "other").strip() or "other"
-        image_path = r.image_path
-        photo_key = _photo_key_from_path(image_path)
-
-        # Prefer verified_issues (post-2e: filtered, deduplicated, kind-guaranteed).
-        # Fall back to resolved_items for backward-compat with pre-2e runs.
-        rows = r.verified_issues if r.verified_issues else (r.resolved_items or [])
-
-        for row in rows:
-            if not isinstance(row, dict):
-                continue
-
-            # catalogItemId is the resolved catalog reference set during 2d join;
-            # resolved_item_id is the same value under its original key (resolved_items path).
-            item_id = (
-                row.get("catalogItemId")
-                or row.get("resolved_item_id")
-                or ""
-            ).strip()
-            if not item_id:
-                continue  # unresolved observation — not aggregated at property level
-
-            kind = (row.get("catalogItemKind") or row.get("resolved_kind") or row.get("kind") or "").strip() or "unknown"
-            label = (row.get("label") or "").strip()
-            issue_id = (row.get("issue_id") or "").strip()
-            text = (row.get("description") or "").strip()
-            if not text:
-                continue
-
-            instance_key = f"{item_id}::{photo_key}"
-            inst = get_or_create(instance_key, item_id=item_id, kind=kind, scene=scene)
-
-            # Aggregate photo references
-            if photo_key not in inst["photo_keys"]:
-                inst["photo_keys"].append(photo_key)
-            if image_path not in inst["image_paths"]:
-                inst["image_paths"].append(image_path)
-
-            # Evidence deduplication: prefer issue_id when present
-            if issue_id:
-                ev_key = (instance_key, issue_id)
-            else:
-                ev_key = (instance_key, image_path, text)
-
-            if ev_key in seen_evidence:
-                continue
-            seen_evidence.add(ev_key)
-
-            inst["evidence_notes"].append({
-                "photo_key": photo_key,
-                "image_path": image_path,
-                "issue_id": issue_id or None,
-                "label": label or None,
-                "text": text,
-            })
-
-    # Stable ordering: (item_id, photo_key) from instance_id, then evidence count desc for UX tie-breaking
-    out = list(instances.values())
-    out.sort(key=lambda x: (x["item_id"], x["instance_id"], -len(x["photo_keys"])))
-
-    # Add informational counts
-    for inst in out:
-        inst["counts"] = {
-            "photos": len(inst["photo_keys"]),
-            "evidence_notes": len(inst["evidence_notes"]),
-        }
-
-    return out
-
-
 @dataclass
 class ImageAnalysisResult:
     """Complete analysis result for a single image."""
@@ -289,27 +182,6 @@ class ImageAnalysisResult:
             "total_pass_time": self.total_pass_time,
             "processing_time": self.processing_time,
             "debug": self.debug,
-        }
-
-
-@dataclass
-class PropertyAnalysisResult:
-    """Complete analysis result for a property (all images)."""
-    property_key: str
-    image_results: List[ImageAnalysisResult] = field(default_factory=list)
-    total_processing_time: float = 0.0
-    # Property-level canonical rollup (populated by analyze_property)
-    canonical_items: List[Dict[str, Any]] = field(default_factory=list)
-
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "property_key": self.property_key,
-            "total_processing_time": self.total_processing_time,
-            "images": {
-                (r.photo_key or Path(r.image_path).name): r.to_dict()
-                for r in self.image_results
-            },
-            "canonical_items": self.canonical_items,
         }
 
 
@@ -1028,67 +900,6 @@ class SceneClassifierOrchestrator:
             f"Completed {image_path.name}: scene={result.scene}, "
             f"forward_obs={len(result.labeled_forward)}, "
             f"time={result.processing_time:.1f}s (LLM={result.total_pass_time:.1f}s)"
-        )
-
-        return result
-
-    async def analyze_property(
-        self,
-        property_key: str,
-        image_paths: List[Path],
-        options: Optional[SceneClassifierRunOptions] = None,
-        on_progress: Optional[callable] = None,
-    ) -> PropertyAnalysisResult:
-        """
-        Run analysis on all images for a property.
-
-        Args:
-            property_key: Property identifier
-            image_paths: List of image paths to analyze
-            options: Run options
-            on_progress: Optional callback for progress updates
-
-        Returns:
-            PropertyAnalysisResult with all image results
-        """
-        import time
-        start_time = time.time()
-
-        options = options or SceneClassifierRunOptions()
-
-        logger.info(f"Analyzing property {property_key}: {len(image_paths)} images")
-        logger.info(describe_run_plan(options))
-
-        result = PropertyAnalysisResult(property_key=property_key)
-
-        # Analyze each image
-        for i, image_path in enumerate(image_paths):
-            if on_progress:
-                on_progress({
-                    'itemsDone': i,
-                    'itemsTotal': len(image_paths),
-                    'currentImage': image_path.name,
-                })
-
-            image_result = await self.analyze_image(image_path, options)
-            result.image_results.append(image_result)
-
-        result.total_processing_time = time.time() - start_time
-
-        # Build property-level canonical rollup
-        result.canonical_items = build_canonical_items(result.image_results)
-
-        if on_progress:
-            on_progress({
-                'itemsDone': len(image_paths),
-                'itemsTotal': len(image_paths),
-                'status': 'complete',
-            })
-
-        logger.info(
-            f"Completed property {property_key}: "
-            f"{len(result.image_results)} images, "
-            f"time={result.total_processing_time:.1f}s"
         )
 
         return result

@@ -44,13 +44,6 @@ except ImportError:
     print("ERROR: pipeline_config.py not found!")
     sys.exit(1)
 
-# Import renovation cost table from dedicated module
-try:
-    from tools.renovation_costs import RENOVATION_COST_TABLE
-except ImportError:
-    print("WARNING: renovation_costs.py not found, using empty cost table")
-    RENOVATION_COST_TABLE = {}
-
 # Import defect events layer
 try:
     from tools.defect_events import build_defect_events, generate_work_items, build_search_index
@@ -244,13 +237,6 @@ else:
 
 ISSUE_CATALOG_PATH = Path(getattr(cfg, "ISSUE_CATALOG_PATH", default_catalog_path))
 
-SEVERITY_RANK = {
-    "none": 0,
-    "minor_repair": 1,
-    "moderate_repair": 2,
-    "full_replacement": 3,
-}
-
 # Valid detection backends (canonical names)
 VALID_BACKENDS = {"groundingdino", "dinox"}
 
@@ -330,123 +316,6 @@ class PropertyAnalysisJob:
     parameters: Dict[str, Any]
 
 
-def _worst_severity(current: str, new: str) -> str:
-    if SEVERITY_RANK.get(new, 0) > SEVERITY_RANK.get(current, 0):
-        return new
-    return current
-
-
-def _parse_catalog_flag(flag: Any) -> Tuple[str, str, str]:
-    """Normalize catalog flag inputs from dicts or dataclass-like objects."""
-
-    if isinstance(flag, dict):
-        present = str(flag.get("present", "")).lower() or "uncertain"
-        evidence = str(flag.get("evidence", ""))
-        severity = str(flag.get("severity", "none")).lower() or "none"
-    else:
-        present = str(getattr(flag, "present", "uncertain") or "uncertain").lower()
-        evidence = str(getattr(flag, "evidence", ""))
-        severity = str(getattr(flag, "severity", "none") or "none").lower()
-
-    if present != "yes":
-        severity = "none"
-
-    return present, severity, evidence
-
-
-def build_renovation_needs(job: "PropertyAnalysisJob", issue_catalog: Optional[Dict[str, Any]] = None) -> Dict[
-    str, Any]:
-    """
-    Aggregate per-photo catalog_flags + severity into a property-level
-    renovation_needs structure.
-
-    Args:
-        job: PropertyAnalysisJob with results
-        issue_catalog: Issue catalog to use
-    """
-    catalog = issue_catalog or {}
-
-    issue_meta: Dict[str, Dict[str, str]] = {}
-    for item in catalog.get("items", []) or []:
-        if isinstance(item, dict):
-            iid = item.get("id") or item.get("defect_id")
-            if iid:
-                issue_meta[iid] = {
-                    "name": item.get("name", iid),
-                    "category": item.get("category", "unknown"),
-                }
-
-    aggregates: Dict[str, Dict[str, Any]] = {}
-    totals_by_category: Dict[str, Dict[str, float]] = {}
-
-    for result in job.results:
-        scene_payload = (result.scene_classifier or result.scene_data) or {}
-        if not isinstance(scene_payload, dict):
-            continue
-
-        flags = scene_payload.get("catalog_flags", {}) or {}
-        photo_name = Path(result.image_path).name
-
-        for issue_id, flag in flags.items():
-            present, severity, evidence = _parse_catalog_flag(flag)
-            if present != "yes":
-                continue
-
-            meta = issue_meta.get(issue_id, {"name": issue_id, "category": "unknown"})
-            agg = aggregates.setdefault(issue_id, {
-                "issue_id": issue_id,
-                "name": meta["name"],
-                "category": meta["category"],
-                "worst_severity": "none",
-                "occurrences": 0,
-                "present_in_photos": [],
-                "sample_evidence": "",
-                "est_cost_low": 0.0,
-                "est_cost_high": 0.0,
-            })
-
-            agg["occurrences"] += 1
-            agg["present_in_photos"].append(photo_name)
-            agg["worst_severity"] = _worst_severity(agg["worst_severity"], severity)
-
-            if not agg["sample_evidence"] and evidence:
-                agg["sample_evidence"] = evidence
-
-            cost_cfg = RENOVATION_COST_TABLE.get(issue_id, {})
-            sev_cost = cost_cfg.get(severity)
-            if sev_cost:
-                low, high = sev_cost
-                agg["est_cost_low"] += low
-                agg["est_cost_high"] += high
-
-    for issue in aggregates.values():
-        cat = issue.get("category", "unknown")
-        cat_totals = totals_by_category.setdefault(cat, {
-            "est_cost_low": 0.0,
-            "est_cost_high": 0.0,
-        })
-        cat_totals["est_cost_low"] += issue["est_cost_low"]
-        cat_totals["est_cost_high"] += issue["est_cost_high"]
-
-    grand_low = sum(cat.get("est_cost_low", 0.0) for cat in totals_by_category.values())
-    grand_high = sum(cat.get("est_cost_high", 0.0) for cat in totals_by_category.values())
-
-    issues_sorted = sorted(
-        aggregates.values(),
-        key=lambda x: x.get("est_cost_high", 0.0),
-        reverse=True,
-    )
-
-    return {
-        "issues": issues_sorted,
-        "totals_by_category": totals_by_category,
-        "grand_total": {
-            "est_cost_low": grand_low,
-            "est_cost_high": grand_high,
-        },
-    }
-
-
 # ── Auto-Analyzer Class ──────────────────────────────────────────────────────
 class AutoAnalyzer:
     def __init__(self,
@@ -456,7 +325,6 @@ class AutoAnalyzer:
                  text_threshold: float = None,
                  chip_margin: float = None,
                  max_keywords: int = None,
-                 include_conditions: bool = None,
                  skip_verification: bool = None,
                  debug: bool = None,
                  detection_backend: Optional[str] = None,
@@ -473,7 +341,6 @@ class AutoAnalyzer:
         self.text_threshold = text_threshold if text_threshold is not None else cfg.TEXT_THRESHOLD
         self.chip_margin = chip_margin if chip_margin is not None else cfg.CHIP_MARGIN
         self.max_keywords = max_keywords if max_keywords is not None else cfg.MAX_KEYWORDS
-        self.include_conditions = include_conditions if include_conditions is not None else cfg.INCLUDE_CONDITIONS
         self.skip_verification = skip_verification if skip_verification is not None else cfg.SKIP_VERIFICATION
         self.debug = debug if debug is not None else cfg.DEBUG_MODE
 
@@ -601,10 +468,7 @@ class AutoAnalyzer:
                     candidate_provider = _embeddings_candidate_provider
                     logger.info("Candidate provider: kind-aware, scene-group-gated embeddings")
 
-                # Wrap to normalize signature + output shape
-                if candidate_provider is not None:
-                    candidate_provider = self._wrap_candidate_provider(candidate_provider)
-                else:
+                if candidate_provider is None:
                     logger.info("No candidate provider available — 2d will skip (no embeddings matcher)")
 
                 # ✅ Give orchestrator candidate_provider (catalog flows through provider, not directly)
@@ -653,208 +517,6 @@ class AutoAnalyzer:
             # Standard profile: use defaults
             self.summary_model = getattr(cfg, "SUMMARY_MODEL", None)
             logger.info(f"Using STANDARD analysis profile (max_keywords={self.max_keywords})")
-
-    @staticmethod
-    def _toggle(options, key: str, default: bool = True) -> bool:
-        """Robustly read a pass toggle from run_options, handling dict/dataclass/object."""
-        t = getattr(options, "toggles", None) if options else None
-        if t is None:
-            return default
-        if isinstance(t, dict):
-            return bool(t.get(key, default))
-        # dataclass / object: try exact, then common naming patterns
-        for name in (key, f"p{key}", f"_{key}", key.replace("-", "_")):
-            if hasattr(t, name):
-                return bool(getattr(t, name))
-        return default
-
-    @staticmethod
-    def _normalize_candidate(item: dict) -> dict:
-        """Normalize a raw catalog item into the shape run_pass_2d and orchestrator expect.
-
-        Accepts both embeddings retriever output (has item_id, score, trade_bucket)
-        and raw catalog items (has id, aliases, category).
-        """
-        item_id = item.get("item_id") or item.get("defect_id") or item.get("id") or item.get("key", "")
-        return {
-            "item_id": item_id,
-            "score": item.get("score", 1.0),
-            "name": item.get("name") or item.get("label") or item_id,
-            "category": item.get("category", ""),
-            "aliases": item.get("aliases", []),
-            "trade_bucket": item.get("trade_bucket", ""),
-            "kind": item.get("kind", ""),
-            "severity": item.get("severity", 0),
-        }
-
-    def _wrap_candidate_provider(self, raw_provider):
-        """
-        Forward-only wrapper.
-
-        Contract:
-          wrapped(query, ctx_dict) -> list[normalized_candidate]
-        We never call providers with (query, category, topk) anymore.
-        """
-
-        def wrapped(query, ctx=None, topk=8):
-            # Coerce ctx into a dict so kind/topk never get lost
-            if not isinstance(ctx, dict):
-                ctx = {}
-
-            # Allow caller override; default stays stable
-            topk_eff = int(ctx.get("top_k_candidates", topk))
-            ctx = {**ctx, "top_k_candidates": topk_eff}
-
-            result = raw_provider(query, ctx)
-
-            if not isinstance(result, list) or not result:
-                return []
-
-            # Normalize and cap
-            return [self._normalize_candidate(item) for item in result[:topk_eff]]
-
-        return wrapped
-
-    async def _call_pass_2d(self, *, model_config, items, catalog_matcher=None):
-        """
-        Run Pass 2d for each observation (defect OR upgrade), resolving to a canonical catalog item.
-
-        For each item:
-          - Read `kind` field (already set by 2c enrichment: "defect" or "upgrade")
-          - Retrieve kind-filtered candidates via embeddings from catalog_matcher
-          - Call run_pass_2d to pick the best candidate
-
-        Returns:
-            namespace with .resolved_items list and .pass_2d_results list
-        """
-        resolved_items = []
-        pass_2d_results = []
-
-        for obs in items:
-            description = obs.get("description", "") if isinstance(obs, dict) else str(obs)
-            if not description:
-                continue
-
-            # Strict: only "defect" and "upgrade" are resolvable kinds
-            kind = (obs.get("kind") or "").strip().lower() if isinstance(obs, dict) else ""
-            if kind not in {"defect", "upgrade"}:
-                continue
-
-            # Derive scene group — always go through SCENE_TO_GROUP_UI so raw scene IDs
-            # (e.g. "living_room") get mapped to group IDs (e.g. "living_areas") before
-            # being passed to the retriever. Falling back to a raw scene id would silently
-            # miss the _idx_by_group lookup and disable gating.
-            scene_group = obs.get("scene_group")
-            if not scene_group:
-                scene_id = obs.get("scene")
-                scene_group = SCENE_TO_GROUP_UI.get(scene_id) if scene_id else None
-            allowed_groups = {scene_group} if scene_group else None
-
-            logger.debug(
-                f"2d gating: issue_id={obs.get('issue_id','?')[:8]} "
-                f"kind={kind} scene_group={scene_group} allowed_groups={allowed_groups}"
-            )
-
-            # Get kind-filtered + group-gated candidates via embeddings
-            candidates = []
-            if catalog_matcher:
-                raw_cands = []
-                try:
-                    if kind == "upgrade":
-                        raw_cands = catalog_matcher.embeddings_retrieve_upgrade_candidates(
-                            description, topk=8, allowed_groups=allowed_groups
-                        )
-                    else:
-                        raw_cands = catalog_matcher.embeddings_retrieve_defect_candidates(
-                            description, topk=8, allowed_groups=allowed_groups
-                        )
-
-                    logger.debug(f"2d gating: returned {len(raw_cands)} candidates")
-
-                    candidates = [
-                        {
-                            "item_id": c.item_id,
-                            "name": c.name,
-                            "kind": c.kind,
-                            "trade_bucket": c.trade_bucket,
-                            "scene_groups": list(c.scene_groups),
-                            # score/severity omitted — not persisted
-                        }
-                        for c in raw_cands
-                    ]
-                except Exception as e:
-                    sample = None
-                    try:
-                        if raw_cands:
-                            c0 = raw_cands[0]
-                            sample = {
-                                "type": type(c0).__name__,
-                                "module": getattr(type(c0), "__module__", None),
-                                "dict": getattr(c0, "__dict__", None),
-                                "repr": repr(c0)[:300],
-                                "has_attrs": {
-                                    "item_id": hasattr(c0, "item_id"),
-                                    "id": hasattr(c0, "id"),
-                                    "defect_id": hasattr(c0, "defect_id"),
-                                    "upgrade_id": hasattr(c0, "upgrade_id"),
-                                    "trade_bucket": hasattr(c0, "trade_bucket"),
-                                    "score": hasattr(c0, "score"),
-                                    "name": hasattr(c0, "name"),
-                                    "kind": hasattr(c0, "kind"),
-                                },
-                            }
-                    except Exception as e2:
-                        sample = {"sample_error": str(e2)}
-                    logger.warning(f"2d diag: embeddings retrieval failed for {kind}: {e}; sample={sample}")
-
-            if not isinstance(candidates, list) or not candidates:
-                logger.info(f"2d diag: no {kind} candidates for observation: {description[:80]}")
-                continue
-
-            # Call run_pass_2d with kind parameter
-            try:
-                pass_2d_result = await run_pass_2d(
-                    vlm_client=self.vlm_client,
-                    model_config=model_config,
-                    observation=description,
-                    candidates=candidates,
-                    kind=kind,
-                )
-                pass_2d_results.append(pass_2d_result)
-
-                # Extract resolved ID — tolerate both dict and dataclass
-                if isinstance(pass_2d_result, dict):
-                    # Dict path: LLM response might use legacy keys
-                    rid = (pass_2d_result.get("resolved_item_id")
-                           or pass_2d_result.get("resolved_defect_id")
-                           or pass_2d_result.get("defect_id"))
-                    raw = pass_2d_result.get("raw_response", "")
-                else:
-                    # Dataclass path: canonical field only
-                    rid = getattr(pass_2d_result, "resolved_item_id", None)
-                    raw = getattr(pass_2d_result, "raw_response", "")
-
-                top_candidate = candidates[0] if candidates else None
-                resolved_items.append({
-                    "issue_id": obs.get("issue_id") if isinstance(obs, dict) else None,
-                    "description": description,
-                    "label": obs.get("label", "") if isinstance(obs, dict) else "",
-                    "kind": kind,
-                    "resolved_item_id": rid,
-                    "resolved_kind": kind,
-                    "top_candidate_trade_bucket": top_candidate.get("trade_bucket") if top_candidate else None,
-                    "raw_response": raw,
-                })
-            except Exception as e:
-                logger.warning(f"  Pass 2d failed for {kind} observation: {e}")
-
-        # Return namespace-like object for backward compat
-        class _Result:
-            pass
-        r = _Result()
-        r.resolved_items = resolved_items
-        r.pass_2d_results = pass_2d_results
-        return r
 
     def _get_model_config_for_pass(self, pass_key: str) -> Dict[str, Any]:
         """
@@ -1130,10 +792,7 @@ class AutoAnalyzer:
             self, image_path: Path
     ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str], Dict[str, Any]]:
         """
-        Classify the scene type and get keywords for detection.
-
-        ✅ FIXED: Now properly routes through orchestrator or direct pass calls.
-        No more subprocess to non-existent scene_classifier.py.
+        Classify the scene type and get keywords for detection via orchestrator.
 
         Returns:
             Tuple of (scene, reasoning, keywords, grounding_prompt, planner_targets,
@@ -1141,43 +800,28 @@ class AutoAnalyzer:
         """
         logger.info(f"Classifying scene: {image_path.name}")
 
-        # Priority 1: Use orchestrator if pass architecture is enabled and working
-        if self.use_pass_architecture and self.orchestrator:
-            try:
-                logger.info(f"  Using orchestrator (premium={self.run_options.premium})")
-                out = self._classify_scene_with_orchestrator(image_path)
-                scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload = out
-                planner_hints = self._maybe_backfill_planner_hints(scene, planner_hints)
-                if isinstance(payload, dict):
-                    payload["planner_hints"] = planner_hints
-                return (scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload)
-            except Exception as e:
-                logger.warning(f"  Orchestrator failed: {e}, trying direct pass calls")
+        if not (self.use_pass_architecture and self.orchestrator):
+            error_msg = "Orchestrator not available (pass architecture disabled or orchestrator not initialized)"
+            logger.error(error_msg)
+            empty_payload = self._scene_classifier_payload(
+                None, scene_override="unknown", error=error_msg
+            )
+            return "unknown", error_msg, [], "", [], {}, empty_payload
 
-        # Priority 2: Direct pass function calls (works with or without premium)
-        if VLM_CLIENT_AVAILABLE and self.vlm_client:
-            try:
-                logger.info(f"  Using direct pass calls (profile={self.analysis_profile})")
-                out = self._classify_scene_direct(image_path)
-                scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload = out
-                planner_hints = self._maybe_backfill_planner_hints(scene, planner_hints)
-                if isinstance(payload, dict):
-                    payload["planner_hints"] = planner_hints
-                return (scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload)
-            except Exception as e:
-                logger.error(f"  Direct pass calls failed: {e}")
-                # Return error result
-                empty_payload = self._scene_classifier_payload(
-                    None, scene_override="unknown", error=str(e)
-                )
-                return "unknown", str(e), [], "", [], {}, empty_payload
-
-        # Priority 3: No VLM available - cannot classify
-        logger.error("No scene classification method available (VLM client not initialized)")
-        empty_payload = self._scene_classifier_payload(
-            None, scene_override="unknown", error="No VLM client available"
-        )
-        return "unknown", "No VLM client available", [], "", [], {}, empty_payload
+        try:
+            logger.info(f"  Using orchestrator (premium={self.run_options.premium})")
+            out = self._classify_scene_with_orchestrator(image_path)
+            scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload = out
+            planner_hints = self._maybe_backfill_planner_hints(scene, planner_hints)
+            if isinstance(payload, dict):
+                payload["planner_hints"] = planner_hints
+            return (scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload)
+        except Exception as e:
+            logger.error(f"  Orchestrator failed: {e}", exc_info=True)
+            empty_payload = self._scene_classifier_payload(
+                None, scene_override="unknown", error=str(e)
+            )
+            return "unknown", str(e), [], "", [], {}, empty_payload
 
     def _classify_scene_with_orchestrator(
             self, image_path: Path
@@ -1211,482 +855,6 @@ class AutoAnalyzer:
         # Convert orchestrator result to expected tuple format
         return self._parse_orchestrator_result(result)
 
-    def _classify_scene_direct(
-            self, image_path: Path
-    ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str], Dict[str, Any]]:
-        """
-        Run scene classification using direct pass function calls.
-
-        ✅ This is the fallback when orchestrator isn't available but VLM client is.
-        Still supports premium routing through _get_model_config_for_pass().
-        """
-
-        async def run_passes():
-            results = {
-                'scene': 'unknown',
-                'reasoning': '',
-                'overall_impression': '',
-                'image_summary': '',
-                'notable_features': [],
-                'feature_notes': '',
-                'positives_notes': '',  # legacy alias
-                'observations_freeform': '',
-                'keywords': [],
-                'catalog_flags': {},
-                'issues_natural_language': [],
-                'verified_issues': [],
-                'passes': {},  # Store per-pass outputs
-                'models_used': {},  # Track which model was used for each pass
-                'pass_timings': {},  # Track per-pass execution time in seconds
-            }
-            context = {}
-
-            # Pass 1a: Scene Type (always Qwen)
-            model_config_1a = self._get_model_config_for_pass('1a')
-            logger.debug(f"  Pass 1a using model: {model_config_1a.get('model')}")
-            results['models_used']['1a'] = model_config_1a.get('model')
-
-            t0 = time.time()
-            try:
-                pass_1a = await run_pass_1a_scene_type(
-                    image_path=image_path,
-                    vlm_client=self.vlm_client,
-                    model_config=model_config_1a,
-                )
-                results['scene'] = pass_1a.scene
-                results['reasoning'] = pass_1a.reasoning or ''
-                context['scene'] = pass_1a.scene
-
-                # Store Pass 1a output
-                results['passes']['1a'] = {
-                    'scene': pass_1a.scene,
-                    'confidence': None,  # scene_confidence retired
-                    'reasoning': pass_1a.reasoning,
-                }
-            except Exception as e:
-                logger.warning(f"  Pass 1a failed: {e}")
-            results['pass_timings']['1a'] = round(time.time() - t0, 3)
-
-            # Pass 1b: Feature/Market Appeal notes (FREEFORM; GPT in premium)
-            model_config_1b = self._get_model_config_for_pass('1b')
-            logger.debug(f"  Pass 1b using model: {model_config_1b.get('model')}")
-            results['models_used']['1b'] = model_config_1b.get('model')
-
-            feature_notes = ""
-            t0 = time.time()
-            try:
-                pass_1b = await run_pass_1b_feature_notes(
-                    image_path=image_path,
-                    vlm_client=self.vlm_client,
-                    model_config=model_config_1b,
-                    context=context,
-                )
-                feature_notes = pass_1b.feature_notes
-                results['feature_notes'] = feature_notes
-                results['positives_notes'] = feature_notes  # legacy alias
-
-                # Store Pass 1b output
-                results['passes']['1b'] = {
-                    'feature_notes': feature_notes,
-                    'positives_notes': feature_notes,  # legacy alias
-                }
-            except Exception as e:
-                logger.warning(f"  Pass 1b failed: {e}")
-            results['pass_timings']['1b'] = round(time.time() - t0, 3)
-
-            # Pass 1c: Feature notes -> JSON structuring (text-only)
-            model_config_1c = self._get_model_config_for_pass('1c')
-            logger.debug(f"  Pass 1c using model: {model_config_1c.get('model')}")
-            results['models_used']['1c'] = model_config_1c.get('model')
-
-            t0 = time.time()
-            try:
-                pass_1c = await run_pass_1c_feature_structuring(
-                    vlm_client=self.vlm_client,
-                    model_config=model_config_1c,
-                    feature_notes=feature_notes,
-                )
-                results['notable_features'] = pass_1c.notable_features or []
-                results['overall_impression'] = getattr(pass_1c, 'overall_impression', '') or ''
-                results['image_summary'] = getattr(pass_1c, 'image_summary', '') or ''
-                context['notable_features'] = results['notable_features']
-
-                # Store Pass 1c output
-                results['passes']['1c'] = {
-                    'overall_impression': results['overall_impression'],
-                    'image_summary': results['image_summary'],
-                    'notable_features': results['notable_features'],
-                }
-            except Exception as e:
-                logger.warning(f"  Pass 1c failed: {e}")
-            results['pass_timings']['1c'] = round(time.time() - t0, 3)
-
-            # Pass 2a: Issue Detection - freeform notes (GPT in premium)
-            model_config_2a = self._get_model_config_for_pass('2a')
-            logger.debug(f"  Pass 2a using model: {model_config_2a.get('model')}")
-            results['models_used']['2a'] = model_config_2a.get('model')
-
-            obs_freeform = ""
-            t0 = time.time()
-            try:
-                pass_2a = await run_pass_2a(
-                    image_path=image_path,
-                    vlm_client=self.vlm_client,
-                    model_config=model_config_2a,
-                    context=context,
-                )
-                obs_freeform = pass_2a.observations_freeform
-                results['observations_freeform'] = obs_freeform
-
-                # Store Pass 2a output
-                results['passes']['2a'] = {
-                    'observations_freeform': obs_freeform,
-                }
-            except Exception as e:
-                logger.warning(f"  Pass 2a failed: {e}")
-            results['pass_timings']['2a'] = round(time.time() - t0, 3)
-
-            # Pass 2b: Freeform to JSON conversion (always Qwen)
-            model_config_2b = self._get_model_config_for_pass('2b')
-            logger.debug(f"  Pass 2b using model: {model_config_2b.get('model')}")
-            results['models_used']['2b'] = model_config_2b.get('model')
-
-            observations: List[Dict[str, Any]] = []
-            t0 = time.time()
-            try:
-                pass_2b = await run_pass_2b(
-                    vlm_client=self.vlm_client,
-                    model_config=model_config_2b,
-                    observations_freeform=obs_freeform,
-                )
-                observations = pass_2b.observations or []
-                results['observations'] = observations
-
-                # Store Pass 2b output
-                results['passes']['2b'] = {
-                    'observations': observations,
-                }
-            except Exception as e:
-                logger.warning(f"  Pass 2b failed: {e}")
-            results['pass_timings']['2b'] = round(time.time() - t0, 3)
-
-            # Pass 2c: Issue classification + labeling (always Qwen, text-only)
-            model_config_2c = self._get_model_config_for_pass('2c')
-            logger.debug(f"  Pass 2c using model: {model_config_2c.get('model')}")
-            results['models_used']['2c'] = model_config_2c.get('model')
-
-            labeled_debug: List[Dict[str, Any]] = []
-            labeled_forward: List[Dict[str, Any]] = []
-            t0 = time.time()
-            try:
-                pass_2c = await run_pass_2c(
-                    vlm_client=self.vlm_client,
-                    model_config=model_config_2c,
-                    observations=observations,
-                )
-                labeled_debug = pass_2c.labeled_debug or []
-                labeled_forward = pass_2c.labeled_forward or []
-
-                # Enrich forward items to keep downstream schema happy.
-                # Classify kind based on label: only "defect" and "upgrade" are valid kinds.
-                _UPGRADE_LABELS = {
-                    "opportunity", "upgrade", "improvement", "cosmetic_upgrade",
-                    "feature", "upgrade_candidate",
-                }
-
-                def _label_to_kind(lbl: str) -> str:
-                    return "upgrade" if (lbl or "").strip().lower() in _UPGRADE_LABELS else "defect"
-
-                # Stamp deterministic issue_id on each forward item right here, before 2d runs,
-                # so 2d can carry it and the join-back works by ID not description.
-                _run_id = getattr(self, "_active_run_id", "") or ""
-                _photo_key_2c = image_path.name
-                _sig_counts_2c: Dict[Tuple[str, str, str], int] = {}
-                # Scene available from Pass 1a — resolve to group now so 2d gating works immediately.
-                _scene_2c = context.get("scene") or results.get("scene") or "unknown"
-                _scene_group_2c = SCENE_TO_GROUP_UI.get(_scene_2c, "other")
-
-                forward_enriched = []
-                for x in labeled_forward:
-                    if not (isinstance(x, dict) and x.get("description")):
-                        continue
-                    _desc = (x.get("description") or "").strip()
-                    _lbl = (x.get("label") or "").strip()
-                    _loc = (x.get("location_hint") or "").strip()
-                    _sig = (_desc, _loc, _lbl)
-                    _ord = _sig_counts_2c.get(_sig, 0)
-                    _sig_counts_2c[_sig] = _ord + 1
-                    forward_enriched.append({
-                        "issue_id": x.get("issue_id") or _make_issue_id(_run_id, _photo_key_2c, _desc, _loc, _lbl, _ord),
-                        "description": _desc,
-                        "label": _lbl,
-                        "location_hint": _loc,
-                        "rough_category": "",  # deprecated — keep empty for schema compatibility
-                        "kind": _label_to_kind(_lbl),  # defect|upgrade only
-                        "source_photo_key": _photo_key_2c,
-                        "scene": _scene_2c,
-                        "scene_group": _scene_group_2c,
-                    })
-
-                results['labeled_debug'] = labeled_debug
-                results['labeled_forward'] = forward_enriched
-                results['catalog_flags'] = {}  # embeddings owns this, not passes
-
-                # Bridge to legacy fields for downstream compatibility
-                results['issues_natural_language'] = forward_enriched
-                results['verified_issues'] = forward_enriched
-
-                # Store Pass 2c output
-                results['passes']['2c'] = {
-                    'labeled_debug': labeled_debug,
-                    'labeled_forward': forward_enriched,
-                    'verified_issues': forward_enriched,           # ✅ downstream reads this
-                    'issues_natural_language': forward_enriched,   # ✅ fallback key for compatibility
-                }
-            except Exception as e:
-                logger.warning(f"  Pass 2c failed: {e}")
-                # Fallback: bridge observations directly with minimal normalization
-                fallback_issues = [
-                    {"description": x.get("description", ""), "label": "", "rough_category": "", "location_hint": "", "kind": "defect"}
-                    for x in observations if isinstance(x, dict) and x.get("description")
-                ]
-                results['labeled_debug'] = []
-                results['labeled_forward'] = fallback_issues
-                results['issues_natural_language'] = fallback_issues
-                results['verified_issues'] = fallback_issues
-            results['pass_timings']['2c'] = round(time.time() - t0, 3)
-
-            # Pass 2d: Catalog Resolution (optional, defects + upgrades)
-            # Gating: run if toggles allow and there are resolvable items
-            toggle_2d = self._toggle(self.run_options, "2d", default=True)
-
-            all_forward = results.get('labeled_forward', []) or []
-            # Gate on `kind` (the semantic field we control) rather than `label` (LLM output)
-            # Exclude safety/good_condition/generic_presence — only defects and upgrades are resolvable
-            resolvable_items = [
-                x for x in all_forward
-                if isinstance(x, dict)
-                and x.get("kind") in {"defect", "upgrade"}
-                and x.get("description")
-            ]
-            has_items = len(resolvable_items) > 0
-
-            # 2d needs embeddings matcher — no catalog-only fallback (forward-only)
-            has_resolver = self.catalog_matcher is not None
-
-            # Debug gate status
-            catalog_item_count = len(self.issue_catalog.get("items", []) or []) if self.issue_catalog else 0
-            defect_count = len([x for x in resolvable_items if x.get("kind") == "defect"])
-            upgrade_count = len([x for x in resolvable_items if x.get("kind") == "upgrade"])
-            logger.info(
-                f"  Pass 2d gate: toggle_2d={toggle_2d}, has_items={has_items} "
-                f"(defects={defect_count}, upgrades={upgrade_count}, total={len(all_forward)}), "
-                f"has_resolver={has_resolver}, catalog_items={catalog_item_count}"
-            )
-
-            if toggle_2d and has_items and has_resolver:
-                model_config_2d = self._get_model_config_for_pass('2d')
-                logger.info(f"  Pass 2d using model: {model_config_2d.get('model')}")
-                results['models_used']['2d'] = model_config_2d.get('model')
-
-                t0 = time.time()
-                try:
-                    pass_2d = await self._call_pass_2d(
-                        model_config=model_config_2d,
-                        items=resolvable_items,
-                        catalog_matcher=self.catalog_matcher,
-                    )
-                    resolved = pass_2d.resolved_items if hasattr(pass_2d, 'resolved_items') else []
-                    resolved = resolved or []
-                    results['resolved_items'] = resolved
-
-                    results['passes']['2d'] = {
-                        'resolutions': resolved,
-                        'resolved_items': resolved,
-                    }
-                    logger.info(f"  Pass 2d completed: {len(resolved)} resolutions")
-
-                    # ── Join 2d results back into verified_issues ──
-                    # Build catalog item lookup for deterministic trade bucket resolution
-                    catalog_items_by_id: Dict[str, Dict[str, Any]] = {}
-                    for cat_item in (self.issue_catalog.get("items", []) or []):
-                        if isinstance(cat_item, dict):
-                            cid = cat_item.get("defect_id") or cat_item.get("upgrade_id") or cat_item.get("id") or ""
-                            if cid:
-                                catalog_items_by_id[cid] = cat_item
-
-                    bucket_name_map = self._build_trade_bucket_name_map()
-
-                    # Index resolutions by issue_id for joining (stable, no cross-wiring on duplicates)
-                    resolution_by_id: Dict[str, Dict[str, Any]] = {}
-                    for res in resolved:
-                        if isinstance(res, dict) and res.get("issue_id"):
-                            resolution_by_id[str(res["issue_id"])] = res
-
-                    verified = results.get('verified_issues', []) or []
-                    for issue in verified:
-                        if not isinstance(issue, dict):
-                            continue
-                        iid = issue.get("issue_id")
-                        res = resolution_by_id.get(str(iid)) if iid else None
-                        if res and res.get("resolved_item_id"):
-                            rid = res["resolved_item_id"]
-                            cat_entry = catalog_items_by_id.get(rid, {})
-                            tb_id = cat_entry.get("trade_bucket", "")
-
-                            issue["catalogItemId"] = rid
-                            issue["catalogItemName"] = cat_entry.get("name", rid)
-                            issue["catalogItemKind"] = res.get("resolved_kind") or None
-                            issue["tradeBucketId"] = tb_id or None
-                            issue["tradeBucketName"] = bucket_name_map.get(tb_id, tb_id) if tb_id else None
-                        else:
-                            # No resolution — null out fields for consistent schema
-                            issue.setdefault("catalogItemId", None)
-                            issue.setdefault("catalogItemName", None)
-                            issue.setdefault("catalogItemKind", None)
-                            issue.setdefault("tradeBucketId", None)
-                            issue.setdefault("tradeBucketName", None)
-
-                        # Remove ranking/scoring fields — not persisted in stored outputs
-                        issue.pop("topCandidateScore", None)
-                        issue.pop("top_candidate_score", None)
-
-                    # Sync all downstream fields
-                    results['verified_issues'] = verified
-                    results['issues_natural_language'] = verified
-                    if isinstance(results.get('passes', {}).get('2c'), dict):
-                        results['passes']['2c']['verified_issues'] = verified
-                        results['passes']['2c']['issues_natural_language'] = verified
-
-                except Exception as e:
-                    logger.warning(f"  Pass 2d failed: {e}")
-                    results['passes']['2d'] = {'resolutions': [], 'resolved_items': [], 'error': str(e)}
-                    results['resolved_items'] = []
-                    # Fallback: use embeddings-only annotation when 2d fails
-                    verified = results.get('verified_issues', []) or []
-                    verified = self._annotate_verified_issues_with_embeddings(verified)
-                    results['verified_issues'] = verified
-                    results['issues_natural_language'] = verified
-                results['pass_timings']['2d'] = round(time.time() - t0, 3)
-            else:
-                skip_reasons = []
-                if not toggle_2d:
-                    skip_reasons.append("toggle off")
-                if not has_items:
-                    skip_reasons.append("no resolvable items in labeled_forward")
-                if not has_resolver:
-                    skip_reasons.append("no catalog matcher or catalog")
-                logger.info(f"  Pass 2d skipped: {', '.join(skip_reasons)}")
-                results['passes']['2d'] = {'resolutions': [], 'skipped': True, 'skip_reasons': skip_reasons}
-                results['resolved_items'] = []
-
-                # Fallback: use embeddings-only annotation when 2d is skipped
-                verified = results.get('verified_issues', []) or []
-                verified = self._annotate_verified_issues_with_embeddings(verified)
-                results['verified_issues'] = verified
-                results['issues_natural_language'] = verified
-
-            # ─────────────────────────────────────────────────────────────────
-            # Pass 2e: Normalize / Filter / Deduplicate Verified Issues
-            # ─────────────────────────────────────────────────────────────────
-            toggle_2e = self._toggle(self.run_options, "2e", default=True)
-            if toggle_2e:
-                model_config_2e = self._get_model_config_for_pass("2e")
-                t0 = time.time()
-                try:
-                    _input_issues = results.get("verified_issues", []) or []
-                    pass_2e = await run_pass_2e(
-                        vlm_client=self.vlm_client,
-                        model_config=model_config_2e,
-                        verified_issues=_input_issues,
-                        context=context,
-                    )
-                    final_issues = pass_2e.verified_issues or []
-                    removed = pass_2e.removed or []
-                    results["verified_issues"] = final_issues
-                    results["issues_natural_language"] = final_issues
-                    results["passes"]["2e"] = {
-                        "notes": pass_2e.notes,
-                        "input_count": len(_input_issues),
-                        "kept_count": len(final_issues),
-                        "removed_count": len(removed),
-                        "kept_issue_ids": [
-                            x["issue_id"] for x in final_issues if x.get("issue_id")
-                        ],
-                        "removed": [
-                            {
-                                "issue_id": x.get("issue_id"),
-                                "description": x.get("description", ""),
-                                "reason": x.get("removed_reason", ""),
-                            }
-                            for x in removed
-                        ],
-                    }
-                    # Keep 2c in sync so downstream reads still find the final list there
-                    if isinstance(results.get("passes", {}).get("2c"), dict):
-                        results["passes"]["2c"]["verified_issues"] = final_issues
-                        results["passes"]["2c"]["issues_natural_language"] = final_issues
-                    logger.info(
-                        f"  Pass 2e: kept={len(final_issues)} "
-                        f"removed={len(pass_2e.removed or [])} "
-                        f"notes={pass_2e.notes}"
-                    )
-                except Exception as exc:
-                    logger.warning(f"  Pass 2e failed: {exc}")
-                    results["passes"]["2e"] = {"error": str(exc)}
-                results["pass_timings"]["2e"] = round(time.time() - t0, 3)
-            else:
-                results["passes"]["2e"] = {"skipped": True}
-
-            # Pass 3: Keyword Extraction (text-only, always Qwen)
-            model_config_3 = self._get_model_config_for_pass('3')
-            logger.debug(f"  Pass 3 using model: {model_config_3.get('model')}")
-            results['models_used']['3'] = model_config_3.get('model')
-
-            t0 = time.time()
-            try:
-                # Pass 3 context must match new Pass 3 prompt expectations
-                context["scene"] = results.get("scene", "property")
-                context["features_struct"] = {
-                    "overall_impression": results.get("overall_impression", ""),
-                    "image_summary": results.get("image_summary", ""),
-                    "notable_features": results.get("notable_features", []),
-                }
-                context["observations"] = observations
-                context["labeled_forward"] = results.get("labeled_forward", [])
-
-                pass_3 = await run_pass_3_keyword_extraction(
-                    vlm_client=self.vlm_client,
-                    model_config=model_config_3,
-                    context=context,
-                    max_keywords=self.max_keywords,
-                )
-                results['keywords'] = pass_3.keywords
-                results['keyword_categories'] = pass_3.keyword_categories
-
-                # Store Pass 3 output
-                results['passes']['3'] = {
-                    'keywords': pass_3.keywords,
-                    'categories': pass_3.keyword_categories,
-                }
-            except Exception as e:
-                logger.warning(f"  Pass 3 failed: {e}")
-            results['pass_timings']['3'] = round(time.time() - t0, 3)
-
-            # Compute total LLM time
-            results['total_pass_time'] = round(sum(results['pass_timings'].values()), 3)
-
-            return results
-
-        # Run async passes
-        loop = asyncio.new_event_loop()
-        try:
-            results = loop.run_until_complete(run_passes())
-        finally:
-            loop.close()
-
-        return self._parse_direct_results(results)
-
     def _parse_orchestrator_result(
             self, result: Any
     ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str], Dict[str, Any]]:
@@ -1701,7 +869,6 @@ class AutoAnalyzer:
 
         scene = data.get("scene", "unknown")
         reasoning = ""
-        confidence = None  # scene_confidence retired
         if hasattr(result, 'pass_1a') and result.pass_1a:
             reasoning = result.pass_1a.reasoning or ""
 
@@ -1719,15 +886,15 @@ class AutoAnalyzer:
         targets = []
         planner_hints: Dict[str, str] = {}
 
-        # Build scene payload for backwards compatibility
+        # Build scene payload
         scene_payload = self._scene_classifier_payload(data, scene_override=scene)
         scene_payload['keywords'] = keywords
-        scene_payload['keyword_categories'] = kw_cats  # flat copy for convenience
+        scene_payload['keyword_categories'] = kw_cats
         scene_payload['overall_impression'] = data.get('overall_impression', '')
         scene_payload['image_summary'] = data.get('image_summary', '')
         scene_payload['notable_features'] = data.get('notable_features', []) or []
         scene_payload['feature_notes'] = data.get('feature_notes', '') or data.get('positives_notes', '') or ""
-        scene_payload['positives_notes'] = scene_payload['feature_notes']  # legacy alias
+        scene_payload['positives_notes'] = scene_payload['feature_notes']
         scene_payload['observations_freeform'] = data.get('observations_freeform', '') or ""
         scene_payload['groundingdino_prompt'] = prompt
         scene_payload['catalog_flags'] = data.get('catalog_flags', {})
@@ -1735,126 +902,20 @@ class AutoAnalyzer:
         scene_payload['verified_issues'] = data.get('verified_issues', [])
         scene_payload['models_used'] = data.get('models_used', {})
 
-        # Copy v2 fields through from orchestrator
-        scene_payload["observations_freeform"] = data.get("observations_freeform", "")
+        # V2 fields from orchestrator
         scene_payload["features_struct"] = data.get("features_struct", {}) or {}
         scene_payload["observations_struct"] = data.get("observations_struct", {}) or {}
         scene_payload["labeled_debug"] = data.get("labeled_debug", []) or []
         scene_payload["labeled_forward"] = data.get("labeled_forward", []) or []
         scene_payload["resolved_items"] = data.get("resolved_items", []) or []
 
-        # Keep meta
+        # Meta
         scene_payload["passes_run"] = data.get("passes_run", []) or []
         scene_payload["pass_timings"] = data.get("pass_timings", {}) or {}
         scene_payload["total_pass_time"] = data.get("total_pass_time", 0.0) or 0.0
 
-        # TEMP bridge: populate issues_natural_language for legacy paths that still read it.
-        # Only sets the legacy alias — never overwrites verified_issues, which is authoritative.
-        if scene_payload["labeled_forward"] and not scene_payload.get("issues_natural_language"):
-            scene_payload["issues_natural_language"] = [
-                {
-                    "description": x.get("description", ""),
-                    "rough_category": "",  # deprecated
-                    "location_hint": "",
-                    "label": x.get("label", ""),
-                }
-                for x in (scene_payload["labeled_forward"] or [])
-                if isinstance(x, dict) and x.get("description")
-            ]
-            # Do NOT assign to verified_issues here — it is already set from result.to_dict()
-            # above at scene_payload['verified_issues'] = data.get('verified_issues', []),
-            # which contains the post-2e output.
-
-        # Build passes dict for consistent schema - preserve orchestrator passes if present
-        existing_passes = data.get("passes")
-        if isinstance(existing_passes, dict) and existing_passes:
-            scene_payload["passes"] = existing_passes
-        else:
-            # Fallback only if orchestrator didn't provide passes.
-            # Include "2e" so save_photo_intel's priority chain (2e → 2c → ...) finds it.
-            scene_payload['passes'] = {
-                "1a": {
-                    "scene": scene,
-                    "confidence": confidence,
-                    "reasoning": reasoning,
-                },
-                "1b": {
-                    "feature_notes": scene_payload.get("feature_notes", ""),
-                    "positives_notes": scene_payload.get("positives_notes", ""),  # legacy alias
-                },
-                "1c": {
-                    "overall_impression": scene_payload.get("overall_impression", ""),
-                    "image_summary": scene_payload.get("image_summary", ""),
-                    "notable_features": scene_payload.get("notable_features", []),
-                },
-                "2a": {"observations_freeform": scene_payload.get("observations_freeform", "")},
-                "2b": {"observations": scene_payload.get("observations_struct", {}).get("observations", [])},
-                "2c": {
-                    "labeled_debug": scene_payload.get("labeled_debug", []),
-                    "labeled_forward": scene_payload.get("labeled_forward", []),
-                },
-                "2d": {"resolutions": scene_payload.get("resolved_items", [])},
-                "2e": {
-                    # Fallback only: orchestrator path now writes passes["2e"] via to_dict().
-                    # ids/counts only — full list lives at payload["verified_issues"].
-                    **({
-                        "input_count": data.get("debug", {}).get("pass_2e_summary", {}).get("input_count"),
-                        "kept_count": data.get("debug", {}).get("pass_2e_summary", {}).get("kept_count"),
-                        "removed_count": data.get("debug", {}).get("pass_2e_summary", {}).get("removed_count"),
-                        "notes": data.get("debug", {}).get("pass_2e_summary", {}).get("notes"),
-                    } if data.get("debug", {}).get("pass_2e_summary") else {}),
-                },
-                "3": {
-                    "keywords": keywords,
-                    "categories": kw_cats,
-                },
-            }
-
-        return (
-            scene,
-            reasoning,
-            keywords,
-            prompt,
-            targets,
-            planner_hints,
-            scene_payload,
-        )
-
-    def _parse_direct_results(
-            self, results: Dict[str, Any]
-    ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str], Dict[str, Any]]:
-        """Parse direct pass call results into the expected tuple format."""
-        scene = results.get('scene', 'unknown')
-        reasoning = results.get('reasoning', '')
-        keywords = results.get('keywords', []) or []
-
-        # Build grounding prompt from keywords
-        prompt = ". ".join(keywords) + "." if keywords else ""
-
-        targets = []
-        planner_hints: Dict[str, str] = {}
-
-        # Build scene payload
-        scene_payload = self._scene_classifier_payload(results, scene_override=scene)
-        scene_payload['notable_features'] = results.get('notable_features', []) or []
-        scene_payload['feature_notes'] = results.get('feature_notes', '') or results.get('positives_notes', '') or ""
-        scene_payload['positives_notes'] = scene_payload['feature_notes']  # legacy alias
-        scene_payload['observations_freeform'] = results.get('observations_freeform', '') or ""
-        scene_payload['keyword_categories'] = results.get('keyword_categories')
-        scene_payload['groundingdino_prompt'] = prompt
-
-        # Include passes dict if present
-        if results.get('passes'):
-            scene_payload['passes'] = results['passes']
-
-        # Include models_used if present
-        if results.get('models_used'):
-            scene_payload['models_used'] = results['models_used']
-
-        # ✅ Forward 2d resolved_items and pass timings
-        scene_payload['resolved_items'] = results.get('resolved_items', []) or []
-        scene_payload['pass_timings'] = results.get('pass_timings', {}) or {}
-        scene_payload['total_pass_time'] = results.get('total_pass_time', 0.0) or 0.0
+        # Passes dict from orchestrator (always provided)
+        scene_payload["passes"] = data.get("passes", {})
 
         return (
             scene,
@@ -2411,7 +1472,6 @@ class AutoAnalyzer:
                 "text_threshold": self.text_threshold,
                 "chip_margin": self.chip_margin,
                 "max_keywords": self.max_keywords,
-                "include_conditions": self.include_conditions,
                 "skip_verification": self.skip_verification,
                 "use_nms": getattr(cfg, "USE_NMS", True),
                 "use_scene_caps": getattr(cfg, "USE_SCENE_CAPS", False),
@@ -2449,75 +1509,6 @@ class AutoAnalyzer:
                     bucket_map[bid] = bname
         return bucket_map
 
-    def _annotate_verified_issues_with_embeddings(self, issues: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Annotate each verified issue with trade-bucket and catalog-match info
-        using the embeddings retriever.
-
-        For defect-labeled issues  → retrieve defect candidates
-        For upgrade-labeled issues → retrieve upgrade candidates
-        Unknown kinds              → skip (forward-only: don't guess)
-
-        Adds to each issue dict:
-          tradeBucketId, tradeBucketName, catalogItemId, catalogItemName,
-          catalogItemKind, topCandidateScore
-        """
-        if not self.catalog_matcher or not issues:
-            return issues
-
-        bucket_map = self._build_trade_bucket_name_map()
-
-        for issue in issues:
-            if not isinstance(issue, dict):
-                continue
-
-            desc = issue.get("description", "")
-            if not desc:
-                continue
-
-            # Strict: only "defect" and "upgrade" are valid kinds
-            kind = (issue.get("kind") or "").strip().lower()
-
-            # Gate retrieval to the issue's scene group so cross-room matches are impossible.
-            # scene_group is stamped during 2c enrichment; fall back to mapping raw scene if needed.
-            sg = issue.get("scene_group")
-            if not sg:
-                scene_id = issue.get("scene")
-                sg = SCENE_TO_GROUP_UI.get(scene_id) if scene_id else None
-            allowed_groups = {sg} if sg else None
-
-            candidates = []
-            if kind == "upgrade":
-                candidates = self.catalog_matcher.embeddings_retrieve_upgrade_candidates(
-                    desc, topk=1, allowed_groups=allowed_groups
-                )
-            elif kind == "defect":
-                candidates = self.catalog_matcher.embeddings_retrieve_defect_candidates(
-                    desc, topk=1, allowed_groups=allowed_groups
-                )
-            else:
-                # Forward-only: unknown kind → don't guess, leave unresolved
-                continue
-
-            if candidates:
-                top = candidates[0]
-                tb_id = top.trade_bucket or ""
-                issue["tradeBucketId"] = tb_id
-                issue["tradeBucketName"] = bucket_map.get(tb_id, tb_id)
-                issue["catalogItemId"] = top.item_id
-                issue["catalogItemName"] = top.name
-                issue["catalogItemKind"] = kind
-                issue["topCandidateScore"] = round(top.score, 4)
-            else:
-                issue["tradeBucketId"] = None
-                issue["tradeBucketName"] = None
-                issue["catalogItemId"] = None
-                issue["catalogItemName"] = None
-                issue["catalogItemKind"] = None
-                issue["topCandidateScore"] = None
-
-        return issues
-
     @staticmethod
     def _scene_classifier_payload(
             scene_data: Optional[Dict[str, Any]],
@@ -2531,73 +1522,29 @@ class AutoAnalyzer:
             payload.setdefault("scene", scene_override)
 
         payload.setdefault("scene", "unknown")
-        payload.setdefault("scene_confidence", None)  # retired but keep for schema stability
         payload.setdefault("is_staged", None)
         payload.setdefault("overall_impression", "")
         payload.setdefault("image_summary", "")
         payload.setdefault("notable_features", [])
         payload.setdefault("feature_notes", "")
-        payload.setdefault("positives_notes", "")  # legacy alias
+        payload.setdefault("positives_notes", "")
         payload.setdefault("observations_freeform", "")
         payload.setdefault("reasoning", "" if error is None else error)
-        payload.setdefault("targets", [])
-        payload.setdefault("gdino_terms", [])
         payload.setdefault("keywords", [])
         payload.setdefault("keyword_categories", None)
         payload.setdefault("groundingdino_prompt", "")
         payload.setdefault("issues_natural_language", [])
         payload.setdefault("verified_issues", [])
         payload.setdefault("catalog_flags", {})
-        payload.setdefault("issue_visual_anchors", [])
         payload.setdefault("processing_time", payload.get("processing_time"))
         payload.setdefault("pass_timings", payload.get("pass_timings", {}))
         payload.setdefault("total_pass_time", payload.get("total_pass_time", 0.0))
-        payload.setdefault("prompt_version", payload.get("prompt_version", ""))
-        payload.setdefault("scene_policy_version", payload.get("scene_policy_version", ""))
-        payload.setdefault("image", payload.get("image"))
 
         if error and not payload.get("error"):
             payload["error"] = error
         payload.setdefault("error", payload.get("error"))
 
         return payload
-
-    @staticmethod
-    def _build_photo_entry(result: ImageAnalysisResult) -> Dict[str, Any]:
-        """Create a serializable photo entry including scene classifier details."""
-        scene_payload = AutoAnalyzer._scene_classifier_payload(result.scene_classifier or result.scene_data)
-
-        return {
-            "image_path": result.image_path,
-            "scene": result.scene,
-            "is_staged": scene_payload.get("is_staged"),
-            "overall_impression": scene_payload.get("overall_impression", ""),
-            "reasoning": scene_payload.get("reasoning", ""),
-            "targets": scene_payload.get("targets", []),
-            "gdino_terms": scene_payload.get("gdino_terms", []),
-            "keywords": scene_payload.get("keywords", result.keywords_used),
-            "groundingdino_prompt": scene_payload.get("groundingdino_prompt", ""),
-            "issues_natural_language": scene_payload.get("issues_natural_language", []),
-            "verified_issues": scene_payload.get("verified_issues", []),
-            "catalog_flags": scene_payload.get("catalog_flags", {}),
-            "issue_visual_anchors": scene_payload.get("issue_visual_anchors", []),
-            "scene_classifier": scene_payload,
-            "keywords_used": result.keywords_used,
-            "detection_count": result.detection_count,
-            "verified_count": result.verified_count,
-            "output_dir": result.output_dir,
-            "processing_time": result.processing_time,
-            "error": result.error,
-        }
-
-    @staticmethod
-    def _pick_first_metadata(results: List[ImageAnalysisResult], key: str, default: str = "") -> str:
-        for res in results:
-            payload = AutoAnalyzer._scene_classifier_payload(res.scene_classifier or res.scene_data)
-            val = payload.get(key)
-            if isinstance(val, str) and val:
-                return val
-        return default
 
     def save_photo_intel(
             self,
@@ -2620,8 +1567,7 @@ class AutoAnalyzer:
             payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
 
             # ── Resolve passes dict ───────────────────────────────────────────
-            # Use passes from payload if present (from _classify_scene_direct or orchestrator).
-            # Fall back to reconstructing from flat fields for legacy runs.
+            # Use passes from payload (orchestrator). Fall back to flat fields for legacy runs.
             passes = payload.get("passes", None)
             if passes is None:
                 feat_notes = payload.get("feature_notes", "") or payload.get("positives_notes", "")
@@ -2824,8 +1770,6 @@ class AutoAnalyzer:
                 "model_overrides":     self.model_overrides if self.model_overrides else None,
                 "model":               getattr(cfg, "LM_STUDIO_MODEL", ""),
                 "gpt_model":           self.gpt_config.get('model') if self.gpt_config else None,
-                "prompt_version":      self._pick_first_metadata(job.results, "prompt_version", ""),
-                "scene_policy_version": self._pick_first_metadata(job.results, "scene_policy_version", ""),
             },
             "property": {
                 "property_key": job.property_key,
@@ -3269,90 +2213,3 @@ class AutoAnalyzer:
                 logger.warning(f"Could not embed property_pass4 into photo_intel.json: {exc}")
 
         return output_path
-
-    def create_html_report(self, job: PropertyAnalysisJob, output_path: Path):
-        """Generate a simple HTML report."""
-        profile_color = "#9C27B0" if self.analysis_profile == "premium" else "#607D8B"
-        gpt_model_info = ""
-        if self.analysis_profile == "premium" and self.gpt_config:
-            gpt_model_info = f"<p><strong>GPT Model:</strong> {self.gpt_config.get('model', 'N/A')}</p>"
-
-        html = f"""<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="UTF-8">
-    <title>Analysis Report - {job.property_key}</title>
-    <style>
-        body {{ font-family: Arial, sans-serif; margin: 40px; }}
-        h1 {{ color: #333; }}
-        table {{ border-collapse: collapse; width: 100%; margin: 20px 0; }}
-        th, td {{ border: 1px solid #ddd; padding: 12px; text-align: left; }}
-        th {{ background-color: #4CAF50; color: white; }}
-        tr:nth-child(even) {{ background-color: #f2f2f2; }}
-        .summary {{ background-color: #e7f3ff; padding: 15px; border-radius: 5px; margin: 20px 0; }}
-        .error {{ color: red; }}
-        .backend {{ font-weight: bold; color: #2196F3; }}
-        .profile {{ font-weight: bold; color: {profile_color}; }}
-    </style>
-</head>
-<body>
-    <h1>Property Analysis Report</h1>
-
-    <div class="summary">
-        <h2>Summary</h2>
-        <p><strong>Property:</strong> {job.property_key}</p>
-        <p><strong>Job ID:</strong> {job.job_id}</p>
-        <p><strong>Timestamp:</strong> {job.timestamp}</p>
-        <p><strong>Detection Backend:</strong> <span class="backend">{self.detection_backend}</span></p>
-        <p><strong>Analysis Profile:</strong> <span class="profile">{self.analysis_profile.upper()}</span></p>
-        <p><strong>Pass Architecture:</strong> {self.use_pass_architecture}</p>
-        {gpt_model_info}
-        <p><strong>Images Processed:</strong> {len(job.results)}</p>
-        <p><strong>Total Time:</strong> {job.total_processing_time:.1f} seconds</p>
-        <p><strong>Artifacts:</strong> {job.artifacts_dir}</p>
-    </div>
-
-    <h2>Parameters</h2>
-    <ul>
-"""
-
-        for key, value in job.parameters.items():
-            html += f"        <li><strong>{key}:</strong> {value}</li>\n"
-
-        html += """    </ul>
-
-    <h2>Results</h2>
-    <table>
-        <tr>
-            <th>Image</th>
-            <th>Scene</th>
-            <th>Keywords</th>
-            <th>Detections</th>
-            <th>Verified</th>
-            <th>Time (s)</th>
-        </tr>
-"""
-
-        for result in job.results:
-            img_name = Path(result.image_path).name
-            verified_text = str(result.verified_count) if result.verified_count is not None else "N/A"
-            error_class = ' class="error"' if result.error else ''
-
-            html += f"""        <tr{error_class}>
-            <td>{img_name}</td>
-            <td>{result.scene}</td>
-            <td>{len(result.keywords_used)}</td>
-            <td>{result.detection_count}</td>
-            <td>{verified_text}</td>
-            <td>{result.processing_time:.1f}</td>
-        </tr>
-"""
-
-        html += """    </table>
-</body>
-</html>"""
-
-        with open(output_path, 'w', encoding='utf-8') as f:
-            f.write(html)
-
-        logger.info(f"HTML report saved to: {output_path}")

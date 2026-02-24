@@ -235,8 +235,6 @@ Pass Control Examples:
     # ─────────────────────────────────────────────────────────────────────────
     # Output options
     # ─────────────────────────────────────────────────────────────────────────
-    parser.add_argument("--html-report", action="store_true",
-                        help="Write HTML report")
     parser.add_argument("--output-json", dest="output_json",
                         help="Path to write JSON summary")
 
@@ -259,8 +257,6 @@ Pass Control Examples:
                         help="Margin for detection chip extraction")
     parser.add_argument("--max-keywords", type=int,
                         help="Maximum keywords for detection")
-    parser.add_argument("--include-conditions", action="store_const", const=True, default=None,
-                        help="Include defect/condition keywords")
     parser.add_argument("--no-verify", dest="skip_verification", action="store_true",
                         help="Skip chip verification pass")
 
@@ -546,7 +542,6 @@ def main() -> int:
         "text_threshold": args.text_threshold,
         "chip_margin": args.chip_margin,
         "max_keywords": args.max_keywords,
-        "include_conditions": args.include_conditions,
         "skip_verification": args.skip_verification,
         "debug": args.debug,
         "detection_backend": args.detection_backend,
@@ -581,10 +576,6 @@ def main() -> int:
     job = analyzer.analyze_property(args.property_key, images)
 
     photo_intel_path = analyzer.save_photo_intel(job)
-
-    if args.html_report:
-        report_path = artifacts_root / args.property_key / job.job_id / "report.html"
-        analyzer.create_html_report(job, report_path)
 
     # Use the analyzer's resolved values for accurate reporting
     summary = _build_summary(

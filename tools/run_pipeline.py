@@ -202,7 +202,7 @@ def collect_images(args) -> list:
 
 def run_pipeline(property_key: str, images: list, args):
     """Run the complete analysis pipeline."""
-    from auto_analyzer import AutoAnalyzer, build_renovation_needs
+    from auto_analyzer import AutoAnalyzer
 
     # Override config with command line args if provided
     skip_verify = args.no_verify if args.no_verify is not None else cfg.SKIP_VERIFICATION
@@ -229,7 +229,6 @@ def run_pipeline(property_key: str, images: list, args):
             text_threshold=text_thr,
             chip_margin=cfg.CHIP_MARGIN,
             max_keywords=cfg.MAX_KEYWORDS,
-            include_conditions=cfg.INCLUDE_CONDITIONS,
             skip_verification=skip_verify,
             debug=cfg.DEBUG_MODE
         )
@@ -331,11 +330,6 @@ def run_pipeline(property_key: str, images: list, args):
         if args.output_json:
             json_path = Path(args.output_json)
 
-        summary_results = []
-        for r in job.results:
-            entry = analyzer._build_photo_entry(r)
-            summary_results.append(entry)
-
         summary = {
             "job_id": job.job_id,
             "property_key": job.property_key,
@@ -343,10 +337,9 @@ def run_pipeline(property_key: str, images: list, args):
             "artifacts_dir": job.artifacts_dir,
             "processing_time": job.total_processing_time,
             "parameters": job.parameters,
-            "results": summary_results,
+            "image_count": len(job.results),
             "photo_intel_path": str(photo_intel_path),
             "property_summary_path": str(summary_path) if summary_path.exists() else None,
-            "renovation_needs": build_renovation_needs(job),
         }
 
         with open(json_path, 'w', encoding='utf-8') as f:
@@ -358,11 +351,6 @@ def run_pipeline(property_key: str, images: list, args):
 
     if summary_path.exists():
         print(f"📋 Property Summary: {summary_path}")
-
-    if cfg.GENERATE_HTML_REPORT or args.html_report:
-        html_path = artifacts_path / "report.html"
-        analyzer.create_html_report(job, html_path)
-        print(f"📄 HTML Report:  {html_path}")
 
     print("\n" + "=" * 70)
 
@@ -423,12 +411,6 @@ def main():
         "--output-json",
         help="Save JSON summary to specified path"
     )
-    parser.add_argument(
-        "--html-report",
-        action="store_true",
-        help="Generate HTML report"
-    )
-
     args = parser.parse_args()
 
     # Validate that at least one image source is provided
