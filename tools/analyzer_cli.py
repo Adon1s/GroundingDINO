@@ -74,9 +74,13 @@ STRING_OVERRIDE_KEYS = {
     "OPENAI_BASE_URL",
     "OPENAI_PASS1B_MODEL",
     "OPENAI_PASS2A_MODEL",
+    "OPENAI_PASS2C_MODEL",
+    "OPENAI_PASS2D_MODEL",
     "OPENAI_PASS4_MODEL",
     "OPENAI_PASS_1B_MODEL",
     "OPENAI_PASS_2A_MODEL",
+    "OPENAI_PASS_2C_MODEL",
+    "OPENAI_PASS_2D_MODEL",
     "OPENAI_PASS_4_MODEL",
     "OPENAI_CHIP_MODEL",
 
@@ -106,7 +110,7 @@ STRING_OVERRIDE_KEYS = {
 }
 
 # All passes for CLI argument generation
-ALL_PASSES = ['1a', '1b', '1c', '2a', '2b', '3', '4']
+ALL_PASSES = ['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '3', '4', '4a', '4b', '4c']
 
 
 def _apply_env_overrides() -> None:
@@ -154,12 +158,18 @@ def _apply_env_overrides() -> None:
 
     p1b = _first("OPENAI_PASS_1B_MODEL", "OPENAI_PASS1B_MODEL")
     p2a = _first("OPENAI_PASS_2A_MODEL", "OPENAI_PASS2A_MODEL")
+    p2c = _first("OPENAI_PASS_2C_MODEL", "OPENAI_PASS2C_MODEL")
+    p2d = _first("OPENAI_PASS_2D_MODEL", "OPENAI_PASS2D_MODEL")
     p4  = _first("OPENAI_PASS_4_MODEL",  "OPENAI_PASS4_MODEL")
 
     if p1b:
         setattr(cfg, "GPT_PASS_1B_MODEL", p1b)
     if p2a:
         setattr(cfg, "GPT_PASS_2A_MODEL", p2a)
+    if p2c:
+        setattr(cfg, "GPT_PASS_2C_MODEL", p2c)
+    if p2d:
+        setattr(cfg, "GPT_PASS_2D_MODEL", p2d)
     if p4:
         setattr(cfg, "GPT_PASS_4_MODEL", p4)
 
@@ -187,7 +197,7 @@ def _apply_env_overrides() -> None:
     if os.environ.get("OPENAI_DEFAULT_MAX_TOKENS"):
         setattr(cfg, "OPENAI_DEFAULT_MAX_TOKENS", int(os.environ["OPENAI_DEFAULT_MAX_TOKENS"]))
 
-    for k in ("OPENAI_PASS_1B_MAX_TOKENS", "OPENAI_PASS_1C_MAX_TOKENS", "OPENAI_PASS_2A_MAX_TOKENS", "OPENAI_PASS_4_MAX_TOKENS"):
+    for k in ("OPENAI_PASS_1B_MAX_TOKENS", "OPENAI_PASS_1C_MAX_TOKENS", "OPENAI_PASS_2A_MAX_TOKENS", "OPENAI_PASS_2C_MAX_TOKENS", "OPENAI_PASS_2D_MAX_TOKENS", "OPENAI_PASS_4_MAX_TOKENS"):
         if os.environ.get(k) is not None:
             setattr(cfg, k, _to_int_or_none(os.environ.get(k)))
 
@@ -198,17 +208,17 @@ def _parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Pass Control Examples:
-  # Run with premium profile (uses GPT-5 for 1b, 2a, 4)
+  # Run with premium profile (uses GPT-5 for 2a, 2d)
   --analysis-profile premium
 
   # Disable specific passes for faster testing
-  --disable-1b --disable-4
+  --disable-2d --disable-4
 
   # Override model for a specific pass (dev/testing)
-  --model-1b gpt5 --model-2a qwen
+  --model-2a gpt5 --model-2d qwen
 
   # Enable only scene classification (fast mode)
-  --disable-1b --disable-2a --disable-2b --disable-3 --disable-4
+  --disable-1b --disable-2a --disable-2b --disable-2c --disable-2d --disable-2e --disable-3 --disable-4
         """
     )
 
@@ -268,7 +278,7 @@ Pass Control Examples:
         "--analysis-profile",
         dest="analysis_profile",
         choices=["standard", "premium"],
-        help="Analysis profile: standard (all Qwen) or premium (GPT-5 for key passes)",
+        help="Analysis profile: standard (all Qwen) or premium (GPT-5 for 2a, 2d)",
     )
 
     # Force legacy scene classifier (skip orchestrator)
@@ -470,6 +480,8 @@ def _log_config_summary() -> None:
     # Pass-specific models
     logger.info(f"GPT_PASS_1B_MODEL: {getattr(cfg, 'GPT_PASS_1B_MODEL', 'NOT SET')}")
     logger.info(f"GPT_PASS_2A_MODEL: {getattr(cfg, 'GPT_PASS_2A_MODEL', 'NOT SET')}")
+    logger.info(f"GPT_PASS_2C_MODEL: {getattr(cfg, 'GPT_PASS_2C_MODEL', 'NOT SET')}")
+    logger.info(f"GPT_PASS_2D_MODEL: {getattr(cfg, 'GPT_PASS_2D_MODEL', 'NOT SET')}")
     logger.info(f"GPT_PASS_4_MODEL:  {getattr(cfg, 'GPT_PASS_4_MODEL',  'NOT SET')}")
     logger.info(f"OPENAI_BASE_URL:   {getattr(cfg, 'OPENAI_BASE_URL', os.environ.get('OPENAI_BASE_URL', '')) or 'DEFAULT'}")
 
@@ -477,6 +489,8 @@ def _log_config_summary() -> None:
     logger.info(f"OPENAI_DEFAULT_MAX_TOKENS: {getattr(cfg, 'OPENAI_DEFAULT_MAX_TOKENS', os.environ.get('OPENAI_DEFAULT_MAX_TOKENS', '')) or 'NOT SET'}")
     logger.info(f"OPENAI_PASS_1B_MAX_TOKENS: {getattr(cfg, 'OPENAI_PASS_1B_MAX_TOKENS', os.environ.get('OPENAI_PASS_1B_MAX_TOKENS', '')) or 'NOT SET'}")
     logger.info(f"OPENAI_PASS_2A_MAX_TOKENS: {getattr(cfg, 'OPENAI_PASS_2A_MAX_TOKENS', os.environ.get('OPENAI_PASS_2A_MAX_TOKENS', '')) or 'NOT SET'}")
+    logger.info(f"OPENAI_PASS_2C_MAX_TOKENS: {getattr(cfg, 'OPENAI_PASS_2C_MAX_TOKENS', os.environ.get('OPENAI_PASS_2C_MAX_TOKENS', '')) or 'NOT SET'}")
+    logger.info(f"OPENAI_PASS_2D_MAX_TOKENS: {getattr(cfg, 'OPENAI_PASS_2D_MAX_TOKENS', os.environ.get('OPENAI_PASS_2D_MAX_TOKENS', '')) or 'NOT SET'}")
     logger.info(f"OPENAI_PASS_4_MAX_TOKENS:  {getattr(cfg, 'OPENAI_PASS_4_MAX_TOKENS',  os.environ.get('OPENAI_PASS_4_MAX_TOKENS',  '')) or 'NOT SET'}")
 
     # Detection backend
