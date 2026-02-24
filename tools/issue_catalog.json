@@ -779,7 +779,7 @@
       "kind": "defect",
       "id": "clogged_or_damaged_gutters",
       "scope": "service",
-      "defaultHidden": false,
+      "defaultHidden": true,
       "scene_groups": [
         "exterior",
         "other"
