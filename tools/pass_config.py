@@ -5,12 +5,13 @@ Defines pass toggles, model selection, and premium routing logic.
 
 Pass Overview:
 - 1a: Scene type classification (always Qwen - fast/cheap)
-- 1b: Feature notes - freeform (GPT-5 when premium)
+- 1b: Feature notes - freeform (always Qwen)
 - 1c: Feature notes -> JSON structuring (always Qwen - text-only)
 - 2a: Observations - freeform (GPT-5 when premium)
 - 2b: Observations -> JSON (always Qwen - text-only)
 - 2c: Label observations + debug/forward split (always Qwen - text-only)
 - 2d: Resolve defect_id from candidates (GPT-5 when premium, optional)
+- 2e: Normalize / filter / deduplicate issues (rule-based, no LLM)
 - 3:  Keyword extraction (always Qwen - text-only)
 
 Legacy passes (not currently executed by orchestrator but still supported):
@@ -201,29 +202,30 @@ class SceneClassifierRunOptions:
 
 # Premium model mapping (when premium=True)
 # - 1a stays Qwen (scene type is simple/fast)
-# - 1b uses GPT-5 (feature notes benefit from reasoning)
+# - 1b stays Qwen (feature notes are text-only structuring)
 # - 1c stays Qwen (purely structuring, text-only)
 # - 2a uses GPT-5 (observations detection needs strong vision)
 # - 2b stays Qwen (structuring is text-only)
 # - 2c stays Qwen (labeling is text-only)
 # - 2d uses GPT-5 (resolver benefits from reasoning)
+# - 2e stays Qwen (rule-based normalizer, no LLM call)
 # - 3 stays Qwen (keyword extraction is straightforward, text-only)
-# - 4/4a/4b/4c use GPT-5 (property-level analysis is user-facing)
+# - 4/4a/4b/4c stay Qwen (legacy, may be deprecated)
 
 PREMIUM_MODEL_MAP: Dict[PassKey, ModelName] = {
     '1a': 'qwen',
-    '1b': 'gpt5',
+    '1b': 'qwen',
     '1c': 'qwen',
-    '2a': 'gpt5',
+    '2a': 'gpt5',   # observations detection needs strong vision
     '2b': 'qwen',
     '2c': 'qwen',
-    '2d': 'gpt5',  # resolver benefits from GPT reasoning
-    '2e': 'qwen',  # rule-based normalizer, Qwen is fine (or ignored since no LLM call)
+    '2d': 'gpt5',   # resolver benefits from GPT reasoning
+    '2e': 'qwen',   # rule-based normalizer, no LLM call
     '3': 'qwen',
-    '4': 'gpt5',
-    '4a': 'gpt5',
-    '4b': 'gpt5',
-    '4c': 'gpt5',
+    '4': 'qwen',
+    '4a': 'qwen',
+    '4b': 'qwen',
+    '4c': 'qwen',
 }
 
 STANDARD_MODEL_MAP: Dict[PassKey, ModelName] = {
