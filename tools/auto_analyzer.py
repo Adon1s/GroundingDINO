@@ -176,9 +176,33 @@ def load_issue_catalog(path: Path) -> dict:
     if isinstance(tb, dict):
         tb = list(tb.values())
 
+    # Normalize to canonical "items" array.
+    # v3+ catalogs use a single "items" list where each entry has an 'id' and 'kind' field.
+    # Older catalogs split into "defects" / "upgrades" (or "defect_issues") — merge both
+    # so upgrades are never silently dropped.
+    if "items" in data and data["items"]:
+        items = data["items"]
+    else:
+        # Legacy split format: normalize each side and merge
+        raw_defects  = data.get("defects",       []) or data.get("defect_issues", []) or []
+        raw_upgrades = data.get("upgrades",       []) or data.get("upgrade_items", []) or []
+        # Stamp kind if missing so downstream code has a reliable field
+        for d in raw_defects:
+            if isinstance(d, dict):
+                d.setdefault("kind", "defect")
+        for u in raw_upgrades:
+            if isinstance(u, dict):
+                u.setdefault("kind", "upgrade")
+        items = raw_defects + raw_upgrades
+        if items:
+            logger.info(
+                f"load_issue_catalog: merged legacy format — "
+                f"{len(raw_defects)} defects + {len(raw_upgrades)} upgrades → {len(items)} items"
+            )
+
     return {
         # v3 canonical: single "items" array (each has 'id' and 'kind' field)
-        "items": data.get("items", []) or data.get("defects", []) or data.get("defect_issues", []),
+        "items": items,
         "trade_buckets": tb,
         "version": data.get("version"),
     }
@@ -253,8 +277,7 @@ for _group, _scenes in SCENE_GROUPS_UI.items():
     for _scene in _scenes:
         SCENE_TO_GROUP_UI[_scene] = _group
 
-# ── Schema Version Constants ────────────────────────────────────────────────────
-PHOTO_INTEL_SCHEMA_VERSION = "photo_intel_v2"
+PHOTO_INTEL_SCHEMA_VERSION = "photo_intel_v3"
 PROPERTY_SUMMARY_SCHEMA_VERSION = "property_summary_v3"
 NORMALIZATION_POLICY_VERSION = "workitem_v1"
 
@@ -469,7 +492,7 @@ class AutoAnalyzer:
         if getattr(cfg, "USE_EMBEDDINGS_CATALOG", False) and EMBEDDINGS_MATCHER_AVAILABLE:
             try:
                 self.catalog_matcher = CatalogEmbeddingsRetriever(
-                    catalog_v2=self.issue_catalog,  # or just self.issue_catalog as first positional arg
+                    catalog_v2=self.issue_catalog,
                     model_name=getattr(cfg, "EMBEDDINGS_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2"),
                     default_topk=getattr(cfg, "EMBEDDINGS_TOPK", 5),
                     trust_remote_code=bool(getattr(cfg, "EMBEDDINGS_TRUST_REMOTE_CODE", False)),
@@ -543,14 +566,27 @@ class AutoAnalyzer:
                 # ✅ Build candidate_provider from embeddings matcher or catalog
                 candidate_provider = None
                 if self.catalog_matcher:
-                    # Kind-aware provider: dispatches to defect or upgrade retrieval based on ctx
+                    # Kind-aware, scene-group-gated provider: dispatches to defect or upgrade
+                    # retrieval based on ctx. ctx["scene_group"] gates to scene-relevant items only;
+                    # if ctx gives a raw scene id (e.g. "living_room") it's mapped to a group first.
                     def _embeddings_candidate_provider(query, ctx=None):
-                        kind = (ctx or {}).get("kind", "defect") if isinstance(ctx, dict) else "defect"
-                        topk = (ctx or {}).get("top_k_candidates", 8) if isinstance(ctx, dict) else 8
+                        _ctx = ctx if isinstance(ctx, dict) else {}
+                        kind = _ctx.get("kind", "defect")
+                        topk = _ctx.get("top_k_candidates", 8)
+                        # Prefer pre-resolved scene_group; fall back to mapping raw scene id
+                        scene_group = _ctx.get("scene_group")
+                        if not scene_group:
+                            scene_id = _ctx.get("scene")
+                            scene_group = SCENE_TO_GROUP_UI.get(scene_id) if scene_id else None
+                        allowed_groups = {scene_group} if scene_group else None
                         if kind == "upgrade":
-                            cands = self.catalog_matcher.embeddings_retrieve_upgrade_candidates(query, topk=topk)
+                            cands = self.catalog_matcher.embeddings_retrieve_upgrade_candidates(
+                                query, topk=topk, allowed_groups=allowed_groups
+                            )
                         else:
-                            cands = self.catalog_matcher.embeddings_retrieve_defect_candidates(query, topk=topk)
+                            cands = self.catalog_matcher.embeddings_retrieve_defect_candidates(
+                                query, topk=topk, allowed_groups=allowed_groups
+                            )
                         return [
                             {
                                 "item_id": c.item_id,
@@ -562,7 +598,7 @@ class AutoAnalyzer:
                             for c in cands
                         ]
                     candidate_provider = _embeddings_candidate_provider
-                    logger.info("Candidate provider: kind-aware embeddings-based")
+                    logger.info("Candidate provider: kind-aware, scene-group-gated embeddings")
 
                 # Wrap to normalize signature + output shape
                 if candidate_provider is not None:
@@ -678,13 +714,13 @@ class AutoAnalyzer:
 
         return wrapped
 
-    async def _call_pass_2d(self, *, model_config, items, catalog_matcher=None, candidate_provider=None):
+    async def _call_pass_2d(self, *, model_config, items, catalog_matcher=None):
         """
         Run Pass 2d for each observation (defect OR upgrade), resolving to a canonical catalog item.
 
         For each item:
           - Read `kind` field (already set by 2c enrichment: "defect" or "upgrade")
-          - Retrieve kind-filtered candidates via embeddings (preferred) or fallback provider
+          - Retrieve kind-filtered candidates via embeddings from catalog_matcher
           - Call run_pass_2d to pick the best candidate
 
         Returns:
@@ -703,25 +739,36 @@ class AutoAnalyzer:
             if kind not in {"defect", "upgrade"}:
                 continue
 
-            # Get kind-filtered candidates — prefer embeddings retriever
+            # Derive scene group — always go through SCENE_TO_GROUP_UI so raw scene IDs
+            # (e.g. "living_room") get mapped to group IDs (e.g. "living_areas") before
+            # being passed to the retriever. Falling back to a raw scene id would silently
+            # miss the _idx_by_group lookup and disable gating.
+            scene_group = obs.get("scene_group")
+            if not scene_group:
+                scene_id = obs.get("scene")
+                scene_group = SCENE_TO_GROUP_UI.get(scene_id) if scene_id else None
+            allowed_groups = {scene_group} if scene_group else None
+
+            logger.debug(
+                f"2d gating: issue_id={obs.get('issue_id','?')[:8]} "
+                f"kind={kind} scene_group={scene_group} allowed_groups={allowed_groups}"
+            )
+
+            # Get kind-filtered + group-gated candidates via embeddings
             candidates = []
             if catalog_matcher:
                 raw_cands = []
                 try:
                     if kind == "upgrade":
-                        raw_cands = catalog_matcher.embeddings_retrieve_upgrade_candidates(description, topk=8)
-                    else:
-                        raw_cands = catalog_matcher.embeddings_retrieve_defect_candidates(description, topk=8)
-
-                    # Diagnose candidate shape (one-time, before field access)
-                    if raw_cands:
-                        c0 = raw_cands[0]
-                        logger.info(
-                            f"2d diag: candidate_type={type(c0).__name__} "
-                            f"module={getattr(type(c0), '__module__', '?')} "
-                            f"repr={repr(c0)[:200]} "
-                            f"dict={getattr(c0, '__dict__', None)}"
+                        raw_cands = catalog_matcher.embeddings_retrieve_upgrade_candidates(
+                            description, topk=8, allowed_groups=allowed_groups
                         )
+                    else:
+                        raw_cands = catalog_matcher.embeddings_retrieve_defect_candidates(
+                            description, topk=8, allowed_groups=allowed_groups
+                        )
+
+                    logger.debug(f"2d gating: returned {len(raw_cands)} candidates")
 
                     candidates = [
                         {
@@ -729,6 +776,7 @@ class AutoAnalyzer:
                             "name": c.name,
                             "kind": c.kind,
                             "trade_bucket": c.trade_bucket,
+                            "scene_groups": list(c.scene_groups),
                             # score/severity omitted — not persisted
                         }
                         for c in raw_cands
@@ -757,13 +805,6 @@ class AutoAnalyzer:
                     except Exception as e2:
                         sample = {"sample_error": str(e2)}
                     logger.warning(f"2d diag: embeddings retrieval failed for {kind}: {e}; sample={sample}")
-
-            # Fallback to candidate provider — pass ctx so kind is preserved
-            if not candidates and candidate_provider:
-                try:
-                    candidates = candidate_provider(description, {"kind": kind, "top_k_candidates": 8})
-                except Exception:
-                    candidates = []
 
             if not isinstance(candidates, list) or not candidates:
                 logger.info(f"2d diag: no {kind} candidates for observation: {description[:80]}")
@@ -1360,6 +1401,9 @@ class AutoAnalyzer:
                 _run_id = getattr(self, "_active_run_id", "") or ""
                 _photo_key_2c = image_path.name
                 _sig_counts_2c: Dict[Tuple[str, str, str], int] = {}
+                # Scene available from Pass 1a — resolve to group now so 2d gating works immediately.
+                _scene_2c = context.get("scene") or results.get("scene") or "unknown"
+                _scene_group_2c = SCENE_TO_GROUP_UI.get(_scene_2c, "other")
 
                 forward_enriched = []
                 for x in labeled_forward:
@@ -1379,6 +1423,8 @@ class AutoAnalyzer:
                         "rough_category": "",  # deprecated — keep empty for schema compatibility
                         "kind": _label_to_kind(_lbl),  # defect|upgrade only
                         "source_photo_key": _photo_key_2c,
+                        "scene": _scene_2c,
+                        "scene_group": _scene_group_2c,
                     })
 
                 results['labeled_debug'] = labeled_debug
@@ -1574,7 +1620,6 @@ class AutoAnalyzer:
                             }
                             for x in removed
                         ],
-                        "verified_issues": final_issues,
                     }
                     # Keep 2c in sync so downstream reads still find the final list there
                     if isinstance(results.get("passes", {}).get("2c"), dict):
@@ -1750,8 +1795,7 @@ class AutoAnalyzer:
                 "2d": {"resolutions": scene_payload.get("resolved_items", [])},
                 "2e": {
                     # Fallback only: orchestrator path now writes passes["2e"] via to_dict().
-                    # This entry is used only for pre-2e legacy runs or if passes wasn't populated.
-                    "verified_issues": scene_payload.get("verified_issues", []),
+                    # ids/counts only — full list lives at payload["verified_issues"].
                     **({
                         "input_count": data.get("debug", {}).get("pass_2e_summary", {}).get("input_count"),
                         "kept_count": data.get("debug", {}).get("pass_2e_summary", {}).get("kept_count"),
@@ -2433,11 +2477,23 @@ class AutoAnalyzer:
             # Strict: only "defect" and "upgrade" are valid kinds
             kind = (issue.get("kind") or "").strip().lower()
 
+            # Gate retrieval to the issue's scene group so cross-room matches are impossible.
+            # scene_group is stamped during 2c enrichment; fall back to mapping raw scene if needed.
+            sg = issue.get("scene_group")
+            if not sg:
+                scene_id = issue.get("scene")
+                sg = SCENE_TO_GROUP_UI.get(scene_id) if scene_id else None
+            allowed_groups = {sg} if sg else None
+
             candidates = []
             if kind == "upgrade":
-                candidates = self.catalog_matcher.embeddings_retrieve_upgrade_candidates(desc, topk=1)
+                candidates = self.catalog_matcher.embeddings_retrieve_upgrade_candidates(
+                    desc, topk=1, allowed_groups=allowed_groups
+                )
             elif kind == "defect":
-                candidates = self.catalog_matcher.embeddings_retrieve_defect_candidates(desc, topk=1)
+                candidates = self.catalog_matcher.embeddings_retrieve_defect_candidates(
+                    desc, topk=1, allowed_groups=allowed_groups
+                )
             else:
                 # Forward-only: unknown kind → don't guess, leave unresolved
                 continue
@@ -2556,136 +2612,158 @@ class AutoAnalyzer:
             return x if isinstance(x, list) else []
 
         photos: Dict[str, Any] = {}
-        issues_flat: List[Dict[str, Any]] = []  # Flat index of all issues
+        issues_flat: List[Dict[str, Any]] = []  # Flat index of all issues (property-level)
 
         for photo_index, res in enumerate(job.results, start=1):
             image_key = Path(res.image_path).name
             payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
 
-            # Use passes from payload if present (from _classify_scene_direct),
-            # otherwise reconstruct for backwards compatibility (legacy runs)
+            # ── Resolve passes dict ───────────────────────────────────────────
+            # Use passes from payload if present (from _classify_scene_direct or orchestrator).
+            # Fall back to reconstructing from flat fields for legacy runs.
             passes = payload.get("passes", None)
             if passes is None:
-                # Fallback: reconstruct passes from flat fields (legacy runs only)
                 feat_notes = payload.get("feature_notes", "") or payload.get("positives_notes", "")
                 passes = {
-                    "1a": {
-                        "scene": payload.get("scene", "unknown"),
-                        "confidence": None,  # scene_confidence retired
-                        "reasoning": payload.get("reasoning", ""),
-                    },
-                    "1b": {
-                        "feature_notes": feat_notes,
-                        "positives_notes": feat_notes,  # legacy alias
-                    },
-                    "1c": {
-                        "overall_impression": payload.get("overall_impression", ""),
-                        "image_summary": payload.get("image_summary", ""),
-                        "notable_features": payload.get("notable_features", []) or [],
-                    },
+                    "1a": {"scene": payload.get("scene", "unknown"), "confidence": None, "reasoning": payload.get("reasoning", "")},
+                    "1b": {"feature_notes": feat_notes, "positives_notes": feat_notes},
+                    "1c": {"overall_impression": payload.get("overall_impression", ""), "image_summary": payload.get("image_summary", ""), "notable_features": payload.get("notable_features", []) or []},
                     "2a": {"observations_freeform": payload.get("observations_freeform", "")},
-                    "2b": {
-                        "issues_natural_language": payload.get("issues_natural_language", []) or [],
-                        "catalog_flags": {},  # canonical: embeddings owns catalog_flags, not 2b
-                    },
-                    "3": {
-                        "keywords": payload.get("keywords", []) or [],
-                        "categories": payload.get("keyword_categories"),
-                    },
+                    "2b": {"issues_natural_language": payload.get("issues_natural_language", []) or [], "catalog_flags": {}},
+                    "3":  {"keywords": payload.get("keywords", []) or [], "categories": payload.get("keyword_categories")},
                 }
 
-            # Generate stable photo ID
-            photo_id = _make_photo_id(job.property_key, job.job_id, image_key)
-            scene = payload.get("scene", res.scene) or "unknown"
-            scene_group = SCENE_TO_GROUP_UI.get(scene, "other")
-            scene_confidence = (passes.get("1a", {}) or {}).get("confidence")
+            # ── Core identifiers ──────────────────────────────────────────────
+            photo_id     = _make_photo_id(job.property_key, job.job_id, image_key)
+            scene        = payload.get("scene", res.scene) or "unknown"
+            scene_group  = SCENE_TO_GROUP_UI.get(scene, "other")
+            scene_conf   = (passes.get("1a", {}) or {}).get("confidence")
+            pass_1c      = passes.get("1c", {}) or {}
+            pass_1b      = passes.get("1b", {}) or {}
 
-            # Backfill issues with stable IDs and source linkage
-            # Track signature counts to handle duplicate issues in same photo
+            # ── Resolve final issues ──────────────────────────────────────────
+            # payload["verified_issues"] is already post-2e on both paths:
+            #   direct:       results["verified_issues"] set after pass_2e runs
+            #   orchestrator: result.verified_issues set after pass_2e runs, forwarded via to_dict()
+            # passes["2e"] stores only ids/counts/reasons, not the full list.
+            # Fallback chain handles legacy runs where 2e wasn't present.
+            final_issues = _safe_list(payload.get("verified_issues"))
+            if not final_issues:
+                final_issues = _safe_list((passes.get("2c", {}) or {}).get("verified_issues"))
+            if not final_issues:
+                final_issues = _safe_list((passes.get("2b", {}) or {}).get("issues_natural_language"))
+
+            # ── Backfill stable issue_id + source linkage on every final issue ─
             issue_sig_counts: Dict[Tuple[str, str, str], int] = {}
+            for issue in final_issues:
+                if not (isinstance(issue, dict) and issue.get("description")):
+                    continue
+                sig = (issue.get("description", ""), issue.get("location_hint", ""), issue.get("label", ""))
+                ordinal = issue_sig_counts.get(sig, 0)
+                issue_sig_counts[sig] = ordinal + 1
+                if not issue.get("issue_id"):
+                    issue["issue_id"] = _make_issue_id(job.job_id, image_key, sig[0], sig[1], sig[2], ordinal)
+                issue.setdefault("source_photo_key", image_key)
+                issue.setdefault("source_photo_id",  photo_id)
+                issue.setdefault("scene",             scene)
+                issue.setdefault("scene_group",       scene_group)
 
-            # Read verified issues — prefer post-2e (final truth), fall back through 2c → top-level → 2b
-            issues_nl = _safe_list((passes.get("2e", {}) or {}).get("verified_issues"))
-            if not issues_nl:
-                issues_nl = _safe_list((passes.get("2c", {}) or {}).get("verified_issues"))
-            if not issues_nl:
-                issues_nl = _safe_list(payload.get("verified_issues"))
-            if not issues_nl:
-                # Fallback to 2b if neither 2e nor 2c ran
-                issues_nl = _safe_list((passes.get("2b", {}) or {}).get("issues_natural_language"))
+                issues_flat.append({
+                    "issue_id":    issue["issue_id"],
+                    "photo_id":    photo_id,
+                    "photo_key":   image_key,
+                    "scene":       scene,
+                    "scene_group": scene_group,
+                    "description": issue.get("description", ""),
+                    "label":       issue.get("label", ""),
+                    "location_hint": issue.get("location_hint", ""),
+                    "catalog_item_id":  issue.get("catalogItemId") or issue.get("resolved_item_id"),
+                    "catalog_item_kind": issue.get("catalogItemKind") or issue.get("kind"),
+                })
 
-            for issue in issues_nl:
-                if isinstance(issue, dict) and issue.get("description"):
-                    # Compute signature for ordinal tracking
-                    sig = (
-                        issue.get("description", ""),
-                        issue.get("location_hint", ""),
-                        issue.get("label", ""),
-                    )
-                    ordinal = issue_sig_counts.get(sig, 0)
-                    issue_sig_counts[sig] = ordinal + 1
+            # ── Build trace (pass internals — debug/auditing, not read by UI) ─
+            pass_2c   = passes.get("2c", {}) or {}
+            pass_2d   = passes.get("2d", {}) or {}
+            pass_2e_p = passes.get("2e", {}) or {}
 
-                    # Use existing issue_id if already stamped (e.g. by orchestrator after Pass 2c)
-                    if not issue.get("issue_id"):
-                        issue["issue_id"] = _make_issue_id(
-                            job.job_id,
-                            image_key,
-                            sig[0],  # description
-                            sig[1],  # location_hint
-                            sig[2],  # label
-                            ordinal,
-                        )
-                    issue_id = issue["issue_id"]
-                    issue["source_photo_key"] = image_key
-                    issue["source_photo_id"] = photo_id
-                    issue["scene"] = scene
-                    issue["scene_group"] = scene_group
-                    # Placeholders for future normalization (Phase B)
-                    issue.setdefault("trade", None)
-                    issue.setdefault("severity", None)
-                    issue.setdefault("confidence", None)
-                    issue.setdefault("fix_code", None)
+            # 2c: orchestrator writes labeled_forward at top level (result.to_dict()), not in passes["2c"].
+            # Direct path writes both. Fall back to payload so both paths populate trace.
+            _2c_forward = _safe_list(pass_2c.get("labeled_forward") or payload.get("labeled_forward"))
 
-                    # Add to flat index (include placeholders for unified shape)
-                    issues_flat.append({
-                        "issue_id": issue_id,
-                        "photo_id": photo_id,
-                        "photo_key": image_key,
-                        "scene": scene,
-                        "scene_group": scene_group,
-                        "description": issue.get("description", ""),
-                        "label": issue.get("label", ""),
-                        "location_hint": issue.get("location_hint", ""),
-                        # Phase B placeholders
-                        "trade": None,
-                        "severity": None,
-                        "confidence": None,
-                        "fix_code": None,
-                    })
+            # 2d: same situation — resolutions live at payload["resolved_items"] for orchestrator path.
+            _2d_resolutions = _safe_list(pass_2d.get("resolutions") or payload.get("resolved_items"))
 
-            # Keep flat fields for backwards compatibility, but UI should read passes
-            # Put **payload first so our explicit v2 fields override any collisions
-            photos[image_key] = {
-                **payload,
-                "image_path": res.image_path,
-                "scene": scene,
-                # v2 lifted fields (override payload if present)
-                "photo_id": photo_id,
-                "photo_key": image_key,
-                "photo_index": photo_index,
-                "scene_confidence": scene_confidence,
-                "scene_group": scene_group,
-                "passes": passes,
-                "pass_timings": payload.get("pass_timings", {}),
-                "total_pass_time": payload.get("total_pass_time", 0.0),
+            trace = {
+                "passes_run":  payload.get("passes_run", []),
+                "models":      payload.get("models_used", {}),
+                "timings_sec": payload.get("pass_timings", {}),
+                "2c": {
+                    "forwarded_count": len(_2c_forward),
+                },
+                "2d": {
+                    "resolution_count": len(_2d_resolutions),
+                },
+                "2e": {
+                    "input_count":   pass_2e_p.get("input_count"),
+                    "kept_count":    pass_2e_p.get("kept_count"),
+                    "removed_count": pass_2e_p.get("removed_count"),
+                },
             }
 
-        # Build room_groups aggregation
-        room_groups: Dict[str, Any] = {}
+            # ── Assemble v3 per-photo entry ────────────────────────────────────
+            photos[image_key] = {
+                "photo": {
+                    "photo_key":   image_key,
+                    "photo_id":    photo_id,
+                    "image_path":  res.image_path,
+                    "index":       photo_index,
+                },
+                "scene": {
+                    "id":         scene,
+                    "group":      scene_group,
+                    "confidence": scene_conf,
+                    "reasoning":  (passes.get("1a", {}) or {}).get("reasoning", ""),
+                },
+                "features": {
+                    "overall_impression": pass_1c.get("overall_impression", "") or payload.get("overall_impression", ""),
+                    "image_summary":      pass_1c.get("image_summary",      "") or payload.get("image_summary",      ""),
+                    "notable_features":   _safe_list(pass_1c.get("notable_features") or payload.get("notable_features")),
+                    "feature_notes":      pass_1b.get("feature_notes",  "") or payload.get("feature_notes",  ""),
+                    "positives_notes":    pass_1b.get("positives_notes", "") or payload.get("positives_notes", ""),
+                    "observations_freeform": (passes.get("2a", {}) or {}).get("observations_freeform", "") or payload.get("observations_freeform", ""),
+                },
+                "issues": {
+                    "final": final_issues,
+                },
+                "keywords": {
+                    "all":        _safe_list((passes.get("3", {}) or {}).get("keywords") or payload.get("keywords")),
+                    "categories": (passes.get("3", {}) or {}).get("categories") or payload.get("keyword_categories"),
+                    "gdino_prompt": payload.get("groundingdino_prompt", ""),
+                },
+                "planner_hints": payload.get("planner_hints", {}),
+                "is_staged": payload.get("is_staged"),
+                "processing_time": res.processing_time,
+                "error": res.error,
+                "trace": trace,
+                # ── Compat shim — keeps existing consumers working during transition ──
+                # verified_issues / issues_natural_language removed: read issues.final instead.
+                # Remove _compat entirely once all UI/API consumers are updated to v3 paths.
+                "_compat": {
+                    "passes":        passes,
+                    "pass_timings":  payload.get("pass_timings", {}),
+                    "total_pass_time": payload.get("total_pass_time", 0.0),
+                    "scene_group":   scene_group,
+                    "photo_id":      photo_id,
+                },
+            }
 
+        # ── Build room_groups from v3 photo entries ───────────────────────────
+        room_groups: Dict[str, Any] = {}
         for img_key, p in photos.items():
-            scene = (p.get("scene") or "unknown").strip()
-            group = SCENE_TO_GROUP_UI.get(scene, "other")
+            scene       = p["scene"]["id"]
+            group       = p["scene"]["group"]
+            feat        = p["features"]
+            final_list  = p["issues"]["final"]
 
             g = room_groups.setdefault(group, {
                 "scenes_included": SCENE_GROUPS_UI.get(group, []),
@@ -2694,74 +2772,55 @@ class AutoAnalyzer:
                 "positives": {"notes": [], "notable_features": []},
                 "issues": {"notes": [], "issues_natural_language": []},
             })
-
             g["image_keys"].append(img_key)
             g["image_count"] += 1
 
-            passes = p.get("passes", {}) or {}
-
-            # Positives (prefer feature_notes, fallback to positives_notes for legacy)
-            pass_1b = (passes.get("1b", {}) or {})
-            feat_notes = (pass_1b.get("feature_notes") or pass_1b.get("positives_notes") or "").strip()
-            if feat_notes:
-                g["positives"]["notes"].append(feat_notes)
-
-            nf = _safe_list((passes.get("1c", {}) or {}).get("notable_features"))
-            for feat in nf:
-                s = str(feat).strip()
+            if feat.get("feature_notes"):
+                g["positives"]["notes"].append(feat["feature_notes"])
+            for f in _safe_list(feat.get("notable_features")):
+                s = str(f).strip()
                 if s and s not in g["positives"]["notable_features"]:
                     g["positives"]["notable_features"].append(s)
 
-            # Issues (prefer verified_issues from 2c, fallback to 2b)
-            obs_freeform = ((passes.get("2a", {}) or {}).get("observations_freeform") or "").strip()
-            if obs_freeform:
-                g["issues"]["notes"].append(obs_freeform)
+            if feat.get("observations_freeform"):
+                g["issues"]["notes"].append(feat["observations_freeform"])
 
-            # Read verified issues — prefer post-2e (final truth), fall back through 2c → top-level → 2b
-            issues = _safe_list((passes.get("2e", {}) or {}).get("verified_issues"))
-            if not issues:
-                issues = _safe_list((passes.get("2c", {}) or {}).get("verified_issues"))
-            if not issues:
-                issues = _safe_list(p.get("verified_issues"))
-            if not issues:
-                # Fallback to 2b if neither 2e nor 2c ran
-                issues = _safe_list((passes.get("2b", {}) or {}).get("issues_natural_language"))
-
-            for it in issues:
+            for it in final_list:
                 if isinstance(it, dict) and it.get("description"):
                     g["issues"]["issues_natural_language"].append({
                         "source_image": img_key,
-                        "issue_id": it.get("issue_id"),
-                        "photo_id": p.get("photo_id"),
-                        "photo_key": img_key,
-                        "description": it.get("description", ""),
-                        "label": it.get("label", ""),
+                        "issue_id":     it.get("issue_id"),
+                        "photo_id":     p["photo"]["photo_id"],
+                        "photo_key":    img_key,
+                        "description":  it.get("description", ""),
+                        "label":        it.get("label", ""),
                         "location_hint": it.get("location_hint", ""),
                     })
 
         photo_intel = {
-            # v2 schema versioning
-            "artifact_schema_version": PHOTO_INTEL_SCHEMA_VERSION,
+            "schema_version":               PHOTO_INTEL_SCHEMA_VERSION,
             "normalization_policy_version": NORMALIZATION_POLICY_VERSION,
-            # Existing fields
-            "run_id": job.job_id,
-            "job_id": job.job_id,
-            "property_key": job.property_key,
-            "timestamp": job.timestamp,
-            "created_at": created_at,
-            "artifacts_dir": job.artifacts_dir,
-            "detection_backend": self.detection_backend,
-            "analysis_profile": self.analysis_profile,
-            "used_pass_architecture": self.use_pass_architecture,
-            "pass_toggles": self.pass_toggles if self.pass_toggles else None,
-            "model_overrides": self.model_overrides if self.model_overrides else None,
-            "model": getattr(cfg, "LM_STUDIO_MODEL", ""),
-            "gpt_model": self.gpt_config.get('model') if self.gpt_config else None,
-            "prompt_version": self._pick_first_metadata(job.results, "prompt_version", ""),
-            "scene_policy_version": self._pick_first_metadata(job.results, "scene_policy_version", ""),
-            "photos": photos,
+            "run": {
+                "run_id":              job.job_id,
+                "job_id":              job.job_id,
+                "created_at":          created_at,
+                "timestamp":           job.timestamp,
+                "detection_backend":   self.detection_backend,
+                "analysis_profile":    self.analysis_profile,
+                "used_pass_architecture": self.use_pass_architecture,
+                "pass_toggles":        self.pass_toggles if self.pass_toggles else None,
+                "model_overrides":     self.model_overrides if self.model_overrides else None,
+                "model":               getattr(cfg, "LM_STUDIO_MODEL", ""),
+                "gpt_model":           self.gpt_config.get('model') if self.gpt_config else None,
+                "prompt_version":      self._pick_first_metadata(job.results, "prompt_version", ""),
+                "scene_policy_version": self._pick_first_metadata(job.results, "scene_policy_version", ""),
+            },
+            "property": {
+                "property_key": job.property_key,
+                "artifacts_dir": job.artifacts_dir,
+            },
+            "photos":      photos,
             "room_groups": room_groups,
-            # v2 flat issue index
             "issues_flat": issues_flat,
             "issues_flat_count": len(issues_flat),
         }
@@ -2895,7 +2954,7 @@ class AutoAnalyzer:
                 # Fall through to write empty summary
             else:
                 # Compute grouped_issues ONCE from all_results.
-                # build_grouped_issues reads passes["2e"]["verified_issues"] (post-2e truth),
+                # build_grouped_issues reads payload["verified_issues"] (post-2e truth),
                 # falling back to passes["2c"]["verified_issues"] for pre-2e runs.
                 grouped_issues, _fallback_count = build_grouped_issues(all_results)
 

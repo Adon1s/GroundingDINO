@@ -78,7 +78,16 @@
       "kind": "defect",
       "id": "water_stain_ceiling",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility",
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Peeling or Discolored Paint",
@@ -99,7 +108,14 @@
       "kind": "defect",
       "id": "peeling_or_discolored_paint",
       "scope": "cosmetic",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Visible Mold or Mildew",
@@ -120,7 +136,16 @@
       "kind": "defect",
       "id": "visible_mold_or_mildew",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility",
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Drywall Damage or Cracks",
@@ -142,7 +167,14 @@
       "kind": "defect",
       "id": "damaged_drywall_or_cracks",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Ceiling Cracks or Sagging",
@@ -162,7 +194,11 @@
       "kind": "defect",
       "id": "ceiling_cracks_or_sagging",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "utility",
+        "other"
+      ]
     },
     {
       "name": "Worn or Stained Carpet",
@@ -183,7 +219,14 @@
       "kind": "defect",
       "id": "worn_or_stained_carpet",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Scratched or Damaged Hard Flooring",
@@ -206,7 +249,14 @@
       "kind": "defect",
       "id": "scratched_or_damaged_flooring",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Trip Hazard or Unlevel Floor",
@@ -228,7 +278,16 @@
       "kind": "defect",
       "id": "trip_hazard_or_unlevel_floor",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility",
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Damaged or Rotted Exterior Siding/Trim",
@@ -251,7 +310,11 @@
       "kind": "defect",
       "id": "damaged_or_rotted_siding_or_trim",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Damaged or Aged Roof Shingles",
@@ -274,7 +337,11 @@
       "kind": "defect",
       "id": "damaged_or_aged_roof_shingles",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Damaged or Unsafe Deck/Porch",
@@ -297,7 +364,11 @@
       "kind": "defect",
       "id": "damaged_or_unsafe_deck_or_porch",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Broken or Fogged Windows",
@@ -324,7 +395,16 @@
       "kind": "defect",
       "id": "broken_or_fogged_windows",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility",
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Damaged or Outdated Cabinets",
@@ -346,7 +426,10 @@
       "kind": "defect",
       "id": "outdated_or_damaged_cabinets",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen"
+      ]
     },
     {
       "name": "Damaged Countertops",
@@ -368,7 +451,10 @@
       "kind": "defect",
       "id": "countertop_damage",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen"
+      ]
     },
     {
       "name": "Damaged Tile or Grout",
@@ -389,7 +475,10 @@
       "kind": "defect",
       "id": "tile_or_grout_damage",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ]
     },
     {
       "name": "Appliance Damage or Missing",
@@ -412,7 +501,10 @@
       "kind": "defect",
       "id": "appliance_damage_or_missing",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen"
+      ]
     },
     {
       "name": "Leaking or Stained Plumbing Fixtures",
@@ -436,7 +528,12 @@
       "kind": "defect",
       "id": "plumbing_fixture_leaking_stained",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "utility"
+      ]
     },
     {
       "name": "Stained or Damaged Bath Fixtures",
@@ -458,7 +555,10 @@
       "kind": "defect",
       "id": "stained_or_damaged_bath_fixtures",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ]
     },
     {
       "name": "Visible Electrical Risks",
@@ -481,7 +581,16 @@
       "kind": "defect",
       "id": "visible_electrical_risks",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility",
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Missing or Damaged Handrails/Guardrails",
@@ -503,7 +612,16 @@
       "kind": "defect",
       "id": "missing_or_damaged_handrails",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility",
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Basement or Garage Damage",
@@ -525,7 +643,11 @@
       "kind": "defect",
       "id": "garage_or_basement_damage",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "utility",
+        "other"
+      ]
     },
     {
       "name": "Major Foundation or Settlement Signs",
@@ -550,7 +672,12 @@
       "kind": "defect",
       "id": "major_foundation_or_settlement_signs",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "utility",
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Visible Pest or Rodent Evidence",
@@ -571,7 +698,16 @@
       "kind": "defect",
       "id": "pest_or_rodent_evidence",
       "scope": "service",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility",
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Standing Water or Poor Grading",
@@ -592,7 +728,11 @@
       "kind": "defect",
       "id": "standing_water_or_poor_grading",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Driveway or Walkway Cracking/Settlement",
@@ -614,7 +754,11 @@
       "kind": "defect",
       "id": "driveway_or_walkway_cracking",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Clogged or Damaged Gutters/Downspouts",
@@ -635,7 +779,11 @@
       "kind": "defect",
       "id": "clogged_or_damaged_gutters",
       "scope": "service",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Trees or Vegetation Too Close to Structure",
@@ -656,7 +804,11 @@
       "kind": "defect",
       "id": "trees_or_vegetation_too_close",
       "scope": "service",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Outdated Kitchen Finishes",
@@ -677,7 +829,10 @@
       "kind": "upgrade",
       "id": "outdated_kitchen_finishes",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen"
+      ]
     },
     {
       "name": "Outdated Bathroom Finishes",
@@ -699,7 +854,10 @@
       "kind": "upgrade",
       "id": "outdated_bathroom_finishes",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ]
     },
     {
       "name": "Outdated Flooring Style",
@@ -719,7 +877,14 @@
       "kind": "upgrade",
       "id": "older_flooring_style",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Outdated Lighting Fixtures",
@@ -740,7 +905,16 @@
       "kind": "upgrade",
       "id": "dated_lighting_fixtures",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility",
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Paint Refresh Opportunity",
@@ -760,7 +934,14 @@
       "kind": "upgrade",
       "id": "paint_refresh_recommended",
       "scope": "cosmetic",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Landscape Improvement",
@@ -781,7 +962,11 @@
       "kind": "upgrade",
       "id": "landscape_improvement_needed",
       "scope": "service",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Curb Appeal Upgrade",
@@ -802,7 +987,11 @@
       "kind": "upgrade",
       "id": "curb_appeal_upgrade",
       "scope": "cosmetic",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Unfinished Basement",
@@ -821,7 +1010,10 @@
       "kind": "upgrade",
       "id": "unfinished_basement_present",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "utility"
+      ]
     },
     {
       "name": "Staging or Decluttering Opportunity",
@@ -841,7 +1033,14 @@
       "kind": "upgrade",
       "id": "staging_or_decluttering_opportunity",
       "scope": "cosmetic",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Baseboard Wear or Scuffs",
@@ -866,7 +1065,16 @@
       "kind": "defect",
       "id": "baseboard_wear_scuffs",
       "scope": "cosmetic",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility",
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Wall Scuffs, Marks, or Dents",
@@ -896,7 +1104,14 @@
       "kind": "defect",
       "id": "wall_scuffs_marks_or_dents",
       "scope": "cosmetic",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Ceiling Fan with Mismatched Blades",
@@ -923,7 +1138,12 @@
       "kind": "defect",
       "id": "ceiling_fan_mismatched_blades",
       "scope": "replace",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "bedroom",
+        "living_areas",
+        "other"
+      ]
     },
     {
       "name": "Outdated Ceiling Fan Style",
@@ -949,7 +1169,12 @@
       "kind": "upgrade",
       "id": "older_ceiling_fan_style",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "bedroom",
+        "living_areas",
+        "other"
+      ]
     },
     {
       "name": "Popcorn/Acoustic Ceiling Texture",
@@ -974,7 +1199,14 @@
       "kind": "upgrade",
       "id": "popcorn_or_acoustic_ceiling_texture",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Unfinished Interior Wall (OSB Exposed)",
@@ -999,7 +1231,14 @@
       "kind": "defect",
       "id": "unfinished_interior_wall_osb_exposed",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Dirty or Heavily Soiled Floor",
@@ -1025,7 +1264,14 @@
       "kind": "defect",
       "id": "floor_dirty_or_heavily_soiled",
       "scope": "cosmetic",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Vintage Tile Pattern/Style",
@@ -1051,7 +1297,10 @@
       "kind": "upgrade",
       "id": "vintage_tile_pattern_style",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ]
     },
     {
       "name": "Ornate/Vintage Mirror Style",
@@ -1075,7 +1324,10 @@
       "kind": "upgrade",
       "id": "ornate_vintage_mirror",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ]
     },
     {
       "name": "Stained-Glass or Vintage Light Fixture",
@@ -1100,7 +1352,14 @@
       "kind": "upgrade",
       "id": "stained_glass_or_vintage_light_fixture",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Dated Window Treatment/Valance",
@@ -1126,7 +1385,14 @@
       "kind": "upgrade",
       "id": "dated_window_treatment_valance",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Dated Wallpaper",
@@ -1150,7 +1416,14 @@
       "kind": "upgrade",
       "id": "dated_wallpaper_present",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Dated Wood Paneling",
@@ -1174,7 +1447,14 @@
       "kind": "upgrade",
       "id": "dated_wood_paneling",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Mismatched Furniture/Staging Opportunity",
@@ -1196,7 +1476,14 @@
       "kind": "upgrade",
       "id": "mismatched_or_inconsistent_furniture_staging",
       "scope": "cosmetic",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Overall Decor Style Appears Dated",
@@ -1221,7 +1508,14 @@
       "kind": "upgrade",
       "id": "dated_overall_decor_style",
       "scope": "cosmetic",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Yard Debris / Overgrown with Leaves",
@@ -1247,7 +1541,11 @@
       "kind": "defect",
       "id": "yard_debris_overgrown_leaves",
       "scope": "cosmetic",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Possible Water Damage at Roofline",
@@ -1274,7 +1572,11 @@
       "kind": "defect",
       "id": "roofline_water_damage_suspected",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Gutter Maintenance Needed",
@@ -1300,7 +1602,11 @@
       "kind": "defect",
       "id": "gutter_maintenance_needed",
       "scope": "service",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Shed Exterior Paint Failure",
@@ -1321,7 +1627,11 @@
       "kind": "defect",
       "id": "shed_exterior_paint_failure",
       "scope": "cosmetic",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Concrete Driveway Surface Wear",
@@ -1346,7 +1656,11 @@
       "kind": "defect",
       "id": "concrete_driveway_surface_wear",
       "scope": "cosmetic",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Heavy Indoor Storage/Clutter",
@@ -1369,7 +1683,14 @@
       "kind": "defect",
       "id": "indoor_storage_clutter_heavy",
       "scope": "cosmetic",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Metal Carport Rust or Corrosion",
@@ -1396,7 +1717,11 @@
       "kind": "defect",
       "id": "metal_carport_rust_corrosion",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Exterior Siding Discoloration or Fading",
@@ -1423,7 +1748,11 @@
       "kind": "defect",
       "id": "exterior_siding_discoloration_fading",
       "scope": "cosmetic",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Uneven Gravel Drive or Parking Area",
@@ -1449,7 +1778,11 @@
       "kind": "defect",
       "id": "uneven_gravel_drive_or_parking",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Dated Exterior Finishes",
@@ -1474,7 +1807,11 @@
       "kind": "upgrade",
       "id": "dated_exterior_finishes",
       "scope": "cosmetic",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Layout Modernization Opportunity",
@@ -1500,7 +1837,16 @@
       "kind": "upgrade",
       "id": "layout_modernization_opportunity",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility",
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Exposed Sheathing or Missing Exterior Siding",
@@ -1524,7 +1870,11 @@
       "kind": "defect",
       "id": "exposed_sheathing_or_missing_siding",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Deck Surface Weathering",
@@ -1551,7 +1901,11 @@
       "kind": "defect",
       "id": "deck_surface_weathering",
       "scope": "cosmetic",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Tree Stump Present in Yard",
@@ -1571,7 +1925,11 @@
       "kind": "defect",
       "id": "tree_stump_present_in_yard",
       "scope": "service",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Exterior Door Paint Failure",
@@ -1594,7 +1952,11 @@
       "kind": "defect",
       "id": "exterior_door_paint_failure",
       "scope": "cosmetic",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Brick Weathering or Mortar Deterioration",
@@ -1616,7 +1978,11 @@
       "kind": "defect",
       "id": "brick_weathering_or_mortar_deterioration",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Patio or Porch Surface Wear",
@@ -1641,7 +2007,11 @@
       "kind": "defect",
       "id": "patio_or_porch_surface_wear",
       "scope": "cosmetic",
-      "defaultHidden": true
+      "defaultHidden": true,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Missing Base Cabinets with Exposed Subfloor/Framing",
@@ -1663,7 +2033,10 @@
       "kind": "defect",
       "id": "missing_base_cabinets_exposed_subfloor",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen"
+      ]
     },
     {
       "name": "Rotted Subfloor or Structural Framing",
@@ -1685,7 +2058,11 @@
       "kind": "defect",
       "id": "rotted_subfloor_or_structural_framing",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "utility",
+        "other"
+      ]
     },
     {
       "name": "Interior Wall Stripped to Studs / Exposed Insulation",
@@ -1706,7 +2083,14 @@
       "kind": "defect",
       "id": "interior_wall_stripped_to_studs",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Boarded-Up Entry or Window",
@@ -1727,7 +2111,16 @@
       "kind": "defect",
       "id": "boarded_up_entry_or_window",
       "scope": "replace",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility",
+        "exterior",
+        "other"
+      ]
     },
     {
       "name": "Retaining Wall Failure or Missing Section",
@@ -1748,7 +2141,11 @@
       "kind": "defect",
       "id": "retaining_wall_failure_or_missing_section",
       "scope": "repair",
-      "defaultHidden": false
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "other"
+      ]
     }
   ]
 }

@@ -73,15 +73,6 @@ logger = logging.getLogger(__name__)
 # Deterministic ID helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _stable_issue_id(image_path: str, label: str, description: str) -> str:
-    """
-    Deterministic ID for an observation within an image.
-    Stable across reruns; changes only if description changes.
-    16 hex chars (64 bits) — plenty for this scale.
-    """
-    base = f"{image_path}||{label}||{description}".strip()
-    return hashlib.blake2s(base.encode("utf-8"), digest_size=8).hexdigest()
-
 
 def _photo_key_from_path(image_path: str) -> str:
     """Return just the filename portion of a path (e.g. 'photo_034.jpg')."""
@@ -676,18 +667,52 @@ class SceneClassifierOrchestrator:
         # ─────────────────────────────────────────────────────────────────────
         # Pass 2d: Resolve catalog item ID from candidates (text-only, optional)
         # ─────────────────────────────────────────────────────────────────────
+
+        # ── Normalize kind + scene_group on every labeled_forward item ────────
+        # Must happen before 2d gate so gating and retrieval use consistent values.
+        # Mirrors the same normalization AutoAnalyzer does in its 2c enrichment block.
+        _UPGRADE_LABELS = {
+            "opportunity", "upgrade", "improvement", "cosmetic_upgrade",
+            "feature", "upgrade_candidate",
+        }
+
+        def _label_to_kind(lbl: str) -> str:
+            return "upgrade" if (lbl or "").strip().lower() in _UPGRADE_LABELS else "defect"
+
+        # Minimal scene→group map (keep in sync with SCENE_TO_GROUP_UI in auto_analyzer.py)
+        _SCENE_TO_GROUP: Dict[str, str] = {
+            "kitchen": "kitchen", "pantry": "kitchen",
+            "bathroom": "bathroom",
+            "bedroom": "bedroom", "closet": "bedroom",
+            "living_room": "living_areas", "dining_room": "living_areas",
+            "home_office": "living_areas", "hallway": "living_areas", "stairway": "living_areas",
+            "laundry_room": "utility", "basement": "utility", "attic": "utility",
+            "garage": "utility", "hvac": "utility",
+            "exterior_front": "exterior", "exterior_back": "exterior", "exterior_side": "exterior",
+            "yard": "exterior", "patio": "exterior", "deck": "exterior", "balcony": "exterior",
+            "driveway": "exterior", "pool": "exterior", "garden": "exterior",
+            "roof": "other", "other": "other", "unknown": "other",
+            "floor_plan": "other", "aerial_view": "other", "street_view": "other",
+        }
+        _scene_for_2d = result.scene or "unknown"
+        _scene_group_for_2d = _SCENE_TO_GROUP.get(_scene_for_2d, "other")
+
+        for _obs in (result.labeled_forward or []):
+            if not isinstance(_obs, dict):
+                continue
+            # Trust existing kind if already valid; derive from label otherwise
+            _existing_kind = (_obs.get("kind") or "").strip().lower()
+            _obs["kind"] = _existing_kind if _existing_kind in {"defect", "upgrade"} else _label_to_kind(_obs.get("label", ""))
+            # Stamp scene_group so candidate_provider can gate retrieval
+            _obs.setdefault("scene_group", _scene_group_for_2d)
+            _obs.setdefault("scene", _scene_for_2d)
         pass_2d_toggle = self._t(toggles, "2d", default=True)
         pass_2d_provider_present = self.candidate_provider is not None
-
-        LABEL_TO_KIND = {
-            "defect_or_damage": "defect",
-            "upgrade_candidate": "upgrade",
-        }
 
         labeled_forward = result.labeled_forward or []
         to_resolve_all = [
             obs for obs in labeled_forward
-            if obs.get("label") in LABEL_TO_KIND
+            if obs.get("kind") in {"defect", "upgrade"} and (obs.get("description") or "").strip()
         ][:self.max_resolve_per_image]
 
         # Persist into JSON so you can see it via website artifact
@@ -695,8 +720,8 @@ class SceneClassifierOrchestrator:
             "toggle": pass_2d_toggle,
             "candidate_provider_present": pass_2d_provider_present,
             "labeled_forward_count": len(labeled_forward),
-            "defect_forward_count": len([x for x in labeled_forward if x.get("label") == "defect_or_damage"]),
-            "upgrade_forward_count": len([x for x in labeled_forward if x.get("label") == "upgrade_candidate"]),
+            "defect_forward_count": len([x for x in labeled_forward if x.get("kind") == "defect"]),
+            "upgrade_forward_count": len([x for x in labeled_forward if x.get("kind") == "upgrade"]),
             "total_resolve_count": len(to_resolve_all),
         }
 
@@ -721,25 +746,30 @@ class SceneClassifierOrchestrator:
             pass_2d_results: List[Pass2dResult] = []
             resolved_items: List[Dict[str, Any]] = []    # unified list (defects + upgrades)
 
-            # Base context for candidate provider
-            base_ctx_for_provider = {**context, "top_k_candidates": self.top_k_candidates}
+            # Base context for candidate provider — include scene so provider can gate retrieval
+            base_ctx_for_provider = {
+                **context,
+                "top_k_candidates": self.top_k_candidates,
+                "scene": result.scene,
+                "scene_group": _scene_group_for_2d,
+            }
 
             # Initialize per-observation debug list
             result.debug["pass_2d_per_observation"] = []
 
             for obs in to_resolve_all:
                 description = (obs.get("description") or "").strip()
-                label = (obs.get("label") or "").strip().lower()
                 if not description:
                     continue
 
-                kind = LABEL_TO_KIND.get(label, "defect")
+                kind = obs.get("kind")   # already "defect" or "upgrade" from normalization above
                 ctx_for_provider = {**base_ctx_for_provider, "kind": kind}
 
                 debug_row = {
                     "observation": description,
-                    "label": label,
+                    "label": obs.get("label", ""),
                     "kind": kind,
+                    "scene_group": obs.get("scene_group"),
                     "candidate_count": 0,
                     "skipped_reason": None,
                     "top_candidate_id": None,
@@ -802,21 +832,19 @@ class SceneClassifierOrchestrator:
                 pass_2d_results.append(pass_2d_result)
 
                 resolved_item_id = pass_2d_result.resolved_item_id  # canonical
-                # Read issue_id stamped during Pass 2c (forward-only: generate as fallback)
+                # issue_id must be stamped during Pass 2c — if it's missing something went wrong upstream.
                 issue_id = (obs.get("issue_id") or "").strip()
                 if not issue_id:
-                    issue_id = _stable_issue_id(
-                        image_path=str(image_path),
-                        label=label,
-                        description=description,
-                    )
+                    debug_row["skipped_reason"] = "missing_issue_id (expected stamped in 2c)"
+                    result.debug["pass_2d_per_observation"].append(debug_row)
+                    continue
                 photo_key = _photo_key_from_path(str(image_path))
                 row = {
                     "issue_id": issue_id,
                     "source_image_path": str(image_path),
                     "source_photo_key": photo_key,
                     "description": description,
-                    "label": label,
+                    "label": obs.get("label", ""),
                     "resolved_item_id": resolved_item_id,
                     "resolved_kind": kind,
                     # Candidates: keep for auditability but strip score (no ranking in stored output)
@@ -856,7 +884,7 @@ class SceneClassifierOrchestrator:
             if to_resolve_all and not pass_2d_provider_present:
                 logger.debug("Pass 2d: %d resolvable items but no candidate provider.", len(to_resolve_all))
             elif not to_resolve_all:
-                logger.debug("Pass 2d: no resolvable observations (defect_or_damage / upgrade_candidate) in labeled_forward.")
+                logger.debug("Pass 2d: no resolvable observations (kind=defect/upgrade) in labeled_forward.")
             result.debug["pass_2d_summary"] = {
                 "attempted_total": 0,
                 "resolved_total": 0,
@@ -890,10 +918,10 @@ class SceneClassifierOrchestrator:
                 if res and res.get("resolved_item_id"):
                     issue.setdefault("catalogItemId", res["resolved_item_id"])
                     issue.setdefault("catalogItemKind", res.get("resolved_kind"))
-                # Map label → kind if kind not already set
+                # kind is already stamped by the normalization block above;
+                # this setdefault is a safety net for any item that somehow slipped through.
                 if not issue.get("kind"):
-                    _LABEL_TO_KIND = {"defect_or_damage": "defect", "upgrade_candidate": "upgrade"}
-                    issue["kind"] = _LABEL_TO_KIND.get(issue.get("label", ""), "")
+                    issue["kind"] = _label_to_kind(issue.get("label", ""))
                 issues_for_2e.append(issue)
 
             t0 = time.time()
@@ -925,7 +953,6 @@ class SceneClassifierOrchestrator:
                         }
                         for x in removed
                     ],
-                    "verified_issues": result.verified_issues,
                 }
                 result.debug["pass_2e_summary"] = {
                     "input_count": len(issues_for_2e),
@@ -948,14 +975,16 @@ class SceneClassifierOrchestrator:
             result.pass_timings['2e'] = round(time.time() - t0, 3)
         else:
             # 2e skipped — promote labeled_forward to verified_issues with minimal normalization
-            # so downstream always gets kind regardless of which path ran.
-            _LABEL_TO_KIND = {"defect_or_damage": "defect", "upgrade_candidate": "upgrade"}
+            # so downstream always gets a valid kind regardless of which path ran.
             _out: List[Dict[str, Any]] = []
             for _obs in (result.labeled_forward or []):
                 if not isinstance(_obs, dict):
                     continue
                 _x = dict(_obs)
-                _x["kind"] = _x.get("kind") or _LABEL_TO_KIND.get(_x.get("label", ""), "")
+                # Trust existing kind if valid; derive from label via _label_to_kind otherwise.
+                # _label_to_kind is defined in the 2d normalization block above.
+                _existing = (_x.get("kind") or "").strip().lower()
+                _x["kind"] = _existing if _existing in {"defect", "upgrade"} else _label_to_kind(_x.get("label", ""))
                 _out.append(_x)
             result.verified_issues = _out
             result.passes["2e"] = {"skipped": True}

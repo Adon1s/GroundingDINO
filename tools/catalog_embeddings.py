@@ -9,6 +9,10 @@ import numpy as np
 
 logger = logging.getLogger(__name__)
 
+# All known scene groups — used as the fallback when a catalog item has no scene_groups field.
+# Keep in sync with SCENE_GROUPS_UI in auto_analyzer.py.
+_ALL_SCENE_GROUPS = ("kitchen", "bathroom", "bedroom", "living_areas", "utility", "exterior", "other")
+
 try:
     from sentence_transformers import SentenceTransformer
     _ST_OK = True
@@ -54,6 +58,7 @@ class CatalogItemMeta:
     kind: str              # defect | upgrade (safety/opportunity filtered out)
     trade_bucket: str
     severity: int
+    scene_groups: Tuple[str, ...]  # scene groups this item is valid for (from catalog)
     text: str              # embed this
 
 
@@ -65,6 +70,7 @@ class MatchCandidate:
     trade_bucket: str
     severity: int
     score: float
+    scene_groups: Tuple[str, ...]  # passed through from CatalogItemMeta
 
 
 class CatalogEmbeddingsRetriever:
@@ -121,6 +127,19 @@ class CatalogEmbeddingsRetriever:
         for k, idxs in self._idx_by_kind.items():
             self._idx_by_kind[k] = np.asarray(idxs, dtype=np.int64)
 
+        # Precompute indices by scene group.
+        # Built from each item's meta.scene_groups (read from catalog JSON) so that
+        # per-item overrides in the catalog are the single source of truth.
+        # Items without a scene_groups entry default to _ALL_SCENE_GROUPS in _build_items,
+        # so they remain reachable under any group filter.
+        self._idx_by_group: Dict[str, np.ndarray] = {}
+        tmp: Dict[str, List[int]] = {}
+        for i, meta in enumerate(self._items):
+            for g in meta.scene_groups:
+                tmp.setdefault(g, []).append(i)
+        for g, idxs in tmp.items():
+            self._idx_by_group[g] = np.asarray(sorted(set(idxs)), dtype=np.int64)
+
         # Convenience "slices" - only defect and upgrade (no safety/opportunity)
         self._defect_kinds = {"defect"}
         self._upgrade_kinds = {"upgrade"}
@@ -165,6 +184,13 @@ class CatalogEmbeddingsRetriever:
             if kind in {"safety", "opportunity"}:
                 continue
 
+            # scene_groups: read directly from catalog; fall back to all groups if missing
+            raw_sg = it.get("scene_groups")
+            if isinstance(raw_sg, list) and raw_sg:
+                scene_groups: Tuple[str, ...] = tuple(str(s).strip() for s in raw_sg if str(s).strip())
+            else:
+                scene_groups = tuple(_ALL_SCENE_GROUPS)
+
             text = self._catalog_text(it)
 
             out.append(CatalogItemMeta(
@@ -173,6 +199,7 @@ class CatalogEmbeddingsRetriever:
                 kind=kind,
                 trade_bucket=trade_bucket,
                 severity=severity,
+                scene_groups=scene_groups,
                 text=text,
             ))
         return out
@@ -221,24 +248,58 @@ class CatalogEmbeddingsRetriever:
         *,
         topk: Optional[int] = None,
         allowed_kinds: Optional[Set[str]] = None,
+        allowed_groups: Optional[Set[str]] = None,
     ) -> List[MatchCandidate]:
+        """
+        Retrieve top-K candidates for an observation.
+
+        Args:
+            observation_text: The issue description to match.
+            topk:             Override default_topk.
+            allowed_kinds:    If set, restrict to items whose kind is in this set.
+            allowed_groups:   If set, restrict to items whose scene_groups (from catalog)
+                              overlaps this set. Pass the photo's scene group here to
+                              prevent cross-room matches (e.g. kitchen items in bathroom).
+        """
         t = _norm(observation_text)
         if not t or self._mat.shape[0] == 0:
             return []
 
         q = self._encode_queries([t])[0]
 
-        idxs = None
+        idxs: Optional[np.ndarray] = None
+
+        # Kind filter — union of per-kind index arrays
         if allowed_kinds:
-            # build a union of indices for those kinds
             buf: List[int] = []
             for k in allowed_kinds:
                 arr = self._idx_by_kind.get(k)
                 if arr is not None and arr.size:
                     buf.extend(arr.tolist())
-            idxs = np.asarray(sorted(set(buf)), dtype=np.int64) if buf else None
+            idxs = np.asarray(sorted(set(buf)), dtype=np.int64) if buf else np.array([], dtype=np.int64)
+            if idxs.size == 0:
+                return []
 
-        mat = self._mat if idxs is None else self._mat[idxs, :]
+        # Group filter — union of per-group arrays, then intersect with kind filter
+        if allowed_groups:
+            gbuf: List[int] = []
+            for g in allowed_groups:
+                arr = self._idx_by_group.get(g)
+                if arr is not None and arr.size:
+                    gbuf.extend(arr.tolist())
+            gidxs = np.asarray(sorted(set(gbuf)), dtype=np.int64) if gbuf else None
+
+            if gidxs is None:
+                # No items indexed for these groups → nothing to return
+                return []
+            if idxs is None:
+                idxs = gidxs
+            else:
+                idxs = np.intersect1d(idxs, gidxs, assume_unique=False)
+                if idxs.size == 0:
+                    return []
+
+        mat  = self._mat  if idxs is None else self._mat[idxs, :]
         pack = self._items if idxs is None else [self._items[i] for i in idxs.tolist()]
 
         k = topk if topk is not None else self.default_topk
@@ -256,12 +317,33 @@ class CatalogEmbeddingsRetriever:
                 trade_bucket=meta.trade_bucket,
                 severity=meta.severity,
                 score=float(s),
+                scene_groups=meta.scene_groups,
             ))
         return out
 
     # Convenience wrappers that make your pipeline code very explicit
-    def embeddings_retrieve_defect_candidates(self, observation_text: str, topk: Optional[int] = None) -> List[MatchCandidate]:
-        return self.retrieve_candidates(observation_text, topk=topk, allowed_kinds=self._defect_kinds)
+    def embeddings_retrieve_defect_candidates(
+        self,
+        observation_text: str,
+        topk: Optional[int] = None,
+        allowed_groups: Optional[Set[str]] = None,
+    ) -> List[MatchCandidate]:
+        return self.retrieve_candidates(
+            observation_text,
+            topk=topk,
+            allowed_kinds=self._defect_kinds,
+            allowed_groups=allowed_groups,
+        )
 
-    def embeddings_retrieve_upgrade_candidates(self, observation_text: str, topk: Optional[int] = None) -> List[MatchCandidate]:
-        return self.retrieve_candidates(observation_text, topk=topk, allowed_kinds=self._upgrade_kinds)
+    def embeddings_retrieve_upgrade_candidates(
+        self,
+        observation_text: str,
+        topk: Optional[int] = None,
+        allowed_groups: Optional[Set[str]] = None,
+    ) -> List[MatchCandidate]:
+        return self.retrieve_candidates(
+            observation_text,
+            topk=topk,
+            allowed_kinds=self._upgrade_kinds,
+            allowed_groups=allowed_groups,
+        )
