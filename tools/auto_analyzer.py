@@ -14,6 +14,7 @@ Supports analysis profiles:
 - premium: Key passes (1b, 2a, 4) use OpenAI GPT-5/GPT-4o
 """
 
+import copy
 import os
 import sys
 import json
@@ -2854,10 +2855,43 @@ class AutoAnalyzer:
 
         output_path = output_path or Path(job.artifacts_dir) / "photo_intel.json"
         output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(photo_intel, f, indent=2, ensure_ascii=False)
 
-        logger.info(f"Photo intel saved to: {output_path}")
+        # ── Write full debug file first (all pass outputs, intermediates, timings) ──
+        debug_path = output_path.parent / "photo_intel_debug.json"
+        with open(debug_path, "w", encoding="utf-8") as f:
+            json.dump(photo_intel, f, indent=2, ensure_ascii=False)
+        logger.info(f"Photo intel debug saved to: {debug_path}")
+
+        # ── Build slim version for frontend consumption ──
+        slim = copy.deepcopy(photo_intel)
+
+        # Strip top-level debug/config fields the frontend doesn't read
+        for _k in ("pass_toggles", "model_overrides", "used_pass_architecture",
+                    "model", "gpt_model"):
+            slim.pop(_k, None)
+
+        # Strip per-photo debug fields
+        _FRONTEND_PASS_KEYS = {"1a", "2b", "2e"}  # only passes the frontend reads
+        for _img_key, _photo in (slim.get("photos") or {}).items():
+            # Remove intermediate/debug fields from each photo entry
+            for _rm in ("observations_freeform", "features_struct",
+                        "observations_struct", "labeled_debug",
+                        "labeled_forward", "feature_notes", "positives_notes",
+                        "pass_timings", "total_pass_time", "models_used",
+                        "passes_run", "debug"):
+                _photo.pop(_rm, None)
+
+            # Trim passes dict to only frontend-needed keys
+            _full_passes = _photo.get("passes")
+            if isinstance(_full_passes, dict):
+                _photo["passes"] = {
+                    k: v for k, v in _full_passes.items()
+                    if k in _FRONTEND_PASS_KEYS
+                }
+
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(slim, f, indent=2, ensure_ascii=False)
+        logger.info(f"Photo intel (slim) saved to: {output_path}")
 
         if generate_summary:
             summary_path = output_path.parent / "property_summary.json"
@@ -3198,6 +3232,22 @@ class AutoAnalyzer:
                     json.dump(photo_intel, f, indent=2, ensure_ascii=False)
 
                 logger.info(f"Pass 4a/4b/4c outputs embedded into: {photo_intel_path}")
+
+                # Also embed into the debug file so it has the complete picture
+                debug_path = photo_intel_path.parent / "photo_intel_debug.json"
+                if debug_path.exists():
+                    try:
+                        with open(debug_path, 'r', encoding='utf-8') as f:
+                            debug_intel = json.load(f)
+                        debug_intel["property_pass4a"] = photo_intel["property_pass4a"]
+                        debug_intel["property_pass4b"] = photo_intel["property_pass4b"]
+                        debug_intel["property_pass4c"] = photo_intel["property_pass4c"]
+                        debug_intel["property_summary"] = summary_data
+                        with open(debug_path, "w", encoding="utf-8") as f:
+                            json.dump(debug_intel, f, indent=2, ensure_ascii=False)
+                        logger.info(f"Pass 4a/4b/4c outputs also embedded into: {debug_path}")
+                    except Exception as exc:
+                        logger.warning(f"Could not embed property_pass4 into debug file: {exc}")
             except Exception as exc:
                 logger.warning(f"Could not embed property_pass4 into photo_intel.json: {exc}")
 
