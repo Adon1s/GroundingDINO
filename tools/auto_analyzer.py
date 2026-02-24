@@ -2746,6 +2746,17 @@ class AutoAnalyzer:
                 "processing_time": res.processing_time,
                 "error": res.error,
                 "trace": trace,
+                # ── Full intermediate pass data for debugging ─────────────────
+                # Includes raw pass outputs that the frontend doesn't need but
+                # are essential for diagnosing pipeline issues.
+                "debug": {
+                    "labeled_debug":   _safe_list(payload.get("labeled_debug")),
+                    "labeled_forward": _safe_list(payload.get("labeled_forward")),
+                    "resolved_items":  _safe_list(payload.get("resolved_items")),
+                    "observations_struct": payload.get("observations_struct", {}),
+                    "features_struct":    payload.get("features_struct", {}),
+                    "passes": passes,  # full per-pass outputs (1a-3)
+                },
                 # ── Compat shim — keeps existing consumers working during transition ──
                 # verified_issues / issues_natural_language removed: read issues.final instead.
                 # Remove _compat entirely once all UI/API consumers are updated to v3 paths.
@@ -2865,29 +2876,35 @@ class AutoAnalyzer:
         # ── Build slim version for frontend consumption ──
         slim = copy.deepcopy(photo_intel)
 
-        # Strip top-level debug/config fields the frontend doesn't read
-        for _k in ("pass_toggles", "model_overrides", "used_pass_architecture",
-                    "model", "gpt_model"):
-            slim.pop(_k, None)
+        # Strip run-level config fields the frontend doesn't read
+        _run = slim.get("run")
+        if isinstance(_run, dict):
+            for _k in ("pass_toggles", "model_overrides", "used_pass_architecture",
+                        "model", "gpt_model"):
+                _run.pop(_k, None)
 
-        # Strip per-photo debug fields
-        _FRONTEND_PASS_KEYS = {"1a", "2b", "2e"}  # only passes the frontend reads
+        # Strip per-photo debug fields (v3 schema)
         for _img_key, _photo in (slim.get("photos") or {}).items():
-            # Remove intermediate/debug fields from each photo entry
-            for _rm in ("observations_freeform", "features_struct",
-                        "observations_struct", "labeled_debug",
-                        "labeled_forward", "feature_notes", "positives_notes",
-                        "pass_timings", "total_pass_time", "models_used",
-                        "passes_run", "debug"):
-                _photo.pop(_rm, None)
-
-            # Trim passes dict to only frontend-needed keys
-            _full_passes = _photo.get("passes")
-            if isinstance(_full_passes, dict):
-                _photo["passes"] = {
-                    k: v for k, v in _full_passes.items()
-                    if k in _FRONTEND_PASS_KEYS
-                }
+            # Remove full debug section (labeled_debug, labeled_forward, resolved_items, full passes, etc.)
+            _photo.pop("debug", None)
+            # Remove trace (pass internals — only useful for debugging)
+            _photo.pop("trace", None)
+            # Strip verbose feature fields from the features section
+            _feat = _photo.get("features")
+            if isinstance(_feat, dict):
+                _feat.pop("observations_freeform", None)
+                _feat.pop("feature_notes", None)
+                _feat.pop("positives_notes", None)
+            # Trim _compat.passes to only frontend-needed keys
+            _compat = _photo.get("_compat")
+            if isinstance(_compat, dict):
+                _FRONTEND_PASS_KEYS = {"1a", "2b", "2e"}
+                _cp = _compat.get("passes")
+                if isinstance(_cp, dict):
+                    _compat["passes"] = {
+                        k: v for k, v in _cp.items()
+                        if k in _FRONTEND_PASS_KEYS
+                    }
 
         with open(output_path, "w", encoding="utf-8") as f:
             json.dump(slim, f, indent=2, ensure_ascii=False)
