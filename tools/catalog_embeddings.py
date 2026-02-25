@@ -10,7 +10,7 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 # All known scene groups — used as the fallback when a catalog item has no scene_groups field.
-# Keep in sync with SCENE_GROUPS_UI in auto_analyzer.py.
+# Keep in sync with SCENE_GROUPS_UI in pipeline_common.py.
 _ALL_SCENE_GROUPS = ("kitchen", "bathroom", "bedroom", "living_areas", "utility", "exterior", "other")
 
 try:

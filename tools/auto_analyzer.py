@@ -2,7 +2,7 @@
 """
 Auto-Analyzer for GroundingDINO Pipeline
 -----------------------------------------
-Orchestrates: Scene Classification → Detection → Verification → Property Summary
+Orchestrates: Scene Classification -> Detection -> Verification -> Property Summary
 Uses settings from pipeline_config.py
 
 Supports multiple detection backends:
@@ -14,14 +14,11 @@ Supports analysis profiles:
 - premium: Key passes (1b, 2a, 4) use OpenAI GPT-5/GPT-4o
 """
 
-import copy
 import os
 import sys
 import json
 import time
 import uuid
-import shutil
-import asyncio
 import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
@@ -33,10 +30,6 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from PIL import Image
-
-from tools.run_pipeline import redraw_overlay
-
 # Import configuration
 try:
     from tools import pipeline_config as cfg
@@ -44,31 +37,22 @@ except ImportError:
     print("ERROR: pipeline_config.py not found!")
     sys.exit(1)
 
-# Import defect events layer
-try:
-    from tools.defect_events import build_defect_events, generate_work_items, build_search_index
-    DEFECT_EVENTS_AVAILABLE = True
-except ImportError:
-    DEFECT_EVENTS_AVAILABLE = False
-
-# Import NMS postprocessing
-try:
-    from tools.postprocess import (
-        class_aware_nms,
-        enforce_scene_caps,
-        apply_roi_hint_bonus_overlap,
-        apply_special_case_filters,
-    )
-except ImportError:
-    print("ERROR: postprocess.py not found!")
-    sys.exit(1)
-
-# Import property summarizer (optional - graceful fallback if not available)
-try:
-    from tools.property_summarizer import PropertySummarizer
-except ImportError:
-    PropertySummarizer = None
-    print("INFO: property_summarizer.py not found, property summaries will be skipped")
+# --- Extracted modules ---
+from tools.pipeline_common import (
+    SCENE_GROUPS_UI,
+    SCENE_TO_GROUP_UI,
+)
+from tools.scene_classifier_service import (
+    SceneClassifierService,
+    scene_classifier_payload,
+)
+from tools.detection_pipeline import run_detection_stage
+from tools.artifact_writers import (
+    load_issue_catalog,
+    log_catalog_load,
+    write_photo_intel,
+    write_property_summary,
+)
 
 # Import DINO-X client (optional - graceful fallback to legacy mode)
 try:
@@ -145,84 +129,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-def load_issue_catalog(path: Path) -> dict:
-    """
-    Load the issue catalog from JSON.
-
-    Returns a dict with canonical keys:
-      - 'items': unified list of catalog entries (each has 'id' and 'kind' field)
-      - 'trade_buckets': list of trade bucket definitions
-      - 'version': catalog version string
-    """
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        logger.info(f"Catalog file loaded: {path.resolve()} raw_keys={list(data.keys()) if isinstance(data, dict) else type(data).__name__}")
-    except FileNotFoundError:
-        logger.warning(f"Issue catalog not found at {path}; using empty catalog.")
-        data = {}
-    except Exception as exc:
-        logger.error(f"Failed to load issue catalog from {path}: {exc}")
-        data = {}
-
-    # Normalize trade_buckets: v3 expects a list, tolerate older dict shapes
-    tb = data.get("trade_buckets", [])
-    if isinstance(tb, dict):
-        tb = list(tb.values())
-
-    # Normalize to canonical "items" array.
-    # v3+ catalogs use a single "items" list where each entry has an 'id' and 'kind' field.
-    # Older catalogs split into "defects" / "upgrades" (or "defect_issues") — merge both
-    # so upgrades are never silently dropped.
-    if "items" in data and data["items"]:
-        items = data["items"]
-    else:
-        # Legacy split format: normalize each side and merge
-        raw_defects  = data.get("defects",       []) or data.get("defect_issues", []) or []
-        raw_upgrades = data.get("upgrades",       []) or data.get("upgrade_items", []) or []
-        # Stamp kind if missing so downstream code has a reliable field
-        for d in raw_defects:
-            if isinstance(d, dict):
-                d.setdefault("kind", "defect")
-        for u in raw_upgrades:
-            if isinstance(u, dict):
-                u.setdefault("kind", "upgrade")
-        items = raw_defects + raw_upgrades
-        if items:
-            logger.info(
-                f"load_issue_catalog: merged legacy format — "
-                f"{len(raw_defects)} defects + {len(raw_upgrades)} upgrades → {len(items)} items"
-            )
-
-    return {
-        # v3 canonical: single "items" array (each has 'id' and 'kind' field)
-        "items": items,
-        "trade_buckets": tb,
-        "version": data.get("version"),
-    }
-
-
-def _log_catalog_load(path: Path, cat: dict):
-    """Log catalog load details at INFO so they're always visible."""
-    items = cat.get("items", []) or []
-    version = cat.get("version")
-    kind_counts = {}
-    for d in items:
-        k = d.get("kind", "defect") if isinstance(d, dict) else "?"
-        kind_counts[k] = kind_counts.get(k, 0) + 1
-    logger.info(
-        f"Catalog load: path={path.resolve()} exists={path.exists()} "
-        f"version={version} items={len(items)} "
-        f"kinds={kind_counts} "
-        f"keys={list(cat.keys())}"
-    )
-    sample = items[:2]
-    if sample:
-        logger.info(f"Catalog sample items[0:2]={[{k: v for k, v in s.items() if k in ('id','name','kind','trade_bucket')} for s in sample if isinstance(s, dict)]}")
-    else:
-        logger.info("Catalog sample: items is EMPTY")
-
-
 # Compute default catalog path - prefer tools/issue_catalog.json if it exists
 _repo_root = Path(__file__).resolve().parent.parent
 _tools_dir = getattr(cfg, "TOOLS_DIR", Path(__file__).resolve().parent)
@@ -246,49 +152,8 @@ BACKEND_ALIASES = {
     "dino-x": "dinox",
 }
 
-# Room grouping map for UI aggregation
-SCENE_GROUPS_UI = {
-    "kitchen": ["kitchen", "pantry"],
-    "bathroom": ["bathroom"],
-    "bedroom": ["bedroom", "closet"],
-    "living_areas": ["living_room", "dining_room", "home_office", "hallway", "stairway"],
-    "utility": ["laundry_room", "basement", "attic", "garage", "hvac"],
-    "exterior": ["exterior_front", "exterior_back", "exterior_side", "yard", "patio", "deck", "balcony", "driveway",
-                 "pool", "garden"],
-    "other": ["roof", "other", "unknown", "floor_plan", "aerial_view", "street_view"],
-}
 
-# Reverse lookup: scene -> group
-SCENE_TO_GROUP_UI = {}
-for _group, _scenes in SCENE_GROUPS_UI.items():
-    for _scene in _scenes:
-        SCENE_TO_GROUP_UI[_scene] = _group
-
-PHOTO_INTEL_SCHEMA_VERSION = "photo_intel_v3"
-PROPERTY_SUMMARY_SCHEMA_VERSION = "property_summary_v3"
-NORMALIZATION_POLICY_VERSION = "workitem_v1"
-
-
-def _stable_hash_id(*parts: str, length: int = 12) -> str:
-    """Generate a stable, deterministic short hash ID from input parts."""
-    import hashlib
-    # Include all parts, normalize None to empty string (don't drop falsy values)
-    combined = "|".join(str(p) if p is not None else "" for p in parts)
-    return hashlib.sha256(combined.encode("utf-8")).hexdigest()[:length]
-
-
-def _make_photo_id(property_key: str, run_id: str, photo_key: str) -> str:
-    """Generate deterministic photo ID."""
-    return _stable_hash_id(property_key, run_id, photo_key, length=16)
-
-
-def _make_issue_id(run_id: str, photo_key: str, description: str, location_hint: str, label: str,
-                   ordinal: int = 0) -> str:
-    """Generate deterministic issue ID. Ordinal handles duplicate issues in same photo."""
-    return _stable_hash_id(run_id, photo_key, description, location_hint, label, str(ordinal), length=16)
-
-
-# ── Data Classes ─────────────────────────────────────────────────────────────
+# -- Data Classes --------------------------------------------------------------
 @dataclass
 class ImageAnalysisResult:
     """Result from analyzing a single image."""
@@ -316,7 +181,7 @@ class PropertyAnalysisJob:
     parameters: Dict[str, Any]
 
 
-# ── Auto-Analyzer Class ──────────────────────────────────────────────────────
+# -- Auto-Analyzer Class -------------------------------------------------------
 class AutoAnalyzer:
     def __init__(self,
                  python_exe: str = sys.executable,
@@ -344,7 +209,7 @@ class AutoAnalyzer:
         self.skip_verification = skip_verification if skip_verification is not None else cfg.SKIP_VERIFICATION
         self.debug = debug if debug is not None else cfg.DEBUG_MODE
 
-        # ✅ Instance-owned issue catalog (loaded at init, not module level)
+        # Instance-owned issue catalog (loaded at init, not module level)
         self.issue_catalog_path = ISSUE_CATALOG_PATH
         try:
             self.issue_catalog = load_issue_catalog(self.issue_catalog_path) or {}
@@ -353,9 +218,9 @@ class AutoAnalyzer:
             self.issue_catalog = {}
 
         # Helpful sanity logging
-        _log_catalog_load(self.issue_catalog_path, self.issue_catalog)
+        log_catalog_load(self.issue_catalog_path, self.issue_catalog)
 
-        # ── Embeddings-based catalog matcher (optional) ─────────────────────
+        # -- Embeddings-based catalog matcher (optional) -----------------------
         self.catalog_matcher = None
         if getattr(cfg, "USE_EMBEDDINGS_CATALOG", False) and EMBEDDINGS_MATCHER_AVAILABLE:
             try:
@@ -372,7 +237,7 @@ class AutoAnalyzer:
                 logger.warning(f"Failed to init embeddings catalog matcher: {e}")
                 self.catalog_matcher = None
 
-        # ✅ Backend selection (CLI arg > cfg/env > default)
+        # Backend selection (CLI arg > cfg/env > default)
         raw_backend = (
                 detection_backend
                 or getattr(cfg, "DETECTION_BACKEND", None)
@@ -387,18 +252,18 @@ class AutoAnalyzer:
 
         self.detection_backend = raw_backend
 
-        # ✅ Analysis profile selection (CLI arg > cfg/env > default)
+        # Analysis profile selection (CLI arg > cfg/env > default)
         self.analysis_profile = (
                 analysis_profile
                 or getattr(cfg, "ANALYSIS_PROFILE", None)
                 or "standard"
         ).strip().lower()
 
-        # ✅ Pass architecture configuration
+        # Pass architecture configuration
         self.pass_toggles = pass_toggles or {}
         self.model_overrides = model_overrides or {}
 
-        # ✅ Initialize VLM client and model configs FIRST (needed for all paths)
+        # Initialize VLM client and model configs FIRST (needed for all paths)
         self.vlm_client = None
         self.qwen_config = None
         self.gpt_config = None
@@ -431,7 +296,7 @@ class AutoAnalyzer:
                     toggles=self.pass_toggles,
                     model_overrides=self.model_overrides,
                 )
-                # ✅ Build candidate_provider from embeddings matcher or catalog
+                # Build candidate_provider from embeddings matcher or catalog
                 candidate_provider = None
                 if self.catalog_matcher:
                     # Kind-aware, scene-group-gated provider: dispatches to defect or upgrade
@@ -461,7 +326,6 @@ class AutoAnalyzer:
                                 "name": c.name,
                                 "kind": c.kind,
                                 "trade_bucket": c.trade_bucket,
-                                # score/severity intentionally omitted — not persisted in outputs
                             }
                             for c in cands
                         ]
@@ -469,9 +333,9 @@ class AutoAnalyzer:
                     logger.info("Candidate provider: kind-aware, scene-group-gated embeddings")
 
                 if candidate_provider is None:
-                    logger.info("No candidate provider available — 2d will skip (no embeddings matcher)")
+                    logger.info("No candidate provider available -- 2d will skip (no embeddings matcher)")
 
-                # ✅ Give orchestrator candidate_provider (catalog flows through provider, not directly)
+                # Give orchestrator candidate_provider (catalog flows through provider, not directly)
                 self.orchestrator = create_orchestrator_from_config(
                     cfg,
                     candidate_provider=candidate_provider,
@@ -481,7 +345,10 @@ class AutoAnalyzer:
                 logger.warning(f"Failed to initialize pass architecture: {e}, falling back to direct pass calls")
                 self.use_pass_architecture = False
 
-        # ✅ Initialize DINO-X client if using dinox backend
+        # Initialize scene classifier service
+        self.scene_service = SceneClassifierService(cfg, self.orchestrator, self.run_options)
+
+        # Initialize DINO-X client if using dinox backend
         self.dinox_client = None
         if self.detection_backend == "dinox" and DINOX_CLIENT_AVAILABLE:
             try:
@@ -648,55 +515,6 @@ class AutoAnalyzer:
 
         return model_config
 
-    @staticmethod
-    def _normalize_label_for_hint(label: Optional[str]) -> str:
-        if not label:
-            return ""
-        s = str(label).strip().lower()
-        s = s.replace("-", " ").replace("_", " ")
-        return " ".join(s.split())
-
-    def _get_roi_hint_map_for_scene(self, scene: str) -> Dict[str, str]:
-        """Get ROI hint mapping for a given scene."""
-        m = getattr(cfg, "ROI_HINTS_BY_SCENE", None)
-        if not isinstance(m, dict):
-            return {}
-
-        # Prefer exact scene key, then group key, then default
-        keys = [scene]
-        group = SCENE_TO_GROUP_UI.get(scene)
-        if group:
-            keys.append(group)
-        keys.append("default")
-
-        scene_map = {}
-        for k in keys:
-            v = m.get(k)
-            if isinstance(v, dict) and v:
-                scene_map = v
-                break
-
-        # Normalize mapping keys to match _normalize_label_for_hint usage
-        out = {}
-        for lbl, zone in (scene_map or {}).items():
-            nl = self._normalize_label_for_hint(lbl)
-            if nl and zone:
-                out[nl] = str(zone).strip().lower()
-        return out
-
-    def _maybe_backfill_planner_hints(
-            self,
-            scene: str,
-            planner_hints: Optional[Dict[str, str]],
-    ) -> Dict[str, str]:
-        """Backfill planner hints from config if not already present."""
-        if not getattr(cfg, "ROI_HINTS_ENABLED", False):
-            return planner_hints or {}
-        existing = dict(planner_hints or {})
-        if existing:
-            return existing
-        return self._get_roi_hint_map_for_scene(scene)
-
     def _validate_environment(self):
         """Validate that required components are available."""
         required_paths = {
@@ -729,7 +547,7 @@ class AutoAnalyzer:
                     "DINOX_API_TOKEN/DINOX_API_KEY is configured."
                 )
 
-        # ✅ Validate premium profile requirements
+        # Validate premium profile requirements
         if self.analysis_profile == "premium":
             api_key = (
                     getattr(cfg, "OPENAI_API_KEY", None) or
@@ -788,310 +606,6 @@ class AutoAnalyzer:
         stdout, stderr = proc.communicate()
         return proc.returncode or 0, stdout, stderr
 
-    def classify_scene(
-            self, image_path: Path
-    ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str], Dict[str, Any]]:
-        """
-        Classify the scene type and get keywords for detection via orchestrator.
-
-        Returns:
-            Tuple of (scene, reasoning, keywords, grounding_prompt, planner_targets,
-            planner_hints, scene_payload)
-        """
-        logger.info(f"Classifying scene: {image_path.name}")
-
-        if not (self.use_pass_architecture and self.orchestrator):
-            error_msg = "Orchestrator not available (pass architecture disabled or orchestrator not initialized)"
-            logger.error(error_msg)
-            empty_payload = self._scene_classifier_payload(
-                None, scene_override="unknown", error=error_msg
-            )
-            return "unknown", error_msg, [], "", [], {}, empty_payload
-
-        try:
-            logger.info(f"  Using orchestrator (premium={self.run_options.premium})")
-            out = self._classify_scene_with_orchestrator(image_path)
-            scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload = out
-            planner_hints = self._maybe_backfill_planner_hints(scene, planner_hints)
-            if isinstance(payload, dict):
-                payload["planner_hints"] = planner_hints
-            return (scene, reasoning, keywords, prompt, planner_targets, planner_hints, payload)
-        except Exception as e:
-            logger.error(f"  Orchestrator failed: {e}", exc_info=True)
-            empty_payload = self._scene_classifier_payload(
-                None, scene_override="unknown", error=str(e)
-            )
-            return "unknown", str(e), [], "", [], {}, empty_payload
-
-    def _classify_scene_with_orchestrator(
-            self, image_path: Path
-    ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str], Dict[str, Any]]:
-        """
-        Classify scene using the pass architecture orchestrator.
-        This runs the full multi-pass pipeline with premium model routing.
-        """
-        # Build image-specific options carrying run_id + photo_key for deterministic issue IDs
-        run_id = getattr(self, "_active_run_id", "") or ""
-        photo_key = image_path.name
-        property_key = getattr(self, "_active_property_key", "") or ""
-
-        options = self.run_options
-        if options is not None and hasattr(options, "with_meta"):
-            options = options.with_meta(run_id=run_id, photo_key=photo_key, property_key=property_key)
-
-        async def run_orchestrator():
-            return await self.orchestrator.analyze_image(
-                image_path=image_path,
-                options=options,
-            )
-
-        # Run async orchestrator
-        loop = asyncio.new_event_loop()
-        try:
-            result = loop.run_until_complete(run_orchestrator())
-        finally:
-            loop.close()
-
-        # Convert orchestrator result to expected tuple format
-        return self._parse_orchestrator_result(result)
-
-    def _parse_orchestrator_result(
-            self, result: Any
-    ) -> Tuple[str, str, List[str], str, List[Dict[str, Any]], Dict[str, str], Dict[str, Any]]:
-        """Parse orchestrator ImageAnalysisResult into the expected tuple format."""
-        # Handle both dataclass and dict results
-        if hasattr(result, 'to_dict'):
-            data = result.to_dict()
-        elif hasattr(result, '__dict__'):
-            data = result.__dict__
-        else:
-            data = dict(result) if isinstance(result, dict) else {}
-
-        scene = data.get("scene", "unknown")
-        reasoning = ""
-        if hasattr(result, 'pass_1a') and result.pass_1a:
-            reasoning = result.pass_1a.reasoning or ""
-
-        keywords = data.get("keywords", []) or []
-
-        # Robust category extraction - try data first, fallback to pass_3 attribute
-        kw_cats = data.get("keyword_categories")
-        if kw_cats is None and getattr(result, "pass_3", None):
-            kw_cats = getattr(result.pass_3, "keyword_categories", None)
-
-        # Build grounding prompt from keywords
-        prompt = ". ".join(keywords) + "." if keywords else ""
-
-        # Extract targets if available
-        targets = []
-        planner_hints: Dict[str, str] = {}
-
-        # Build scene payload
-        scene_payload = self._scene_classifier_payload(data, scene_override=scene)
-        scene_payload['keywords'] = keywords
-        scene_payload['keyword_categories'] = kw_cats
-        scene_payload['overall_impression'] = data.get('overall_impression', '')
-        scene_payload['image_summary'] = data.get('image_summary', '')
-        scene_payload['notable_features'] = data.get('notable_features', []) or []
-        scene_payload['feature_notes'] = data.get('feature_notes', '') or data.get('positives_notes', '') or ""
-        scene_payload['positives_notes'] = scene_payload['feature_notes']
-        scene_payload['observations_freeform'] = data.get('observations_freeform', '') or ""
-        scene_payload['groundingdino_prompt'] = prompt
-        scene_payload['catalog_flags'] = data.get('catalog_flags', {})
-        scene_payload['issues_natural_language'] = data.get('issues_natural_language', [])
-        scene_payload['verified_issues'] = data.get('verified_issues', [])
-        scene_payload['models_used'] = data.get('models_used', {})
-
-        # V2 fields from orchestrator
-        scene_payload["features_struct"] = data.get("features_struct", {}) or {}
-        scene_payload["observations_struct"] = data.get("observations_struct", {}) or {}
-        scene_payload["labeled_debug"] = data.get("labeled_debug", []) or []
-        scene_payload["labeled_forward"] = data.get("labeled_forward", []) or []
-        scene_payload["resolved_items"] = data.get("resolved_items", []) or []
-
-        # Meta
-        scene_payload["passes_run"] = data.get("passes_run", []) or []
-        scene_payload["pass_timings"] = data.get("pass_timings", {}) or {}
-        scene_payload["total_pass_time"] = data.get("total_pass_time", 0.0) or 0.0
-
-        # Passes dict from orchestrator (always provided)
-        scene_payload["passes"] = data.get("passes", {})
-
-        return (
-            scene,
-            reasoning,
-            keywords,
-            prompt,
-            targets,
-            planner_hints,
-            scene_payload,
-        )
-
-    def run_detection(self,
-                      image_path: Path,
-                      output_dir: Path,
-                      text_prompt: str) -> Dict[str, Any]:
-        """Run detection using the selected backend."""
-        backend = self.detection_backend
-
-        if backend == "groundingdino":
-            return self._run_detection_groundingdino(image_path, output_dir, text_prompt)
-
-        if backend == "dinox":
-            return self._run_detection_dinox(image_path, output_dir, text_prompt)
-
-        return {"error": f"Unknown detection backend: {backend}"}
-
-    def _run_detection_groundingdino(self,
-                                     image_path: Path,
-                                     output_dir: Path,
-                                     text_prompt: str) -> Dict[str, Any]:
-        """Run GroundingDINO detection on a single image."""
-        logger.info(f"Running GroundingDINO detection: {image_path.name}")
-
-        cmd = [
-            self.python_exe,
-            cfg.GDINO_INFER_SCRIPT,
-            "--config_file", cfg.GDINO_CONFIG,
-            "--checkpoint_path", cfg.GDINO_CHECKPOINT,
-            "--image_path", str(image_path),
-            "--text_prompt", text_prompt,
-            "--output_dir", str(output_dir),
-            "--box_threshold", str(self.box_threshold),
-            "--text_threshold", str(self.text_threshold),
-            "--extract-chips",
-            "--chip-margin", str(self.chip_margin),
-        ]
-
-        if cfg.CPU_ONLY:
-            cmd.append("--cpu-only")
-
-        if cfg.COMPUTE_CHIP_QUALITY:
-            cmd.append("--chip-quality")
-
-        if cfg.CREATE_THUMBNAILS:
-            cmd.extend(["--create-thumbnail", "--thumbnail-size", str(cfg.THUMBNAIL_SIZE)])
-
-        code, stdout, stderr = self._run_command(cmd)
-
-        if code != 0:
-            logger.error(f"GroundingDINO detection failed: {stderr}")
-            return {"error": stderr, "code": code}
-
-        pred_json = output_dir / "pred.json"
-        if pred_json.exists():
-            with open(pred_json, 'r', encoding='utf-8') as f:
-                return json.load(f)
-        else:
-            return {"error": "pred.json not produced"}
-
-    def _run_detection_dinox(self,
-                             image_path: Path,
-                             output_dir: Path,
-                             text_prompt: str) -> Dict[str, Any]:
-        """Run DINO-X detection on a single image."""
-        logger.info(f"Running DINO-X detection: {image_path.name}")
-
-        dinox_script = getattr(cfg, "DINOX_INFER_SCRIPT", None)
-
-        # Mode 1: Local script
-        if dinox_script and Path(dinox_script).exists():
-            cmd = [
-                self.python_exe,
-                dinox_script,
-                "--image_path", str(image_path),
-                "--text_prompt", text_prompt,
-                "--output_dir", str(output_dir),
-                "--box_threshold", str(self.box_threshold),
-                "--text_threshold", str(self.text_threshold),
-            ]
-
-            if getattr(cfg, "DINOX_EXTRACT_CHIPS", False):
-                cmd.append("--extract-chips")
-                cmd.extend(["--chip-margin", str(self.chip_margin)])
-
-            if getattr(cfg, "DINOX_CPU_ONLY", cfg.CPU_ONLY):
-                cmd.append("--cpu-only")
-
-            code, stdout, stderr = self._run_command(cmd)
-
-            if code != 0:
-                logger.error(f"DINO-X detection failed: {stderr}")
-                return {"error": stderr, "code": code}
-
-            pred_json = output_dir / "pred.json"
-            if pred_json.exists():
-                with open(pred_json, 'r', encoding='utf-8') as f:
-                    return json.load(f)
-
-            return {"error": "pred.json not produced by DINO-X"}
-
-        # Mode 2: API client
-        elif self.dinox_client:
-            try:
-                dinox_prompt = text_prompt.replace(". ", ".").replace(".", ".").strip(".")
-                logger.info(f"  Using DINO-X API with prompt: {dinox_prompt}")
-
-                result = self.dinox_client.detect(
-                    image_path=image_path,
-                    prompt=dinox_prompt,
-                    bbox_threshold=self.box_threshold,
-                    targets=["bbox"],
-                )
-
-                detections = []
-                for obj in result.objects:
-                    detections.append({
-                        "label": obj.category,
-                        "score": obj.score,
-                        "box": obj.bbox.to_list(),
-                    })
-
-                pred_result = {
-                    "image": str(image_path),
-                    "detections": detections,
-                    "detection_count": len(detections),
-                    "dinox_task_uuid": result.task_uuid,
-                    "processing_time": result.processing_time,
-                }
-
-                try:
-                    with Image.open(image_path) as pil_im:
-                        w, h = pil_im.size
-                        pred_result["size"] = {"width": w, "height": h}
-                except Exception:
-                    pass
-
-                output_dir.mkdir(parents=True, exist_ok=True)
-                pred_json = output_dir / "pred.json"
-                with open(pred_json, 'w', encoding='utf-8') as f:
-                    json.dump(pred_result, f, indent=2)
-
-                logger.info(f"  DINO-X detected {len(detections)} objects in {result.processing_time:.1f}s")
-                return pred_result
-
-            except Exception as e:
-                logger.error(f"DINO-X API detection failed: {e}")
-                return {"error": str(e)}
-
-        # Mode 3: No option available
-        else:
-            api_token = (
-                    getattr(cfg, "DINOX_API_TOKEN", None) or
-                    getattr(cfg, "DINOX_API_KEY", None) or
-                    os.environ.get("DINOX_API_TOKEN") or
-                    os.environ.get("DINOX_API_KEY")
-            )
-
-            if api_token and not DINOX_CLIENT_AVAILABLE:
-                return {
-                    "error": "DINOX_API_TOKEN is set but dinox_client.py is not available."
-                }
-
-            return {
-                "error": "DINO-X backend selected but no detection method available."
-            }
-
     def run_verification(self, output_dir: Path) -> Optional[Dict[str, Any]]:
         """
         Run chip verification on detection results.
@@ -1147,16 +661,21 @@ class AutoAnalyzer:
         t0 = time.time()
 
         try:
-            # 1. Classify scene and get keywords
-            (
-                scene,
-                reasoning,
-                keywords,
-                prompt,
-                planner_targets,
-                planner_hints,
-                scene_details,
-            ) = self.classify_scene(image_path)
+            # 1. Classify scene and get keywords via SceneClassifierService
+            meta = {
+                "run_id": getattr(self, "_active_run_id", "") or "",
+                "photo_key": image_path.name,
+                "property_key": getattr(self, "_active_property_key", "") or "",
+            }
+            sc = self.scene_service.classify(image_path, meta=meta)
+
+            scene = sc.scene
+            reasoning = sc.reasoning
+            keywords = sc.keywords
+            prompt = sc.prompt
+            planner_targets = sc.planner_targets
+            planner_hints = sc.planner_hints
+            scene_details = sc.payload
 
             logger.info(f"  Scene: {scene}")
             logger.info(f"  Keywords: {len(keywords)} objects")
@@ -1175,8 +694,23 @@ class AutoAnalyzer:
                     error="No detection prompt generated"
                 )
 
-            # 2. Run detection (routed based on backend)
-            detection_result = self.run_detection(image_path, output_dir, prompt)
+            # 2. Run detection + postprocessing via detection_pipeline
+            detection_result, detections = run_detection_stage(
+                cfg=cfg,
+                python_exe=self.python_exe,
+                backend=self.detection_backend,
+                image_path=image_path,
+                output_dir=output_dir,
+                prompt=prompt,
+                scene=scene,
+                planner_targets=planner_targets,
+                planner_hints=planner_hints,
+                box_threshold=self.box_threshold,
+                text_threshold=self.text_threshold,
+                chip_margin=self.chip_margin,
+                debug=self.debug,
+                dinox_client=self.dinox_client,
+            )
 
             if "error" in detection_result:
                 return ImageAnalysisResult(
@@ -1190,178 +724,6 @@ class AutoAnalyzer:
                     processing_time=time.time() - t0,
                     error=detection_result["error"]
                 )
-
-            detections = detection_result.get("detections", []) or []
-            detection_result["planner_targets"] = planner_targets
-            detection_result["planner_hints"] = planner_hints
-
-            size_info = detection_result.get("size") or {}
-            img_w = int(size_info.get("width") or 0)
-            img_h = int(size_info.get("height") or 0)
-            if (img_w <= 0 or img_h <= 0) and image_path.exists():
-                try:
-                    with Image.open(image_path) as pil_im:
-                        img_w, img_h = pil_im.size
-                except Exception:
-                    pass
-
-            if (
-                    getattr(cfg, "ROI_HINTS_ENABLED", False)
-                    and planner_hints  # Skip if planner_hints is empty
-                    and detections
-                    and img_w > 0
-                    and img_h > 0
-            ):
-                detections_by_class: Dict[str, List[Dict[str, Any]]] = {}
-                unlabeled: List[Dict[str, Any]] = []
-                for det in detections:
-                    if det.get("score") is None:
-                        det["score"] = 0.0
-                    label_name = str(det.get("label") or "").strip()
-                    if not label_name:
-                        unlabeled.append(det)
-                        continue
-                    detections_by_class.setdefault(label_name, []).append(det)
-
-                for label_name, dets in detections_by_class.items():
-                    norm_label = self._normalize_label_for_hint(label_name)
-                    roi_hint = planner_hints.get(norm_label, "unknown")
-                    apply_roi_hint_bonus_overlap(
-                        dets=dets,
-                        roi_hint=roi_hint,
-                        W=img_w,
-                        H=img_h,
-                        full_bonus=getattr(cfg, "ROI_FULL_BONUS", 0.06),
-                        half_bonus=getattr(cfg, "ROI_HALF_BONUS", 0.03),
-                        penalty=getattr(cfg, "ROI_PENALTY", 0.03),
-                        hi=getattr(cfg, "ROI_OVERLAP_HI", 0.40),
-                        lo=getattr(cfg, "ROI_OVERLAP_LO", 0.10),
-                        attach_debug=True,
-                    )
-
-                if unlabeled:
-                    apply_roi_hint_bonus_overlap(
-                        dets=unlabeled,
-                        roi_hint="unknown",
-                        W=img_w,
-                        H=img_h,
-                        full_bonus=getattr(cfg, "ROI_FULL_BONUS", 0.06),
-                        half_bonus=getattr(cfg, "ROI_HALF_BONUS", 0.03),
-                        penalty=getattr(cfg, "ROI_PENALTY", 0.03),
-                        hi=getattr(cfg, "ROI_OVERLAP_HI", 0.40),
-                        lo=getattr(cfg, "ROI_OVERLAP_LO", 0.10),
-                        attach_debug=True,
-                    )
-
-            # Sort by score for stable behavior
-            detections.sort(key=lambda d: float(d.get("score", 0.0)), reverse=True)
-
-            # Special-case filters (mirror containment, etc.)
-            special_case_cfg = getattr(cfg, "SPECIAL_CASE_FILTERS", {})
-            if detections and special_case_cfg:
-                pre_case = len(detections)
-                detections = apply_special_case_filters(
-                    detections,
-                    image_size=(img_w, img_h),
-                    config=special_case_cfg,
-                )
-                if pre_case != len(detections):
-                    logger.info(
-                        f"  Special cases: {pre_case} → {len(detections)} detections"
-                    )
-
-            # NMS (AFTER detection, BEFORE verification)
-            if getattr(cfg, "USE_NMS", True) and detections:
-                pre_nms_count = len(detections)
-                detections = class_aware_nms(
-                    detections,
-                    per_class_iou=getattr(cfg, "NMS_PER_CLASS", None),
-                    default_iou=getattr(cfg, "NMS_DEFAULT_IOU", 0.3),
-                )
-                logger.info(f"  NMS: {pre_nms_count} → {len(detections)} detections")
-
-            # Optional: enforce per-scene caps
-            if getattr(cfg, "USE_SCENE_CAPS", False) and detections:
-                pre_cap_count = len(detections)
-                detections = enforce_scene_caps(
-                    detections,
-                    scene=scene,
-                    caps_map=getattr(cfg, "SCENE_CAPS", None),
-                )
-                if pre_cap_count != len(detections):
-                    logger.info(f"  Scene caps: {pre_cap_count} → {len(detections)} detections")
-
-            if (
-                    getattr(cfg, "ROI_HINTS_ENABLED", False)
-                    and detections
-                    and logger.isEnabledFor(logging.DEBUG)
-            ):
-                for det in detections:
-                    dbg = det.get("roi_debug", {})
-                    logger.debug(
-                        f"ROI [{det.get('label')}]: score={float(det.get('score', 0.0)):.3f} "
-                        f"hint={dbg.get('hint')} adj={dbg.get('adj')} "
-                        f"overlap={dbg.get('overlap_ratio', 0):.2f} "
-                        f"maj={dbg.get('majority_zone')}({dbg.get('majority_r', 0):.2f}) "
-                        f"img%={dbg.get('img_frac', 0):.3f}"
-                    )
-
-            # Write survivors back
-            detection_result["detections"] = detections
-
-            # Update all count fields unconditionally to match filtered detections
-            final_count = len(detections)
-            for k in ("count", "num_detections", "detections_count", "detection_count"):
-                detection_result[k] = final_count
-
-            pred_json_path = output_dir / "pred.json"
-            with open(pred_json_path, "w", encoding="utf-8") as f:
-                json.dump(detection_result, f, indent=2, ensure_ascii=False)
-
-            # (Optional) prune chips for detections that were dropped
-            if getattr(cfg, "PRUNE_DROPPED_CHIPS", False):
-                try:
-                    chip_dir = Path(
-                        (detection_result.get("chip_extraction", {}) or {}).get("chips_directory",
-                                                                                str(output_dir / "chips"))
-                    )
-                    keep = set()
-                    for d in detections:
-                        fn = ((d.get("chip_info") or {}).get("filename"))
-                        if fn:
-                            keep.add(str((chip_dir / fn).resolve()))
-
-                    if chip_dir.exists():
-                        pruned = 0
-                        for fp in chip_dir.glob("*"):
-                            if keep and str(fp.resolve()) not in keep:
-                                try:
-                                    fp.unlink()
-                                    pruned += 1
-                                except Exception:
-                                    pass
-                        if pruned > 0:
-                            logger.info(f"  Pruned {pruned} dropped chip file(s)")
-                except Exception as e:
-                    logger.warning(f"  Chip pruning failed: {e}")
-
-            # Redraw overlay
-            try:
-                nms_overlay = output_dir / "pred_nms.jpg"
-                redraw_overlay(image_path, detections, nms_overlay)
-
-                raw_overlay = output_dir / "pred.jpg"
-                before_overlay = output_dir / "pred_before.jpg"
-                if raw_overlay.exists():
-                    try:
-                        shutil.copy2(raw_overlay, before_overlay)
-                    except Exception:
-                        before_overlay.write_bytes(raw_overlay.read_bytes())
-
-                nms_overlay.replace(raw_overlay)
-                logger.info("  Overlay updated with NMS/ROI filtered detections")
-            except Exception as e:
-                logger.warning(f"  Failed to redraw overlay: {e}")
 
             detection_count = len(detections)
 
@@ -1388,7 +750,7 @@ class AutoAnalyzer:
 
         except Exception as e:
             logger.error(f"Error analyzing {image_path}: {e}")
-            fallback_scene = self._scene_classifier_payload(
+            fallback_scene = scene_classifier_payload(
                 None, scene_override="unknown", error=str(e)
             )
             return ImageAnalysisResult(
@@ -1413,11 +775,11 @@ class AutoAnalyzer:
         job_dir = self.artifacts_root / property_key / job_id
         job_dir.mkdir(parents=True, exist_ok=True)
 
-        # Make run_id available to _classify_scene_with_orchestrator for deterministic issue IDs
+        # Make run_id available to scene classifier service for deterministic issue IDs
         self._active_run_id = job_id
         self._active_property_key = property_key
 
-        # ✅ Per-job file handler so UI can always read run.log from artifacts
+        # Per-job file handler so UI can always read run.log from artifacts
         job_log_handler = None
         try:
             log_path = job_dir / "run.log"
@@ -1452,7 +814,7 @@ class AutoAnalyzer:
 
             output_dir = job_dir / f"img_{idx:03d}"
             output_dir.mkdir(parents=True, exist_ok=True)
-            logger.info(f"\n[{idx + 1}/{len(images)}] Processing: {image_path.name} → {output_dir.name}")
+            logger.info(f"\n[{idx + 1}/{len(images)}] Processing: {image_path.name} -> {output_dir.name}")
 
             result = self.analyze_image(image_path, output_dir)
             results.append(result)
@@ -1479,10 +841,10 @@ class AutoAnalyzer:
         )
 
         logger.info("\n" + "=" * 60)
-        logger.info("✅ ANALYSIS COMPLETE")
+        logger.info("ANALYSIS COMPLETE")
         logger.info("=" * 60)
 
-        # ✅ Remove per-job file handler to avoid leaking across jobs
+        # Remove per-job file handler to avoid leaking across jobs
         if job_log_handler:
             try:
                 logging.getLogger().removeHandler(job_log_handler)
@@ -1509,707 +871,31 @@ class AutoAnalyzer:
                     bucket_map[bid] = bname
         return bucket_map
 
-    @staticmethod
-    def _scene_classifier_payload(
-            scene_data: Optional[Dict[str, Any]],
-            scene_override: Optional[str] = None,
-            error: Optional[str] = None,
-    ) -> Dict[str, Any]:
-        """Normalize scene classifier output so all fields are present."""
-        payload: Dict[str, Any] = dict(scene_data or {})
-
-        if scene_override:
-            payload.setdefault("scene", scene_override)
-
-        payload.setdefault("scene", "unknown")
-        payload.setdefault("is_staged", None)
-        payload.setdefault("overall_impression", "")
-        payload.setdefault("image_summary", "")
-        payload.setdefault("notable_features", [])
-        payload.setdefault("feature_notes", "")
-        payload.setdefault("positives_notes", "")
-        payload.setdefault("observations_freeform", "")
-        payload.setdefault("reasoning", "" if error is None else error)
-        payload.setdefault("keywords", [])
-        payload.setdefault("keyword_categories", None)
-        payload.setdefault("groundingdino_prompt", "")
-        payload.setdefault("issues_natural_language", [])
-        payload.setdefault("verified_issues", [])
-        payload.setdefault("catalog_flags", {})
-        payload.setdefault("processing_time", payload.get("processing_time"))
-        payload.setdefault("pass_timings", payload.get("pass_timings", {}))
-        payload.setdefault("total_pass_time", payload.get("total_pass_time", 0.0))
-
-        if error and not payload.get("error"):
-            payload["error"] = error
-        payload.setdefault("error", payload.get("error"))
-
-        return payload
-
-    def save_photo_intel(
-            self,
-            job: PropertyAnalysisJob,
-            output_path: Optional[Path] = None,
-            generate_summary: bool = True
-    ) -> Path:
-        """Persist per-photo intelligence (including scene classifier fields)."""
-        created_at = datetime.utcnow().isoformat() + "Z"
-
-        def _safe_list(x):
-            """Ensure x is a list."""
-            return x if isinstance(x, list) else []
-
-        photos: Dict[str, Any] = {}
-        issues_flat: List[Dict[str, Any]] = []  # Flat index of all issues (property-level)
-
-        for photo_index, res in enumerate(job.results, start=1):
-            image_key = Path(res.image_path).name
-            payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
-
-            # ── Resolve passes dict ───────────────────────────────────────────
-            # Use passes from payload (orchestrator). Fall back to flat fields for legacy runs.
-            passes = payload.get("passes", None)
-            if passes is None:
-                feat_notes = payload.get("feature_notes", "") or payload.get("positives_notes", "")
-                passes = {
-                    "1a": {"scene": payload.get("scene", "unknown"), "confidence": None, "reasoning": payload.get("reasoning", "")},
-                    "1b": {"feature_notes": feat_notes, "positives_notes": feat_notes},
-                    "1c": {"overall_impression": payload.get("overall_impression", ""), "image_summary": payload.get("image_summary", ""), "notable_features": payload.get("notable_features", []) or []},
-                    "2a": {"observations_freeform": payload.get("observations_freeform", "")},
-                    "2b": {"issues_natural_language": payload.get("issues_natural_language", []) or [], "catalog_flags": {}},
-                    "3":  {"keywords": payload.get("keywords", []) or [], "categories": payload.get("keyword_categories")},
-                }
-
-            # ── Core identifiers ──────────────────────────────────────────────
-            photo_id     = _make_photo_id(job.property_key, job.job_id, image_key)
-            scene        = payload.get("scene", res.scene) or "unknown"
-            scene_group  = SCENE_TO_GROUP_UI.get(scene, "other")
-            scene_conf   = (passes.get("1a", {}) or {}).get("confidence")
-            pass_1c      = passes.get("1c", {}) or {}
-            pass_1b      = passes.get("1b", {}) or {}
-
-            # ── Resolve final issues ──────────────────────────────────────────
-            # payload["verified_issues"] is already post-2e on both paths:
-            #   direct:       results["verified_issues"] set after pass_2e runs
-            #   orchestrator: result.verified_issues set after pass_2e runs, forwarded via to_dict()
-            # passes["2e"] stores only ids/counts/reasons, not the full list.
-            # Fallback chain handles legacy runs where 2e wasn't present.
-            final_issues = _safe_list(payload.get("verified_issues"))
-            if not final_issues:
-                final_issues = _safe_list((passes.get("2c", {}) or {}).get("verified_issues"))
-            if not final_issues:
-                final_issues = _safe_list((passes.get("2b", {}) or {}).get("issues_natural_language"))
-
-            # ── Backfill stable issue_id + source linkage on every final issue ─
-            issue_sig_counts: Dict[Tuple[str, str, str], int] = {}
-            for issue in final_issues:
-                if not (isinstance(issue, dict) and issue.get("description")):
-                    continue
-                sig = (issue.get("description", ""), issue.get("location_hint", ""), issue.get("label", ""))
-                ordinal = issue_sig_counts.get(sig, 0)
-                issue_sig_counts[sig] = ordinal + 1
-                if not issue.get("issue_id"):
-                    issue["issue_id"] = _make_issue_id(job.job_id, image_key, sig[0], sig[1], sig[2], ordinal)
-                issue.setdefault("source_photo_key", image_key)
-                issue.setdefault("source_photo_id",  photo_id)
-                issue.setdefault("scene",             scene)
-                issue.setdefault("scene_group",       scene_group)
-
-                issues_flat.append({
-                    "issue_id":    issue["issue_id"],
-                    "photo_id":    photo_id,
-                    "photo_key":   image_key,
-                    "scene":       scene,
-                    "scene_group": scene_group,
-                    "description": issue.get("description", ""),
-                    "label":       issue.get("label", ""),
-                    "location_hint": issue.get("location_hint", ""),
-                    "catalog_item_id":  issue.get("catalogItemId") or issue.get("resolved_item_id"),
-                    "catalog_item_kind": issue.get("catalogItemKind") or issue.get("kind"),
-                })
-
-            # ── Build trace (pass internals — debug/auditing, not read by UI) ─
-            pass_2c   = passes.get("2c", {}) or {}
-            pass_2d   = passes.get("2d", {}) or {}
-            pass_2e_p = passes.get("2e", {}) or {}
-
-            # 2c: orchestrator writes labeled_forward at top level (result.to_dict()), not in passes["2c"].
-            # Direct path writes both. Fall back to payload so both paths populate trace.
-            _2c_forward = _safe_list(pass_2c.get("labeled_forward") or payload.get("labeled_forward"))
-
-            # 2d: same situation — resolutions live at payload["resolved_items"] for orchestrator path.
-            _2d_resolutions = _safe_list(pass_2d.get("resolutions") or payload.get("resolved_items"))
-
-            trace = {
-                "passes_run":  payload.get("passes_run", []),
-                "models":      payload.get("models_used", {}),
-                "timings_sec": payload.get("pass_timings", {}),
-                "2c": {
-                    "forwarded_count": len(_2c_forward),
-                },
-                "2d": {
-                    "resolution_count": len(_2d_resolutions),
-                },
-                "2e": {
-                    "input_count":   pass_2e_p.get("input_count"),
-                    "kept_count":    pass_2e_p.get("kept_count"),
-                    "removed_count": pass_2e_p.get("removed_count"),
-                },
-            }
-
-            # ── Assemble v3 per-photo entry ────────────────────────────────────
-            photos[image_key] = {
-                "photo": {
-                    "photo_key":   image_key,
-                    "photo_id":    photo_id,
-                    "image_path":  res.image_path,
-                    "index":       photo_index,
-                },
-                "scene": {
-                    "id":         scene,
-                    "group":      scene_group,
-                    "confidence": scene_conf,
-                    "reasoning":  (passes.get("1a", {}) or {}).get("reasoning", ""),
-                },
-                "features": {
-                    "overall_impression": pass_1c.get("overall_impression", "") or payload.get("overall_impression", ""),
-                    "image_summary":      pass_1c.get("image_summary",      "") or payload.get("image_summary",      ""),
-                    "notable_features":   _safe_list(pass_1c.get("notable_features") or payload.get("notable_features")),
-                    "feature_notes":      pass_1b.get("feature_notes",  "") or payload.get("feature_notes",  ""),
-                    "positives_notes":    pass_1b.get("positives_notes", "") or payload.get("positives_notes", ""),
-                    "observations_freeform": (passes.get("2a", {}) or {}).get("observations_freeform", "") or payload.get("observations_freeform", ""),
-                },
-                "issues": {
-                    "final": final_issues,
-                },
-                "keywords": {
-                    "all":        _safe_list((passes.get("3", {}) or {}).get("keywords") or payload.get("keywords")),
-                    "categories": (passes.get("3", {}) or {}).get("categories") or payload.get("keyword_categories"),
-                    "gdino_prompt": payload.get("groundingdino_prompt", ""),
-                },
-                "planner_hints": payload.get("planner_hints", {}),
-                "is_staged": payload.get("is_staged"),
-                "processing_time": res.processing_time,
-                "error": res.error,
-                "trace": trace,
-                # ── Full intermediate pass data for debugging ─────────────────
-                # Includes raw pass outputs that the frontend doesn't need but
-                # are essential for diagnosing pipeline issues.
-                "debug": {
-                    "labeled_debug":   _safe_list(payload.get("labeled_debug")),
-                    "labeled_forward": _safe_list(payload.get("labeled_forward")),
-                    "resolved_items":  _safe_list(payload.get("resolved_items")),
-                    "observations_struct": payload.get("observations_struct", {}),
-                    "features_struct":    payload.get("features_struct", {}),
-                    "passes": passes,  # full per-pass outputs (1a-3)
-                },
-                # ── Compat shim — keeps existing consumers working during transition ──
-                # verified_issues / issues_natural_language removed: read issues.final instead.
-                # Remove _compat entirely once all UI/API consumers are updated to v3 paths.
-                "_compat": {
-                    "passes":        passes,
-                    "pass_timings":  payload.get("pass_timings", {}),
-                    "total_pass_time": payload.get("total_pass_time", 0.0),
-                    "scene_group":   scene_group,
-                    "photo_id":      photo_id,
-                },
-            }
-
-        # ── Build room_groups from v3 photo entries ───────────────────────────
-        room_groups: Dict[str, Any] = {}
-        for img_key, p in photos.items():
-            scene       = p["scene"]["id"]
-            group       = p["scene"]["group"]
-            feat        = p["features"]
-            final_list  = p["issues"]["final"]
-
-            g = room_groups.setdefault(group, {
-                "scenes_included": SCENE_GROUPS_UI.get(group, []),
-                "image_keys": [],
-                "image_count": 0,
-                "positives": {"notes": [], "notable_features": []},
-                "issues": {"notes": [], "issues_natural_language": []},
-            })
-            g["image_keys"].append(img_key)
-            g["image_count"] += 1
-
-            if feat.get("feature_notes"):
-                g["positives"]["notes"].append(feat["feature_notes"])
-            for f in _safe_list(feat.get("notable_features")):
-                s = str(f).strip()
-                if s and s not in g["positives"]["notable_features"]:
-                    g["positives"]["notable_features"].append(s)
-
-            if feat.get("observations_freeform"):
-                g["issues"]["notes"].append(feat["observations_freeform"])
-
-            for it in final_list:
-                if isinstance(it, dict) and it.get("description"):
-                    g["issues"]["issues_natural_language"].append({
-                        "source_image": img_key,
-                        "issue_id":     it.get("issue_id"),
-                        "photo_id":     p["photo"]["photo_id"],
-                        "photo_key":    img_key,
-                        "description":  it.get("description", ""),
-                        "label":        it.get("label", ""),
-                        "location_hint": it.get("location_hint", ""),
-                    })
-
-        photo_intel = {
-            "schema_version":               PHOTO_INTEL_SCHEMA_VERSION,
-            "normalization_policy_version": NORMALIZATION_POLICY_VERSION,
-            "run": {
-                "run_id":              job.job_id,
-                "job_id":              job.job_id,
-                "created_at":          created_at,
-                "timestamp":           job.timestamp,
-                "detection_backend":   self.detection_backend,
-                "analysis_profile":    self.analysis_profile,
-                "used_pass_architecture": self.use_pass_architecture,
-                "pass_toggles":        self.pass_toggles if self.pass_toggles else None,
-                "model_overrides":     self.model_overrides if self.model_overrides else None,
-                "model":               getattr(cfg, "LM_STUDIO_MODEL", ""),
-                "gpt_model":           self.gpt_config.get('model') if self.gpt_config else None,
-            },
-            "property": {
-                "property_key": job.property_key,
-                "artifacts_dir": job.artifacts_dir,
-            },
-            "photos":      photos,
-            "room_groups": room_groups,
-            "issues_flat": issues_flat,
-            "issues_flat_count": len(issues_flat),
-        }
-
-        # renovation_needs disabled: severity not reliable at this stage
-        photo_intel["renovation_needs"] = None
-
-        # ── Build defect events, work items, and search index ─────────────
-        if DEFECT_EVENTS_AVAILABLE:
-            try:
-                defect_events = build_defect_events(
-                    photos=photos,
-                    catalog=self.issue_catalog,
-                    run_id=job.job_id,
-                )
-                work_items = generate_work_items(defect_events, self.issue_catalog)
-                search_index = build_search_index(defect_events, self.issue_catalog)
-
-                photo_intel["defect_events"] = defect_events
-                photo_intel["work_items"] = work_items
-                photo_intel["search_index"] = search_index
-            except Exception as exc:
-                logger.error(f"Failed to build defect events layer: {exc}", exc_info=True)
-                photo_intel["defect_events"] = []
-                photo_intel["work_items"] = []
-                photo_intel["search_index"] = {}
-        else:
-            photo_intel["defect_events"] = []
-            photo_intel["work_items"] = []
-            photo_intel["search_index"] = {}
-
-        output_path = output_path or Path(job.artifacts_dir) / "photo_intel.json"
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-
-        # ── Write full debug file first (all pass outputs, intermediates, timings) ──
-        debug_path = output_path.parent / "photo_intel_debug.json"
-        with open(debug_path, "w", encoding="utf-8") as f:
-            json.dump(photo_intel, f, indent=2, ensure_ascii=False)
-        logger.info(f"Photo intel debug saved to: {debug_path}")
-
-        # ── Build slim version for frontend consumption ──
-        slim = copy.deepcopy(photo_intel)
-
-        # Strip run-level config fields the frontend doesn't read
-        _run = slim.get("run")
-        if isinstance(_run, dict):
-            for _k in ("pass_toggles", "model_overrides", "used_pass_architecture",
-                        "model", "gpt_model"):
-                _run.pop(_k, None)
-
-        # Strip per-photo debug fields (v3 schema)
-        for _img_key, _photo in (slim.get("photos") or {}).items():
-            # Remove full debug section (labeled_debug, labeled_forward, resolved_items, full passes, etc.)
-            _photo.pop("debug", None)
-            # Remove trace (pass internals — only useful for debugging)
-            _photo.pop("trace", None)
-            # Strip verbose feature fields from the features section
-            _feat = _photo.get("features")
-            if isinstance(_feat, dict):
-                _feat.pop("observations_freeform", None)
-                _feat.pop("feature_notes", None)
-                _feat.pop("positives_notes", None)
-            # Trim _compat.passes to only frontend-needed keys
-            _compat = _photo.get("_compat")
-            if isinstance(_compat, dict):
-                _FRONTEND_PASS_KEYS = {"1a", "2b", "2e"}
-                _cp = _compat.get("passes")
-                if isinstance(_cp, dict):
-                    _compat["passes"] = {
-                        k: v for k, v in _cp.items()
-                        if k in _FRONTEND_PASS_KEYS
-                    }
-
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(slim, f, indent=2, ensure_ascii=False)
-        logger.info(f"Photo intel (slim) saved to: {output_path}")
-
-        if generate_summary:
-            summary_path = output_path.parent / "property_summary.json"
-            self.generate_property_summary(job, photo_intel_path=output_path, output_path=summary_path)
-
-        return output_path
-
-    def generate_property_summary(
-            self,
-            job: PropertyAnalysisJob,
-            photo_intel_path: Optional[Path] = None,
-            output_path: Optional[Path] = None
-    ) -> Optional[Path]:
-        """
-        Generate a property-level summary from the analysis results using Pass 4, 4a, and 4b.
-
-        Always writes property_summary.json and embeds property_pass4 into photo_intel.json,
-        even on failure (with error field and empty values) so the UI has consistent structure.
-        """
-        if not getattr(cfg, "GENERATE_PROPERTY_SUMMARY", True):
-            logger.info("Property summary generation disabled in config")
-            return None
-
-        logger.info(f"\n{'=' * 60}")
-        logger.info("Generating Property Summary...")
-        logger.info(f"{'=' * 60}")
-
-        if output_path is None:
-            output_path = Path(job.artifacts_dir) / "property_summary.json"
-
-        # Initialize with defaults
-        error_msg = None
-        model_used = ""
-        scene_counts: Dict[str, int] = {}
-
-        # Initialize Pass 4a outputs with defaults
-        room_summaries: Dict[str, Any] = {}
-        issues_by_category: Dict[str, int] = {}
-        total_issues_found = 0
-
-        # Pass 4b fields (renovation intel)
-        room_scopes: Dict[str, str] = {}
-        room_work_items: Dict[str, List[str]] = {}
-        top_work_items: List[str] = []
-
-        # Pass 4c UI card fields
-        overall_condition = ""
-        overall_summary = ""
-        investment_verdict = ""
-        investment_rationale = ""
-        renovation_scope = ""
-        renovation_priorities: List[str] = []
-        risk_flags: List[str] = []
-        deferred_maintenance: List[str] = []
-
-        errors: Dict[str, str] = {}
-
-        logger.info(
-            f"Pass4 gate: VLM_CLIENT_AVAILABLE={VLM_CLIENT_AVAILABLE} "
-            f"vlm_client={bool(self.vlm_client)} "
-            f"PASS_ARCHITECTURE_AVAILABLE={PASS_ARCHITECTURE_AVAILABLE} "
-            f"auto_analyzer_file={__file__}"
+    def save_photo_intel(self, job, output_path=None, generate_summary=True):
+        """Thin wrapper delegating to artifact_writers.write_photo_intel."""
+        return write_photo_intel(
+            cfg=cfg,
+            job=job,
+            detection_backend=self.detection_backend,
+            analysis_profile=self.analysis_profile,
+            use_pass_architecture=self.use_pass_architecture,
+            pass_toggles=self.pass_toggles,
+            model_overrides=self.model_overrides,
+            gpt_config=self.gpt_config,
+            issue_catalog=self.issue_catalog,
+            output_path=output_path,
+            generate_summary=generate_summary,
+            summary_writer=lambda **kw: self.generate_property_summary(**kw),
         )
 
-        # ═══════════════════════════════════════════════════════════════════════════
-        # Aggregate from job.results and run Pass 4a/4b/4c
-        # (Uses already-computed per-image results, does NOT re-run passes 1-3)
-        # ═══════════════════════════════════════════════════════════════════════════
-        if VLM_CLIENT_AVAILABLE and self.vlm_client and PASS_ARCHITECTURE_AVAILABLE:
-            logger.info("  Aggregating from job.results for Pass 4a/4b/4c")
-
-            # Build all_results from job (uses already-computed passes, no re-analysis)
-            all_results = {}
-            for res in job.results:
-                image_key = Path(res.image_path).name
-                payload = self._scene_classifier_payload(res.scene_classifier or res.scene_data)
-                all_results[image_key] = payload
-                # Count scenes
-                scene = payload.get("scene", "unknown")
-                scene_counts[scene] = scene_counts.get(scene, 0) + 1
-
-            # Lazy import Pass 4 functions to prevent import-time failures
-            try:
-                from tools.scene_classifier_passes import (
-                    run_pass_4a_room_summaries,
-                    run_pass_4b_renovation_intel,
-                    run_pass_4c_property_card_fields,
-                    build_grouped_issues,
-                    derive_property_scope,
-                )
-            except ImportError as e:
-                logger.warning(f"Pass 4 imports missing, skipping property summary: {e}")
-                error_msg = f"Pass 4 imports unavailable: {e}"
-                # Fall through to write empty summary
-            else:
-                # Compute grouped_issues ONCE from all_results.
-                # build_grouped_issues reads payload["verified_issues"] (post-2e truth),
-                # falling back to passes["2c"]["verified_issues"] for pre-2e runs.
-                grouped_issues, _fallback_count = build_grouped_issues(all_results)
-
-                # Compute deterministic totals from verified issues
-                total_images_analyzed = len(all_results)
-                total_issues_found = sum(len(issues) for issues in grouped_issues.values())
-                issues_by_category = {}
-                for group_issues in grouped_issues.values():
-                    for issue in group_issues:
-                        cat = issue.get("label", "general") or "general"
-                        issues_by_category[cat] = issues_by_category.get(cat, 0) + 1
-
-                # --- Pass 4a (room summaries aggregation) ---
-                try:
-                    logger.info("  Using Pass 4a (run_pass_4a_room_summaries)")
-                    model_config_4a = self._get_model_config_for_pass('4a')
-                    model_used = model_config_4a.get('model', '')
-                    logger.info(f"  Model: {model_used}")
-
-                    async def run_pass4a():
-                        return await run_pass_4a_room_summaries(
-                            vlm_client=self.vlm_client,
-                            model_config=model_config_4a,
-                            grouped_issues=grouped_issues,
-                            scene_counts=scene_counts,
-                            total_images_analyzed=total_images_analyzed,
-                            total_issues_found=total_issues_found,
-                            issues_by_category=issues_by_category,
-                        )
-
-                    loop = asyncio.new_event_loop()
-                    try:
-                        pass_4a_result = loop.run_until_complete(run_pass4a())
-                    finally:
-                        loop.close()
-
-                    room_summaries = pass_4a_result.room_summaries or {}
-                    logger.info(f"  Pass 4a completed: {len(room_summaries)} room groups")
-
-                except Exception as e:
-                    errors["pass4a"] = f"Pass 4a failed: {e}"
-                    logger.error(errors["pass4a"], exc_info=True)
-
-                # --- Pass 4b (renovation intel: scopes + work items) ---
-                try:
-                    logger.info("  Using Pass 4b (run_pass_4b_renovation_intel)")
-                    model_config_4b = self._get_model_config_for_pass('4b')
-                    logger.info(f"  Model: {model_config_4b.get('model', '')}")
-
-                    async def run_pass4b():
-                        return await run_pass_4b_renovation_intel(
-                            vlm_client=self.vlm_client,
-                            model_config=model_config_4b,
-                            grouped_issues=grouped_issues,
-                        )
-
-                    loop = asyncio.new_event_loop()
-                    try:
-                        pass_4b_result = loop.run_until_complete(run_pass4b())
-                    finally:
-                        loop.close()
-
-                    room_scopes = pass_4b_result.room_scopes or {}
-                    room_work_items = pass_4b_result.room_work_items or {}
-                    top_work_items = pass_4b_result.top_work_items or []
-
-                    # Derive property scope deterministically from room scopes
-                    renovation_scope = derive_property_scope(room_scopes)
-
-                    logger.info(f"  Pass 4b completed: scope={renovation_scope}, top_items={len(top_work_items)}")
-
-                except Exception as e:
-                    errors["pass4b"] = f"Pass 4b failed: {e}"
-                    logger.error(errors["pass4b"], exc_info=True)
-
-                # --- Pass 4c (property card fields for UI) ---
-                try:
-                    logger.info("  Using Pass 4c (run_pass_4c_property_card_fields)")
-                    model_config_4c = self._get_model_config_for_pass('4c')
-                    logger.info(f"  Model: {model_config_4c.get('model', '')}")
-
-                    async def run_pass4c():
-                        return await run_pass_4c_property_card_fields(
-                            vlm_client=self.vlm_client,
-                            model_config=model_config_4c,
-                            room_summaries=room_summaries,
-                            room_scopes=room_scopes,
-                            room_work_items=room_work_items,
-                            top_work_items=top_work_items,
-                            total_issues_found=total_issues_found,
-                            total_images_analyzed=total_images_analyzed,
-                            issues_by_category=issues_by_category,
-                            property_scope=renovation_scope,
-                        )
-
-                    loop = asyncio.new_event_loop()
-                    try:
-                        pass_4c_result = loop.run_until_complete(run_pass4c())
-                    finally:
-                        loop.close()
-
-                    overall_condition = pass_4c_result.overall_condition or ""
-                    overall_summary = pass_4c_result.overall_summary or ""
-                    investment_verdict = pass_4c_result.investment_verdict or ""
-                    investment_rationale = pass_4c_result.investment_rationale or ""
-                    renovation_priorities = pass_4c_result.renovation_priorities or []
-                    risk_flags = pass_4c_result.risk_flags or []
-                    deferred_maintenance = pass_4c_result.deferred_maintenance or []
-
-                    logger.info("  Pass 4c completed successfully")
-
-                except Exception as e:
-                    errors["pass4c"] = f"Pass 4c failed: {e}"
-                    logger.error(errors["pass4c"], exc_info=True)
-
-        else:
-            # VLM client or pass architecture not available
-            missing = []
-            if not VLM_CLIENT_AVAILABLE:
-                missing.append("VLM client")
-            if not self.vlm_client:
-                missing.append("vlm_client instance")
-            if not PASS_ARCHITECTURE_AVAILABLE:
-                missing.append("pass architecture")
-            error_msg = f"Passes unavailable: missing {', '.join(missing)}"
-            logger.warning(error_msg)
-
-        # Combine errors
-        if errors:
-            error_msg = "; ".join(errors.values())
-
-        # Build summary dict - always write even on failure
-        # Pass 4a: room summaries, Pass 4b: renovation intel, Pass 4c: UI card fields
-        summary_data = {
-            # v3 schema versioning
-            "artifact_schema_version": PROPERTY_SUMMARY_SCHEMA_VERSION,
-            "normalization_policy_version": NORMALIZATION_POLICY_VERSION,
-            # Existing fields
-            "property_key": job.property_key,
-            "run_id": job.job_id,  # explicit run_id for consistency
-            "job_id": job.job_id,
-            "timestamp": job.timestamp,
-            "created_at": datetime.utcnow().isoformat() + "Z",
-            "summary_version": "pass4_v3",
-            "analysis_profile": self.analysis_profile,
-            "scene_counts": scene_counts,  # for UI filters
-
-            # Pass 4a fields (room summaries)
-            "room_summaries": room_summaries,
-            "issues_by_category": issues_by_category,
-            "total_issues_found": total_issues_found,
-
-            # Pass 4b fields (renovation intel)
-            "room_scopes": room_scopes,
-            "room_work_items": room_work_items,
-            "top_work_items": top_work_items,
-            "renovation_scope": renovation_scope,  # derived from room_scopes
-
-            # Pass 4c fields (UI card)
-            "overall_condition": overall_condition,
-            "overall_summary": overall_summary,
-            "investment_verdict": investment_verdict,
-            "investment_rationale": investment_rationale,
-            "renovation_priorities": renovation_priorities,
-            "risk_flags": risk_flags,
-            "deferred_maintenance": deferred_maintenance,
-
-            # Metadata
-            "total_images_analyzed": len(job.results),
-            "model_used": model_used,
-            "error": error_msg,
-            "errors": errors if errors else None,
-        }
-
-        # renovation_needs disabled: severity not reliable at this stage
-        summary_data["renovation_needs"] = None
-
-        # Add defect events layer from photo_intel (already computed in save_photo_intel)
-        if DEFECT_EVENTS_AVAILABLE and photo_intel_path and photo_intel_path.exists():
-            try:
-                with open(photo_intel_path, 'r', encoding='utf-8') as f:
-                    pi = json.load(f)
-                summary_data["defect_events"] = pi.get("defect_events", [])
-                summary_data["work_items"] = pi.get("work_items", [])
-                summary_data["search_index"] = pi.get("search_index", {})
-            except Exception as exc:
-                logger.warning(f"Could not load defect events from photo_intel: {exc}")
-                summary_data["defect_events"] = []
-                summary_data["work_items"] = []
-                summary_data["search_index"] = {}
-        else:
-            summary_data["defect_events"] = []
-            summary_data["work_items"] = []
-            summary_data["search_index"] = {}
-
-        # Write property_summary.json
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        with open(output_path, "w", encoding="utf-8") as f:
-            json.dump(summary_data, f, indent=2, ensure_ascii=False)
-
-        logger.info(f"Property summary saved to: {output_path}")
-
-        # Embed Pass 4a/4b/4c output into photo_intel.json so UI has single payload
-        if photo_intel_path and photo_intel_path.exists():
-            try:
-                with open(photo_intel_path, 'r', encoding='utf-8') as f:
-                    photo_intel = json.load(f)
-
-                photo_intel["property_pass4a"] = {
-                    "room_summaries": room_summaries,
-                    "issues_by_category": issues_by_category,
-                    "total_issues_found": total_issues_found,
-                    "scene_counts": scene_counts,
-                    "total_images_analyzed": len(job.results),
-                    "error": errors.get("pass4a"),
-                }
-
-                photo_intel["property_pass4b"] = {
-                    "room_scopes": room_scopes,
-                    "room_work_items": room_work_items,
-                    "top_work_items": top_work_items,
-                    "renovation_scope": renovation_scope,
-                    "error": errors.get("pass4b"),
-                }
-
-                photo_intel["property_pass4c"] = {
-                    "overall_condition": overall_condition,
-                    "overall_summary": overall_summary,
-                    "investment_verdict": investment_verdict,
-                    "investment_rationale": investment_rationale,
-                    "renovation_priorities": renovation_priorities,
-                    "risk_flags": risk_flags,
-                    "deferred_maintenance": deferred_maintenance,
-                    "error": errors.get("pass4c"),
-                }
-
-                # Also embed full summary for convenience
-                photo_intel["property_summary"] = summary_data
-
-                with open(photo_intel_path, "w", encoding="utf-8") as f:
-                    json.dump(photo_intel, f, indent=2, ensure_ascii=False)
-
-                logger.info(f"Pass 4a/4b/4c outputs embedded into: {photo_intel_path}")
-
-                # Also embed into the debug file so it has the complete picture
-                debug_path = photo_intel_path.parent / "photo_intel_debug.json"
-                if debug_path.exists():
-                    try:
-                        with open(debug_path, 'r', encoding='utf-8') as f:
-                            debug_intel = json.load(f)
-                        debug_intel["property_pass4a"] = photo_intel["property_pass4a"]
-                        debug_intel["property_pass4b"] = photo_intel["property_pass4b"]
-                        debug_intel["property_pass4c"] = photo_intel["property_pass4c"]
-                        debug_intel["property_summary"] = summary_data
-                        with open(debug_path, "w", encoding="utf-8") as f:
-                            json.dump(debug_intel, f, indent=2, ensure_ascii=False)
-                        logger.info(f"Pass 4a/4b/4c outputs also embedded into: {debug_path}")
-                    except Exception as exc:
-                        logger.warning(f"Could not embed property_pass4 into debug file: {exc}")
-            except Exception as exc:
-                logger.warning(f"Could not embed property_pass4 into photo_intel.json: {exc}")
-
-        return output_path
+    def generate_property_summary(self, job, photo_intel_path=None, output_path=None):
+        """Thin wrapper delegating to artifact_writers.write_property_summary."""
+        return write_property_summary(
+            cfg=cfg,
+            job=job,
+            analysis_profile=self.analysis_profile,
+            vlm_client=self.vlm_client,
+            get_model_config_for_pass=self._get_model_config_for_pass,
+            photo_intel_path=photo_intel_path,
+            output_path=output_path,
+        )
