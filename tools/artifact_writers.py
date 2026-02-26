@@ -175,6 +175,11 @@ def write_photo_intel(
         if not final_issues:
             final_issues = safe_list((passes.get("2b", {}) or {}).get("issues_natural_language"))
 
+        # Matched issues (post-sanity+dedupe, superset of final; for debug/analytics)
+        matched_issues = safe_list(payload.get("matched_issues"))
+        # Removed issues (explicitly discarded with reasons)
+        removed_issues = safe_list((passes.get("2e", {}) or {}).get("removed"))
+
         # -- Backfill stable issue_id + source linkage on every final issue -----
         issue_sig_counts: Dict[Tuple[str, str, str], int] = {}
         for issue in final_issues:
@@ -252,6 +257,8 @@ def write_photo_intel(
             },
             "issues": {
                 "final": final_issues,
+                "matched": matched_issues,
+                "removed": removed_issues,
             },
             "keywords": {
                 "all":        safe_list((passes.get("3", {}) or {}).get("keywords") or payload.get("keywords")),
@@ -277,6 +284,15 @@ def write_photo_intel(
                 "total_pass_time": payload.get("total_pass_time", 0.0),
                 "scene_group":   scene_group,
                 "photo_id":      photo_id,
+            },
+            "_pass_2e_telemetry": {
+                "input_count":   pass_2e_p.get("input_count"),
+                "deduped_count": pass_2e_p.get("deduped_count"),
+                "final_count":   pass_2e_p.get("final_count"),
+                "removed_count": pass_2e_p.get("removed_count"),
+                "removed_reason_counts": pass_2e_p.get("removed_reason_counts", {}),
+                "suppressed_reason_counts": pass_2e_p.get("suppressed_reason_counts", {}),
+                "suppressed_samples": pass_2e_p.get("suppressed_samples", []),
             },
         }
 
@@ -396,6 +412,12 @@ def write_photo_intel(
     for _img_key, _photo in (slim.get("photos") or {}).items():
         _photo.pop("debug", None)
         _photo.pop("trace", None)
+        _photo.pop("_pass_2e_telemetry", None)
+        # Strip matched/removed from issues (UI only reads final)
+        _issues = _photo.get("issues")
+        if isinstance(_issues, dict):
+            _issues.pop("matched", None)
+            _issues.pop("removed", None)
         _feat = _photo.get("features")
         if isinstance(_feat, dict):
             _feat.pop("observations_freeform", None)

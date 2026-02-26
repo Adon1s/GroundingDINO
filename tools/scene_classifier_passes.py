@@ -450,7 +450,7 @@ async def run_pass_1c_feature_structuring(
 
 PASS_2A_SYSTEM_PROMPT = ""  # blank on purpose
 PASS_2A_USER_PROMPT = (
-    "What stands out here to a renovator, based on what's visible? "
+    "What stands out here to a renovator, based on what's visible? Dont mention trivial things"
     "If nothing stands out, reply with only the word 'none'."
 )
 
@@ -878,9 +878,18 @@ _GENERIC_ADVICE_PATTERNS: List[str] = [
 @dataclass
 class Pass2eResult:
     """Result from Pass 2e: normalized, filtered, deduplicated issues."""
-    verified_issues: List[Dict[str, Any]]
-    removed: List[Dict[str, Any]]
+    verified_issues: List[Dict[str, Any]]       # final issues (renovator-facing)
+    matched_issues: List[Dict[str, Any]] = field(default_factory=list)  # all post-sanity+dedupe (superset of final)
+    removed: List[Dict[str, Any]] = field(default_factory=list)         # truly removed (sanity failures)
     notes: Optional[str] = None
+    # Telemetry counters
+    input_count: int = 0
+    deduped_count: int = 0
+    final_count: int = 0
+    removed_count: int = 0
+    removed_reason_counts: Dict[str, int] = field(default_factory=dict)
+    suppressed_reason_counts: Dict[str, int] = field(default_factory=dict)
+    suppressed_samples: List[Dict[str, Any]] = field(default_factory=list)
 
 
 def _2e_norm_text(s: str) -> str:
@@ -889,7 +898,9 @@ def _2e_norm_text(s: str) -> str:
 
 
 def _2e_is_junk(description: str, deny_phrases: List[str]) -> bool:
-    """Return True if the description matches any deny phrase or generic advice pattern."""
+    """Return True if the description matches any deny phrase or generic advice pattern.
+    DEPRECATED: kept for backwards compatibility. New code uses _2e_is_sanity_junk + _2e_policy_reason.
+    """
     d = _2e_norm_text(description).lower()
     if not d:
         return True
@@ -900,6 +911,109 @@ def _2e_is_junk(description: str, deny_phrases: List[str]) -> bool:
         if re.search(pat, d):
             return True
     return False
+
+
+def _2e_is_sanity_junk(description: str) -> Optional[str]:
+    """True sanity check — returns removal reason or None if clean.
+
+    Only catches issues that should never appear in *any* output:
+    - empty/whitespace-only description
+    """
+    d = _2e_norm_text(description)
+    if not d:
+        return "empty_description"
+    return None
+
+
+# Speculation markers — upgrade descriptions containing these are excluded from final.
+# Only modal uncertainty words are included here. Visual hedges like "appears" or
+# "looks" are legitimate observational language and should NOT suppress upgrades.
+# "likely" was also removed — it often accompanies factual assessments ("likely original").
+_SPECULATION_MARKERS: List[str] = [
+    "potential",    # "potential upgrade" / "potentially"
+    "possibly",     # "possibly original"
+    "might",        # "might need replacing"
+    "could",        # "could benefit from"
+    "suggesting",   # "suggesting wear"
+]
+
+# High-signal damage/condition tokens. If an issue's description contains any of
+# these, it indicates a concrete visible finding — not just a style opinion.
+# Used by Gate 2 to override tier_optional_suppressed (keep in final even if
+# the catalog tier is "optional").
+_HIGH_SIGNAL_DAMAGE_TOKENS: List[str] = [
+    "worn", "damaged", "peeling", "cracked", "stained",
+    "missing", "broken", "rust", "rusted", "rusting",
+    "rot", "rotted", "rotting", "mold", "mildew",
+    "warped", "sagging", "leaking", "leak", "discolored",
+    "chipped", "scratched", "dented", "corroded", "frayed",
+    "torn", "deteriorat",   # prefix-matches deteriorated/deteriorating
+]
+
+
+def _has_high_signal_damage(desc_lower: str) -> bool:
+    """Return True if the lowered description contains any high-signal damage token.
+
+    Uses word-boundary prefix matching so "deteriorat" catches
+    "deteriorated" and "deteriorating", etc.
+    """
+    for token in _HIGH_SIGNAL_DAMAGE_TOKENS:
+        if re.search(r"\b" + re.escape(token), desc_lower):
+            return True
+    return False
+
+
+def _2e_policy_reason(
+    issue: Dict[str, Any],
+    deny_phrases: List[str],
+    catalog_meta: Optional[Dict[str, Dict[str, Any]]] = None,
+    policy: Optional[Dict[str, Any]] = None,
+) -> Optional[str]:
+    """Determine if an issue should be excluded from *final* (but kept in matched).
+
+    Returns a reason string if the issue should be suppressed, else None.
+    Policy gates (in priority order):
+      1. drop_if_generic (catalog-driven kill switch)
+      2. tier == optional (suppressed unless policy says include)
+      3. speculative upgrade (speculation word in upgrade description)
+      4. deny_phrase / generic_advice pattern match
+    """
+    policy = policy or {}
+    desc_lower = _2e_norm_text(issue.get("description", "")).lower()
+    kind = (issue.get("kind") or "").strip().lower()
+
+    # Gate 1 — Catalog-driven kill switch
+    cid = (issue.get("catalogItemId") or "").strip()
+    meta = (catalog_meta or {}).get(cid, {}) if cid else {}
+    if meta.get("drop_if_generic"):
+        return "drop_if_generic"
+
+    # Gate 2 — Tier inclusion (with visibility severity override)
+    tier = meta.get("tier", "work")
+    if tier == "optional" and not policy.get("include_optional", False):
+        # Override: if description contains high-signal damage tokens,
+        # keep in final even though catalog tier is "optional".
+        # This prevents "final is empty" syndrome for items that are
+        # technically optional but describe real visible damage.
+        if not _has_high_signal_damage(desc_lower):
+            return "tier_optional_suppressed"
+
+    # Gate 3 — Speculation suppression (upgrades only)
+    # Use prefix match (\b but no trailing \b) so "potential" catches "potentially" etc.
+    if kind == "upgrade":
+        for marker in _SPECULATION_MARKERS:
+            if re.search(r"\b" + re.escape(marker), desc_lower):
+                return "speculative_upgrade"
+
+    # Gate 4 — Deny phrases / generic advice patterns
+    for phrase in deny_phrases:
+        if phrase.lower() in desc_lower:
+            return "generic_advice"
+    for pat in _GENERIC_ADVICE_PATTERNS:
+        if re.search(pat, desc_lower):
+            return "generic_advice"
+
+    return None
 
 
 def _2e_dedupe_key(issue: Dict[str, Any]) -> str:
@@ -922,23 +1036,33 @@ async def run_pass_2e(
     context: Optional[Dict[str, Any]] = None,
 ) -> Pass2eResult:
     """
-    Pass 2e: Rule-based normalization, filtering, and deduplication.
+    Pass 2e: Rule-based normalization, filtering, deduplication, and policy gating.
 
     No LLM call — deterministic and fast.
 
-    Actions performed:
-    - Remove issues matching deny phrases or generic advice patterns
-    - Remove issues with invalid kind (not 'defect' or 'upgrade')
-    - Normalize description whitespace
-    - Strip any persisted score/severity fields
-    - Deduplicate by catalogItemId (if present) else normalized description
+    Pipeline (in order):
+      1. Sanity validate (empty desc, invalid kind) → removed
+      2. Normalize description whitespace
+      3. Strip scoring fields
+      4. Deduplicate → produces matched_issues
+      5. Apply policy gating → produces final_issues (verified_issues)
 
-    Deny phrases are loaded from context['deny_phrases'] if provided,
-    otherwise from cfg.PASS_2E_DENY_PHRASES if available, else built-in defaults.
+    Policy gates (applied to matched to decide final):
+      - drop_if_generic (catalog-driven kill switch)
+      - tier == optional suppression
+      - speculation suppression for upgrades
+      - deny phrase / generic advice suppression
+
+    Context may include:
+      - deny_phrases: List[str]
+      - catalog_meta_by_id: Dict[str, Dict] (from orchestrator)
+      - policy: Dict (include_optional, mode, etc.)
     """
+    context = context or {}
+
     # Load deny phrases: context override → cfg → built-in defaults
     deny_phrases: List[str] = []
-    if context and isinstance(context.get("deny_phrases"), list):
+    if isinstance(context.get("deny_phrases"), list):
         deny_phrases = context["deny_phrases"]
     else:
         try:
@@ -949,53 +1073,107 @@ async def run_pass_2e(
     if not deny_phrases:
         deny_phrases = list(_DEFAULT_DENY_PHRASES)
 
-    kept: List[Dict[str, Any]] = []
-    removed: List[Dict[str, Any]] = []
-    seen: set = set()
+    # Catalog meta and policy from context (injected by orchestrator)
+    catalog_meta = context.get("catalog_meta_by_id") or {}
+    policy = context.get("policy") or {}
 
+    input_count = len(verified_issues or [])
+    removed: List[Dict[str, Any]] = []
+    removed_reason_counts: Dict[str, int] = {}
+    seen: set = set()
+    matched: List[Dict[str, Any]] = []
+
+    # ── Stage 1-4: sanity → normalize → strip → dedupe → matched_issues ──
     for issue in (verified_issues or []):
         if not isinstance(issue, dict):
             continue
 
         desc = issue.get("description", "")
 
-        # Filter: junk / deny phrase / generic advice
-        if _2e_is_junk(desc, deny_phrases):
-            removed.append({**issue, "removed_reason": "deny_phrase_or_generic_advice"})
+        # Stage 1a: Sanity — empty description
+        sanity_reason = _2e_is_sanity_junk(desc)
+        if sanity_reason:
+            removed.append({**issue, "removed_reason": sanity_reason})
+            removed_reason_counts[sanity_reason] = removed_reason_counts.get(sanity_reason, 0) + 1
             continue
 
-        # Filter: kind must be defect or upgrade (forward-only constraint)
+        # Stage 1b: Sanity — kind must be defect or upgrade
         kind = (issue.get("kind") or "").strip().lower()
         if kind not in {"defect", "upgrade"}:
-            removed.append({**issue, "removed_reason": f"invalid_kind:{kind or 'missing'}"})
+            reason = f"invalid_kind:{kind or 'missing'}"
+            removed.append({**issue, "removed_reason": reason})
+            removed_reason_counts[reason] = removed_reason_counts.get(reason, 0) + 1
             continue
 
-        # Normalize description whitespace in-place
+        # Stage 2: Normalize description whitespace
         issue["description"] = _2e_norm_text(desc)
 
-        # Strip ranking/scoring fields — hard guarantee, never persisted past 2e
+        # Stage 3: Strip ranking/scoring fields — never persisted past 2e
         issue.pop("topCandidateScore", None)
         issue.pop("top_candidate_score", None)
         issue.pop("score", None)
         issue.pop("severity", None)
 
-        # Deduplicate
+        # Stage 4: Deduplicate
         key = _2e_dedupe_key(issue)
         if key in seen:
             removed.append({**issue, "removed_reason": "duplicate"})
+            removed_reason_counts["duplicate"] = removed_reason_counts.get("duplicate", 0) + 1
             continue
         seen.add(key)
 
-        kept.append(issue)
+        matched.append(issue)
+
+    deduped_count = len(matched)
+
+    # ── Stage 5: Policy gating → final_issues ──
+    final: List[Dict[str, Any]] = []
+    suppressed_reason_counts: Dict[str, int] = {}
+    suppressed_samples: List[Dict[str, Any]] = []
+    _MAX_SUPPRESSED_SAMPLES = 10
+
+    for issue in matched:
+        reason = _2e_policy_reason(issue, deny_phrases, catalog_meta, policy)
+        if reason:
+            suppressed_reason_counts[reason] = suppressed_reason_counts.get(reason, 0) + 1
+            if len(suppressed_samples) < _MAX_SUPPRESSED_SAMPLES:
+                suppressed_samples.append({
+                    "issue_id": issue.get("issue_id"),
+                    "description": (issue.get("description") or "")[:120],
+                    "kind": issue.get("kind"),
+                    "catalogItemId": issue.get("catalogItemId"),
+                    "suppressed_reason": reason,
+                })
+            # Policy-suppressed items stay in matched but are excluded from final.
+            # Also add to removed for full audit trail.
+            removed.append({**issue, "removed_reason": reason})
+            removed_reason_counts[reason] = removed_reason_counts.get(reason, 0) + 1
+            continue
+        final.append(issue)
+
+    final_count = len(final)
+    removed_count = len(removed)
 
     logger.debug(
-        "Pass 2e: kept=%d removed=%d (input=%d)",
-        len(kept), len(removed), len(verified_issues or []),
+        "Pass 2e: input=%d deduped/matched=%d final=%d removed=%d suppressed=%d",
+        input_count, deduped_count, final_count, removed_count,
+        sum(suppressed_reason_counts.values()),
     )
+    if suppressed_reason_counts:
+        logger.debug("Pass 2e suppression reasons: %s", suppressed_reason_counts)
+
     return Pass2eResult(
-        verified_issues=kept,
+        verified_issues=final,
+        matched_issues=matched,
         removed=removed,
-        notes="rule_based_normalization",
+        notes="rule_based_normalization_v2",
+        input_count=input_count,
+        deduped_count=deduped_count,
+        final_count=final_count,
+        removed_count=removed_count,
+        removed_reason_counts=removed_reason_counts,
+        suppressed_reason_counts=suppressed_reason_counts,
+        suppressed_samples=suppressed_samples,
     )
 # ═══════════════════════════════════════════════════════════════════════════════
 # Pass 3: Keyword Extraction (Text-only, from structured facts)

@@ -135,6 +135,8 @@ class ImageAnalysisResult:
 
     # Final normalized/filtered issues after Pass 2e (populated if 2e ran)
     verified_issues: List[Dict[str, Any]] = field(default_factory=list)
+    # All issues that passed sanity + dedupe (superset of verified_issues; for debug/analytics)
+    matched_issues: List[Dict[str, Any]] = field(default_factory=list)
 
     keywords: List[str] = field(default_factory=list)
 
@@ -173,6 +175,7 @@ class ImageAnalysisResult:
             "labeled_forward": self.labeled_forward,
             "resolved_items": self.resolved_items,
             "verified_issues": self.verified_issues,
+            "matched_issues": self.matched_issues,
 
             "keywords": self.keywords,
             "passes_run": self.passes_run,
@@ -205,6 +208,7 @@ class SceneClassifierOrchestrator:
         candidate_provider: Optional[Callable[[str, Dict[str, Any]], List[Dict[str, Any]]]] = None,
         top_k_candidates: int = 8,
         max_resolve_per_image: int = 25,
+        catalog_items: Optional[List[Dict[str, Any]]] = None,
     ):
         """
         Initialize the orchestrator.
@@ -221,6 +225,8 @@ class SceneClassifierOrchestrator:
                                context may include 'kind' ("defect" or "upgrade") and 'top_k_candidates'
             top_k_candidates: Number of candidates to retrieve per observation
             max_resolve_per_image: Maximum observations to resolve per image in Pass 2d
+            catalog_items: Optional list of catalog item dicts (from issue_catalog["items"]).
+                           Used to build catalog_meta_by_id for Pass 2e policy gating.
         """
         self.qwen_config = qwen_config
         self.gpt5_config = gpt5_config
@@ -229,6 +235,22 @@ class SceneClassifierOrchestrator:
         self.candidate_provider = candidate_provider
         self.top_k_candidates = top_k_candidates
         self.max_resolve_per_image = max_resolve_per_image
+
+        # Build catalog metadata lookup for Pass 2e policy gating
+        self.catalog_meta_by_id: Dict[str, Dict[str, Any]] = {}
+        for item in (catalog_items or []):
+            if not isinstance(item, dict):
+                continue
+            item_id = (item.get("id") or "").strip()
+            if item_id:
+                self.catalog_meta_by_id[item_id] = {
+                    "tier": item.get("tier", "work"),
+                    "drop_if_generic": bool(item.get("drop_if_generic", False)),
+                    "kind": item.get("kind", "defect"),
+                    "trade_bucket": item.get("trade_bucket", ""),
+                }
+        if self.catalog_meta_by_id:
+            logger.info("Orchestrator: catalog_meta_by_id built with %d items", len(self.catalog_meta_by_id))
 
     @staticmethod
     def _t(toggles, key: str, default: bool = True) -> bool:
@@ -796,6 +818,11 @@ class SceneClassifierOrchestrator:
                     issue["kind"] = _label_to_kind(issue.get("label", ""))
                 issues_for_2e.append(issue)
 
+            # Inject catalog metadata and policy into context for Pass 2e
+            if self.catalog_meta_by_id:
+                context["catalog_meta_by_id"] = self.catalog_meta_by_id
+            context["policy"] = {"include_optional": False, "mode": "renovator_strict"}
+
             t0 = time.time()
             try:
                 pass_2e_result = await run_pass_2e(
@@ -805,15 +832,20 @@ class SceneClassifierOrchestrator:
                     context=context,
                 )
                 result.verified_issues = pass_2e_result.verified_issues or []
+                result.matched_issues = pass_2e_result.matched_issues or []
                 result.passes_run.append('2e')
                 result.models_used['2e'] = model_name
 
                 removed = pass_2e_result.removed or []
                 result.passes["2e"] = {
                     "notes": pass_2e_result.notes,
-                    "input_count": len(issues_for_2e),
-                    "kept_count": len(result.verified_issues),
-                    "removed_count": len(removed),
+                    "input_count": pass_2e_result.input_count,
+                    "deduped_count": pass_2e_result.deduped_count,
+                    "final_count": pass_2e_result.final_count,
+                    "removed_count": pass_2e_result.removed_count,
+                    "removed_reason_counts": pass_2e_result.removed_reason_counts,
+                    "suppressed_reason_counts": pass_2e_result.suppressed_reason_counts,
+                    "suppressed_samples": pass_2e_result.suppressed_samples,
                     "kept_issue_ids": [
                         x["issue_id"] for x in result.verified_issues if x.get("issue_id")
                     ],
@@ -827,21 +859,27 @@ class SceneClassifierOrchestrator:
                     ],
                 }
                 result.debug["pass_2e_summary"] = {
-                    "input_count": len(issues_for_2e),
-                    "kept_count": len(result.verified_issues),
-                    "removed_count": len(removed),
+                    "input_count": pass_2e_result.input_count,
+                    "deduped_count": pass_2e_result.deduped_count,
+                    "final_count": pass_2e_result.final_count,
+                    "removed_count": pass_2e_result.removed_count,
+                    "removed_reason_counts": pass_2e_result.removed_reason_counts,
+                    "suppressed_reason_counts": pass_2e_result.suppressed_reason_counts,
                     "notes": pass_2e_result.notes,
                 }
                 logger.info(
-                    "Pass 2e: input=%d kept=%d removed=%d",
-                    len(issues_for_2e),
-                    len(result.verified_issues),
-                    len(removed),
+                    "Pass 2e: input=%d matched=%d final=%d removed=%d suppressed=%s",
+                    pass_2e_result.input_count,
+                    pass_2e_result.deduped_count,
+                    pass_2e_result.final_count,
+                    pass_2e_result.removed_count,
+                    pass_2e_result.suppressed_reason_counts,
                 )
             except Exception as exc:
                 logger.warning(f"Pass 2e failed: {exc}")
                 # Fallback: pass labeled_forward through unchanged as verified_issues
                 result.verified_issues = list(result.labeled_forward or [])
+                result.matched_issues = list(result.labeled_forward or [])
                 result.passes["2e"] = {"error": str(exc)}
                 result.debug["pass_2e_summary"] = {"error": str(exc)}
             result.pass_timings['2e'] = round(time.time() - t0, 3)
@@ -911,6 +949,7 @@ class SceneClassifierOrchestrator:
 def create_orchestrator_from_config(
     config: Any,
     candidate_provider: Optional[Callable[[str, Dict[str, Any]], List[Dict[str, Any]]]] = None,
+    catalog_items: Optional[List[Dict[str, Any]]] = None,
 ) -> SceneClassifierOrchestrator:
     """
     Create an orchestrator from a pipeline_config module.
@@ -918,6 +957,7 @@ def create_orchestrator_from_config(
     Args:
         config: pipeline_config module with LM_STUDIO_URL, etc.
         candidate_provider: Optional callback to retrieve catalog candidates for Pass 2d
+        catalog_items: Optional list of catalog item dicts for Pass 2e policy gating
 
     Returns:
         Configured SceneClassifierOrchestrator
@@ -938,4 +978,5 @@ def create_orchestrator_from_config(
         candidate_provider=candidate_provider,
         top_k_candidates=getattr(config, "TOP_K_CANDIDATES", 8),
         max_resolve_per_image=getattr(config, "MAX_RESOLVE_PER_IMAGE", 25),
+        catalog_items=catalog_items,
     )

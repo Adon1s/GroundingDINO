@@ -21,8 +21,9 @@ Legacy passes (not currently executed by orchestrator but still supported):
 - 4c: Final narrative / verdict / priorities
 """
 
+import os
 from dataclasses import dataclass, field
-from typing import Any, Dict, Literal, Optional, TypeAlias
+from typing import Any, Dict, List, Literal, Optional, TypeAlias
 
 # Type definitions
 PassKey: TypeAlias = Literal['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '3', '4', '4a', '4b', '4c']
@@ -91,6 +92,39 @@ class PassToggles:
             pass_4b=d.get('4b', False),
             pass_4c=d.get('4c', False),
         )
+
+    @classmethod
+    def from_skip_list(cls, skip: Optional[List[str]] = None) -> 'PassToggles':
+        """
+        Create toggles by disabling passes listed in *skip*.
+
+        Intended for use with pipeline_config.SKIP_PASSES or the
+        SKIP_PASSES env var (comma-separated pass keys).
+
+        Examples:
+            PassToggles.from_skip_list(['1a', '1b', '1c'])
+            PassToggles.from_skip_list(cfg.SKIP_PASSES)
+        """
+        toggles = cls()  # all defaults (1a-3 True, 2d/4x False)
+        if not skip:
+            return toggles
+        for key in skip:
+            attr = f'pass_{key.strip().lower()}'
+            if hasattr(toggles, attr):
+                setattr(toggles, attr, False)
+        return toggles
+
+    @classmethod
+    def from_env(cls) -> 'PassToggles':
+        """
+        Build toggles from the SKIP_PASSES environment variable.
+
+        Set SKIP_PASSES=1a,1b,1c to disable those passes.
+        Unset or empty means all passes use their normal defaults.
+        """
+        raw = os.environ.get("SKIP_PASSES", "")
+        skip = [s.strip().lower() for s in raw.split(",") if s.strip()]
+        return cls.from_skip_list(skip)
 
 
 @dataclass

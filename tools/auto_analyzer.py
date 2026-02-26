@@ -11,7 +11,7 @@ Supports multiple detection backends:
 
 Supports analysis profiles:
 - standard: All passes use local Qwen via LM Studio
-- premium: Key passes (1b, 2a, 4) use OpenAI GPT-5/GPT-4o
+- premium: Key passes (1b, 2a, 2c, 4) use GPT-5
 """
 
 import os
@@ -260,7 +260,18 @@ class AutoAnalyzer:
         ).strip().lower()
 
         # Pass architecture configuration
-        self.pass_toggles = pass_toggles or {}
+        # If no explicit pass_toggles provided, check SKIP_PASSES from config/env.
+        if pass_toggles:
+            self.pass_toggles = pass_toggles
+        else:
+            skip_list = getattr(cfg, "SKIP_PASSES", [])
+            if skip_list:
+                # Convert SKIP_PASSES list → dict of {pass_key: False} for disabled,
+                # merged with defaults so from_dict sees explicit False values.
+                self.pass_toggles = PassToggles.from_skip_list(skip_list).to_dict()
+                logger.info(f"SKIP_PASSES active — disabled passes: {skip_list}")
+            else:
+                self.pass_toggles = {}
         self.model_overrides = model_overrides or {}
 
         # Initialize VLM client and model configs FIRST (needed for all paths)
@@ -335,10 +346,11 @@ class AutoAnalyzer:
                 if candidate_provider is None:
                     logger.info("No candidate provider available -- 2d will skip (no embeddings matcher)")
 
-                # Give orchestrator candidate_provider (catalog flows through provider, not directly)
+                # Give orchestrator candidate_provider + catalog items for 2e policy gating
                 self.orchestrator = create_orchestrator_from_config(
                     cfg,
                     candidate_provider=candidate_provider,
+                    catalog_items=self.issue_catalog.get("items") if self.issue_catalog else None,
                 )
                 logger.info(f"Pass architecture initialized (premium={self.run_options.premium})")
             except Exception as e:

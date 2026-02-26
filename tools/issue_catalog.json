@@ -87,7 +87,9 @@
         "utility",
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Peeling or Discolored Paint",
@@ -115,7 +117,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Visible Mold or Mildew",
@@ -145,7 +149,9 @@
         "utility",
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Drywall Damage or Cracks",
@@ -174,7 +180,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Ceiling Cracks or Sagging",
@@ -198,7 +206,9 @@
       "scene_groups": [
         "utility",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Worn or Stained Carpet",
@@ -226,7 +236,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Scratched or Damaged Hard Flooring",
@@ -256,7 +268,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Trip Hazard or Unlevel Floor",
@@ -287,7 +301,9 @@
         "utility",
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Damaged or Rotted Exterior Siding/Trim",
@@ -314,7 +330,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Damaged or Aged Roof Shingles",
@@ -341,7 +359,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Damaged or Unsafe Deck/Porch",
@@ -368,7 +388,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Broken or Fogged Windows",
@@ -404,7 +426,9 @@
         "utility",
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Damaged or Outdated Cabinets",
@@ -429,7 +453,9 @@
       "defaultHidden": false,
       "scene_groups": [
         "kitchen"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Damaged Countertops",
@@ -454,7 +480,9 @@
       "defaultHidden": false,
       "scene_groups": [
         "kitchen"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Damaged Tile or Grout",
@@ -478,7 +506,9 @@
       "defaultHidden": false,
       "scene_groups": [
         "bathroom"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Appliance Damage or Missing",
@@ -504,7 +534,9 @@
       "defaultHidden": false,
       "scene_groups": [
         "kitchen"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Leaking or Stained Plumbing Fixtures",
@@ -533,7 +565,9 @@
         "kitchen",
         "bathroom",
         "utility"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Stained or Damaged Bath Fixtures",
@@ -558,7 +592,9 @@
       "defaultHidden": false,
       "scene_groups": [
         "bathroom"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Visible Electrical Risks",
@@ -590,7 +626,9 @@
         "utility",
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Missing or Damaged Handrails/Guardrails",
@@ -621,7 +659,9 @@
         "utility",
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Basement or Garage Damage",
@@ -647,7 +687,9 @@
       "scene_groups": [
         "utility",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Major Foundation or Settlement Signs",
@@ -677,7 +719,9 @@
         "utility",
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Visible Pest or Rodent Evidence",
@@ -707,7 +751,9 @@
         "utility",
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Standing Water or Poor Grading",
@@ -732,7 +778,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Driveway or Walkway Cracking/Settlement",
@@ -758,7 +806,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Clogged or Damaged Gutters/Downspouts",
@@ -783,7 +833,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Trees or Vegetation Too Close to Structure",
@@ -808,7 +860,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Outdated Kitchen Finishes",
@@ -832,7 +886,9 @@
       "defaultHidden": false,
       "scene_groups": [
         "kitchen"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Outdated Bathroom Finishes",
@@ -857,7 +913,9 @@
       "defaultHidden": false,
       "scene_groups": [
         "bathroom"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Outdated Flooring Style",
@@ -884,7 +942,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Outdated Lighting Fixtures",
@@ -914,7 +974,9 @@
         "utility",
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Paint Refresh Opportunity",
@@ -941,7 +1003,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Landscape Improvement",
@@ -966,7 +1030,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Curb Appeal Upgrade",
@@ -991,7 +1057,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Unfinished Basement",
@@ -1013,7 +1081,9 @@
       "defaultHidden": false,
       "scene_groups": [
         "utility"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Staging or Decluttering Opportunity",
@@ -1040,7 +1110,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Baseboard Wear or Scuffs",
@@ -1074,7 +1146,9 @@
         "utility",
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Wall Scuffs, Marks, or Dents",
@@ -1111,7 +1185,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Ceiling Fan with Mismatched Blades",
@@ -1143,7 +1219,9 @@
         "bedroom",
         "living_areas",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Outdated Ceiling Fan Style",
@@ -1174,7 +1252,9 @@
         "bedroom",
         "living_areas",
         "other"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Popcorn/Acoustic Ceiling Texture",
@@ -1206,7 +1286,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Unfinished Interior Wall (OSB Exposed)",
@@ -1238,7 +1320,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Dirty or Heavily Soiled Floor",
@@ -1271,7 +1355,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Vintage Tile Pattern/Style",
@@ -1300,7 +1386,9 @@
       "defaultHidden": false,
       "scene_groups": [
         "bathroom"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Ornate/Vintage Mirror Style",
@@ -1327,7 +1415,9 @@
       "defaultHidden": false,
       "scene_groups": [
         "bathroom"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Stained-Glass or Vintage Light Fixture",
@@ -1359,7 +1449,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Dated Window Treatment/Valance",
@@ -1392,7 +1484,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Dated Wallpaper",
@@ -1423,7 +1517,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Dated Wood Paneling",
@@ -1454,7 +1550,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Mismatched Furniture/Staging Opportunity",
@@ -1483,7 +1581,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Overall Decor Style Appears Dated",
@@ -1515,7 +1615,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": true
     },
     {
       "name": "Yard Debris / Overgrown with Leaves",
@@ -1538,14 +1640,16 @@
         "pooling"
       ],
       "embed_text": "Yard debris/overgrown with leaves. Landscaping overgrown and littered with leaves. Cleanup and trim.",
-      "kind": "defect",
+      "kind": "upgrade",
       "id": "yard_debris_overgrown_leaves",
       "scope": "cosmetic",
       "defaultHidden": true,
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": true
     },
     {
       "name": "Possible Water Damage at Roofline",
@@ -1576,7 +1680,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Gutter Maintenance Needed",
@@ -1599,14 +1705,16 @@
         "missing"
       ],
       "embed_text": "Gutter maintenance needed. Gutters/downspouts likely need cleaning/inspection to ensure proper drainage.",
-      "kind": "defect",
+      "kind": "upgrade",
       "id": "gutter_maintenance_needed",
       "scope": "service",
       "defaultHidden": true,
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Shed Exterior Paint Failure",
@@ -1631,7 +1739,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Concrete Driveway Surface Wear",
@@ -1639,28 +1749,30 @@
       "severity": 1,
       "trade_bucket": "landscaping_drains",
       "work_item_code": "CONCRETE_REPAIR",
-      "description": "Concrete driveway shows surface wear (spalling, rough patches, discoloration) beyond simple hairline cracking.",
+      "description": "Concrete driveway shows surface wear with visible evidence of spalling, pitting, or rough patch breakdown \u2014 not simple aging or discoloration alone.",
       "keywords_any": [
-        "concrete driveway",
-        "driveway",
-        "surface wear",
         "spalling",
-        "pitted",
-        "rough",
-        "worn concrete"
+        "pitting",
+        "spalled concrete",
+        "pitted driveway",
+        "surface breakdown",
+        "rough concrete patches",
+        "concrete flaking"
       ],
       "keywords_deny": [
         "asphalt"
       ],
-      "embed_text": "Concrete driveway surface wear. Spalling/pitting/worn concrete driveway. Repair, resurface, or replace as needed.",
-      "kind": "defect",
+      "embed_text": "Concrete driveway surface wear. Visible spalling, pitting, or surface breakdown on driveway concrete. Repair or resurface affected areas.",
+      "kind": "upgrade",
       "id": "concrete_driveway_surface_wear",
       "scope": "cosmetic",
       "defaultHidden": true,
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Heavy Indoor Storage/Clutter",
@@ -1680,7 +1792,7 @@
       ],
       "keywords_deny": [],
       "embed_text": "Heavy indoor storage/clutter. Storage items and clutter visible. Declutter, organize, and clean for showings/photos.",
-      "kind": "defect",
+      "kind": "upgrade",
       "id": "indoor_storage_clutter_heavy",
       "scope": "cosmetic",
       "defaultHidden": true,
@@ -1690,7 +1802,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": true
     },
     {
       "name": "Metal Carport Rust or Corrosion",
@@ -1721,7 +1835,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Exterior Siding Discoloration or Fading",
@@ -1752,7 +1868,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Uneven Gravel Drive or Parking Area",
@@ -1782,7 +1900,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Dated Exterior Finishes",
@@ -1811,7 +1931,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": true
     },
     {
       "name": "Layout Modernization Opportunity",
@@ -1846,7 +1968,9 @@
         "utility",
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "optional",
+      "drop_if_generic": false
     },
     {
       "name": "Exposed Sheathing or Missing Exterior Siding",
@@ -1874,7 +1998,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Deck Surface Weathering",
@@ -1905,7 +2031,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Tree Stump Present in Yard",
@@ -1929,7 +2057,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Exterior Door Paint Failure",
@@ -1956,7 +2086,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Brick Weathering or Mortar Deterioration",
@@ -1982,7 +2114,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Patio or Porch Surface Wear",
@@ -2011,7 +2145,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Missing Base Cabinets with Exposed Subfloor/Framing",
@@ -2036,7 +2172,9 @@
       "defaultHidden": false,
       "scene_groups": [
         "kitchen"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Rotted Subfloor or Structural Framing",
@@ -2062,7 +2200,9 @@
       "scene_groups": [
         "utility",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Interior Wall Stripped to Studs / Exposed Insulation",
@@ -2090,7 +2230,9 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Boarded-Up Entry or Window",
@@ -2120,7 +2262,9 @@
         "utility",
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     },
     {
       "name": "Retaining Wall Failure or Missing Section",
@@ -2145,7 +2289,9 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "tier": "work",
+      "drop_if_generic": false
     }
   ]
 }

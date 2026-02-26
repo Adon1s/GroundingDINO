@@ -118,6 +118,25 @@ EMBEDDINGS_ATTACH_CANDIDATES = True
 EMBEDDINGS_DEVICE = "cpu"
 
 # =============================================================================
+# PASS TOGGLE SETTINGS
+# =============================================================================
+# Comma-separated list of passes to SKIP (disable).
+# Valid keys: 1a, 1b, 1c, 2a, 2b, 2c, 2d, 2e, 3, 4, 4a, 4b, 4c
+#
+# Examples:
+#   SKIP_PASSES=1a,1b,1c          # Skip all feature-extraction passes
+#   SKIP_PASSES=2d                # Skip resolver only
+#   SKIP_PASSES=                  # Skip nothing (all passes enabled)
+#
+# This is the easiest way to temporarily disable passes without touching code.
+# Downstream passes degrade gracefully when upstream passes are skipped.
+SKIP_PASSES = [
+    s.strip().lower()
+    for s in os.environ.get("SKIP_PASSES", "").split(",")
+    if s.strip()
+]
+
+# =============================================================================
 # ANALYSIS PROFILE SETTINGS
 # =============================================================================
 # Default profile: "standard" (all Qwen) or "premium" (GPT for key passes)
