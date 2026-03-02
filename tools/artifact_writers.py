@@ -365,6 +365,28 @@ def write_photo_intel(
     # renovation_needs disabled: severity not reliable at this stage
     photo_intel["renovation_needs"] = None
 
+    # -- Compute estimates (scoring + costing) ---------------------------------
+    try:
+        from tools.costing import compute_estimates
+        estimates = compute_estimates(
+            issues_flat=issues_flat,
+            issue_catalog=issue_catalog,
+            n_photos=len(photos),
+            include_optional=False,
+        )
+        photo_intel["estimates"] = estimates
+        logger.info(
+            "Estimates: rehab_score=%d cost=$%s-$%s (%d items scored, %d unresolved)",
+            estimates["scoring"]["rehab_score"],
+            f'{estimates["costs"]["total_low"]:,}',
+            f'{estimates["costs"]["total_high"]:,}',
+            estimates["meta"]["issues_scored"],
+            estimates["meta"]["unresolved_issues"],
+        )
+    except Exception as exc:
+        logger.error(f"Failed to compute estimates: {exc}", exc_info=True)
+        photo_intel["estimates"] = None
+
     # -- Build defect events, work items, and search index ----------------------
     if DEFECT_EVENTS_AVAILABLE:
         try:
@@ -719,15 +741,18 @@ def write_property_summary(
             summary_data["defect_events"] = pi.get("defect_events", [])
             summary_data["work_items"] = pi.get("work_items", [])
             summary_data["search_index"] = pi.get("search_index", {})
+            summary_data["estimates"] = pi.get("estimates")
         except Exception as exc:
             logger.warning(f"Could not load defect events from photo_intel: {exc}")
             summary_data["defect_events"] = []
             summary_data["work_items"] = []
             summary_data["search_index"] = {}
+            summary_data["estimates"] = None
     else:
         summary_data["defect_events"] = []
         summary_data["work_items"] = []
         summary_data["search_index"] = {}
+        summary_data["estimates"] = None
 
     # Write property_summary.json
     output_path.parent.mkdir(parents=True, exist_ok=True)

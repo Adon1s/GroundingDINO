@@ -89,7 +89,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 150,
+        "base_high": 1200,
+        "per_occurrence_low": 60,
+        "per_occurrence_high": 255,
+        "cap_low": 1200,
+        "cap_high": 3500,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Peeling or Discolored Paint",
@@ -119,7 +129,17 @@
         "utility"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 200,
+        "base_high": 2500,
+        "per_occurrence_low": 180,
+        "per_occurrence_high": 510,
+        "cap_low": 2500,
+        "cap_high": 6000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Visible Mold or Mildew",
@@ -151,7 +171,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 400,
+        "base_high": 5000,
+        "per_occurrence_low": 330,
+        "per_occurrence_high": 1050,
+        "cap_low": 5000,
+        "cap_high": 15000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Drywall Damage or Cracks",
@@ -182,7 +212,17 @@
         "utility"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 200,
+        "base_high": 2000,
+        "per_occurrence_low": 120,
+        "per_occurrence_high": 420,
+        "cap_low": 2000,
+        "cap_high": 6000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Ceiling Cracks or Sagging",
@@ -208,7 +248,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 8000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 1650,
+        "cap_low": 8000,
+        "cap_high": 20000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Worn or Stained Carpet",
@@ -238,7 +288,17 @@
         "utility"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 300,
+        "base_high": 3500,
+        "per_occurrence_low": 270,
+        "per_occurrence_high": 690,
+        "cap_low": 3500,
+        "cap_high": 7000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Scratched or Damaged Hard Flooring",
@@ -270,7 +330,17 @@
         "utility"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 300,
+        "base_high": 5000,
+        "per_occurrence_low": 360,
+        "per_occurrence_high": 1050,
+        "cap_low": 5000,
+        "cap_high": 12000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Trip Hazard or Unlevel Floor",
@@ -303,7 +373,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 400,
+        "base_high": 8000,
+        "per_occurrence_low": 480,
+        "per_occurrence_high": 1800,
+        "cap_low": 8000,
+        "cap_high": 25000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Damaged or Rotted Exterior Siding/Trim",
@@ -332,7 +412,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 8000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 1650,
+        "cap_low": 8000,
+        "cap_high": 25000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Damaged or Aged Roof Shingles",
@@ -361,7 +451,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 10000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 2250,
+        "cap_low": 10000,
+        "cap_high": 25000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Damaged or Unsafe Deck/Porch",
@@ -390,7 +490,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 8000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 1650,
+        "cap_low": 8000,
+        "cap_high": 20000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Broken or Fogged Windows",
@@ -428,7 +538,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 300,
+        "base_high": 4500,
+        "per_occurrence_low": 270,
+        "per_occurrence_high": 990,
+        "cap_low": 4500,
+        "cap_high": 15000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Damaged or Outdated Cabinets",
@@ -455,7 +575,17 @@
         "kitchen"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 10000,
+        "per_occurrence_low": 750,
+        "per_occurrence_high": 2100,
+        "cap_low": 10000,
+        "cap_high": 30000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Damaged Countertops",
@@ -482,7 +612,17 @@
         "kitchen"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 400,
+        "base_high": 4000,
+        "per_occurrence_low": 330,
+        "per_occurrence_high": 750,
+        "cap_low": 4000,
+        "cap_high": 10000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Damaged Tile or Grout",
@@ -508,7 +648,17 @@
         "bathroom"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 300,
+        "base_high": 4000,
+        "per_occurrence_low": 270,
+        "per_occurrence_high": 840,
+        "cap_low": 4000,
+        "cap_high": 10000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Appliance Damage or Missing",
@@ -536,7 +686,17 @@
         "kitchen"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 6000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 1050,
+        "cap_low": 6000,
+        "cap_high": 12000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Leaking or Stained Plumbing Fixtures",
@@ -567,7 +727,17 @@
         "utility"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 200,
+        "base_high": 4000,
+        "per_occurrence_low": 240,
+        "per_occurrence_high": 900,
+        "cap_low": 4000,
+        "cap_high": 12000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Stained or Damaged Bath Fixtures",
@@ -594,7 +764,17 @@
         "bathroom"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 200,
+        "base_high": 4000,
+        "per_occurrence_low": 240,
+        "per_occurrence_high": 900,
+        "cap_low": 4000,
+        "cap_high": 10000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Visible Electrical Risks",
@@ -628,7 +808,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 300,
+        "base_high": 6000,
+        "per_occurrence_low": 360,
+        "per_occurrence_high": 1350,
+        "cap_low": 6000,
+        "cap_high": 20000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Missing or Damaged Handrails/Guardrails",
@@ -661,7 +851,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 200,
+        "base_high": 2500,
+        "per_occurrence_low": 180,
+        "per_occurrence_high": 510,
+        "cap_low": 2500,
+        "cap_high": 6000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Basement or Garage Damage",
@@ -689,7 +889,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 800,
+        "base_high": 15000,
+        "per_occurrence_low": 960,
+        "per_occurrence_high": 3300,
+        "cap_low": 15000,
+        "cap_high": 40000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Major Foundation or Settlement Signs",
@@ -721,7 +931,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 2000,
+        "base_high": 40000,
+        "per_occurrence_low": 3900,
+        "per_occurrence_high": 7500,
+        "cap_low": 40000,
+        "cap_high": 100000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Visible Pest or Rodent Evidence",
@@ -753,7 +973,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 200,
+        "base_high": 2500,
+        "per_occurrence_low": 180,
+        "per_occurrence_high": 510,
+        "cap_low": 2500,
+        "cap_high": 7000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Standing Water or Poor Grading",
@@ -780,7 +1010,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 8000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 1650,
+        "cap_low": 8000,
+        "cap_high": 25000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Driveway or Walkway Cracking/Settlement",
@@ -808,7 +1048,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 400,
+        "base_high": 8000,
+        "per_occurrence_low": 480,
+        "per_occurrence_high": 1800,
+        "cap_low": 8000,
+        "cap_high": 20000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Clogged or Damaged Gutters/Downspouts",
@@ -835,7 +1085,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 200,
+        "base_high": 2500,
+        "per_occurrence_low": 180,
+        "per_occurrence_high": 510,
+        "cap_low": 2500,
+        "cap_high": 6000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Trees or Vegetation Too Close to Structure",
@@ -862,7 +1122,17 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 300,
+        "base_high": 5000,
+        "per_occurrence_low": 360,
+        "per_occurrence_high": 1050,
+        "cap_low": 5000,
+        "cap_high": 15000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Outdated Kitchen Finishes",
@@ -888,7 +1158,17 @@
         "kitchen"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 2000,
+        "base_high": 20000,
+        "per_occurrence_low": 1800,
+        "per_occurrence_high": 3600,
+        "cap_low": 20000,
+        "cap_high": 60000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Outdated Bathroom Finishes",
@@ -915,7 +1195,17 @@
         "bathroom"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 1500,
+        "base_high": 15000,
+        "per_occurrence_low": 1350,
+        "per_occurrence_high": 2700,
+        "cap_low": 15000,
+        "cap_high": 35000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Outdated Flooring Style",
@@ -944,7 +1234,17 @@
         "utility"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 800,
+        "base_high": 8000,
+        "per_occurrence_low": 660,
+        "per_occurrence_high": 1500,
+        "cap_low": 8000,
+        "cap_high": 20000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Outdated Lighting Fixtures",
@@ -976,7 +1276,17 @@
         "other"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 250,
+        "base_high": 5000,
+        "per_occurrence_low": 375,
+        "per_occurrence_high": 1050,
+        "cap_low": 5000,
+        "cap_high": 12000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Paint Refresh Opportunity",
@@ -1005,7 +1315,17 @@
         "utility"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 7000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 1350,
+        "cap_low": 7000,
+        "cap_high": 15000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Landscape Improvement",
@@ -1032,7 +1352,17 @@
         "other"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 8000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 1650,
+        "cap_low": 8000,
+        "cap_high": 20000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Curb Appeal Upgrade",
@@ -1059,7 +1389,17 @@
         "other"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 300,
+        "base_high": 5000,
+        "per_occurrence_low": 360,
+        "per_occurrence_high": 1050,
+        "cap_low": 5000,
+        "cap_high": 15000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Unfinished Basement",
@@ -1083,7 +1423,17 @@
         "utility"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 2000,
+        "base_high": 40000,
+        "per_occurrence_low": 3900,
+        "per_occurrence_high": 7500,
+        "cap_low": 40000,
+        "cap_high": 90000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Staging or Decluttering Opportunity",
@@ -1112,7 +1462,17 @@
         "utility"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 150,
+        "base_high": 2500,
+        "per_occurrence_low": 195,
+        "per_occurrence_high": 510,
+        "cap_low": 2500,
+        "cap_high": 6000,
+        "cost_source": "manual"
+      }
     },
     {
       "name": "Baseboard Wear or Scuffs",
@@ -1148,7 +1508,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Wall Scuffs, Marks, or Dents",
@@ -1187,7 +1550,10 @@
         "utility"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Ceiling Fan with Mismatched Blades",
@@ -1221,7 +1587,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Outdated Ceiling Fan Style",
@@ -1254,7 +1623,10 @@
         "other"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Popcorn/Acoustic Ceiling Texture",
@@ -1288,7 +1660,10 @@
         "utility"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Unfinished Interior Wall (OSB Exposed)",
@@ -1322,7 +1697,10 @@
         "utility"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Dirty or Heavily Soiled Floor",
@@ -1357,7 +1735,10 @@
         "utility"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Vintage Tile Pattern/Style",
@@ -1388,7 +1769,10 @@
         "bathroom"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Ornate/Vintage Mirror Style",
@@ -1417,7 +1801,10 @@
         "bathroom"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Stained-Glass or Vintage Light Fixture",
@@ -1451,7 +1838,10 @@
         "utility"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Dated Window Treatment/Valance",
@@ -1486,7 +1876,10 @@
         "utility"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Dated Wallpaper",
@@ -1519,7 +1912,10 @@
         "utility"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Dated Wood Paneling",
@@ -1552,7 +1948,10 @@
         "utility"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Mismatched Furniture/Staging Opportunity",
@@ -1583,7 +1982,10 @@
         "utility"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Overall Decor Style Appears Dated",
@@ -1617,7 +2019,10 @@
         "utility"
       ],
       "tier": "optional",
-      "drop_if_generic": true
+      "drop_if_generic": true,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Yard Debris / Overgrown with Leaves",
@@ -1649,7 +2054,10 @@
         "other"
       ],
       "tier": "optional",
-      "drop_if_generic": true
+      "drop_if_generic": true,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Possible Water Damage at Roofline",
@@ -1682,7 +2090,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Gutter Maintenance Needed",
@@ -1714,7 +2125,10 @@
         "other"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Shed Exterior Paint Failure",
@@ -1741,7 +2155,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Concrete Driveway Surface Wear",
@@ -1749,7 +2166,7 @@
       "severity": 1,
       "trade_bucket": "landscaping_drains",
       "work_item_code": "CONCRETE_REPAIR",
-      "description": "Concrete driveway shows surface wear with visible evidence of spalling, pitting, or rough patch breakdown \u2014 not simple aging or discoloration alone.",
+      "description": "Concrete driveway shows surface wear with visible evidence of spalling, pitting, or rough patch breakdown — not simple aging or discoloration alone.",
       "keywords_any": [
         "spalling",
         "pitting",
@@ -1772,7 +2189,10 @@
         "other"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Heavy Indoor Storage/Clutter",
@@ -1804,7 +2224,10 @@
         "utility"
       ],
       "tier": "optional",
-      "drop_if_generic": true
+      "drop_if_generic": true,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Metal Carport Rust or Corrosion",
@@ -1837,7 +2260,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Exterior Siding Discoloration or Fading",
@@ -1870,7 +2296,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Uneven Gravel Drive or Parking Area",
@@ -1902,7 +2331,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Dated Exterior Finishes",
@@ -1933,7 +2365,10 @@
         "other"
       ],
       "tier": "optional",
-      "drop_if_generic": true
+      "drop_if_generic": true,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Layout Modernization Opportunity",
@@ -1970,7 +2405,10 @@
         "other"
       ],
       "tier": "optional",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Exposed Sheathing or Missing Exterior Siding",
@@ -2000,7 +2438,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Deck Surface Weathering",
@@ -2033,7 +2474,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Tree Stump Present in Yard",
@@ -2059,7 +2503,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Exterior Door Paint Failure",
@@ -2088,7 +2535,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Brick Weathering or Mortar Deterioration",
@@ -2116,7 +2566,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Patio or Porch Surface Wear",
@@ -2147,7 +2600,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Missing Base Cabinets with Exposed Subfloor/Framing",
@@ -2174,7 +2630,10 @@
         "kitchen"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Rotted Subfloor or Structural Framing",
@@ -2202,7 +2661,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Interior Wall Stripped to Studs / Exposed Insulation",
@@ -2232,7 +2694,10 @@
         "utility"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Boarded-Up Entry or Window",
@@ -2264,7 +2729,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Retaining Wall Failure or Missing Section",
@@ -2291,7 +2759,10 @@
         "other"
       ],
       "tier": "work",
-      "drop_if_generic": false
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
     }
   ]
 }
