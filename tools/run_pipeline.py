@@ -276,11 +276,10 @@ def run_pipeline(property_key: str, images: list, args):
     # Save outputs if configured
     artifacts_path = Path(job.artifacts_dir)
 
-    # Save photo_intel (optionally with property summary generation)
+    # Save photo_intel (includes deterministic summary_v1 + property_summary.json)
     photo_intel_path = analyzer.save_photo_intel(
         job,
         artifacts_path / "photo_intel.json",
-        generate_summary=not skip_summary
     )
 
     # Check if property summary was generated

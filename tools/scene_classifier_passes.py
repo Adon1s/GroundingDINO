@@ -191,6 +191,7 @@ Classify the image into exactly ONE of these categories:
 - living_room
 - kitchen
 - bedroom
+- closet
 - bathroom
 - dining_room
 - basement
@@ -200,12 +201,12 @@ Classify the image into exactly ONE of these categories:
 - pool
 - roof
 - hvac
+- pool
 - other
 
 Respond with ONLY a JSON object:
 {
   "scene": "<category>",
-  "confidence": <0.0-1.0>,
   "reasoning": "<brief explanation>"
 }"""
 
@@ -519,7 +520,7 @@ Rules:
 - Only output observations explicitly stated or directly described in the notes.
 - One observation per item.
 - Description must be 5–25 words.
-- Be factual and non-speculative.
+- Be factual and non-speculative. Only include if the text says "strongly suggests" or something similar.
 - Do NOT infer causes, consequences, or hidden problems.
 - If the notes are empty or the word "none", return an empty list.
 

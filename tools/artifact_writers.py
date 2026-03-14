@@ -5,11 +5,9 @@ Artifact writers for the analysis pipeline.
 Contains:
   - load_issue_catalog() / log_catalog_load()
   - write_photo_intel()   (was AutoAnalyzer.save_photo_intel)
-  - write_property_summary() (was AutoAnalyzer.generate_property_summary)
 """
 from __future__ import annotations
 
-import asyncio
 import copy
 import json
 import logging
@@ -22,7 +20,6 @@ from tools.pipeline_common import (
     SCENE_GROUPS_UI,
     SCENE_TO_GROUP_UI,
     PHOTO_INTEL_SCHEMA_VERSION,
-    PROPERTY_SUMMARY_SCHEMA_VERSION,
     NORMALIZATION_POLICY_VERSION,
     make_photo_id,
     make_issue_id,
@@ -132,15 +129,13 @@ def write_photo_intel(
     gpt_config: Optional[Dict[str, Any]],
     issue_catalog: Dict[str, Any],
     output_path: Optional[Path] = None,
-    generate_summary: bool = True,
-    # Callables for summary generation (passed by AutoAnalyzer)
-    summary_writer: Any = None,  # callable: write_property_summary or similar
 ) -> Path:
     """Persist per-photo intelligence (including scene classifier fields)."""
     created_at = datetime.utcnow().isoformat() + "Z"
 
     photos: Dict[str, Any] = {}
     issues_flat: List[Dict[str, Any]] = []  # Flat index of all issues (property-level)
+    unmapped_issues: List[Dict[str, Any]] = []  # Issues with no catalog match (debug)
 
     for photo_index, res in enumerate(job.results, start=1):
         image_key = Path(res.image_path).name
@@ -296,6 +291,33 @@ def write_photo_intel(
             },
         }
 
+        # -- Collect unmapped issues from Pass 2d (catalog improvement debug) -----
+        resolved = safe_list(payload.get("resolved_items"))
+        for item in resolved:
+            if item.get("resolved_item_id"):
+                continue  # matched — skip
+            candidates = item.get("candidates", [])
+            top = candidates[0] if candidates else {}
+            unmapped_issues.append({
+                "text":             item.get("description", ""),
+                "scene_group":      scene_group,
+                "candidate_bucket": top.get("trade_bucket"),
+                "embedding_score":  top.get("score"),
+                "kind":             item.get("resolved_kind", ""),
+                "photo_key":        image_key,
+            })
+        # Also capture observations that had zero embedding candidates
+        for dbg_row in (payload.get("debug") or {}).get("pass_2d_per_observation", []):
+            if dbg_row.get("skipped_reason") == "no_candidates":
+                unmapped_issues.append({
+                    "text":             dbg_row.get("observation", ""),
+                    "scene_group":      dbg_row.get("scene_group") or scene_group,
+                    "candidate_bucket": None,
+                    "embedding_score":  None,
+                    "kind":             dbg_row.get("kind", ""),
+                    "photo_key":        image_key,
+                })
+
     # -- Build room_groups from v3 photo entries --------------------------------
     room_groups: Dict[str, Any] = {}
     for img_key, p in photos.items():
@@ -365,6 +387,14 @@ def write_photo_intel(
     # renovation_needs disabled: severity not reliable at this stage
     photo_intel["renovation_needs"] = None
 
+    # -- Unmapped issues debug (catalog improvement) ----------------------------
+    photo_intel["analysis_debug"] = {
+        "unmapped_issues": unmapped_issues,
+        "unmapped_count": len(unmapped_issues),
+    }
+    if unmapped_issues:
+        logger.info("Unmapped issues (no catalog match): %d items", len(unmapped_issues))
+
     # -- Compute estimates (scoring + costing) ---------------------------------
     try:
         from tools.costing import compute_estimates
@@ -386,6 +416,28 @@ def write_photo_intel(
     except Exception as exc:
         logger.error(f"Failed to compute estimates: {exc}", exc_info=True)
         photo_intel["estimates"] = None
+
+    # -- Compute deterministic summary v1 ----------------------------------------
+    try:
+        from tools.property_summary_pass import load_catalog_index, build_property_summary_v1
+        catalog_index = load_catalog_index(issue_catalog)
+        summary_v1 = build_property_summary_v1(
+            property_key=job.property_key,
+            run_id=job.job_id,
+            issues_flat=issues_flat,
+            catalog_index=catalog_index,
+        )
+        photo_intel["summary_v1"] = summary_v1
+        logger.info(
+            "Summary V1: %d buckets, top_severity=%d, defects=%d, upgrades=%d",
+            len(summary_v1.get("buckets", [])),
+            summary_v1.get("listing", {}).get("top_severity", 0),
+            summary_v1.get("listing", {}).get("defect_count", 0),
+            summary_v1.get("listing", {}).get("upgrade_count", 0),
+        )
+    except Exception as exc:
+        logger.error(f"Failed to compute summary_v1: {exc}", exc_info=True)
+        photo_intel["summary_v1"] = None
 
     # -- Build defect events, work items, and search index ----------------------
     if DEFECT_EVENTS_AVAILABLE:
@@ -430,6 +482,9 @@ def write_photo_intel(
                     "model", "gpt_model"):
             _run.pop(_k, None)
 
+    # Strip analysis_debug (debug-only, not for UI)
+    slim.pop("analysis_debug", None)
+
     # Strip per-photo debug fields (v3 schema)
     for _img_key, _photo in (slim.get("photos") or {}).items():
         _photo.pop("debug", None)
@@ -459,366 +514,14 @@ def write_photo_intel(
         json.dump(slim, f, indent=2, ensure_ascii=False)
     logger.info(f"Photo intel (slim) saved to: {output_path}")
 
-    if generate_summary and summary_writer is not None:
-        summary_path = output_path.parent / "property_summary.json"
-        summary_writer(job=job, photo_intel_path=output_path, output_path=summary_path)
-
-    return output_path
-
-
-def write_property_summary(
-    *,
-    cfg: Any,
-    job: Any,  # PropertyAnalysisJob
-    analysis_profile: str,
-    vlm_client: Any,
-    get_model_config_for_pass,  # callable from AutoAnalyzer
-    photo_intel_path: Optional[Path] = None,
-    output_path: Optional[Path] = None,
-) -> Optional[Path]:
-    """
-    Generate a property-level summary from the analysis results using Pass 4, 4a, and 4b.
-
-    Always writes property_summary.json and embeds property_pass4 into photo_intel.json,
-    even on failure (with error field and empty values) so the UI has consistent structure.
-    """
-    if not getattr(cfg, "GENERATE_PROPERTY_SUMMARY", True):
-        logger.info("Property summary generation disabled in config")
-        return None
-
-    logger.info(f"\n{'=' * 60}")
-    logger.info("Generating Property Summary...")
-    logger.info(f"{'=' * 60}")
-
-    if output_path is None:
-        output_path = Path(job.artifacts_dir) / "property_summary.json"
-
-    # Initialize with defaults
-    error_msg = None
-    model_used = ""
-    scene_counts: Dict[str, int] = {}
-
-    # Initialize Pass 4a outputs with defaults
-    room_summaries: Dict[str, Any] = {}
-    issues_by_category: Dict[str, int] = {}
-    total_issues_found = 0
-
-    # Pass 4b fields (renovation intel)
-    room_scopes: Dict[str, str] = {}
-    room_work_items: Dict[str, List[str]] = {}
-    top_work_items: List[str] = []
-
-    # Pass 4c UI card fields
-    overall_condition = ""
-    overall_summary = ""
-    investment_verdict = ""
-    investment_rationale = ""
-    renovation_scope = ""
-    renovation_priorities: List[str] = []
-    risk_flags: List[str] = []
-    deferred_maintenance: List[str] = []
-
-    errors: Dict[str, str] = {}
-
-    # Check availability of VLM + pass architecture
-    try:
-        from tools.vlm_client import VLMClient
-        VLM_CLIENT_AVAILABLE = True
-    except ImportError:
-        VLM_CLIENT_AVAILABLE = False
-
-    try:
-        from tools.scene_classifier_passes import (
-            run_pass_4a_room_summaries,
-            run_pass_4b_renovation_intel,
-            run_pass_4c_property_card_fields,
-            build_grouped_issues,
-            derive_property_scope,
-        )
-        PASS_ARCHITECTURE_AVAILABLE = True
-    except ImportError:
-        PASS_ARCHITECTURE_AVAILABLE = False
-
-    logger.info(
-        f"Pass4 gate: VLM_CLIENT_AVAILABLE={VLM_CLIENT_AVAILABLE} "
-        f"vlm_client={bool(vlm_client)} "
-        f"PASS_ARCHITECTURE_AVAILABLE={PASS_ARCHITECTURE_AVAILABLE} "
-        f"artifact_writers_file={__file__}"
-    )
-
-    if VLM_CLIENT_AVAILABLE and vlm_client and PASS_ARCHITECTURE_AVAILABLE:
-        logger.info("  Aggregating from job.results for Pass 4a/4b/4c")
-
-        # Build all_results from job (uses already-computed passes, no re-analysis)
-        all_results = {}
-        for res in job.results:
-            image_key = Path(res.image_path).name
-            payload = scene_classifier_payload(res.scene_classifier or res.scene_data)
-            all_results[image_key] = payload
-            # Count scenes
-            scene = payload.get("scene", "unknown")
-            scene_counts[scene] = scene_counts.get(scene, 0) + 1
-
-        # Compute grouped_issues ONCE from all_results
-        grouped_issues, _fallback_count = build_grouped_issues(all_results)
-
-        # Compute deterministic totals from verified issues
-        total_images_analyzed = len(all_results)
-        total_issues_found = sum(len(issues) for issues in grouped_issues.values())
-        issues_by_category = {}
-        for group_issues in grouped_issues.values():
-            for issue in group_issues:
-                cat = issue.get("label", "general") or "general"
-                issues_by_category[cat] = issues_by_category.get(cat, 0) + 1
-
-        # --- Pass 4a (room summaries aggregation) ---
+    # -- Write summary_v1 to standalone property_summary.json -------------------
+    if photo_intel.get("summary_v1") is not None:
         try:
-            logger.info("  Using Pass 4a (run_pass_4a_room_summaries)")
-            model_config_4a = get_model_config_for_pass('4a')
-            model_used = model_config_4a.get('model', '')
-            logger.info(f"  Model: {model_used}")
-
-            async def run_pass4a():
-                return await run_pass_4a_room_summaries(
-                    vlm_client=vlm_client,
-                    model_config=model_config_4a,
-                    grouped_issues=grouped_issues,
-                    scene_counts=scene_counts,
-                    total_images_analyzed=total_images_analyzed,
-                    total_issues_found=total_issues_found,
-                    issues_by_category=issues_by_category,
-                )
-
-            loop = asyncio.new_event_loop()
-            try:
-                pass_4a_result = loop.run_until_complete(run_pass4a())
-            finally:
-                loop.close()
-
-            room_summaries = pass_4a_result.room_summaries or {}
-            logger.info(f"  Pass 4a completed: {len(room_summaries)} room groups")
-
-        except Exception as e:
-            errors["pass4a"] = f"Pass 4a failed: {e}"
-            logger.error(errors["pass4a"], exc_info=True)
-
-        # --- Pass 4b (renovation intel: scopes + work items) ---
-        try:
-            logger.info("  Using Pass 4b (run_pass_4b_renovation_intel)")
-            model_config_4b = get_model_config_for_pass('4b')
-            logger.info(f"  Model: {model_config_4b.get('model', '')}")
-
-            async def run_pass4b():
-                return await run_pass_4b_renovation_intel(
-                    vlm_client=vlm_client,
-                    model_config=model_config_4b,
-                    grouped_issues=grouped_issues,
-                )
-
-            loop = asyncio.new_event_loop()
-            try:
-                pass_4b_result = loop.run_until_complete(run_pass4b())
-            finally:
-                loop.close()
-
-            room_scopes = pass_4b_result.room_scopes or {}
-            room_work_items = pass_4b_result.room_work_items or {}
-            top_work_items = pass_4b_result.top_work_items or []
-
-            # Derive property scope deterministically from room scopes
-            renovation_scope = derive_property_scope(room_scopes)
-
-            logger.info(f"  Pass 4b completed: scope={renovation_scope}, top_items={len(top_work_items)}")
-
-        except Exception as e:
-            errors["pass4b"] = f"Pass 4b failed: {e}"
-            logger.error(errors["pass4b"], exc_info=True)
-
-        # --- Pass 4c (property card fields for UI) ---
-        try:
-            logger.info("  Using Pass 4c (run_pass_4c_property_card_fields)")
-            model_config_4c = get_model_config_for_pass('4c')
-            logger.info(f"  Model: {model_config_4c.get('model', '')}")
-
-            async def run_pass4c():
-                return await run_pass_4c_property_card_fields(
-                    vlm_client=vlm_client,
-                    model_config=model_config_4c,
-                    room_summaries=room_summaries,
-                    room_scopes=room_scopes,
-                    room_work_items=room_work_items,
-                    top_work_items=top_work_items,
-                    total_issues_found=total_issues_found,
-                    total_images_analyzed=total_images_analyzed,
-                    issues_by_category=issues_by_category,
-                    property_scope=renovation_scope,
-                )
-
-            loop = asyncio.new_event_loop()
-            try:
-                pass_4c_result = loop.run_until_complete(run_pass4c())
-            finally:
-                loop.close()
-
-            overall_condition = pass_4c_result.overall_condition or ""
-            overall_summary = pass_4c_result.overall_summary or ""
-            investment_verdict = pass_4c_result.investment_verdict or ""
-            investment_rationale = pass_4c_result.investment_rationale or ""
-            renovation_priorities = pass_4c_result.renovation_priorities or []
-            risk_flags = pass_4c_result.risk_flags or []
-            deferred_maintenance = pass_4c_result.deferred_maintenance or []
-
-            logger.info("  Pass 4c completed successfully")
-
-        except Exception as e:
-            errors["pass4c"] = f"Pass 4c failed: {e}"
-            logger.error(errors["pass4c"], exc_info=True)
-
-    else:
-        # VLM client or pass architecture not available
-        missing = []
-        if not VLM_CLIENT_AVAILABLE:
-            missing.append("VLM client")
-        if not vlm_client:
-            missing.append("vlm_client instance")
-        if not PASS_ARCHITECTURE_AVAILABLE:
-            missing.append("pass architecture")
-        error_msg = f"Passes unavailable: missing {', '.join(missing)}"
-        logger.warning(error_msg)
-
-    # Combine errors
-    if errors:
-        error_msg = "; ".join(errors.values())
-
-    # Build summary dict - always write even on failure
-    summary_data = {
-        "artifact_schema_version": PROPERTY_SUMMARY_SCHEMA_VERSION,
-        "normalization_policy_version": NORMALIZATION_POLICY_VERSION,
-        "property_key": job.property_key,
-        "run_id": job.job_id,
-        "job_id": job.job_id,
-        "timestamp": job.timestamp,
-        "created_at": datetime.utcnow().isoformat() + "Z",
-        "summary_version": "pass4_v3",
-        "analysis_profile": analysis_profile,
-        "scene_counts": scene_counts,
-
-        # Pass 4a fields
-        "room_summaries": room_summaries,
-        "issues_by_category": issues_by_category,
-        "total_issues_found": total_issues_found,
-
-        # Pass 4b fields
-        "room_scopes": room_scopes,
-        "room_work_items": room_work_items,
-        "top_work_items": top_work_items,
-        "renovation_scope": renovation_scope,
-
-        # Pass 4c fields
-        "overall_condition": overall_condition,
-        "overall_summary": overall_summary,
-        "investment_verdict": investment_verdict,
-        "investment_rationale": investment_rationale,
-        "renovation_priorities": renovation_priorities,
-        "risk_flags": risk_flags,
-        "deferred_maintenance": deferred_maintenance,
-
-        # Metadata
-        "total_images_analyzed": len(job.results),
-        "model_used": model_used,
-        "error": error_msg,
-        "errors": errors if errors else None,
-    }
-
-    # renovation_needs disabled: severity not reliable at this stage
-    summary_data["renovation_needs"] = None
-
-    # Add defect events layer from photo_intel (already computed in write_photo_intel)
-    if DEFECT_EVENTS_AVAILABLE and photo_intel_path and photo_intel_path.exists():
-        try:
-            with open(photo_intel_path, 'r', encoding='utf-8') as f:
-                pi = json.load(f)
-            summary_data["defect_events"] = pi.get("defect_events", [])
-            summary_data["work_items"] = pi.get("work_items", [])
-            summary_data["search_index"] = pi.get("search_index", {})
-            summary_data["estimates"] = pi.get("estimates")
+            summary_path = output_path.parent / "property_summary.json"
+            with open(summary_path, "w", encoding="utf-8") as f:
+                json.dump(photo_intel["summary_v1"], f, indent=2, ensure_ascii=False)
+            logger.info(f"Property summary (summary_v1) saved to: {summary_path}")
         except Exception as exc:
-            logger.warning(f"Could not load defect events from photo_intel: {exc}")
-            summary_data["defect_events"] = []
-            summary_data["work_items"] = []
-            summary_data["search_index"] = {}
-            summary_data["estimates"] = None
-    else:
-        summary_data["defect_events"] = []
-        summary_data["work_items"] = []
-        summary_data["search_index"] = {}
-        summary_data["estimates"] = None
-
-    # Write property_summary.json
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(summary_data, f, indent=2, ensure_ascii=False)
-
-    logger.info(f"Property summary saved to: {output_path}")
-
-    # Embed Pass 4a/4b/4c output into photo_intel.json so UI has single payload
-    if photo_intel_path and photo_intel_path.exists():
-        try:
-            with open(photo_intel_path, 'r', encoding='utf-8') as f:
-                photo_intel = json.load(f)
-
-            photo_intel["property_pass4a"] = {
-                "room_summaries": room_summaries,
-                "issues_by_category": issues_by_category,
-                "total_issues_found": total_issues_found,
-                "scene_counts": scene_counts,
-                "total_images_analyzed": len(job.results),
-                "error": errors.get("pass4a"),
-            }
-
-            photo_intel["property_pass4b"] = {
-                "room_scopes": room_scopes,
-                "room_work_items": room_work_items,
-                "top_work_items": top_work_items,
-                "renovation_scope": renovation_scope,
-                "error": errors.get("pass4b"),
-            }
-
-            photo_intel["property_pass4c"] = {
-                "overall_condition": overall_condition,
-                "overall_summary": overall_summary,
-                "investment_verdict": investment_verdict,
-                "investment_rationale": investment_rationale,
-                "renovation_priorities": renovation_priorities,
-                "risk_flags": risk_flags,
-                "deferred_maintenance": deferred_maintenance,
-                "error": errors.get("pass4c"),
-            }
-
-            # Also embed full summary for convenience
-            photo_intel["property_summary"] = summary_data
-
-            with open(photo_intel_path, "w", encoding="utf-8") as f:
-                json.dump(photo_intel, f, indent=2, ensure_ascii=False)
-
-            logger.info(f"Pass 4a/4b/4c outputs embedded into: {photo_intel_path}")
-
-            # Also embed into the debug file so it has the complete picture
-            debug_path = photo_intel_path.parent / "photo_intel_debug.json"
-            if debug_path.exists():
-                try:
-                    with open(debug_path, 'r', encoding='utf-8') as f:
-                        debug_intel = json.load(f)
-                    debug_intel["property_pass4a"] = photo_intel["property_pass4a"]
-                    debug_intel["property_pass4b"] = photo_intel["property_pass4b"]
-                    debug_intel["property_pass4c"] = photo_intel["property_pass4c"]
-                    debug_intel["property_summary"] = summary_data
-                    with open(debug_path, "w", encoding="utf-8") as f:
-                        json.dump(debug_intel, f, indent=2, ensure_ascii=False)
-                    logger.info(f"Pass 4a/4b/4c outputs also embedded into: {debug_path}")
-                except Exception as exc:
-                    logger.warning(f"Could not embed property_pass4 into debug file: {exc}")
-        except Exception as exc:
-            logger.warning(f"Could not embed property_pass4 into photo_intel.json: {exc}")
+            logger.error(f"Failed to write property_summary.json: {exc}", exc_info=True)
 
     return output_path

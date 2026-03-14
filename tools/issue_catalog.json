@@ -56,6 +56,26 @@
     {
       "id": "safety_general",
       "name": "Safety"
+    },
+    {
+      "id": "masonry_exterior_structure",
+      "name": "Masonry / Exterior Structure"
+    },
+    {
+      "id": "exterior_paint_trim",
+      "name": "Exterior Paint & Trim"
+    },
+    {
+      "id": "cleaning_turnover",
+      "name": "Cleaning / Turnover"
+    },
+    {
+      "id": "interior_paint_drywall",
+      "name": "Interior Paint & Drywall"
+    },
+    {
+      "id": "interior_finishes",
+      "name": "Interior Finishes"
     }
   ],
   "items": [
@@ -362,7 +382,7 @@
       "kind": "defect",
       "id": "trip_hazard_or_unlevel_floor",
       "scope": "repair",
-      "defaultHidden": false,
+      "defaultHidden": true,
       "scene_groups": [
         "kitchen",
         "bathroom",
@@ -1042,7 +1062,7 @@
       "kind": "defect",
       "id": "driveway_or_walkway_cracking",
       "scope": "repair",
-      "defaultHidden": false,
+      "defaultHidden": true,
       "scene_groups": [
         "exterior",
         "other"
@@ -1517,7 +1537,7 @@
       "name": "Wall Scuffs, Marks, or Dents",
       "category": "cosmetic",
       "severity": 1,
-      "trade_bucket": "paint_drywall",
+      "trade_bucket": "interior_paint_drywall",
       "work_item_code": "DRYWALL_PATCH",
       "description": "Walls show visible scuffs, stains, dents, or minor damage indicating heavy use or deferred maintenance.",
       "keywords_any": [
@@ -1706,7 +1726,7 @@
       "name": "Dirty or Heavily Soiled Floor",
       "category": "cosmetic",
       "severity": 1,
-      "trade_bucket": "flooring",
+      "trade_bucket": "cleaning_turnover",
       "work_item_code": "FLOOR_CLEAN_RESTORE",
       "description": "Floor appears visibly dirty or heavily soiled, reducing perceived condition and possibly indicating deeper wear.",
       "keywords_any": [
@@ -1885,7 +1905,7 @@
       "name": "Dated Wallpaper",
       "category": "opportunity",
       "severity": 2,
-      "trade_bucket": "paint_drywall",
+      "trade_bucket": "interior_finishes",
       "work_item_code": "WALLPAPER_REMOVE_PAINT",
       "description": "Wallpaper appears dated or visually busy; removal and repainting improves market appeal.",
       "keywords_any": [
@@ -2134,7 +2154,7 @@
       "name": "Shed Exterior Paint Failure",
       "category": "exterior",
       "severity": 1,
-      "trade_bucket": "exterior_siding_trim",
+      "trade_bucket": "exterior_paint_trim",
       "work_item_code": "PAINT_EXTERIOR",
       "description": "Shed shows peeling or failing exterior paint, indicating deferred maintenance and exposure wear.",
       "keywords_any": [
@@ -2544,7 +2564,7 @@
       "name": "Brick Weathering or Mortar Deterioration",
       "category": "exterior",
       "severity": 2,
-      "trade_bucket": "exterior_siding_trim",
+      "trade_bucket": "masonry_exterior_structure",
       "work_item_code": "MASONRY_REPAIR",
       "description": "Brickwork shows weathering, discoloration, or deteriorating mortar joints that may require cleaning, sealing, or repointing.",
       "keywords_any": [

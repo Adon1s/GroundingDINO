@@ -741,9 +741,9 @@ class SceneClassifierOrchestrator:
                     "label": obs.get("label", ""),
                     "resolved_item_id": resolved_item_id,
                     "resolved_kind": kind,
-                    # Candidates: keep for auditability but strip score (no ranking in stored output)
+                    # Candidates: keep for auditability (score retained for unmapped-issue debugging)
                     "candidates": [
-                        {"item_id": c.get("item_id"), "name": c.get("name"), "trade_bucket": c.get("trade_bucket")}
+                        {"item_id": c.get("item_id"), "name": c.get("name"), "trade_bucket": c.get("trade_bucket"), "score": c.get("score")}
                         for c in candidates
                     ],
                     "raw_response": pass_2d_result.raw_response,

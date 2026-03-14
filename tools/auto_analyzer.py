@@ -51,7 +51,6 @@ from tools.artifact_writers import (
     load_issue_catalog,
     log_catalog_load,
     write_photo_intel,
-    write_property_summary,
 )
 
 # Import DINO-X client (optional - graceful fallback to legacy mode)
@@ -883,7 +882,7 @@ class AutoAnalyzer:
                     bucket_map[bid] = bname
         return bucket_map
 
-    def save_photo_intel(self, job, output_path=None, generate_summary=True):
+    def save_photo_intel(self, job, output_path=None):
         """Thin wrapper delegating to artifact_writers.write_photo_intel."""
         return write_photo_intel(
             cfg=cfg,
@@ -895,19 +894,5 @@ class AutoAnalyzer:
             model_overrides=self.model_overrides,
             gpt_config=self.gpt_config,
             issue_catalog=self.issue_catalog,
-            output_path=output_path,
-            generate_summary=generate_summary,
-            summary_writer=lambda **kw: self.generate_property_summary(**kw),
-        )
-
-    def generate_property_summary(self, job, photo_intel_path=None, output_path=None):
-        """Thin wrapper delegating to artifact_writers.write_property_summary."""
-        return write_property_summary(
-            cfg=cfg,
-            job=job,
-            analysis_profile=self.analysis_profile,
-            vlm_client=self.vlm_client,
-            get_model_config_for_pass=self._get_model_config_for_pass,
-            photo_intel_path=photo_intel_path,
             output_path=output_path,
         )
