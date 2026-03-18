@@ -129,6 +129,9 @@ def write_photo_intel(
     gpt_config: Optional[Dict[str, Any]],
     issue_catalog: Dict[str, Any],
     output_path: Optional[Path] = None,
+    vlm_client: Any = None,
+    local_vlm_config: Optional[Dict[str, Any]] = None,
+    pass_2f_provider: str = "premium",
 ) -> Path:
     """Persist per-photo intelligence (including scene classifier fields)."""
     created_at = datetime.utcnow().isoformat() + "Z"
@@ -439,6 +442,164 @@ def write_photo_intel(
         logger.error(f"Failed to compute summary_v1: {exc}", exc_info=True)
         photo_intel["summary_v1"] = None
 
+    # -- Compute quick estimate (estimate-priority metadata layer) ---------------
+    try:
+        from tools.quick_estimate import compute_quick_estimate
+
+        # Run Pass 2f revisit on eligible candidates if vlm_client available
+        import time as _time
+        reviewed_candidates = None
+        pass_2f_elapsed = 0.0
+        pass_2f_model_config = None
+        n_attempted = 0
+        n_applied = 0
+        posture_counts: Dict[str, int] = {}
+        fallback_counts: Dict[str, int] = {}
+        eligible: list = []
+        pass_2f_enabled = pass_toggles.get("2f", True) if pass_toggles else True
+        if vlm_client and gpt_config and pass_2f_enabled:
+            try:
+                import asyncio
+                from tools.quick_estimate import (
+                    extract_estimate_candidates,
+                    resolve_pass_2f_model_config,
+                    run_pass_2f_batch,
+                )
+
+                candidates = extract_estimate_candidates(
+                    issues_flat, issue_catalog, include_secondary=False,
+                )
+                eligible = [c for c in candidates if c.estimate_meta.allow_revisit_pass]
+                if eligible:
+                    # Build photo_key → image_path mapping from job results
+                    photo_key_to_path: Dict[str, Path] = {}
+                    for res in job.results:
+                        pk = Path(res.image_path).name
+                        photo_key_to_path[pk] = Path(res.image_path)
+
+                    # Resolve model config for 2f based on provider setting
+                    pass_2f_model_config = resolve_pass_2f_model_config(
+                        provider=pass_2f_provider,
+                        local_config=local_vlm_config,
+                        premium_config=gpt_config,
+                    )
+
+                    pass_2f_start = _time.time()
+                    try:
+                        loop = asyncio.get_event_loop()
+                        if loop.is_running():
+                            import concurrent.futures
+                            with concurrent.futures.ThreadPoolExecutor() as pool:
+                                loop2 = asyncio.new_event_loop()
+                                candidates = pool.submit(
+                                    loop2.run_until_complete,
+                                    run_pass_2f_batch(
+                                        candidates=candidates,
+                                        issues_flat=issues_flat,
+                                        issue_catalog=issue_catalog,
+                                        vlm_client=vlm_client,
+                                        model_config=pass_2f_model_config,
+                                        photo_key_to_path=photo_key_to_path,
+                                        provider=pass_2f_provider,
+                                    ),
+                                ).result()
+                                loop2.close()
+                        else:
+                            candidates = loop.run_until_complete(
+                                run_pass_2f_batch(
+                                    candidates=candidates,
+                                    issues_flat=issues_flat,
+                                    issue_catalog=issue_catalog,
+                                    vlm_client=vlm_client,
+                                    model_config=pass_2f_model_config,
+                                    photo_key_to_path=photo_key_to_path,
+                                    provider=pass_2f_provider,
+                                ),
+                            )
+                    except RuntimeError:
+                        # No event loop exists
+                        candidates = asyncio.run(
+                            run_pass_2f_batch(
+                                candidates=candidates,
+                                issues_flat=issues_flat,
+                                issue_catalog=issue_catalog,
+                                vlm_client=vlm_client,
+                                model_config=pass_2f_model_config,
+                                photo_key_to_path=photo_key_to_path,
+                                provider=pass_2f_provider,
+                            ),
+                        )
+                    pass_2f_elapsed = _time.time() - pass_2f_start
+                    reviewed_candidates = candidates
+                    # ── Pass 2f summary (matches 2d/2e style) ──
+                    n_attempted = sum(1 for c in candidates if c.pass_2f_attempted)
+                    n_applied = sum(1 for c in candidates if c.pass_2f_applied)
+                    n_invalidated = sum(1 for c in candidates if c.is_valid_detection is False)
+                    for c in candidates:
+                        if c.pass_2f_applied and c.review_posture:
+                            posture_counts[c.review_posture] = posture_counts.get(c.review_posture, 0) + 1
+                    for c in candidates:
+                        if c.pass_2f_fallback_reason:
+                            fallback_counts[c.pass_2f_fallback_reason] = fallback_counts.get(c.pass_2f_fallback_reason, 0) + 1
+                    logger.info(
+                        "Pass 2f: eligible=%d attempted=%d applied=%d postures=%s fallbacks=%s (%.1fs)",
+                        len(eligible),
+                        n_attempted,
+                        n_applied,
+                        posture_counts or {},
+                        fallback_counts or {},
+                        pass_2f_elapsed,
+                    )
+            except Exception as exc_2f:
+                logger.error(f"Pass 2f batch failed (non-fatal): {exc_2f}", exc_info=True)
+
+        quick_est = compute_quick_estimate(
+            issues_flat=issues_flat,
+            issue_catalog=issue_catalog,
+            include_secondary=False,
+            prebuilt_candidates=reviewed_candidates,
+        )
+        if reviewed_candidates is not None:
+            quick_est["meta"]["pass_2f_ran"] = True
+        photo_intel["quick_estimate"] = quick_est
+
+        # ── Pass 2f trace (top-level, property-scoped) ──
+        if reviewed_candidates is not None:
+            photo_intel["pass_2f_trace"] = {
+                "ran": True,
+                "provider": pass_2f_provider,
+                "model": (pass_2f_model_config or {}).get("model", "unknown"),
+                "elapsed_sec": round(pass_2f_elapsed, 3),
+                "eligible_count": len(eligible),
+                "attempted_count": n_attempted,
+                "applied_count": n_applied,
+                "invalidated_count": n_invalidated,
+                "posture_counts": posture_counts,
+                "fallback_counts": fallback_counts,
+            }
+        elif pass_2f_enabled:
+            # Toggle was on but no candidates were reviewed (no eligible or no VLM)
+            photo_intel["pass_2f_trace"] = {
+                "ran": False,
+                "reason": "no_vlm_client" if not vlm_client else "no_eligible_candidates",
+            }
+        else:
+            photo_intel["pass_2f_trace"] = {
+                "ran": False,
+                "reason": "disabled_by_toggle",
+            }
+        logger.info(
+            "Quick estimate: $%s-$%s (%d candidates, %d groups, %d big-ticket)",
+            f'{quick_est["totals"]["low"]:,}',
+            f'{quick_est["totals"]["high"]:,}',
+            quick_est["meta"]["candidate_count"],
+            quick_est["meta"]["groups_active"],
+            quick_est["meta"]["big_ticket_count"],
+        )
+    except Exception as exc:
+        logger.error(f"Failed to compute quick estimate: {exc}", exc_info=True)
+        photo_intel["quick_estimate"] = None
+
     # -- Build defect events, work items, and search index ----------------------
     if DEFECT_EVENTS_AVAILABLE:
         try:
@@ -482,8 +643,9 @@ def write_photo_intel(
                     "model", "gpt_model"):
             _run.pop(_k, None)
 
-    # Strip analysis_debug (debug-only, not for UI)
+    # Strip analysis_debug and pass_2f_trace (debug-only, not for UI)
     slim.pop("analysis_debug", None)
+    slim.pop("pass_2f_trace", None)
 
     # Strip per-photo debug fields (v3 schema)
     for _img_key, _photo in (slim.get("photos") or {}).items():

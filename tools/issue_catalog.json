@@ -188,7 +188,8 @@
         "living_areas",
         "utility",
         "exterior",
-        "other"
+        "other",
+        "pool"
       ],
       "tier": "work",
       "drop_if_generic": false,
@@ -318,6 +319,15 @@
         "cap_low": 3500,
         "cap_high": 7000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "replace_only",
+        "group": "flooring",
+        "big_ticket": false,
+        "stack_behavior": "group_cap",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -360,6 +370,15 @@
         "cap_low": 5000,
         "cap_high": 12000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "repair_or_replace",
+        "group": "flooring",
+        "big_ticket": false,
+        "stack_behavior": "group_cap",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -390,7 +409,8 @@
         "living_areas",
         "utility",
         "exterior",
-        "other"
+        "other",
+        "pool"
       ],
       "tier": "work",
       "drop_if_generic": false,
@@ -442,6 +462,15 @@
         "cap_low": 8000,
         "cap_high": 25000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "repair_or_replace",
+        "group": "exterior",
+        "big_ticket": false,
+        "stack_behavior": "sum",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -481,6 +510,14 @@
         "cap_low": 10000,
         "cap_high": 25000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "repair_or_replace",
+        "group": "roof",
+        "big_ticket": true,
+        "stack_behavior": "max_only"
       }
     },
     {
@@ -507,7 +544,8 @@
       "defaultHidden": false,
       "scene_groups": [
         "exterior",
-        "other"
+        "other",
+        "pool"
       ],
       "tier": "work",
       "drop_if_generic": false,
@@ -568,6 +606,15 @@
         "cap_low": 4500,
         "cap_high": 15000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "replace_only",
+        "group": "windows_doors",
+        "big_ticket": false,
+        "stack_behavior": "sum",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -605,6 +652,15 @@
         "cap_low": 10000,
         "cap_high": 30000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "repair_or_replace",
+        "group": "kitchen",
+        "big_ticket": true,
+        "stack_behavior": "group_cap",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -642,6 +698,15 @@
         "cap_low": 4000,
         "cap_high": 10000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "replace_only",
+        "group": "kitchen",
+        "big_ticket": false,
+        "stack_behavior": "group_cap",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -665,7 +730,8 @@
       "scope": "repair",
       "defaultHidden": false,
       "scene_groups": [
-        "bathroom"
+        "bathroom",
+        "pool"
       ],
       "tier": "work",
       "drop_if_generic": false,
@@ -678,6 +744,15 @@
         "cap_low": 4000,
         "cap_high": 10000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "repair_only",
+        "group": "bathroom",
+        "big_ticket": false,
+        "stack_behavior": "group_cap",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -716,6 +791,15 @@
         "cap_low": 6000,
         "cap_high": 12000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "replace_only",
+        "group": "kitchen",
+        "big_ticket": false,
+        "stack_behavior": "group_cap",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -744,7 +828,8 @@
       "scene_groups": [
         "kitchen",
         "bathroom",
-        "utility"
+        "utility",
+        "pool"
       ],
       "tier": "work",
       "drop_if_generic": false,
@@ -794,6 +879,15 @@
         "cap_low": 4000,
         "cap_high": 10000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "big_ticket": false,
+        "stack_behavior": "group_cap",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -825,7 +919,8 @@
         "living_areas",
         "utility",
         "exterior",
-        "other"
+        "other",
+        "pool"
       ],
       "tier": "work",
       "drop_if_generic": false,
@@ -868,7 +963,8 @@
         "living_areas",
         "utility",
         "exterior",
-        "other"
+        "other",
+        "pool"
       ],
       "tier": "work",
       "drop_if_generic": false,
@@ -961,6 +1057,14 @@
         "cap_low": 40000,
         "cap_high": 100000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "inspect_only",
+        "group": "structure",
+        "big_ticket": true,
+        "stack_behavior": "max_only"
       }
     },
     {
@@ -1027,7 +1131,8 @@
       "defaultHidden": false,
       "scene_groups": [
         "exterior",
-        "other"
+        "other",
+        "pool"
       ],
       "tier": "work",
       "drop_if_generic": false,
@@ -1065,7 +1170,8 @@
       "defaultHidden": true,
       "scene_groups": [
         "exterior",
-        "other"
+        "other",
+        "pool"
       ],
       "tier": "work",
       "drop_if_generic": false,
@@ -1139,7 +1245,8 @@
       "defaultHidden": false,
       "scene_groups": [
         "exterior",
-        "other"
+        "other",
+        "pool"
       ],
       "tier": "work",
       "drop_if_generic": false,
@@ -1188,6 +1295,14 @@
         "cap_low": 20000,
         "cap_high": 60000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "replace_only",
+        "group": "kitchen",
+        "big_ticket": true,
+        "stack_behavior": "group_cap"
       }
     },
     {
@@ -1225,6 +1340,14 @@
         "cap_low": 15000,
         "cap_high": 35000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "big_ticket": true,
+        "stack_behavior": "group_cap"
       }
     },
     {
@@ -1264,6 +1387,14 @@
         "cap_low": 8000,
         "cap_high": 20000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "replace_only",
+        "group": "flooring",
+        "big_ticket": true,
+        "stack_behavior": "group_cap"
       }
     },
     {
@@ -1369,7 +1500,8 @@
       "defaultHidden": false,
       "scene_groups": [
         "exterior",
-        "other"
+        "other",
+        "pool"
       ],
       "tier": "optional",
       "drop_if_generic": false,
@@ -2186,7 +2318,7 @@
       "severity": 1,
       "trade_bucket": "landscaping_drains",
       "work_item_code": "CONCRETE_REPAIR",
-      "description": "Concrete driveway shows surface wear with visible evidence of spalling, pitting, or rough patch breakdown — not simple aging or discoloration alone.",
+      "description": "Concrete driveway shows surface wear with visible evidence of spalling, pitting, or rough patch breakdown \u00e2\u20ac\u201d not simple aging or discoloration alone.",
       "keywords_any": [
         "spalling",
         "pitting",
@@ -2461,6 +2593,14 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "replace_only",
+        "group": "exterior",
+        "big_ticket": true,
+        "stack_behavior": "sum"
       }
     },
     {
@@ -2491,7 +2631,8 @@
       "defaultHidden": true,
       "scene_groups": [
         "exterior",
-        "other"
+        "other",
+        "pool"
       ],
       "tier": "work",
       "drop_if_generic": false,
@@ -2617,7 +2758,8 @@
       "defaultHidden": true,
       "scene_groups": [
         "exterior",
-        "other"
+        "other",
+        "pool"
       ],
       "tier": "work",
       "drop_if_generic": false,
@@ -2653,6 +2795,15 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "replace_only",
+        "group": "kitchen",
+        "big_ticket": true,
+        "stack_behavior": "group_cap",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -2684,6 +2835,14 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "repair_only",
+        "group": "structure",
+        "big_ticket": true,
+        "stack_behavior": "max_only"
       }
     },
     {
@@ -2717,6 +2876,14 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "repair_or_replace",
+        "group": "structure",
+        "big_ticket": true,
+        "stack_behavior": "max_only"
       }
     },
     {
@@ -2752,6 +2919,15 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "replace_only",
+        "group": "windows_doors",
+        "big_ticket": true,
+        "stack_behavior": "sum",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -2782,6 +2958,59 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
+      }
+    },
+    {
+      "name": "Empty or Deteriorated In-Ground Pool",
+      "category": "exterior",
+      "severity": 3,
+      "trade_bucket": "masonry_exterior_structure",
+      "work_item_code": "POOL_REHAB",
+      "description": "In-ground pool appears empty, neglected, or visibly deteriorated, suggesting repair, restoration, or secure fill-in may be needed.",
+      "keywords_any": [
+        "empty pool",
+        "drained pool",
+        "in-ground pool",
+        "pool shell",
+        "neglected pool",
+        "deteriorated pool",
+        "abandoned pool",
+        "damaged pool"
+      ],
+      "keywords_deny": [
+        "clean pool",
+        "filled pool",
+        "swimming"
+      ],
+      "embed_text": "Empty or deteriorated in-ground pool. Drained or neglected pool with visible deterioration or non-operational condition. Pool rehabilitation, repair, or secure removal/fill-in may be needed.",
+      "kind": "defect",
+      "id": "empty_or_deteriorated_inground_pool",
+      "scope": "repair",
+      "defaultHidden": false,
+      "scene_groups": [
+        "pool",
+        "exterior",
+        "other"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 2000,
+        "base_high": 15000,
+        "per_occurrence_low": 3000,
+        "per_occurrence_high": 9000,
+        "cap_low": 15000,
+        "cap_high": 40000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "quick_include": true,
+        "importance": "primary",
+        "strategy": "inspect_only",
+        "group": "pool",
+        "big_ticket": true,
+        "stack_behavior": "max_only"
       }
     }
   ]

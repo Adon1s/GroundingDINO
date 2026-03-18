@@ -171,6 +171,16 @@ class Pass2dResult:
 
 
 @dataclass
+class Pass2fResult:
+    """Result from Pass 2f: Big-ticket estimate review for a single item."""
+    catalog_item_id: str
+    is_valid_detection: bool = True          # False if the model deems the detection invalid
+    pricing_posture: str = "keep_default"   # repair | replace | keep_default
+    rationale: str = ""
+    raw_response: Optional[str] = None
+
+
+@dataclass
 class Pass3Result:
     """Result from Pass 3: Keyword Extraction."""
     keywords: List[str]
@@ -1270,3 +1280,132 @@ async def run_pass_3_keyword_extraction(
     except Exception as e:
         logger.error(f"Pass 3: Error extracting keywords: {e}")
         return Pass3Result(keywords=[], raw_response=None)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Pass 2f: Big-Ticket Estimate Review (vision, per-candidate)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+PASS_2F_SYSTEM_PROMPT = (
+    "You are reviewing one already-detected renovation issue in a real-estate photo. "
+    "Judge only the visible extent of that issue and whether the default pricing posture should be overridden.\n\n"
+    "Rules:\n"
+    "- Use only what is visible in the image.\n"
+    "- If the detected issue is not actually visible, mark is_valid_detection as false.\n"
+    "- Prefer keep_default unless the visible evidence clearly supports repair or replace.\n"
+    "- Use repair only when the issue is clearly localized and visually minor.\n"
+    "- Use replace only when the issue is clearly broad, repeated, or room-wide.\n"
+
+)
+
+PASS_2F_USER_PROMPT = (
+    "Detected issue:\n"
+    "- Item: {item_name}\n"
+    "- Catalog description: {item_description}\n"
+    "- Matched observation: {issue_description}\n"
+    "- Scene: {scene}\n\n"
+    "{{\n"
+    '  "is_valid_detection": true or false,\n'
+    '  "pricing_posture": "repair" or "replace" or "keep_default",'
+    '  "rationale": "A brief explanation on why is_valid_detection and pricing_posture decisions were made."\n'
+    "}}\n"
+)
+
+
+def _coerce_pass_2f(raw: dict, catalog_item_id: str) -> Pass2fResult:
+    """Normalize parsed JSON into a Pass2fResult with guardrails."""
+    VALID_POSTURES = {"repair", "replace", "keep_default"}
+
+    # Coerce is_valid_detection: accept bool, string "false"/"true", default True
+    raw_valid = raw.get("is_valid_detection", True)
+    if isinstance(raw_valid, str):
+        is_valid = raw_valid.strip().lower() not in ("false", "0", "no")
+    else:
+        is_valid = bool(raw_valid)
+
+    posture = str(raw.get("pricing_posture", "keep_default")).lower()
+
+    return Pass2fResult(
+        catalog_item_id=catalog_item_id,
+        is_valid_detection=is_valid,
+        pricing_posture=posture if posture in VALID_POSTURES else "keep_default",
+        rationale=str(raw.get("rationale", "")).strip()[:300],
+    )
+
+
+async def run_pass_2f(
+    image_path: Path,
+    vlm_client: Any,
+    model_config: dict,
+    *,
+    catalog_item_id: str,
+    item_name: str,
+    item_description: str,
+    issue_description: str,
+    scene: str = "other",
+) -> Pass2fResult:
+    """
+    Pass 2f: Big-ticket estimate review for a single candidate.
+
+    Revisits one detected issue with a focused vision prompt to determine
+    the authoritative pricing posture: repair, replace, inspect, or keep_default.
+
+    This pass does NOT:
+      - detect new issues
+      - change catalog IDs
+      - estimate dollar amounts
+      - infer hidden damage
+
+    Args:
+        image_path:       Path to a representative image for this issue
+        vlm_client:       VLM client instance
+        model_config:     Model configuration dict
+        catalog_item_id:  The catalog item being reviewed
+        item_name:        Human-readable catalog item name
+        item_description: Catalog description of the issue
+        issue_description: The matched observation text from detection
+        scene:            Scene type (kitchen, bathroom, etc.)
+
+    Returns:
+        Pass2fResult with authoritative posture decision
+    """
+    logger.debug(f"Pass 2f: Reviewing {catalog_item_id} in {image_path.name}")
+
+    user_prompt = safe_format_prompt(
+        PASS_2F_USER_PROMPT,
+        item_name=item_name,
+        item_description=item_description,
+        issue_description=issue_description,
+        scene=scene,
+    )
+
+    try:
+        response = await vlm_client.analyze_image(
+            image_path=image_path,
+            system_prompt=PASS_2F_SYSTEM_PROMPT,
+            user_prompt=user_prompt,
+            **model_config,
+        )
+
+        parsed = extract_json_object(response) or {}
+        result = _coerce_pass_2f(parsed, catalog_item_id)
+        result = Pass2fResult(
+            catalog_item_id=result.catalog_item_id,
+            is_valid_detection=result.is_valid_detection,
+            pricing_posture=result.pricing_posture,
+            rationale=result.rationale,
+            raw_response=response,
+        )
+
+        logger.debug(
+            f"Pass 2f: {catalog_item_id} → {result.pricing_posture} "
+            f"(valid={result.is_valid_detection})"
+        )
+        return result
+
+    except Exception as e:
+        logger.error(f"Pass 2f: Error reviewing {catalog_item_id}: {e}")
+        return Pass2fResult(
+            catalog_item_id=catalog_item_id,
+            raw_response=None,
+        )

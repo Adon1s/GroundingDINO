@@ -895,4 +895,7 @@ class AutoAnalyzer:
             gpt_config=self.gpt_config,
             issue_catalog=self.issue_catalog,
             output_path=output_path,
+            vlm_client=self.vlm_client,
+            local_vlm_config=self.qwen_config,
+            pass_2f_provider=getattr(cfg, 'PASS_2F_PROVIDER', 'premium'),
         )

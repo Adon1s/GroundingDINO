@@ -1,0 +1,712 @@
+"""
+quick_estimate.py
+-----------------
+Estimate-priority metadata layer for the issue catalog.
+
+Sits beside the existing detection, severity, and costing systems.
+Powers a "quick estimate" pipeline that answers:
+  - What are the few major cost drivers visible from photos?
+  - Which are likely repair vs replace?
+  - What are the likely budget buckets?
+  - Which items are too uncertain and should be inspection flags?
+
+Core functions are pure (no LLM, no I/O).
+Also contains run_pass_2f_batch() which optionally invokes the LLM-based
+Pass 2f revisit pass on eligible candidates before final estimate assembly.
+Called from artifact_writers.write_photo_intel() after issues_flat is assembled.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any, Dict, List, Literal, Optional, Tuple
+
+logger = logging.getLogger(__name__)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Type aliases
+# ═══════════════════════════════════════════════════════════════════════════════
+
+EstimateImportance = Literal["primary", "secondary", "ignore"]
+EstimateStrategy = Literal[
+    "repair_only", "replace_only", "repair_or_replace",
+    "service_only", "inspect_only",
+]
+EstimateGroup = Literal[
+    "kitchen", "bathroom", "flooring", "paint_drywall",
+    "windows_doors", "roof", "exterior", "structure",
+    "plumbing", "electrical", "landscaping", "pool", "other",
+]
+EstimateStackBehavior = Literal["sum", "group_cap", "max_only"]
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Catalog estimate metadata
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass(frozen=True)
+class CatalogEstimateMeta:
+    """Estimate behaviour attached to a catalog item."""
+    quick_include: bool = False
+    importance: EstimateImportance = "ignore"
+    strategy: EstimateStrategy = "repair_only"
+    group: EstimateGroup = "other"
+    big_ticket: bool = False
+    stack_behavior: EstimateStackBehavior = "sum"
+    allow_revisit_pass: bool = False
+
+
+ESTIMATE_DEFAULTS = CatalogEstimateMeta()
+
+
+def resolve_estimate_meta(raw: Optional[Dict[str, Any]]) -> CatalogEstimateMeta:
+    """Parse an estimate block from catalog JSON, falling back to defaults."""
+    if not raw or not isinstance(raw, dict):
+        return ESTIMATE_DEFAULTS
+    return CatalogEstimateMeta(
+        quick_include=bool(raw.get("quick_include", False)),
+        importance=raw.get("importance", "ignore"),
+        strategy=raw.get("strategy", "repair_only"),
+        group=raw.get("group", "other"),
+        big_ticket=bool(raw.get("big_ticket", False)),
+        stack_behavior=raw.get("stack_behavior", "sum"),
+        allow_revisit_pass=bool(raw.get("allow_revisit_pass", False)),
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# EstimateCandidate — clean handoff from detection to estimate engine
+# ═══════════════════════════════════════════════════════════════════════════════
+
+@dataclass
+class EstimateCandidate:
+    """A catalog item that qualifies for the quick estimate pipeline."""
+    catalog_item_id: str
+    catalog_item_name: str
+    estimate_meta: CatalogEstimateMeta
+    kind: str                               # defect | upgrade
+    severity: int                           # 1-4
+    scope: str                              # repair | replace | cosmetic | service
+    trade_bucket: str                       # original trade bucket (for cost lookup)
+    cost_obj: Dict[str, Any] = field(default_factory=dict)
+    occurrences: int = 1
+    scene_groups_seen: List[str] = field(default_factory=list)
+    photo_keys: List[str] = field(default_factory=list)
+    issue_ids: List[str] = field(default_factory=list)
+    # ── Pass 2f review override fields (populated by revisit pass) ────────
+    is_valid_detection: Optional[bool] = None  # None = 2f didn't run; False = model deemed invalid
+    review_posture: Optional[str] = None    # e.g. "repair", "replace", "keep_default"
+    review_rationale: Optional[str] = None  # LLM-generated explanation
+    review_source: Optional[str] = None     # "pass_2f" | None (indicates origin)
+    # ── Resolved posture (set by resolve_effective_posture) ────────────
+    effective_posture: Optional[str] = None # authoritative posture for pricing
+    review_image_path: Optional[str] = None # path of image used for 2f review
+    # ── Pass 2f fallback tracking ────────────────────────────────────────
+    pass_2f_attempted: bool = False          # True if VLM call was made
+    pass_2f_applied: bool = False            # True if authoritative posture was set
+    pass_2f_fallback_reason: Optional[str] = None  # None when applied, else reason
+
+
+# Valid postures that 2f can authoritatively set
+_AUTHORITATIVE_POSTURES = {"repair", "replace"}
+
+# ── Pass 2f fallback reason constants ──
+PASS_2F_FALLBACK_NOT_ELIGIBLE = "not_eligible"
+PASS_2F_FALLBACK_NO_IMAGE     = "no_valid_image"
+PASS_2F_FALLBACK_VLM_ERROR    = "vlm_error"
+PASS_2F_FALLBACK_KEEP_DEFAULT = "keep_default"
+
+
+def resolve_effective_posture(candidate: EstimateCandidate) -> str:
+    """
+    Determine the effective pricing posture for a candidate.
+
+    If Pass 2f returned a valid authoritative posture (repair/replace),
+    use it directly.  Otherwise fall back to the catalog's strategy field.
+    "keep_default" intentionally falls through to catalog default.
+    """
+    if (candidate.review_posture is not None
+            and candidate.review_posture in _AUTHORITATIVE_POSTURES):
+        return candidate.review_posture
+    return candidate.estimate_meta.strategy
+
+
+def extract_estimate_candidates(
+    issues_flat: List[Dict[str, Any]],
+    issue_catalog: Dict[str, Any],
+    *,
+    include_secondary: bool = False,
+) -> List[EstimateCandidate]:
+    """
+    Filter issues_flat into estimate-ready candidates.
+
+    Only returns items where:
+      - catalog item has estimate.quick_include == True
+      - estimate.importance is 'primary' (or 'secondary' if include_secondary)
+    """
+    catalog_lookup: Dict[str, Dict[str, Any]] = {}
+    for item in issue_catalog.get("items", []):
+        if isinstance(item, dict) and item.get("id"):
+            catalog_lookup[item["id"]] = item
+
+    # Group issues by catalog_item_id
+    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    for issue in (issues_flat or []):
+        cat_id = issue.get("catalog_item_id")
+        if cat_id and cat_id in catalog_lookup:
+            grouped.setdefault(cat_id, []).append(issue)
+
+    candidates: List[EstimateCandidate] = []
+    for cat_id, occurrences in grouped.items():
+        cat = catalog_lookup[cat_id]
+        est_meta = resolve_estimate_meta(cat.get("estimate"))
+
+        # Filter gate
+        if est_meta.importance == "ignore":
+            continue
+        if not est_meta.quick_include:
+            # Secondary items have quick_include=False but can still
+            # participate when include_secondary is set.
+            if est_meta.importance == "secondary" and include_secondary:
+                pass  # allow through
+            else:
+                continue
+        if est_meta.importance == "secondary" and not include_secondary:
+            continue
+
+        scene_groups = sorted(set(
+            issue.get("scene_group", "other") for issue in occurrences
+        ))
+        photo_keys = sorted(set(
+            issue.get("photo_key", "") for issue in occurrences
+            if issue.get("photo_key")
+        ))
+        issue_ids = [
+            issue.get("issue_id", "") for issue in occurrences
+            if issue.get("issue_id")
+        ]
+
+        candidates.append(EstimateCandidate(
+            catalog_item_id=cat_id,
+            catalog_item_name=cat.get("name", cat_id),
+            estimate_meta=est_meta,
+            kind=cat.get("kind", "defect"),
+            severity=cat.get("severity", 2),
+            scope=cat.get("scope", "repair"),
+            trade_bucket=cat.get("trade_bucket", "safety_general"),
+            cost_obj=cat.get("cost") or {},
+            occurrences=len(occurrences),
+            scene_groups_seen=scene_groups,
+            photo_keys=photo_keys,
+            issue_ids=issue_ids,
+        ))
+
+    # Sort: big_ticket first, then severity desc, then occurrences desc
+    candidates.sort(key=lambda c: (
+        -int(c.estimate_meta.big_ticket),
+        -c.severity,
+        -c.occurrences,
+    ))
+
+    return candidates
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Representative image selection for Pass 2f
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def _select_representative_image(
+    candidate: EstimateCandidate,
+    issues_flat: List[Dict[str, Any]],
+    photo_key_to_path: Dict[str, Path],
+) -> Optional[Path]:
+    """
+    Select the best representative image for Pass 2f review.
+
+    Deterministic priority:
+      1. photo_key with a direct issue match for this catalog_item_id
+         AND matching scene_group
+      2. photo_key with a direct issue match (any scene)
+      3. photo_key whose scene matches the candidate's primary scene_group
+      4. First valid photo_key (stable sort on key name)
+
+    Returns Path or None if no valid image found.
+    """
+    # Build set of photo_keys that have a direct issue for this candidate
+    direct_issue_keys: set = set()
+    key_scenes: Dict[str, set] = {}   # photo_key → set of scene_groups
+    for issue in (issues_flat or []):
+        pk = issue.get("photo_key")
+        sg = issue.get("scene_group")
+        if pk and sg:
+            key_scenes.setdefault(pk, set()).add(sg)
+        if issue.get("catalog_item_id") == candidate.catalog_item_id and pk:
+            direct_issue_keys.add(pk)
+
+    primary_scene = candidate.scene_groups_seen[0] if candidate.scene_groups_seen else None
+
+    def _rank(pk: str) -> Tuple[int, str]:
+        has_issue = pk in direct_issue_keys
+        scene_match = primary_scene and primary_scene in key_scenes.get(pk, set())
+        if has_issue and scene_match:
+            return (0, pk)
+        if has_issue:
+            return (1, pk)
+        if scene_match:
+            return (2, pk)
+        return (3, pk)
+
+    valid_keys = sorted(
+        (pk for pk in candidate.photo_keys if pk in photo_key_to_path),
+        key=_rank,
+    )
+    for pk in valid_keys:
+        path = photo_key_to_path[pk]
+        if path.exists():
+            return path
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Pass 2f provider resolution
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def resolve_pass_2f_model_config(
+    *,
+    provider: str,
+    local_config: Optional[dict],
+    premium_config: Optional[dict],
+) -> Optional[dict]:
+    """Select model config for Pass 2f based on provider setting."""
+    if provider == "premium":
+        return premium_config
+    if provider == "local":
+        return local_config
+    return premium_config  # default to premium
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Pass 2f batch runner — optional LLM revisit for eligible candidates
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def run_pass_2f_batch(
+    candidates: List[EstimateCandidate],
+    issues_flat: List[Dict[str, Any]],
+    issue_catalog: Dict[str, Any],
+    vlm_client: Any,
+    model_config: dict,
+    photo_key_to_path: Dict[str, Path],
+    provider: str = "premium",
+) -> List[EstimateCandidate]:
+    """
+    Run Pass 2f on eligible candidates and populate their review override fields.
+
+    Only candidates with allow_revisit_pass=True are sent to the VLM.
+    For each candidate, picks a representative image (first photo_key with a
+    valid path) and the first issue description as context.
+
+    Mutates candidates in-place and also returns the list for convenience.
+    """
+    from tools.scene_classifier_passes import run_pass_2f
+
+    # Build catalog description lookup
+    cat_lookup: Dict[str, Dict[str, Any]] = {}
+    for item in issue_catalog.get("items", []):
+        if isinstance(item, dict) and item.get("id"):
+            cat_lookup[item["id"]] = item
+
+    # Build issue description lookup: catalog_item_id → first description
+    desc_lookup: Dict[str, str] = {}
+    for issue in (issues_flat or []):
+        cid = issue.get("catalog_item_id")
+        if cid and cid not in desc_lookup and issue.get("description"):
+            desc_lookup[cid] = issue["description"]
+
+    eligible = [c for c in candidates if c.estimate_meta.allow_revisit_pass]
+
+    # Tag non-eligible candidates with fallback reason
+    for c in candidates:
+        if not c.estimate_meta.allow_revisit_pass:
+            c.pass_2f_fallback_reason = PASS_2F_FALLBACK_NOT_ELIGIBLE
+
+    if not eligible:
+        logger.debug("Pass 2f batch: no eligible candidates")
+        # Backfill effective_posture for all candidates
+        for c in candidates:
+            if c.effective_posture is None:
+                c.effective_posture = resolve_effective_posture(c)
+        return candidates
+
+    logger.info("Pass 2f batch: %d eligible candidates", len(eligible))
+
+    for candidate in eligible:
+        # Pick representative image (ranked selection)
+        image_path = _select_representative_image(
+            candidate, issues_flat, photo_key_to_path,
+        )
+        if image_path is None:
+            logger.debug("Pass 2f: skipping %s — no valid image", candidate.catalog_item_id)
+            candidate.pass_2f_fallback_reason = PASS_2F_FALLBACK_NO_IMAGE
+            continue
+
+        cat_item = cat_lookup.get(candidate.catalog_item_id, {})
+        item_description = cat_item.get("description", "")
+        issue_description = desc_lookup.get(candidate.catalog_item_id, "")
+        scene = candidate.scene_groups_seen[0] if candidate.scene_groups_seen else "other"
+
+        candidate.pass_2f_attempted = True
+
+        try:
+            result = await run_pass_2f(
+                image_path=image_path,
+                vlm_client=vlm_client,
+                model_config=model_config,
+                catalog_item_id=candidate.catalog_item_id,
+                item_name=candidate.catalog_item_name,
+                item_description=item_description,
+                issue_description=issue_description,
+                scene=scene,
+            )
+
+            candidate.is_valid_detection = result.is_valid_detection
+            candidate.review_posture = result.pricing_posture
+            candidate.review_rationale = result.rationale
+            candidate.review_source = f"pass_2f:{provider}"
+            candidate.review_image_path = str(image_path)
+            candidate.effective_posture = resolve_effective_posture(candidate)
+
+            # Tag applied vs keep_default
+            if result.pricing_posture in _AUTHORITATIVE_POSTURES:
+                candidate.pass_2f_applied = True
+            elif result.pricing_posture == "keep_default":
+                candidate.pass_2f_fallback_reason = PASS_2F_FALLBACK_KEEP_DEFAULT
+
+            logger.info(
+                "Pass 2f: %s → %s",
+                candidate.catalog_item_id,
+                result.pricing_posture,
+            )
+        except Exception as e:
+            logger.error("Pass 2f: error on %s: %s", candidate.catalog_item_id, e)
+            candidate.pass_2f_fallback_reason = PASS_2F_FALLBACK_VLM_ERROR
+            # Leave review fields as None — safe defaults
+
+    # Backfill effective_posture for non-eligible or failed candidates
+    for c in candidates:
+        if c.effective_posture is None:
+            c.effective_posture = resolve_effective_posture(c)
+
+    return candidates
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Group-based estimate engine
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Group-level budget caps — plausible total for the ENTIRE group regardless of
+# how many individual items fire.  Prevents naive overcounting.
+GROUP_BUDGET_CAPS: Dict[str, Tuple[int, int]] = {
+    "kitchen":       (3_000,  35_000),
+    "bathroom":      (2_000,  25_000),
+    "flooring":      (2_000,  20_000),
+    "roof":          (1_000,  25_000),
+    "structure":     (1_000,  50_000),
+    "windows_doors": (500,    15_000),
+    "exterior":      (1_000,  25_000),
+    "plumbing":      (500,    12_000),
+    "electrical":    (500,    15_000),
+    "paint_drywall": (800,    10_000),
+    "landscaping":   (500,    15_000),
+    "pool":          (2_000,  40_000),
+    "other":         (200,    5_000),
+}
+
+# Inspection allowance for inspect_only items — avoids fake precision
+INSPECT_ALLOWANCE: Tuple[int, int] = (200, 800)
+
+# Posture → scope override mapping for pricing.
+# Maps effective_posture values to the scope parameter for compute_item_cost_range.
+# None means ambiguous/inspect — handled specially.
+POSTURE_TO_SCOPE: Dict[str, Optional[str]] = {
+    "repair":             "repair",       # SCOPE_MULT 1.0
+    "replace":            "replace",      # SCOPE_MULT 1.3
+    "inspect":            None,           # → INSPECT_ALLOWANCE
+    # Strategy values that appear as effective_posture when 2f didn't run
+    "repair_only":        "repair",
+    "replace_only":       "replace",
+    "repair_or_replace":  None,           # ambiguous → use catalog scope
+    "service_only":       "service",
+    "inspect_only":       None,           # → INSPECT_ALLOWANCE
+}
+
+# Postures that resolve to INSPECT_ALLOWANCE rather than costed pricing
+_INSPECT_POSTURES = {"inspect", "inspect_only"}
+
+
+def resolve_pricing_band(
+    candidate: EstimateCandidate,
+    effective_posture: str,
+) -> Tuple[int, int]:
+    """
+    Compute cost range based on the resolved effective posture.
+
+    This is the single point where posture decisions become prices:
+      - "repair"      → compute_item_cost_range with scope="repair"  (SCOPE_MULT 1.0)
+      - "replace"     → compute_item_cost_range with scope="replace" (SCOPE_MULT 1.3)
+      - "inspect"     → INSPECT_ALLOWANCE
+      - strategy vals → mapped via POSTURE_TO_SCOPE
+      - unknown       → fall back to candidate.scope (catalog default)
+    """
+    from tools.costing import compute_item_cost_range
+
+    # Inspect-type postures → flat allowance
+    if effective_posture in _INSPECT_POSTURES:
+        return INSPECT_ALLOWANCE
+
+    # Map posture to costing scope
+    scope_override = POSTURE_TO_SCOPE.get(effective_posture)
+    costing_scope = scope_override if scope_override is not None else candidate.scope
+
+    return compute_item_cost_range(
+        cost_obj=candidate.cost_obj,
+        n_occurrences=candidate.occurrences,
+        kind=candidate.kind,
+        scope=costing_scope,
+        trade_bucket=candidate.trade_bucket,
+        severity=candidate.severity,
+    )
+
+
+def _compute_candidate_cost(candidate: EstimateCandidate) -> Tuple[int, int]:
+    """Compute (low, high) for a single candidate using effective posture."""
+    effective = candidate.effective_posture or candidate.estimate_meta.strategy
+    return resolve_pricing_band(candidate, effective)
+
+
+def _resolve_dominant_stack(candidates: List[EstimateCandidate]) -> str:
+    """Determine the dominant stack behavior: max_only > group_cap > sum."""
+    behaviors = set(c.estimate_meta.stack_behavior for c in candidates)
+    if "max_only" in behaviors:
+        return "max_only"
+    if "group_cap" in behaviors:
+        return "group_cap"
+    return "sum"
+
+
+def compute_group_estimate(
+    group: str,
+    candidates: List[EstimateCandidate],
+) -> Dict[str, Any]:
+    """
+    Compute the estimate for a single estimate group.
+
+    Stack behaviors:
+      - sum:       add all item costs together
+      - group_cap: sum items but cap at GROUP_BUDGET_CAPS; floor at highest item
+      - max_only:  take only the single highest-cost item
+    """
+    if not candidates:
+        return {
+            "group": group,
+            "low": 0, "high": 0,
+            "raw_sum_low": 0, "raw_sum_high": 0,
+            "has_big_ticket": False,
+            "stack_behavior": "sum",
+            "inspection_only": False,
+            "item_count": 0,
+            "line_items": [],
+        }
+
+    # Compute per-candidate costs
+    line_items: List[Dict[str, Any]] = []
+    for c in candidates:
+        low, high = _compute_candidate_cost(c)
+        # Zero out cost for detections the model deemed invalid
+        if c.is_valid_detection is False:
+            low, high = 0, 0
+        li: Dict[str, Any] = {
+            "catalog_item_id": c.catalog_item_id,
+            "name": c.catalog_item_name,
+            "occurrences": c.occurrences,
+            "strategy": c.estimate_meta.strategy,
+            "stack_behavior": c.estimate_meta.stack_behavior,
+            "big_ticket": c.estimate_meta.big_ticket,
+            "cost_low": low,
+            "cost_high": high,
+            "allow_revisit_pass": c.estimate_meta.allow_revisit_pass,
+            # ── Validity & posture audit trail (always present) ──
+            "is_valid_detection": c.is_valid_detection,
+            "default_posture": c.estimate_meta.strategy,
+            "review_posture": c.review_posture,
+            "effective_posture": c.effective_posture or c.estimate_meta.strategy,
+            "review_source": c.review_source,
+            "review_rationale": c.review_rationale,
+            "review_image_path": c.review_image_path,
+            # ── Pass 2f fallback tracking ──
+            "pass_2f_attempted": c.pass_2f_attempted,
+            "pass_2f_applied": c.pass_2f_applied,
+            "pass_2f_fallback_reason": c.pass_2f_fallback_reason,
+        }
+        line_items.append(li)
+
+    dominant = _resolve_dominant_stack(candidates)
+    raw_sum_low = sum(li["cost_low"] for li in line_items)
+    raw_sum_high = sum(li["cost_high"] for li in line_items)
+    has_big_ticket = any(c.estimate_meta.big_ticket for c in candidates)
+    all_inspect = all(c.estimate_meta.strategy == "inspect_only" for c in candidates)
+
+    # Apply stack behavior
+    if dominant == "max_only":
+        best = max(line_items, key=lambda li: li["cost_high"])
+        capped_low = best["cost_low"]
+        capped_high = best["cost_high"]
+    elif dominant == "group_cap":
+        cap_low, cap_high = GROUP_BUDGET_CAPS.get(group, (200, 5_000))
+        capped_low = min(raw_sum_low, cap_low)
+        capped_high = min(raw_sum_high, cap_high)
+        # Floor: never go below the single highest item
+        best = max(line_items, key=lambda li: li["cost_high"])
+        capped_low = max(capped_low, best["cost_low"])
+        capped_high = max(capped_high, best["cost_high"])
+    else:  # "sum"
+        capped_low = raw_sum_low
+        capped_high = raw_sum_high
+
+    return {
+        "group": group,
+        "low": capped_low,
+        "high": capped_high,
+        "raw_sum_low": raw_sum_low,
+        "raw_sum_high": raw_sum_high,
+        "has_big_ticket": has_big_ticket,
+        "stack_behavior": dominant,
+        "inspection_only": all_inspect,
+        "item_count": len(candidates),
+        "line_items": line_items,
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Main entry point
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def compute_quick_estimate(
+    issues_flat: List[Dict[str, Any]],
+    issue_catalog: Dict[str, Any],
+    *,
+    include_secondary: bool = False,
+    prebuilt_candidates: Optional[List[EstimateCandidate]] = None,
+) -> Dict[str, Any]:
+    """
+    Main entry point for the quick estimate pipeline.
+
+    Returns a dict ready for JSON serialisation into photo_intel["quick_estimate"].
+
+    If prebuilt_candidates is provided (e.g. already processed by Pass 2f),
+    those are used directly instead of re-extracting from issues_flat.
+    """
+    candidates = prebuilt_candidates or extract_estimate_candidates(
+        issues_flat, issue_catalog,
+        include_secondary=include_secondary,
+    )
+
+    if not candidates:
+        return {
+            "version": "quick_estimate_v1",
+            "groups": [],
+            "totals": {"low": 0, "high": 0},
+            "meta": {
+                "candidate_count": 0,
+                "big_ticket_count": 0,
+                "groups_active": 0,
+                "pass_2f_reviewed_count": 0,
+                "pass_2f_applied_count": 0,
+                "pass_2f_invalidated_count": 0,
+            },
+            "pass_2f_review_audit": {
+                "ran": False,
+                "reviewed_count": 0,
+                "applied_count": 0,
+                "invalidated_count": 0,
+                "fallback_count": 0,
+                "items": [],
+            },
+            "disclaimer": "No estimate-eligible items detected.",
+        }
+
+    # Group candidates by estimate group
+    by_group: Dict[str, List[EstimateCandidate]] = {}
+    for c in candidates:
+        by_group.setdefault(c.estimate_meta.group, []).append(c)
+
+    groups_out: List[Dict[str, Any]] = []
+    for group, group_candidates in by_group.items():
+        result = compute_group_estimate(group, group_candidates)
+        groups_out.append(result)
+
+    # Sort: big_ticket groups first, then by high desc
+    groups_out.sort(key=lambda g: (
+        -int(g["has_big_ticket"]),
+        -g["high"],
+    ))
+
+    total_low = sum(g["low"] for g in groups_out)
+    total_high = sum(g["high"] for g in groups_out)
+    big_ticket_count = sum(1 for c in candidates if c.estimate_meta.big_ticket)
+
+    # ── Build 2f review audit from eligible candidates ──
+    eligible_candidates = [c for c in candidates if c.estimate_meta.allow_revisit_pass]
+    pass_2f_reviewed_count = sum(1 for c in candidates if c.pass_2f_attempted)
+    pass_2f_applied_count = sum(1 for c in candidates if c.pass_2f_applied)
+    pass_2f_invalidated_count = sum(1 for c in candidates if c.is_valid_detection is False)
+    pass_2f_review_audit = {
+        "ran": any(c.pass_2f_attempted for c in candidates),
+        "reviewed_count": pass_2f_reviewed_count,
+        "applied_count": pass_2f_applied_count,
+        "invalidated_count": pass_2f_invalidated_count,
+        "fallback_count": sum(
+            1 for c in candidates
+            if c.pass_2f_attempted and not c.pass_2f_applied
+        ),
+        "items": [
+            {
+                "catalog_item_id": c.catalog_item_id,
+                "name": c.catalog_item_name,
+                "is_valid_detection": c.is_valid_detection,
+                "default_posture": c.estimate_meta.strategy,
+                "review_posture": c.review_posture,
+                "effective_posture": c.effective_posture,
+                "review_source": c.review_source,
+                "review_image_path": c.review_image_path,
+                "review_rationale": c.review_rationale,
+                "pass_2f_attempted": c.pass_2f_attempted,
+                "pass_2f_applied": c.pass_2f_applied,
+                "pass_2f_fallback_reason": c.pass_2f_fallback_reason,
+            }
+            for c in eligible_candidates
+        ],
+    }
+
+    return {
+        "version": "quick_estimate_v1",
+        "groups": groups_out,
+        "totals": {
+            "low": total_low,
+            "high": total_high,
+        },
+        "meta": {
+            "candidate_count": len(candidates),
+            "big_ticket_count": big_ticket_count,
+            "groups_active": len(groups_out),
+            "pass_2f_reviewed_count": pass_2f_reviewed_count,
+            "pass_2f_applied_count": pass_2f_applied_count,
+            "pass_2f_invalidated_count": pass_2f_invalidated_count,
+        },
+        "pass_2f_review_audit": pass_2f_review_audit,
+        "disclaimer": (
+            "Quick photo-based estimate. Ranges reflect allowance-level budgets, "
+            "not contractor bids. Inspect-only items carry a nominal inspection allowance."
+        ),
+    }
