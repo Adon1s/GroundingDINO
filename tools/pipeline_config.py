@@ -1,5 +1,5 @@
 """
-GroundingDINO Pipeline Configuration
+RealtorVision Pipeline Configuration
 -------------------------------------
 Edit this file to change pipeline parameters without touching the code.
 
@@ -52,15 +52,10 @@ def _to_bool_or_none(v: Optional[str]) -> Optional[bool]:
 # =============================================================================
 # PROJECT PATHS
 # =============================================================================
-# Config file is in tools/, so parent is GroundingDINO root
+# Config file is in tools/, so parent is project root
 TOOLS_DIR = Path(__file__).parent  # tools/
-PROJECT_ROOT = TOOLS_DIR.parent  # GroundingDINO/
+PROJECT_ROOT = TOOLS_DIR.parent
 DEMO_DIR = PROJECT_ROOT / "demo"
-
-# GroundingDINO setup
-GDINO_CONFIG = PROJECT_ROOT / "groundingdino" / "config" / "GroundingDINO_SwinT_OGC.py"
-GDINO_CHECKPOINT = PROJECT_ROOT / "weights" / "groundingdino_swint_ogc.pth"
-GDINO_INFER_SCRIPT = DEMO_DIR / "inference_on_a_image.py"
 
 # Output directory
 ARTIFACTS_ROOT = PROJECT_ROOT / "artifacts"
@@ -121,7 +116,7 @@ EMBEDDINGS_DEVICE = "cpu"
 # PASS TOGGLE SETTINGS
 # =============================================================================
 # Comma-separated list of passes to SKIP (disable).
-# Valid keys: 1a, 1b, 1c, 2a, 2b, 2c, 2d, 2e, 3, 4, 4a, 4b, 4c
+# Valid keys: 1a, 1b, 1c, 2a, 2b, 2c, 2d, 2e, 2f, 4, 4a, 4b, 4c
 #
 # Examples:
 #   SKIP_PASSES=1a,1b,1c          # Skip all feature-extraction passes
@@ -172,8 +167,7 @@ OPENAI_PASS_4C_MAX_TOKENS = _to_int_or_none(os.environ.get("OPENAI_PASS_4C_MAX_T
 # =============================================================================
 
 # ─── Backend Selection ───────────────────────────────────────────────────────
-# Options: "groundingdino" (local) or "dinox" (API or local script)
-DETECTION_BACKEND = os.environ.get("DETECTION_BACKEND", "groundingdino")
+DETECTION_BACKEND = os.environ.get("DETECTION_BACKEND", "dinox")
 
 # ─── DINO-X API Settings ─────────────────────────────────────────────────────
 # Get your API token from https://cloud.deepdataspace.com/
@@ -205,7 +199,7 @@ DINOX_POLL_TIMEOUT = 120  # Max time to wait for task completion
 DINOX_POLL_INTERVAL = 1.0  # Seconds between status polls
 
 # =============================================================================
-# DETECTION PARAMETERS (GroundingDINO)
+# DETECTION PARAMETERS
 # =============================================================================
 BOX_THRESHOLD = 0.30  # Confidence threshold for detections (0-1)
 TEXT_THRESHOLD = 0.25  # Text-image matching threshold (0-1)
@@ -214,7 +208,6 @@ CHIP_MARGIN = 0.15  # Extra margin around crops (0.15 = 15%)
 # =============================================================================
 # SCENE CLASSIFICATION PARAMETERS
 # =============================================================================
-MAX_KEYWORDS = 25  # Maximum keywords per scene for detection
 INCLUDE_CONDITIONS = False  # Include defect keywords (crack, stain, damage, etc.)
 INCLUDE_COMMON = True  # Include common object keywords in prompts
 
@@ -380,4 +373,4 @@ CUSTOM_SCENE_KEYWORDS = {
 # Condition detection preset - look for damage/defects
 # INCLUDE_CONDITIONS = True
 # BOX_THRESHOLD = 0.25
-# MAX_KEYWORDS = 30
+MAX_KEYWORDS = int(os.environ.get("MAX_KEYWORDS", "30"))
