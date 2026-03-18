@@ -105,7 +105,6 @@ try:
         run_pass_2c,
         run_pass_2d,
         run_pass_2e,
-        run_pass_3_keyword_extraction,
     )
 
     PASS_ARCHITECTURE_AVAILABLE = True

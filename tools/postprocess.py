@@ -1,6 +1,6 @@
 """
-Post-processing utilities for GroundingDINO detections
-------------------------------------------------------
+Post-processing utilities for detections
+-----------------------------------------
 Provides NMS (Non-Maximum Suppression) and scene-aware filtering.
 """
 

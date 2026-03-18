@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-CLI entrypoint for running the GroundingDINO pipeline as an external tool.
+CLI entrypoint for running the analysis pipeline as an external tool.
 
-Designed to be called from RealtorVision via child_process.spawn using the
-GDINO_PY virtualenv interpreter.
+Designed to be called from RealtorVision via child_process.spawn.
 
 Supports:
 - Premium vs Standard analysis profiles
@@ -52,9 +51,6 @@ logger = logging.getLogger(__name__)
 
 # Environment variable keys that should be resolved as filesystem paths
 PATH_OVERRIDE_KEYS = {
-    "GDINO_CONFIG",
-    "GDINO_CHECKPOINT",
-    "GDINO_INFER_SCRIPT",
     "SCENE_CLASSIFIER_PY",
     "CHIP_VERIFIER_PY",
     "ANALYZER_CLI",
@@ -110,7 +106,7 @@ STRING_OVERRIDE_KEYS = {
 }
 
 # All passes for CLI argument generation
-ALL_PASSES = ['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '3', '4', '4a', '4b', '4c']
+ALL_PASSES = ['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f', '4', '4a', '4b', '4c']
 
 
 def _apply_env_overrides() -> None:
@@ -204,7 +200,7 @@ def _apply_env_overrides() -> None:
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="GroundingDINO auto analyzer with premium analysis support",
+        description="RealtorVision auto analyzer with premium analysis support",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Pass Control Examples:
@@ -218,7 +214,7 @@ Pass Control Examples:
   --model-2a gpt5 --model-2d qwen
 
   # Enable only scene classification (fast mode)
-  --disable-1b --disable-2a --disable-2b --disable-2c --disable-2d --disable-2e --disable-3 --disable-4
+  --disable-1b --disable-2a --disable-2b --disable-2c --disable-2d --disable-2e --disable-4
         """
     )
 
@@ -266,8 +262,8 @@ Pass Control Examples:
     parser.add_argument(
         "--detection-backend",
         dest="detection_backend",
-        choices=["groundingdino", "dinox"],
-        help="Detection backend: groundingdino (default) or dinox (premium)",
+        choices=["dinox"],
+        help="Detection backend: dinox",
     )
 
     parser.add_argument(
@@ -393,7 +389,7 @@ def _build_summary(
         "verified_detections": total_verified,
         "total_processing_time": job.total_processing_time,
         "photo_intel_path": str(photo_intel_path) if photo_intel_path else None,
-        "detection_backend": detection_backend or "groundingdino",
+        "detection_backend": detection_backend or "dinox",
         "analysis_profile": analysis_profile or "standard",
     }
 
@@ -490,7 +486,7 @@ def _log_config_summary() -> None:
     logger.info(f"OPENAI_PASS_4_MAX_TOKENS:  {getattr(cfg, 'OPENAI_PASS_4_MAX_TOKENS',  os.environ.get('OPENAI_PASS_4_MAX_TOKENS',  '')) or 'NOT SET'}")
 
     # Detection backend
-    logger.info(f"DETECTION_BACKEND: {getattr(cfg, 'DETECTION_BACKEND', 'groundingdino')}")
+    logger.info(f"DETECTION_BACKEND: {getattr(cfg, 'DETECTION_BACKEND', 'dinox')}")
 
     # Analysis profile
     logger.info(f"ANALYSIS_PROFILE: {getattr(cfg, 'ANALYSIS_PROFILE', 'standard')}")

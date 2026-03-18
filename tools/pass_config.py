@@ -13,8 +13,6 @@ Pass Overview:
 - 2d: Resolve defect_id from candidates (GPT-5 when premium, optional)
 - 2e: Normalize / filter / deduplicate issues (rule-based, no LLM)
 - 2f: Big-ticket estimate review (GPT-5 when premium, post-processing)
-- 3:  Keyword extraction (always Qwen - text-only)
-
 Legacy passes (not currently executed by orchestrator but still supported):
 - 4:  Property summary (legacy)
 - 4a: Room summaries
@@ -27,11 +25,11 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Literal, Optional, TypeAlias
 
 # Type definitions
-PassKey: TypeAlias = Literal['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f', '3', '4', '4a', '4b', '4c']
+PassKey: TypeAlias = Literal['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f', '4', '4a', '4b', '4c']
 ModelName = Literal['qwen', 'gpt5']
 
 # All valid pass keys (in execution order)
-ALL_PASSES: tuple[PassKey, ...] = ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f', '3', '4', '4a', '4b', '4c')
+ALL_PASSES: tuple[PassKey, ...] = ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f', '4', '4a', '4b', '4c')
 
 
 @dataclass
@@ -46,7 +44,6 @@ class PassToggles:
     pass_2d: bool = False  # Resolve defect_id from candidates (optional, requires candidate_provider)
     pass_2e: bool = True   # Normalize / filter / dedupe verified issues (rule-based, no LLM)
     pass_2f: bool = True   # Big-ticket estimate review (post-processing, requires eligible candidates + VLM)
-    pass_3: bool = True    # Keyword extraction
     pass_4: bool = False   # Property summary (legacy, not executed by current orchestrator)
     pass_4a: bool = False  # Room summaries (legacy, not executed by current orchestrator)
     pass_4b: bool = False  # Renovation intel (legacy, not executed by current orchestrator)
@@ -69,7 +66,6 @@ class PassToggles:
             '2d': self.pass_2d,
             '2e': self.pass_2e,
             '2f': self.pass_2f,
-            '3': self.pass_3,
             '4': self.pass_4,
             '4a': self.pass_4a,
             '4b': self.pass_4b,
@@ -90,7 +86,6 @@ class PassToggles:
             pass_2d=d.get('2d', False),  # default False - requires candidate_provider
             pass_2e=d.get('2e', True),
             pass_2f=d.get('2f', True),
-            pass_3=d.get('3', True),
             pass_4=d.get('4', False),
             pass_4a=d.get('4a', False),
             pass_4b=d.get('4b', False),
@@ -143,7 +138,6 @@ class PassModelOverrides:
     model_2d: Optional[ModelName] = None
     model_2e: Optional[ModelName] = None
     model_2f: Optional[ModelName] = None
-    model_3: Optional[ModelName] = None
     model_4: Optional[ModelName] = None
     model_4a: Optional[ModelName] = None
     model_4b: Optional[ModelName] = None
@@ -166,7 +160,6 @@ class PassModelOverrides:
             '2d': self.model_2d,
             '2e': self.model_2e,
             '2f': self.model_2f,
-            '3': self.model_3,
             '4': self.model_4,
             '4a': self.model_4a,
             '4b': self.model_4b,
@@ -193,7 +186,6 @@ class PassModelOverrides:
             model_2d=to_model(d.get('2d')),
             model_2e=to_model(d.get('2e')),
             model_2f=to_model(d.get('2f')),
-            model_3=to_model(d.get('3')),
             model_4=to_model(d.get('4')),
             model_4a=to_model(d.get('4a')),
             model_4b=to_model(d.get('4b')),
@@ -251,7 +243,6 @@ class SceneClassifierRunOptions:
 # - 2d uses GPT-5 (resolver benefits from reasoning)
 # - 2e stays Qwen (rule-based normalizer, no LLM call)
 # - 2f uses GPT-5 (big-ticket review needs strong vision for posture decisions)
-# - 3 stays Qwen (keyword extraction is straightforward, text-only)
 # - 4/4a/4b/4c stay Qwen (legacy, may be deprecated)
 
 PREMIUM_MODEL_MAP: Dict[PassKey, ModelName] = {
@@ -264,7 +255,6 @@ PREMIUM_MODEL_MAP: Dict[PassKey, ModelName] = {
     '2d': 'gpt5',   # resolver benefits from GPT reasoning
     '2e': 'qwen',   # rule-based normalizer, no LLM call
     '2f': 'gpt5',   # big-ticket review benefits from strong vision
-    '3': 'qwen',
     '4': 'qwen',
     '4a': 'qwen',
     '4b': 'qwen',
@@ -281,7 +271,6 @@ STANDARD_MODEL_MAP: Dict[PassKey, ModelName] = {
     '2d': 'qwen',
     '2e': 'qwen',
     '2f': 'qwen',
-    '3': 'qwen',
     '4': 'qwen',
     '4a': 'qwen',
     '4b': 'qwen',
@@ -359,7 +348,6 @@ PASS_DESCRIPTIONS: Dict[PassKey, str] = {
     '2d': 'Resolve defect_id from candidates',
     '2e': 'Normalize / Filter / Deduplicate Issues',
     '2f': 'Big-ticket Estimate Review (Pass 2f)',
-    '3': 'Keyword Extraction',
     '4': 'Property Summary (legacy)',
     '4a': 'Room Summaries (legacy)',
     '4b': 'Renovation Intel (legacy)',

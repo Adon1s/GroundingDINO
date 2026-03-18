@@ -3,7 +3,7 @@
 Detection backend runner + post-processing pipeline.
 
 Encapsulates:
-  - GroundingDINO and DINO-X backend invocation
+  - DINO-X backend invocation
   - ROI hint bonus application
   - Special-case filters, NMS, scene caps
   - pred.json rewrite, chip pruning, overlay redraw
@@ -62,38 +62,6 @@ def run_detection_backend(
     debug: bool,
     dinox_client: Any = None,
 ) -> Dict[str, Any]:
-    if backend == "groundingdino":
-        logger.info(f"Running GroundingDINO detection: {image_path.name}")
-        cmd = [
-            python_exe,
-            cfg.GDINO_INFER_SCRIPT,
-            "--config_file", cfg.GDINO_CONFIG,
-            "--checkpoint_path", cfg.GDINO_CHECKPOINT,
-            "--image_path", str(image_path),
-            "--text_prompt", text_prompt,
-            "--output_dir", str(output_dir),
-            "--box_threshold", str(box_threshold),
-            "--text_threshold", str(text_threshold),
-            "--extract-chips",
-            "--chip-margin", str(chip_margin),
-        ]
-        if cfg.CPU_ONLY:
-            cmd.append("--cpu-only")
-        if getattr(cfg, "COMPUTE_CHIP_QUALITY", False):
-            cmd.append("--chip-quality")
-        if getattr(cfg, "CREATE_THUMBNAILS", False):
-            cmd.extend(["--create-thumbnail", "--thumbnail-size", str(cfg.THUMBNAIL_SIZE)])
-
-        code, _, stderr = _run_command(cmd, debug=debug)
-        if code != 0:
-            logger.error(f"GroundingDINO detection failed: {stderr}")
-            return {"error": stderr, "code": code}
-
-        pred_json = output_dir / "pred.json"
-        if pred_json.exists():
-            return json.loads(pred_json.read_text(encoding="utf-8"))
-        return {"error": "pred.json not produced"}
-
     if backend == "dinox":
         logger.info(f"Running DINO-X detection: {image_path.name}")
         dinox_script = getattr(cfg, "DINOX_INFER_SCRIPT", None)

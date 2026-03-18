@@ -259,9 +259,8 @@ def write_photo_intel(
                 "removed": removed_issues,
             },
             "keywords": {
-                "all":        safe_list((passes.get("3", {}) or {}).get("keywords") or payload.get("keywords")),
-                "categories": (passes.get("3", {}) or {}).get("categories") or payload.get("keyword_categories"),
-                "gdino_prompt": payload.get("groundingdino_prompt", ""),
+                "all":        safe_list(payload.get("keywords")),
+                "categories": payload.get("keyword_categories"),
             },
             "planner_hints": payload.get("planner_hints", {}),
             "is_staged": payload.get("is_staged"),

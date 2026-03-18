@@ -11,7 +11,6 @@ Pass 2b: Observations → JSON (text-only)
 Pass 2c: Label observations + debug/forward split (text-only)
 Pass 2d: Resolve catalog item ID from candidates (text-only, optional)
 Pass 2e: Normalize / filter / dedupe verified issues (rule-based, no LLM)
-Pass 3:  Keyword Extraction (text-only, from structured facts)
 """
 
 from tools.llm_json import extract_json_object
@@ -177,14 +176,6 @@ class Pass2fResult:
     is_valid_detection: bool = True          # False if the model deems the detection invalid
     pricing_posture: str = "keep_default"   # repair | replace | keep_default
     rationale: str = ""
-    raw_response: Optional[str] = None
-
-
-@dataclass
-class Pass3Result:
-    """Result from Pass 3: Keyword Extraction."""
-    keywords: List[str]
-    keyword_categories: Optional[Dict[str, List[str]]] = None
     raw_response: Optional[str] = None
 
 
@@ -1186,102 +1177,6 @@ async def run_pass_2e(
         suppressed_reason_counts=suppressed_reason_counts,
         suppressed_samples=suppressed_samples,
     )
-# ═══════════════════════════════════════════════════════════════════════════════
-# Pass 3: Keyword Extraction (Text-only, from structured facts)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-PASS_3_SYSTEM_PROMPT_TEMPLATE = """You generate object-detection keywords using ONLY provided extracted facts.
-
-Scene: {scene}
-
-Features:
-{features_json}
-
-Observations:
-{observations_json}
-
-Rules:
-- Keywords must be visually detectable objects/materials (1–4 words).
-- Deduplicate and keep high-signal.
-
-Output JSON only:
-{
-  "keywords": ["<kw>", "..."],
-  "categories": {
-    "structural": ["<kw>", "..."],
-    "fixtures": ["<kw>", "..."],
-    "condition": ["<kw>", "..."],
-    "style": ["<kw>", "..."]
-  }
-}"""
-
-PASS_3_USER_PROMPT = "Generate detection keywords."
-
-
-async def run_pass_3_keyword_extraction(
-        vlm_client: Any,
-        model_config: dict,
-        context: Optional[Dict[str, Any]] = None,
-        max_keywords: int = 20,
-) -> Pass3Result:
-    """
-    Pass 3: Generate detection keywords from structured facts (text-only).
-
-    Args:
-        vlm_client: VLM client instance
-        model_config: Model configuration
-        context: Context containing:
-            - 'scene': scene type from Pass 1a
-            - 'features_struct': dict with 'notable_features' from Pass 1c
-            - 'observations': list from Pass 2b (observations_struct.get("observations"))
-            - 'labeled_forward': list from Pass 2c (preferred if non-empty)
-        max_keywords: Maximum keywords to return
-
-    Returns:
-        Pass3Result with extracted keywords
-    """
-    scene = context.get("scene", "property") if context else "property"
-
-    # Get notable_features from features_struct
-    features_struct = context.get("features_struct", {}) if context else {}
-    notable_features = features_struct.get("notable_features", [])
-
-    # Use labeled_forward if non-empty, else fall back to observations
-    labeled_forward = context.get("labeled_forward", []) if context else []
-    observations = context.get("observations", []) if context else []
-
-    observations_for_keywords = labeled_forward if labeled_forward else observations
-
-    system_prompt = safe_format_prompt(
-        PASS_3_SYSTEM_PROMPT_TEMPLATE,
-        scene=scene,
-        features_json=json.dumps(notable_features, ensure_ascii=False),
-        observations_json=json.dumps(observations_for_keywords, ensure_ascii=False),
-    )
-
-    logger.debug("Pass 3: Generating keywords from structured facts (text-only)")
-
-    try:
-        response = await vlm_client.analyze_text(
-            system_prompt=system_prompt,
-            user_prompt=PASS_3_USER_PROMPT,
-            **model_config,
-        )
-
-        result = extract_json_object(response) or {}
-        keywords = (result.get("keywords") or [])[:max_keywords]
-
-        return Pass3Result(
-            keywords=keywords,
-            keyword_categories=result.get("categories"),
-            raw_response=response,
-        )
-
-    except Exception as e:
-        logger.error(f"Pass 3: Error extracting keywords: {e}")
-        return Pass3Result(keywords=[], raw_response=None)
-
-
 # ═══════════════════════════════════════════════════════════════════════════════
 # Pass 2f: Big-Ticket Estimate Review (vision, per-candidate)
 # ═══════════════════════════════════════════════════════════════════════════════

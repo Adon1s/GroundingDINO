@@ -62,7 +62,6 @@ def scene_classifier_payload(
     payload.setdefault("reasoning", "" if error is None else error)
     payload.setdefault("keywords", [])
     payload.setdefault("keyword_categories", None)
-    payload.setdefault("groundingdino_prompt", "")
     payload.setdefault("issues_natural_language", [])
     payload.setdefault("verified_issues", [])
     payload.setdefault("catalog_flags", {})
@@ -94,10 +93,8 @@ def parse_orchestrator_result(result: Any) -> SceneClassification:
 
     keywords = data.get("keywords", []) or []
 
-    # Robust category extraction - try data first, fallback to pass_3 attribute
+    # Robust category extraction
     kw_cats = data.get("keyword_categories")
-    if kw_cats is None and getattr(result, "pass_3", None):
-        kw_cats = getattr(result.pass_3, "keyword_categories", None)
 
     # Build grounding prompt from keywords
     prompt = ". ".join(keywords) + "." if keywords else ""
@@ -116,7 +113,6 @@ def parse_orchestrator_result(result: Any) -> SceneClassification:
     payload['feature_notes'] = data.get('feature_notes', '') or data.get('positives_notes', '') or ""
     payload['positives_notes'] = payload['feature_notes']
     payload['observations_freeform'] = data.get('observations_freeform', '') or ""
-    payload['groundingdino_prompt'] = prompt
     payload['catalog_flags'] = data.get('catalog_flags', {})
     payload['issues_natural_language'] = data.get('issues_natural_language', [])
     payload['verified_issues'] = data.get('verified_issues', [])

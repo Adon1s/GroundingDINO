@@ -54,7 +54,6 @@ from scene_classifier_passes import (
     Pass2cResult,
     Pass2dResult,
     Pass2eResult,
-    Pass3Result,
     run_pass_1a_scene_type,
     run_pass_1b_feature_notes,
     run_pass_1c_feature_structuring,
@@ -63,7 +62,6 @@ from scene_classifier_passes import (
     run_pass_2c,
     run_pass_2d,
     run_pass_2e,
-    run_pass_3_keyword_extraction,
 )
 
 logger = logging.getLogger(__name__)
@@ -107,7 +105,6 @@ class ImageAnalysisResult:
     pass_2b: Optional[Pass2bResult] = None
     pass_2c: Optional[Pass2cResult] = None
     pass_2d: Optional[List[Pass2dResult]] = None  # List because one per resolvable observation
-    pass_3: Optional[Pass3Result] = None
 
     # Computed/merged fields for backwards compatibility
     scene: str = "other"
@@ -138,8 +135,6 @@ class ImageAnalysisResult:
     # All issues that passed sanity + dedupe (superset of verified_issues; for debug/analytics)
     matched_issues: List[Dict[str, Any]] = field(default_factory=list)
 
-    keywords: List[str] = field(default_factory=list)
-
     # Metadata
     passes_run: List[str] = field(default_factory=list)
     passes: Dict[str, Any] = field(default_factory=dict)   # per-pass structured output (mirrors direct-path schema)
@@ -158,7 +153,7 @@ class ImageAnalysisResult:
             "photo_key": self.photo_key,
             "scene": self.scene,
 
-            # structured positives (UI + pass3)
+            # structured positives
             "overall_impression": self.overall_impression,
             "image_summary": self.image_summary,
             "notable_features": self.notable_features,
@@ -177,7 +172,6 @@ class ImageAnalysisResult:
             "verified_issues": self.verified_issues,
             "matched_issues": self.matched_issues,
 
-            "keywords": self.keywords,
             "passes_run": self.passes_run,
             "passes": self.passes,
             "models_used": self.models_used,
@@ -204,7 +198,6 @@ class SceneClassifierOrchestrator:
         qwen_config: Dict[str, Any],
         gpt5_config: Dict[str, Any],
         vlm_client: Any,
-        max_keywords: int = 20,
         candidate_provider: Optional[Callable[[str, Dict[str, Any]], List[Dict[str, Any]]]] = None,
         top_k_candidates: int = 8,
         max_resolve_per_image: int = 25,
@@ -219,7 +212,6 @@ class SceneClassifierOrchestrator:
             gpt5_config: Configuration for GPT-5 model calls
                          {'url': '...', 'model': '...', 'api_key': '...'}
             vlm_client: VLM client instance for making API calls
-            max_keywords: Maximum keywords for Pass 3
             candidate_provider: Optional callback to retrieve catalog candidates for Pass 2d
                                Signature: (observation_text, context) -> List[Dict]
                                context may include 'kind' ("defect" or "upgrade") and 'top_k_candidates'
@@ -231,7 +223,6 @@ class SceneClassifierOrchestrator:
         self.qwen_config = qwen_config
         self.gpt5_config = gpt5_config
         self.vlm_client = vlm_client
-        self.max_keywords = max_keywords
         self.candidate_provider = candidate_provider
         self.top_k_candidates = top_k_candidates
         self.max_resolve_per_image = max_resolve_per_image
@@ -287,7 +278,6 @@ class SceneClassifierOrchestrator:
             "2c": "OPENAI_PASS_2C_MAX_TOKENS",
             "2d": "OPENAI_PASS_2D_MAX_TOKENS",
             "2e": "OPENAI_PASS_2E_MAX_TOKENS",
-            "3":  "OPENAI_PASS_3_MAX_TOKENS",
         }
 
         attr = key_map.get(str(pass_key))
@@ -900,38 +890,6 @@ class SceneClassifierOrchestrator:
             result.passes["2e"] = {"skipped": True}
             result.debug["pass_2e_summary"] = {"skipped": True}
 
-        # ─────────────────────────────────────────────────────────────────────
-        # Pass 3: Keyword Extraction (text-only, from structured facts)
-        # ─────────────────────────────────────────────────────────────────────
-        if self._t(toggles, '3'):
-            model_config = self._get_model_config('3', options)
-            model_name = self._get_model_name('3', options)
-
-            # ensure context contains what Pass 3 expects
-            context.setdefault("scene", result.scene)
-            context.setdefault("features_struct", result.features_struct)
-
-            # For pass3: prefer labeled_forward if present, else observations_struct
-            context.setdefault("labeled_forward", result.labeled_forward)
-            if isinstance(result.observations_struct, dict):
-                context.setdefault("observations", result.observations_struct.get("observations") or [])
-            else:
-                context.setdefault("observations", [])
-
-            logger.debug(f"Running Pass 3 with {model_name}")
-            t0 = time.time()
-            result.pass_3 = await run_pass_3_keyword_extraction(
-                vlm_client=self.vlm_client,
-                model_config=model_config,
-                context=context,
-                max_keywords=self.max_keywords,
-            )
-            result.pass_timings['3'] = round(time.time() - t0, 3)
-
-            result.keywords = result.pass_3.keywords
-            result.passes_run.append('3')
-            result.models_used['3'] = model_name
-
         result.total_pass_time = round(sum(result.pass_timings.values()), 3)
         result.processing_time = time.time() - start_time
         logger.info(
@@ -974,7 +932,6 @@ def create_orchestrator_from_config(
         qwen_config=qwen_config,
         gpt5_config=gpt5_config,
         vlm_client=vlm_client,
-        max_keywords=getattr(config, "MAX_KEYWORDS", 20),
         candidate_provider=candidate_provider,
         top_k_candidates=getattr(config, "TOP_K_CANDIDATES", 8),
         max_resolve_per_image=getattr(config, "MAX_RESOLVE_PER_IMAGE", 25),

@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """
-GroundingDINO Detection Chip Verifier (Generic)
-----------------------------------------------
+Detection Chip Verifier (Generic)
+---------------------------------
 Purpose: Verify that each detection chip primarily and tightly contains the
-object label that GroundingDINO predicted — nothing class‑specific.
+object label that the detector predicted — nothing class-specific.
 
-Inputs (from a GroundingDINO run's output directory):
+Inputs (from a detection run's output directory):
   - pred.json  (must include a top-level key "detections")
   - chips/chip_metadata.json (for mapping chips -> detections)
   - thumbnail_with_masks.jpg (optional overview for context)
@@ -94,7 +94,7 @@ class ChipVerifier:
         self.debug = debug
 
     # ── IO helpers ───────────────────────────────────────────────────────────
-    def load_grounding_dino_output(self, output_dir: Path) -> Dict:
+    def load_detection_output(self, output_dir: Path) -> Dict:
         output_dir = Path(output_dir)
 
         pred_json = output_dir / "pred.json"
@@ -301,7 +301,7 @@ class ChipVerifier:
         out_path = Path(output_dir)
         logger.info(f"Starting verification for {out_path}")
 
-        gd = self.load_grounding_dino_output(out_path)
+        gd = self.load_detection_output(out_path)
         preds = gd.get("predictions", {})
         detections = preds.get("detections", [])
         chip_metadata = gd.get("chip_metadata", [])
@@ -456,8 +456,8 @@ class ChipVerifier:
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="Verify that chips contain their GroundingDINO labels (generic)")
-    parser.add_argument("output_dir", help="Path to GroundingDINO output directory")
+    parser = argparse.ArgumentParser(description="Verify that chips contain their detected labels (generic)")
+    parser.add_argument("output_dir", help="Path to detection output directory")
     parser.add_argument("--model", default=DEFAULT_MODEL, help="LM Studio model name")
     parser.add_argument("--lm-studio-url", default=LM_STUDIO_URL, help="LM Studio API URL")
     parser.add_argument("--max-chips", type=int, default=3, help="Max chips per detection")

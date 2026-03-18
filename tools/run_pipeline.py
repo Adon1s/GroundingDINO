@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-GroundingDINO Analysis Pipeline Runner
+RealtorVision Analysis Pipeline Runner
 ---------------------------------------
 Simple script to run the complete analysis pipeline for testing.
 
@@ -102,12 +102,7 @@ def _natural_key(p: Path):
 def validate_environment():
     """Check that all required files exist."""
     required_paths = {
-        "GDINO Config": cfg.GDINO_CONFIG,
-        "GDINO Checkpoint": cfg.GDINO_CHECKPOINT,
-        "GDINO Inference Script": cfg.GDINO_INFER_SCRIPT,
-        "Scene Classifier": cfg.TOOLS_DIR / "scene_classifier.py",
         "Chip Verifier": cfg.TOOLS_DIR / "chip_verifier.py",
-        "Auto Analyzer": cfg.TOOLS_DIR / "auto_analyzer.py",
     }
 
     missing = []
@@ -119,7 +114,7 @@ def validate_environment():
         logger.error("Missing required files:")
         for m in missing:
             logger.error(m)
-        logger.error("\nCheck your GroundingDINO installation and file paths.")
+        logger.error("\nCheck your installation and file paths.")
         return False
 
     # Create artifacts directory if needed
@@ -211,7 +206,7 @@ def run_pipeline(property_key: str, images: list, args):
     skip_summary = getattr(args, 'no_summary', False)
 
     logger.info("=" * 70)
-    logger.info("🚀 Starting GroundingDINO Analysis Pipeline")
+    logger.info("🚀 Starting RealtorVision Analysis Pipeline")
     logger.info("=" * 70)
     logger.info(f"Property: {property_key}")
     logger.info(f"Images: {len(images)}")
@@ -228,7 +223,7 @@ def run_pipeline(property_key: str, images: list, args):
             box_threshold=box_thr,
             text_threshold=text_thr,
             chip_margin=cfg.CHIP_MARGIN,
-            max_keywords=cfg.MAX_KEYWORDS,
+            max_keywords=getattr(cfg, "MAX_KEYWORDS", 25),
             skip_verification=skip_verify,
             debug=cfg.DEBUG_MODE
         )
@@ -358,7 +353,7 @@ def run_pipeline(property_key: str, images: list, args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Run GroundingDINO analysis pipeline on property images"
+        description="Run RealtorVision analysis pipeline on property images"
     )
 
     # Image input - both are optional flags now
