@@ -74,7 +74,6 @@ class PropertyAnalysisJob:
 
 # Environment variable keys that should be resolved as filesystem paths
 PATH_OVERRIDE_KEYS = {
-    "SCENE_CLASSIFIER_PY",
     "ANALYZER_CLI",
     "ISSUE_CATALOG_PATH",
 }
