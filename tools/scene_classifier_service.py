@@ -147,7 +147,7 @@ def parse_orchestrator_result(result: Any) -> SceneClassification:
 class SceneClassifierService:
     """
     Thin sync wrapper around the async orchestrator.
-    AutoAnalyzer gives it:
+    Requires:
       - orchestrator
       - run_options
       - cfg

@@ -2,7 +2,7 @@
 import asyncio
 from pathlib import Path
 
-from scene_classifier_orchestrator import (
+from tools.scene_classifier_orchestrator import (
     SceneClassifierOrchestrator,
     SceneClassifierRunOptions,
 )

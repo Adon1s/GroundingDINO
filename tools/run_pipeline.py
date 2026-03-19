@@ -100,23 +100,7 @@ def _natural_key(p: Path):
 
 
 def validate_environment():
-    """Check that all required files exist."""
-    required_paths = {
-        "Chip Verifier": cfg.TOOLS_DIR / "chip_verifier.py",
-    }
-
-    missing = []
-    for name, path in required_paths.items():
-        if not path.exists():
-            missing.append(f"  ❌ {name}: {path}")
-
-    if missing:
-        logger.error("Missing required files:")
-        for m in missing:
-            logger.error(m)
-        logger.error("\nCheck your installation and file paths.")
-        return False
-
+    """Check that all required files exist and create output directories."""
     # Create artifacts directory if needed
     cfg.ARTIFACTS_ROOT.mkdir(parents=True, exist_ok=True)
 
@@ -196,14 +180,12 @@ def collect_images(args) -> list:
 
 
 def run_pipeline(property_key: str, images: list, args):
-    """Run the complete analysis pipeline."""
-    from auto_analyzer import AutoAnalyzer
+    """Run the complete analysis pipeline.
 
-    # Override config with command line args if provided
-    skip_verify = args.no_verify if args.no_verify is not None else cfg.SKIP_VERIFICATION
+    TODO: Rewire to use the orchestrator-based pipeline (AutoAnalyzer removed).
+    """
     box_thr = args.box_thr if args.box_thr is not None else cfg.BOX_THRESHOLD
     text_thr = args.text_thr if args.text_thr is not None else cfg.TEXT_THRESHOLD
-    skip_summary = getattr(args, 'no_summary', False)
 
     logger.info("=" * 70)
     logger.info("🚀 Starting RealtorVision Analysis Pipeline")
@@ -212,143 +194,10 @@ def run_pipeline(property_key: str, images: list, args):
     logger.info(f"Images: {len(images)}")
     logger.info(f"Box Threshold: {box_thr}")
     logger.info(f"Text Threshold: {text_thr}")
-    logger.info(f"Verification: {'SKIPPED' if skip_verify else 'ENABLED'}")
-    logger.info(f"Property Summary: {'SKIPPED' if skip_summary else 'ENABLED'}")
     logger.info("=" * 70)
 
-    try:
-        analyzer = AutoAnalyzer(
-            python_exe=sys.executable,
-            artifacts_root=str(cfg.ARTIFACTS_ROOT),
-            box_threshold=box_thr,
-            text_threshold=text_thr,
-            chip_margin=cfg.CHIP_MARGIN,
-            max_keywords=getattr(cfg, "MAX_KEYWORDS", 25),
-            skip_verification=skip_verify,
-            debug=cfg.DEBUG_MODE
-        )
-    except FileNotFoundError as e:
-        logger.error(str(e))
-        sys.exit(1)
-
-    # Run analysis
-    job = analyzer.analyze_property(
-        property_key=property_key,
-        images=images
-    )
-
-    # Print summary
-    print("\n" + "=" * 70)
-    print("✅ ANALYSIS COMPLETE")
-    print("=" * 70)
-    print(f"Job ID:           {job.job_id}")
-    print(f"Property:         {job.property_key}")
-    print(f"Images Processed: {len(job.results)}")
-    print(f"Processing Time:  {job.total_processing_time:.1f} seconds")
-    print(f"Artifacts:        {job.artifacts_dir}")
-
-    # Scene breakdown
-    scene_counts = {}
-    for result in job.results:
-        scene_counts[result.scene] = scene_counts.get(result.scene, 0) + 1
-
-    if scene_counts:
-        print("\n📊 Scenes Detected:")
-        for scene, count in sorted(scene_counts.items()):
-            print(f"  • {scene:20} {count}")
-
-    # Detection summary
-    total_detections = sum(r.detection_count for r in job.results)
-    total_verified = sum(r.verified_count or 0 for r in job.results)
-
-    print(f"\n🔍 Detection Summary:")
-    print(f"  Total Detections:  {total_detections}")
-    if not skip_verify:
-        print(f"  Verified:          {total_verified}")
-        if total_detections > 0:
-            print(f"  Verification Rate: {(total_verified / total_detections) * 100:.1f}%")
-
-    # Save outputs if configured
-    artifacts_path = Path(job.artifacts_dir)
-
-    # Save photo_intel (includes deterministic summary_v1 + property_summary.json)
-    photo_intel_path = analyzer.save_photo_intel(
-        job,
-        artifacts_path / "photo_intel.json",
-    )
-
-    # Check if property summary was generated
-    summary_path = artifacts_path / "property_summary.json"
-    if summary_path.exists():
-        try:
-            with open(summary_path, 'r', encoding='utf-8') as f:
-                summary_data = json.load(f)
-
-            print("\n" + "=" * 70)
-            print("📋 PROPERTY SUMMARY")
-            print("=" * 70)
-            print(f"  Overall Condition:   {summary_data.get('overall_condition', 'N/A').upper()}")
-            print(f"  Investment Verdict:  {summary_data.get('investment_verdict', 'N/A').replace('_', ' ').upper()}")
-            print(f"  Renovation Scope:    {summary_data.get('renovation_scope', 'N/A')}")
-            print(
-                f"  Issues Found:        {summary_data.get('total_issues_found', 0)} across {summary_data.get('total_images_analyzed', 0)} images")
-
-            # Show risk flags if any
-            risk_flags = summary_data.get('risk_flags', [])
-            if risk_flags:
-                print(f"\n  ⚠️  Risk Flags ({len(risk_flags)}):")
-                for flag in risk_flags[:3]:
-                    print(f"     • {flag}")
-                if len(risk_flags) > 3:
-                    print(f"     ... and {len(risk_flags) - 3} more")
-
-            # Show top priorities
-            priorities = summary_data.get('renovation_priorities', [])
-            if priorities:
-                print(f"\n  🔧 Top Renovation Priorities:")
-                for i, priority in enumerate(priorities[:3], 1):
-                    print(f"     {i}. {priority}")
-                if len(priorities) > 3:
-                    print(f"     ... and {len(priorities) - 3} more")
-
-            # Show investment rationale
-            rationale = summary_data.get('investment_rationale', '')
-            if rationale:
-                print(f"\n  💡 Rationale: {rationale[:150]}{'...' if len(rationale) > 150 else ''}")
-
-        except Exception as e:
-            logger.warning(f"Could not display summary: {e}")
-
-    if cfg.SAVE_JSON_SUMMARY or args.output_json:
-        json_path = artifacts_path / "summary.json"
-        if args.output_json:
-            json_path = Path(args.output_json)
-
-        summary = {
-            "job_id": job.job_id,
-            "property_key": job.property_key,
-            "timestamp": job.timestamp,
-            "artifacts_dir": job.artifacts_dir,
-            "processing_time": job.total_processing_time,
-            "parameters": job.parameters,
-            "image_count": len(job.results),
-            "photo_intel_path": str(photo_intel_path),
-            "property_summary_path": str(summary_path) if summary_path.exists() else None,
-        }
-
-        with open(json_path, 'w', encoding='utf-8') as f:
-            json.dump(summary, f, indent=2, ensure_ascii=False)
-
-        print(f"\n💾 JSON Summary: {json_path}")
-
-    print(f"📁 Photo Intel:  {photo_intel_path}")
-
-    if summary_path.exists():
-        print(f"📋 Property Summary: {summary_path}")
-
-    print("\n" + "=" * 70)
-
-    return job
+    logger.error("AutoAnalyzer has been removed. This runner needs to be rewired to use the orchestrator pipeline.")
+    sys.exit(1)
 
 
 def main():
@@ -386,12 +235,6 @@ def main():
         type=float,
         default=None,
         help=f"Text threshold (default: {cfg.TEXT_THRESHOLD})"
-    )
-    parser.add_argument(
-        "--no-verify",
-        action="store_true",
-        default=None,
-        help="Skip chip verification (faster testing)"
     )
     parser.add_argument(
         "--no-summary",

@@ -60,7 +60,7 @@ DEMO_DIR = PROJECT_ROOT / "demo"
 # Output directory
 ARTIFACTS_ROOT = PROJECT_ROOT / "artifacts"
 
-# Issue catalog path (AutoAnalyzer prefers tools/issue_catalog.json)
+# Issue catalog path
 ISSUE_CATALOG_PATH = TOOLS_DIR / "issue_catalog.json"
 
 # =============================================================================
@@ -93,7 +93,7 @@ GPT_PASS_2A_MODEL = _env_any("OPENAI_PASS_2A_MODEL", "OPENAI_PASS2A_MODEL") or G
 GPT_PASS_2B_MODEL = _env_any("OPENAI_PASS_2B_MODEL", "OPENAI_PASS2B_MODEL") or GPT_MODEL  # Pass 2b (if ever routed)
 GPT_PASS_2C_MODEL = _env_any("OPENAI_PASS_2C_MODEL", "OPENAI_PASS2C_MODEL") or GPT_MODEL  # Pass 2c
 
-# ✅ New: explicit Pass 4a/4b/4c models (aligns with AutoAnalyzer routing keys)
+# Optional: explicit Pass 4a/4b/4c models
 GPT_PASS_4A_MODEL = _env_any("OPENAI_PASS_4A_MODEL", "OPENAI_PASS4A_MODEL") or GPT_MODEL
 GPT_PASS_4B_MODEL = _env_any("OPENAI_PASS_4B_MODEL", "OPENAI_PASS4B_MODEL") or GPT_MODEL
 GPT_PASS_4C_MODEL = _env_any("OPENAI_PASS_4C_MODEL", "OPENAI_PASS4C_MODEL") or GPT_MODEL
@@ -140,10 +140,6 @@ ANALYSIS_PROFILE = os.environ.get("ANALYSIS_PROFILE", "standard")
 # Premium-specific overrides
 PREMIUM_MAX_KEYWORDS = int(os.environ.get("PREMIUM_MAX_KEYWORDS", "30"))
 
-# ✅ IMPORTANT: Keep None when unset so AutoAnalyzer doesn't clobber skip_verification.
-# AutoAnalyzer expects: if premium_skip_verify is not None: override
-PREMIUM_SKIP_VERIFICATION = _to_bool_or_none(os.environ.get("PREMIUM_SKIP_VERIFICATION"))
-
 # =============================================================================
 # OPENAI TOKEN CAPS
 # =============================================================================
@@ -157,7 +153,7 @@ OPENAI_PASS_2A_MAX_TOKENS = _to_int_or_none(os.environ.get("OPENAI_PASS_2A_MAX_T
 # Legacy Pass 4 cap (kept for compatibility)
 OPENAI_PASS_4_MAX_TOKENS = _to_int_or_none(os.environ.get("OPENAI_PASS_4_MAX_TOKENS"))
 
-# ✅ New: Pass 4a/4b/4c caps (aligns with AutoAnalyzer _attach_openai_token_cap keys)
+# Optional: Pass 4a/4b/4c caps
 OPENAI_PASS_4A_MAX_TOKENS = _to_int_or_none(os.environ.get("OPENAI_PASS_4A_MAX_TOKENS"))
 OPENAI_PASS_4B_MAX_TOKENS = _to_int_or_none(os.environ.get("OPENAI_PASS_4B_MAX_TOKENS"))
 OPENAI_PASS_4C_MAX_TOKENS = _to_int_or_none(os.environ.get("OPENAI_PASS_4C_MAX_TOKENS"))
@@ -203,7 +199,6 @@ DINOX_POLL_INTERVAL = 1.0  # Seconds between status polls
 # =============================================================================
 BOX_THRESHOLD = 0.30  # Confidence threshold for detections (0-1)
 TEXT_THRESHOLD = 0.25  # Text-image matching threshold (0-1)
-CHIP_MARGIN = 0.15  # Extra margin around crops (0.15 = 15%)
 
 # =============================================================================
 # SCENE CLASSIFICATION PARAMETERS
@@ -212,26 +207,10 @@ INCLUDE_CONDITIONS = False  # Include defect keywords (crack, stain, damage, etc
 INCLUDE_COMMON = True  # Include common object keywords in prompts
 
 # =============================================================================
-# VERIFICATION PARAMETERS
-# =============================================================================
-SKIP_VERIFICATION = os.environ.get("SKIP_VERIFICATION", "").lower() == "true"
-
-# DINO-X does not produce chips in API mode, so verification must be skipped.
-if str(DETECTION_BACKEND).strip().lower() == "dinox":
-    SKIP_VERIFICATION = True
-
-MAX_CHIPS_PER_DETECTION = 3  # Number of chips to verify per detection
-
-# Verification thresholds
-VERIFY_CONSENSUS_RATIO = 0.60  # Fraction of chips that must be valid
-VERIFY_AVG_CONFIDENCE = 0.60  # Average model confidence across chips
-
-# =============================================================================
 # PROCESSING OPTIONS
 # =============================================================================
 CREATE_THUMBNAILS = True  # Create thumbnail with detection overlays
 THUMBNAIL_SIZE = 384  # Thumbnail dimension in pixels
-COMPUTE_CHIP_QUALITY = True  # Calculate quality metrics for chips
 CPU_ONLY = False  # Run detection on CPU only (slower)
 
 # =============================================================================
@@ -258,7 +237,7 @@ ROI_OVERLAP_LO = 0.10  # fraction for half bonus lower bound
 # Map of {scene OR scene-group: {normalized_label: zone}}
 # Labels should be written naturally ("light fixture", not "light_fixture")
 ROI_HINTS_BY_SCENE = {
-    # Scene-group keys (match SCENE_GROUPS_UI keys in AutoAnalyzer)
+    # Scene-group keys
     "kitchen": {
         "sink": "bottom_center",
         "faucet": "bottom_center",
@@ -357,18 +336,13 @@ CUSTOM_SCENE_KEYWORDS = {
 # =============================================================================
 # Uncomment a preset to use it (will override settings above)
 
-# Fast testing preset - skip verification, lower thresholds
-# SKIP_VERIFICATION = True
+# Fast testing preset - lower thresholds
 # BOX_THRESHOLD = 0.35
 # CREATE_THUMBNAILS = False
-# COMPUTE_CHIP_QUALITY = False
 
-# High quality preset - stricter thresholds, full verification
+# High quality preset - stricter thresholds
 # BOX_THRESHOLD = 0.35
 # TEXT_THRESHOLD = 0.30
-# SKIP_VERIFICATION = False
-# VERIFY_CONSENSUS_RATIO = 0.70
-# VERIFY_AVG_CONFIDENCE = 0.65
 
 # Condition detection preset - look for damage/defects
 # INCLUDE_CONDITIONS = True

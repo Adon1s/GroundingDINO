@@ -45,7 +45,7 @@ from tools.pass_config import (
     ALL_PASSES,
 )
 
-from scene_classifier_passes import (
+from tools.scene_classifier_passes import (
     Pass1aResult,
     Pass1bResult,
     Pass1cResult,
@@ -81,14 +81,14 @@ def _photo_key_from_path(image_path: str) -> str:
 
 
 def _stable_hash_id(*parts: str, length: int = 16) -> str:
-    """SHA-256 based deterministic short ID. Matches AutoAnalyzer's scheme."""
+    """SHA-256 based deterministic short ID."""
     combined = "|".join(str(p) if p is not None else "" for p in parts)
     return hashlib.sha256(combined.encode("utf-8")).hexdigest()[:length]
 
 
 def _make_issue_id(run_id: str, photo_key: str, description: str,
                    location_hint: str, label: str, ordinal: int) -> str:
-    """Deterministic issue ID — matches the scheme used in AutoAnalyzer.save_photo_intel()."""
+    """Deterministic issue ID for stable, joinable references across the pipeline."""
     return _stable_hash_id(run_id, photo_key, description, location_hint, label, str(ordinal), length=16)
 
 
@@ -524,8 +524,7 @@ class SceneClassifierOrchestrator:
             context["labeled_forward"] = result.labeled_forward
 
             # ── Stamp deterministic issue_id on every forward observation ──
-            # Uses the same _make_issue_id() scheme as AutoAnalyzer.save_photo_intel()
-            # so IDs are stable and joinable across both paths.
+            # Uses _make_issue_id() for stable, deterministic IDs.
             _run_id = (getattr(options, "meta", None) or {}).get("run_id", "")
             _photo_key = (getattr(options, "meta", None) or {}).get("photo_key") or image_path.name
             _sig_counts: Dict[tuple, int] = {}
@@ -554,7 +553,7 @@ class SceneClassifierOrchestrator:
 
         # ── Normalize kind + scene_group on every labeled_forward item ────────
         # Must happen before 2d gate so gating and retrieval use consistent values.
-        # Mirrors the same normalization AutoAnalyzer does in its 2c enrichment block.
+        # Ensures consistent values for gating and retrieval.
         _UPGRADE_LABELS = {
             "opportunity", "upgrade", "improvement", "cosmetic_upgrade",
             "feature", "upgrade_candidate",
@@ -563,7 +562,7 @@ class SceneClassifierOrchestrator:
         def _label_to_kind(lbl: str) -> str:
             return "upgrade" if (lbl or "").strip().lower() in _UPGRADE_LABELS else "defect"
 
-        # Minimal scene→group map (keep in sync with SCENE_TO_GROUP_UI in auto_analyzer.py)
+        # Minimal scene→group map
         _SCENE_TO_GROUP: Dict[str, str] = {
             "kitchen": "kitchen", "pantry": "kitchen",
             "bathroom": "bathroom",

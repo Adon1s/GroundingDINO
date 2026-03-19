@@ -41,7 +41,7 @@ class PassToggles:
     pass_2a: bool = True   # Observations (freeform)
     pass_2b: bool = True   # Observations -> JSON
     pass_2c: bool = True   # Label observations + debug/forward split
-    pass_2d: bool = False  # Resolve defect_id from candidates (optional, requires candidate_provider)
+    pass_2d: bool = True   # Resolve defect_id from candidates (requires candidate_provider)
     pass_2e: bool = True   # Normalize / filter / dedupe verified issues (rule-based, no LLM)
     pass_2f: bool = True   # Big-ticket estimate review (post-processing, requires eligible candidates + VLM)
     pass_4: bool = False   # Property summary (legacy, not executed by current orchestrator)
@@ -83,7 +83,7 @@ class PassToggles:
             pass_2a=d.get('2a', True),
             pass_2b=d.get('2b', True),
             pass_2c=d.get('2c', True),
-            pass_2d=d.get('2d', False),  # default False - requires candidate_provider
+            pass_2d=d.get('2d', True),
             pass_2e=d.get('2e', True),
             pass_2f=d.get('2f', True),
             pass_4=d.get('4', False),
@@ -199,7 +199,7 @@ class SceneClassifierRunOptions:
     premium: bool = False
     toggles: PassToggles = field(default_factory=PassToggles)
     model_overrides: PassModelOverrides = field(default_factory=PassModelOverrides)
-    # Runtime metadata passed from AutoAnalyzer (run_id, property_key, photo_key, etc.)
+    # Runtime metadata (run_id, property_key, photo_key, etc.)
     # Used by the orchestrator to build deterministic issue_ids per image.
     meta: Dict[str, Any] = field(default_factory=dict)
 

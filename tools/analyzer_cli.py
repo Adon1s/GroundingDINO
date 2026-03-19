@@ -11,10 +11,15 @@ Supports:
 """
 
 import argparse
+import asyncio
 import json
 import logging
 import os
 import sys
+import time
+import uuid
+from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -22,7 +27,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-# Import config first. IMPORTANT: delay importing auto_analyzer until AFTER env overrides
+# Import config first
 try:
     from tools import pipeline_config as cfg  # type: ignore
 except Exception as exc:  # pragma: no cover - external dependency
@@ -30,16 +35,7 @@ except Exception as exc:  # pragma: no cover - external dependency
     sys.exit(1)
 
 
-def _import_auto_analyzer():
-    try:
-        from tools.auto_analyzer import AutoAnalyzer
-        return AutoAnalyzer
-    except Exception as exc:
-        print(f"Failed to import auto_analyzer: {exc}", file=sys.stderr)
-        raise
-
-
-# Optional: import pass config if available (for new architecture)
+# Optional: import pass config if available
 try:
     from tools.pass_config import PassToggles, PassModelOverrides, SceneClassifierRunOptions
 
@@ -49,10 +45,36 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Lightweight job container for write_photo_intel()
+# ─────────────────────────────────────────────────────────────────────────────
+@dataclass
+class ImageResult:
+    """Per-image result container matching write_photo_intel()'s res contract."""
+    image_path: str
+    scene_data: Optional[Dict[str, Any]] = None
+    scene_classifier: Optional[Dict[str, Any]] = None  # alias; writer checks both
+    scene: str = "unknown"
+    processing_time: float = 0.0
+    error: Optional[str] = None
+    detection_count: int = 0
+    verified_count: int = 0
+
+
+@dataclass
+class PropertyAnalysisJob:
+    """Job container matching write_photo_intel()'s job contract."""
+    property_key: str
+    job_id: str
+    artifacts_dir: str
+    timestamp: str
+    results: List[ImageResult] = field(default_factory=list)
+    total_processing_time: float = 0.0
+
 # Environment variable keys that should be resolved as filesystem paths
 PATH_OVERRIDE_KEYS = {
     "SCENE_CLASSIFIER_PY",
-    "CHIP_VERIFIER_PY",
     "ANALYZER_CLI",
     "ISSUE_CATALOG_PATH",
 }
@@ -78,8 +100,6 @@ STRING_OVERRIDE_KEYS = {
     "OPENAI_PASS_2C_MODEL",
     "OPENAI_PASS_2D_MODEL",
     "OPENAI_PASS_4_MODEL",
-    "OPENAI_CHIP_MODEL",
-
     # GPT naming alternatives (some apps use GPT5_ prefix)
     "GPT_MODEL",
     "GPT5_URL",
@@ -187,9 +207,6 @@ def _apply_env_overrides() -> None:
     if os.environ.get("PREMIUM_MAX_KEYWORDS"):
         setattr(cfg, "PREMIUM_MAX_KEYWORDS", int(os.environ["PREMIUM_MAX_KEYWORDS"]))
 
-    if os.environ.get("PREMIUM_SKIP_VERIFICATION") is not None:
-        setattr(cfg, "PREMIUM_SKIP_VERIFICATION", _to_bool(os.environ.get("PREMIUM_SKIP_VERIFICATION")))
-
     if os.environ.get("OPENAI_DEFAULT_MAX_TOKENS"):
         setattr(cfg, "OPENAI_DEFAULT_MAX_TOKENS", int(os.environ["OPENAI_DEFAULT_MAX_TOKENS"]))
 
@@ -249,13 +266,6 @@ Pass Control Examples:
                         help="Detection box confidence threshold")
     parser.add_argument("--text-threshold", type=float,
                         help="Text grounding threshold")
-    parser.add_argument("--chip-margin", type=float,
-                        help="Margin for detection chip extraction")
-    parser.add_argument("--max-keywords", type=int,
-                        help="Maximum keywords for detection")
-    parser.add_argument("--no-verify", dest="skip_verification", action="store_true",
-                        help="Skip chip verification pass")
-
     # ─────────────────────────────────────────────────────────────────────────
     # Backend/Profile selection
     # ─────────────────────────────────────────────────────────────────────────
@@ -404,8 +414,7 @@ def _build_summary(
     return summary
 
 
-import logging
-import re
+import re  # noqa: E402 – used by PayloadRedactFilter below
 
 
 class PayloadRedactFilter(logging.Filter):
@@ -505,7 +514,7 @@ def main() -> int:
     )
     install_payload_redactor()
 
-    # ✅ CRITICAL: Apply environment overrides BEFORE importing auto_analyzer
+    # Apply environment overrides before pipeline runs
     _apply_env_overrides()
 
     # Log configuration for debugging
@@ -530,58 +539,168 @@ def main() -> int:
     if model_overrides:
         logger.info(f"Model Overrides: {model_overrides}")
 
-    # Build analyzer kwargs
-    analyzer_kwargs = {
-        "python_exe": args.python_exe,
-        "artifacts_root": artifacts_root,
-        "box_threshold": args.box_threshold,
-        "text_threshold": args.text_threshold,
-        "chip_margin": args.chip_margin,
-        "max_keywords": args.max_keywords,
-        "skip_verification": args.skip_verification,
-        "debug": args.debug,
-        "detection_backend": args.detection_backend,
-        "analysis_profile": args.analysis_profile,
-        "use_pass_architecture": args.use_pass_architecture,
-    }
-
-    # Pass per-pass options if AutoAnalyzer supports them
-    # (graceful degradation if not yet implemented)
-    if pass_toggles:
-        analyzer_kwargs["pass_toggles"] = pass_toggles
-    if model_overrides:
-        analyzer_kwargs["model_overrides"] = model_overrides
-
-    # Filter out None values to let AutoAnalyzer use its defaults
-    analyzer_kwargs = {k: v for k, v in analyzer_kwargs.items() if v is not None}
-
-    # Import AutoAnalyzer AFTER env overrides have been applied
-    AutoAnalyzer = _import_auto_analyzer()
+    # ─────────────────────────────────────────────────────────────────────────
+    # Set up orchestrator pipeline
+    # ─────────────────────────────────────────────────────────────────────────
+    analysis_profile = args.analysis_profile or getattr(cfg, "ANALYSIS_PROFILE", "standard")
+    detection_backend = args.detection_backend or getattr(cfg, "DETECTION_BACKEND", "dinox")
 
     try:
-        analyzer = AutoAnalyzer(**analyzer_kwargs)
-    except TypeError as e:
-        # If AutoAnalyzer doesn't support new args yet, fall back
-        logger.warning(f"AutoAnalyzer doesn't support some args: {e}")
-        basic_kwargs = {
-            k: v for k, v in analyzer_kwargs.items()
-            if k not in ('pass_toggles', 'model_overrides', 'use_pass_architecture')
-        }
-        analyzer = AutoAnalyzer(**basic_kwargs)
+        from tools.artifact_writers import write_photo_intel, load_issue_catalog
+        from tools.scene_classifier_orchestrator import create_orchestrator_from_config
+        from tools.vlm_client import get_model_configs_from_pipeline_config, create_vlm_client
+    except Exception as exc:
+        logger.error(f"Failed to import pipeline components: {exc}", exc_info=True)
+        summary = {"success": False, "error": str(exc), "property_key": args.property_key}
+        print(json.dumps(summary, ensure_ascii=False))
+        return 1
 
-    job = analyzer.analyze_property(args.property_key, images)
+    # Load issue catalog
+    catalog = load_issue_catalog(cfg.ISSUE_CATALOG_PATH)
 
-    photo_intel_path = analyzer.save_photo_intel(job)
+    # Build candidate_provider for Pass 2d (embeddings-based catalog matching)
+    candidate_provider = None
+    if getattr(cfg, "USE_EMBEDDINGS_CATALOG", False):
+        try:
+            from tools.catalog_embeddings import CatalogEmbeddingsRetriever
+            from dataclasses import asdict
 
-    # Use the analyzer's resolved values for accurate reporting
+            retriever = CatalogEmbeddingsRetriever(
+                catalog_v2=catalog,
+                model_name=getattr(cfg, "EMBEDDINGS_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2"),
+                device=getattr(cfg, "EMBEDDINGS_DEVICE", "cpu"),
+                trust_remote_code=getattr(cfg, "EMBEDDINGS_TRUST_REMOTE_CODE", False),
+                default_topk=getattr(cfg, "EMBEDDINGS_TOPK", 10),
+            )
+
+            def candidate_provider(observation_text: str, context: dict) -> list:
+                kind = (context.get("kind") or "").strip().lower()
+                topk = context.get("top_k_candidates")
+                scene_group = context.get("scene_group")
+                allowed_groups = {scene_group} if scene_group else None
+                allowed_kinds = {kind} if kind in ("defect", "upgrade") else None
+                matches = retriever.retrieve_candidates(
+                    observation_text,
+                    topk=topk,
+                    allowed_kinds=allowed_kinds,
+                    allowed_groups=allowed_groups,
+                )
+                return [asdict(m) for m in matches]
+
+            logger.info(f"Pass 2d candidate_provider ready (model={retriever.model_name}, items={len(retriever._items)})")
+        except Exception as exc:
+            logger.warning(f"Could not initialize embeddings retriever for Pass 2d: {exc}. Pass 2d will be skipped.")
+            candidate_provider = None
+
+    # Create orchestrator
+    orchestrator = create_orchestrator_from_config(
+        cfg,
+        candidate_provider=candidate_provider,
+        catalog_items=catalog.get("items"),
+    )
+
+    # Build run options from CLI args + profile
+    options = SceneClassifierRunOptions.from_analysis_profile(
+        analysis_profile=analysis_profile,
+        toggles=pass_toggles if pass_toggles else None,
+        model_overrides=model_overrides if model_overrides else None,
+    )
+
+    # Get GPT config for artifact writing (Pass 2f, etc.)
+    _, gpt5_config = get_model_configs_from_pipeline_config(cfg)
+    vlm_client = create_vlm_client()
+
+    # Generate job ID and create artifacts directory
+    job_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
+    job_dir = artifacts_root / args.property_key / job_id
+    job_dir.mkdir(parents=True, exist_ok=True)
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Per-image analysis loop
+    # ─────────────────────────────────────────────────────────────────────────
+    results: List[ImageResult] = []
+    total_start = time.time()
+
+    async def _analyze_all():
+        for idx, image_path in enumerate(images):
+            img_start = time.time()
+            logger.info(f"[{idx + 1}/{len(images)}] Analyzing: {image_path.name}")
+
+            try:
+                img_options = options.with_meta(
+                    run_id=job_id,
+                    photo_key=image_path.name,
+                    property_key=args.property_key,
+                )
+                result = await orchestrator.analyze_image(
+                    image_path=image_path,
+                    options=img_options,
+                )
+                elapsed = time.time() - img_start
+                result_dict = result.to_dict()
+
+                results.append(ImageResult(
+                    image_path=str(image_path),
+                    scene_data=result_dict,
+                    scene=result.scene or "unknown",
+                    processing_time=elapsed,
+                ))
+                logger.info(f"  ✅ {image_path.name} → {result.scene} ({elapsed:.1f}s)")
+
+            except Exception as exc:
+                elapsed = time.time() - img_start
+                logger.error(f"  ❌ {image_path.name} failed: {exc}", exc_info=args.debug)
+                results.append(ImageResult(
+                    image_path=str(image_path),
+                    scene="unknown",
+                    processing_time=elapsed,
+                    error=str(exc),
+                ))
+
+    asyncio.run(_analyze_all())
+
+    total_time = time.time() - total_start
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Build job and write artifacts
+    # ─────────────────────────────────────────────────────────────────────────
+    job = PropertyAnalysisJob(
+        property_key=args.property_key,
+        job_id=job_id,
+        artifacts_dir=str(job_dir),
+        timestamp=datetime.utcnow().isoformat() + "Z",
+        results=results,
+        total_processing_time=total_time,
+    )
+
+    try:
+        photo_intel_path = write_photo_intel(
+            cfg=cfg,
+            job=job,
+            detection_backend=detection_backend,
+            analysis_profile=analysis_profile,
+            use_pass_architecture=True,
+            pass_toggles=pass_toggles if pass_toggles else {},
+            model_overrides=model_overrides if model_overrides else {},
+            gpt_config=gpt5_config,
+            issue_catalog=catalog,
+            vlm_client=vlm_client,
+        )
+    except Exception as exc:
+        logger.error(f"Failed to write photo_intel: {exc}", exc_info=True)
+        photo_intel_path = None
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # Build summary for Node.js caller
+    # ─────────────────────────────────────────────────────────────────────────
     summary = _build_summary(
         job,
-        photo_intel_path,
-        detection_backend=getattr(analyzer, "detection_backend", args.detection_backend),
-        analysis_profile=getattr(analyzer, "analysis_profile", args.analysis_profile),
+        photo_intel_path=photo_intel_path,
+        detection_backend=detection_backend,
+        analysis_profile=analysis_profile,
         pass_toggles=pass_toggles if pass_toggles else None,
         model_overrides=model_overrides if model_overrides else None,
-        used_pass_architecture=getattr(analyzer, "use_pass_architecture", None),
+        used_pass_architecture=True,
     )
 
     if args.output_json:

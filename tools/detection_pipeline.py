@@ -6,7 +6,7 @@ Encapsulates:
   - DINO-X backend invocation
   - ROI hint bonus application
   - Special-case filters, NMS, scene caps
-  - pred.json rewrite, chip pruning, overlay redraw
+  - pred.json rewrite, overlay redraw
 
 Exposes one public entry point:
   run_detection_stage(...) -> (detection_result, detections)
@@ -58,7 +58,6 @@ def run_detection_backend(
     text_prompt: str,
     box_threshold: float,
     text_threshold: float,
-    chip_margin: float,
     debug: bool,
     dinox_client: Any = None,
 ) -> Dict[str, Any]:
@@ -77,9 +76,6 @@ def run_detection_backend(
                 "--box_threshold", str(box_threshold),
                 "--text_threshold", str(text_threshold),
             ]
-            if getattr(cfg, "DINOX_EXTRACT_CHIPS", False):
-                cmd.append("--extract-chips")
-                cmd.extend(["--chip-margin", str(chip_margin)])
             if getattr(cfg, "DINOX_CPU_ONLY", cfg.CPU_ONLY):
                 cmd.append("--cpu-only")
 
@@ -161,7 +157,6 @@ def run_detection_stage(
     planner_hints: Dict[str, str],
     box_threshold: float,
     text_threshold: float,
-    chip_margin: float,
     debug: bool,
     dinox_client: Any = None,
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
@@ -180,7 +175,6 @@ def run_detection_stage(
         text_prompt=prompt,
         box_threshold=box_threshold,
         text_threshold=text_threshold,
-        chip_margin=chip_margin,
         debug=debug,
         dinox_client=dinox_client,
     )
@@ -316,34 +310,6 @@ def run_detection_stage(
     pred_json_path.write_text(
         json.dumps(detection_result, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-
-    # (Optional) prune chips for detections that were dropped
-    if getattr(cfg, "PRUNE_DROPPED_CHIPS", False):
-        try:
-            chip_dir = Path(
-                (detection_result.get("chip_extraction", {}) or {}).get(
-                    "chips_directory", str(output_dir / "chips")
-                )
-            )
-            keep = set()
-            for d in detections:
-                fn = ((d.get("chip_info") or {}).get("filename"))
-                if fn:
-                    keep.add(str((chip_dir / fn).resolve()))
-
-            if chip_dir.exists():
-                pruned = 0
-                for fp in chip_dir.glob("*"):
-                    if keep and str(fp.resolve()) not in keep:
-                        try:
-                            fp.unlink()
-                            pruned += 1
-                        except Exception:
-                            pass
-                if pruned > 0:
-                    logger.info(f"  Pruned {pruned} dropped chip file(s)")
-        except Exception as e:
-            logger.warning(f"  Chip pruning failed: {e}")
 
     # Redraw overlay
     try:

@@ -1,7 +1,7 @@
 # tools/pipeline_common.py
 """
 Shared constants, ID generators, and pure utility functions used across
-the analysis pipeline (auto_analyzer, artifact_writers, detection_pipeline,
+the analysis pipeline (artifact_writers, detection_pipeline,
 scene_classifier_service).
 """
 from __future__ import annotations

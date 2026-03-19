@@ -4,7 +4,7 @@ Artifact writers for the analysis pipeline.
 
 Contains:
   - load_issue_catalog() / log_catalog_load()
-  - write_photo_intel()   (was AutoAnalyzer.save_photo_intel)
+  - write_photo_intel()
 """
 from __future__ import annotations
 
