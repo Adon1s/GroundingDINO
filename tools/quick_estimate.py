@@ -589,6 +589,111 @@ def compute_group_estimate(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+# Big-ticket summary — elevates Pass 2f-validated big-ticket items
+# ═══════════════════════════════════════════════════════════════════════════════
+
+def compute_big_ticket_summary(
+    candidates: List[EstimateCandidate],
+    groups_out: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """
+    Extract big-ticket items and partition by Pass 2f validation status.
+
+    Only items that were explicitly validated by Pass 2f (pass_2f_attempted=True
+    AND is_valid_detection=True) contribute to validated_total.  Unreviewed and
+    invalidated items are listed separately for transparency.
+
+    Costs are pulled from the already-computed group line items so that group
+    caps and stack behaviors are respected — no re-computation.
+    """
+    big_ticket = [c for c in candidates if c.estimate_meta.big_ticket]
+
+    if not big_ticket:
+        return {
+            "version": "big_ticket_v1",
+            "validated_total": {"low": 0, "high": 0},
+            "validated_items": [],
+            "invalidated_items": [],
+            "unreviewed_items": [],
+            "confidence": "low",
+            "meta": {
+                "total_big_ticket": 0,
+                "validated_count": 0,
+                "invalidated_count": 0,
+                "unreviewed_count": 0,
+            },
+        }
+
+    # Build a lookup from group line_items for cost retrieval
+    # key: catalog_item_id → line_item dict (with cost_low / cost_high)
+    line_item_lookup: Dict[str, Dict[str, Any]] = {}
+    for g in groups_out:
+        for li in g.get("line_items", []):
+            line_item_lookup[li["catalog_item_id"]] = li
+
+    def _item_record(c: EstimateCandidate) -> Dict[str, Any]:
+        li = line_item_lookup.get(c.catalog_item_id, {})
+        return {
+            "catalog_item_id": c.catalog_item_id,
+            "name": c.catalog_item_name,
+            "group": c.estimate_meta.group,
+            "cost_low": li.get("cost_low", 0),
+            "cost_high": li.get("cost_high", 0),
+            "effective_posture": c.effective_posture or c.estimate_meta.strategy,
+            "review_posture": c.review_posture,
+            "review_rationale": c.review_rationale,
+            "review_source": c.review_source,
+            "pass_2f_attempted": c.pass_2f_attempted,
+            "pass_2f_applied": c.pass_2f_applied,
+            "is_valid_detection": c.is_valid_detection,
+        }
+
+    validated: List[Dict[str, Any]] = []
+    invalidated: List[Dict[str, Any]] = []
+    unreviewed: List[Dict[str, Any]] = []
+
+    for c in big_ticket:
+        rec = _item_record(c)
+        if c.is_valid_detection is False:
+            invalidated.append(rec)
+        elif c.pass_2f_attempted and c.is_valid_detection is True:
+            validated.append(rec)
+        else:
+            unreviewed.append(rec)
+
+    validated_low = sum(r["cost_low"] for r in validated)
+    validated_high = sum(r["cost_high"] for r in validated)
+
+    # Confidence based on review coverage
+    total = len(big_ticket)
+    n_validated = len(validated)
+    n_invalidated = len(invalidated)
+    n_reviewed = n_validated + n_invalidated  # 2f ran on these
+
+    if n_reviewed == total and n_validated > 0:
+        confidence = "high"
+    elif n_reviewed > 0:
+        confidence = "medium"
+    else:
+        confidence = "low"
+
+    return {
+        "version": "big_ticket_v1",
+        "validated_total": {"low": validated_low, "high": validated_high},
+        "validated_items": validated,
+        "invalidated_items": invalidated,
+        "unreviewed_items": unreviewed,
+        "confidence": confidence,
+        "meta": {
+            "total_big_ticket": total,
+            "validated_count": n_validated,
+            "invalidated_count": n_invalidated,
+            "unreviewed_count": len(unreviewed),
+        },
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 # Main entry point
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -614,9 +719,29 @@ def compute_quick_estimate(
 
     if not candidates:
         return {
-            "version": "quick_estimate_v1",
+            "version": "quick_estimate_v2",
             "groups": [],
             "totals": {"low": 0, "high": 0},
+            "primary_estimate": {
+                "low": 0, "high": 0,
+                "source": "full_estimate_fallback",
+                "big_ticket_portion": {"low": 0, "high": 0},
+                "minor_items_portion": {"low": 0, "high": 0},
+            },
+            "big_ticket_summary": {
+                "version": "big_ticket_v1",
+                "validated_total": {"low": 0, "high": 0},
+                "validated_items": [],
+                "invalidated_items": [],
+                "unreviewed_items": [],
+                "confidence": "low",
+                "meta": {
+                    "total_big_ticket": 0,
+                    "validated_count": 0,
+                    "invalidated_count": 0,
+                    "unreviewed_count": 0,
+                },
+            },
             "meta": {
                 "candidate_count": 0,
                 "big_ticket_count": 0,
@@ -689,13 +814,41 @@ def compute_quick_estimate(
         ],
     }
 
+    # ── Big-ticket summary & primary estimate ──
+    bt_summary = compute_big_ticket_summary(candidates, groups_out)
+    bt_validated_low = bt_summary["validated_total"]["low"]
+    bt_validated_high = bt_summary["validated_total"]["high"]
+
+    if bt_validated_low > 0 or bt_validated_high > 0:
+        # Minor items = full totals minus validated big-ticket contribution
+        minor_low = max(0, total_low - bt_validated_low)
+        minor_high = max(0, total_high - bt_validated_high)
+        primary_estimate = {
+            "low": bt_validated_low + minor_low,
+            "high": bt_validated_high + minor_high,
+            "source": "big_ticket_primary",
+            "big_ticket_portion": {"low": bt_validated_low, "high": bt_validated_high},
+            "minor_items_portion": {"low": minor_low, "high": minor_high},
+        }
+    else:
+        # No validated big-ticket items — fall back to full totals
+        primary_estimate = {
+            "low": total_low,
+            "high": total_high,
+            "source": "full_estimate_fallback",
+            "big_ticket_portion": {"low": 0, "high": 0},
+            "minor_items_portion": {"low": total_low, "high": total_high},
+        }
+
     return {
-        "version": "quick_estimate_v1",
+        "version": "quick_estimate_v2",
         "groups": groups_out,
         "totals": {
             "low": total_low,
             "high": total_high,
         },
+        "primary_estimate": primary_estimate,
+        "big_ticket_summary": bt_summary,
         "meta": {
             "candidate_count": len(candidates),
             "big_ticket_count": big_ticket_count,
@@ -707,6 +860,7 @@ def compute_quick_estimate(
         "pass_2f_review_audit": pass_2f_review_audit,
         "disclaimer": (
             "Quick photo-based estimate. Ranges reflect allowance-level budgets, "
-            "not contractor bids. Inspect-only items carry a nominal inspection allowance."
+            "not contractor bids. Inspect-only items carry a nominal inspection allowance. "
+            "Primary estimate driven by premium-model-validated big-ticket items."
         ),
     }

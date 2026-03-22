@@ -517,7 +517,8 @@
         "strategy": "repair_or_replace",
         "group": "roof",
         "big_ticket": true,
-        "stack_behavior": "max_only"
+        "stack_behavior": "max_only",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -1064,7 +1065,8 @@
         "strategy": "inspect_only",
         "group": "structure",
         "big_ticket": true,
-        "stack_behavior": "max_only"
+        "stack_behavior": "max_only",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -1302,7 +1304,8 @@
         "strategy": "replace_only",
         "group": "kitchen",
         "big_ticket": true,
-        "stack_behavior": "group_cap"
+        "stack_behavior": "group_cap",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -1347,7 +1350,8 @@
         "strategy": "replace_only",
         "group": "bathroom",
         "big_ticket": true,
-        "stack_behavior": "group_cap"
+        "stack_behavior": "group_cap",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -1394,7 +1398,8 @@
         "strategy": "replace_only",
         "group": "flooring",
         "big_ticket": true,
-        "stack_behavior": "group_cap"
+        "stack_behavior": "group_cap",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -2600,7 +2605,8 @@
         "strategy": "replace_only",
         "group": "exterior",
         "big_ticket": true,
-        "stack_behavior": "sum"
+        "stack_behavior": "sum",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -2842,7 +2848,8 @@
         "strategy": "repair_only",
         "group": "structure",
         "big_ticket": true,
-        "stack_behavior": "max_only"
+        "stack_behavior": "max_only",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -2883,7 +2890,8 @@
         "strategy": "repair_or_replace",
         "group": "structure",
         "big_ticket": true,
-        "stack_behavior": "max_only"
+        "stack_behavior": "max_only",
+        "allow_revisit_pass": true
       }
     },
     {
@@ -3010,7 +3018,8 @@
         "strategy": "inspect_only",
         "group": "pool",
         "big_ticket": true,
-        "stack_behavior": "max_only"
+        "stack_behavior": "max_only",
+        "allow_revisit_pass": true
       }
     }
   ]
