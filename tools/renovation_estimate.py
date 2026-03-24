@@ -1,14 +1,15 @@
 """
-quick_estimate.py
------------------
-Estimate-priority metadata layer for the issue catalog.
+renovation_estimate.py
+----------------------
+Primary renovation cost estimation engine.
 
 Sits beside the existing detection, severity, and costing systems.
-Powers a "quick estimate" pipeline that answers:
-  - What are the few major cost drivers visible from photos?
+Powers the renovation estimate pipeline that answers:
+  - What are the major cost drivers visible from photos?
   - Which are likely repair vs replace?
   - What are the likely budget buckets?
   - Which items are too uncertain and should be inspection flags?
+  - Which big-ticket items have been validated by Pass 2f?
 
 Core functions are pure (no LLM, no I/O).
 Also contains run_pass_2f_batch() which optionally invokes the LLM-based
@@ -697,7 +698,7 @@ def compute_big_ticket_summary(
 # Main entry point
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def compute_quick_estimate(
+def compute_renovation_estimate(
     issues_flat: List[Dict[str, Any]],
     issue_catalog: Dict[str, Any],
     *,
@@ -705,9 +706,9 @@ def compute_quick_estimate(
     prebuilt_candidates: Optional[List[EstimateCandidate]] = None,
 ) -> Dict[str, Any]:
     """
-    Main entry point for the quick estimate pipeline.
+    Main entry point for the renovation estimate pipeline.
 
-    Returns a dict ready for JSON serialisation into photo_intel["quick_estimate"].
+    Returns a dict ready for JSON serialisation into photo_intel["renovation_estimate"].
 
     If prebuilt_candidates is provided (e.g. already processed by Pass 2f),
     those are used directly instead of re-extracting from issues_flat.
@@ -719,9 +720,9 @@ def compute_quick_estimate(
 
     if not candidates:
         return {
-            "version": "quick_estimate_v2",
+            "version": "renovation_estimate_v1",
             "groups": [],
-            "totals": {"low": 0, "high": 0},
+            "raw_totals": {"low": 0, "high": 0},
             "primary_estimate": {
                 "low": 0, "high": 0,
                 "source": "full_estimate_fallback",
@@ -819,10 +820,22 @@ def compute_quick_estimate(
     bt_validated_low = bt_summary["validated_total"]["low"]
     bt_validated_high = bt_summary["validated_total"]["high"]
 
+    # Total cost of ALL big-ticket items (validated + invalidated + unreviewed)
+    # so we can fully subtract them from totals to get truly-minor items only.
+    _all_bt_ids = {c.catalog_item_id for c in candidates if c.estimate_meta.big_ticket}
+    _all_bt_low = 0
+    _all_bt_high = 0
+    for g in groups_out:
+        for li in g.get("line_items", []):
+            if li["catalog_item_id"] in _all_bt_ids:
+                _all_bt_low += li["cost_low"]
+                _all_bt_high += li["cost_high"]
+
     if bt_validated_low > 0 or bt_validated_high > 0:
-        # Minor items = full totals minus validated big-ticket contribution
-        minor_low = max(0, total_low - bt_validated_low)
-        minor_high = max(0, total_high - bt_validated_high)
+        # Minor items = full totals minus ALL big-ticket items (not just validated).
+        # This ensures unreviewed big-ticket items don't sneak back into primary.
+        minor_low = max(0, total_low - _all_bt_low)
+        minor_high = max(0, total_high - _all_bt_high)
         primary_estimate = {
             "low": bt_validated_low + minor_low,
             "high": bt_validated_high + minor_high,
@@ -841,9 +854,9 @@ def compute_quick_estimate(
         }
 
     return {
-        "version": "quick_estimate_v2",
+        "version": "renovation_estimate_v1",
         "groups": groups_out,
-        "totals": {
+        "raw_totals": {
             "low": total_low,
             "high": total_high,
         },
