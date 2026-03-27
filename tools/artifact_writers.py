@@ -466,9 +466,9 @@ def write_photo_intel(
                 )
 
                 candidates = extract_estimate_candidates(
-                    issues_flat, issue_catalog, include_secondary=False,
+                    issues_flat, issue_catalog,
                 )
-                eligible = [c for c in candidates if c.estimate_meta.allow_revisit_pass]
+                eligible = [c for c in candidates if c.estimate_meta.estimate_tier in ("high", "medium")]
                 if eligible:
                     # Build photo_key → image_path mapping from job results
                     photo_key_to_path: Dict[str, Path] = {}
@@ -555,7 +555,6 @@ def write_photo_intel(
         quick_est = compute_renovation_estimate(
             issues_flat=issues_flat,
             issue_catalog=issue_catalog,
-            include_secondary=False,
             prebuilt_candidates=reviewed_candidates,
         )
         if reviewed_candidates is not None:
@@ -588,12 +587,13 @@ def write_photo_intel(
                 "reason": "disabled_by_toggle",
             }
         logger.info(
-            "Renovation estimate: $%s-$%s (%d candidates, %d groups, %d big-ticket)",
+            "Renovation estimate: $%s-$%s (%d candidates, %d groups, %d high-tier, %d medium-tier)",
             f'{quick_est["raw_totals"]["low"]:,}',
             f'{quick_est["raw_totals"]["high"]:,}',
             quick_est["meta"]["candidate_count"],
             quick_est["meta"]["groups_active"],
-            quick_est["meta"]["big_ticket_count"],
+            quick_est["meta"]["high_tier_count"],
+            quick_est["meta"]["medium_tier_count"],
         )
     except Exception as exc:
         logger.error(f"Failed to compute renovation estimate: {exc}", exc_info=True)

@@ -9,7 +9,12 @@ Powers the renovation estimate pipeline that answers:
   - Which are likely repair vs replace?
   - What are the likely budget buckets?
   - Which items are too uncertain and should be inspection flags?
-  - Which big-ticket items have been validated by Pass 2f?
+  - Which high/medium tier items have been validated by Pass 2f?
+
+Items are classified into three tiers:
+  - high:   major cost drivers (roof, cabinets, foundation, etc.)
+  - medium: commonly renovated items (scratched flooring, countertop damage, etc.)
+  - minor:  cosmetic/noise items — excluded from quick estimate entirely
 
 Core functions are pure (no LLM, no I/O).
 Also contains run_pass_2f_batch() which optionally invokes the LLM-based
@@ -31,7 +36,7 @@ logger = logging.getLogger(__name__)
 # Type aliases
 # ═══════════════════════════════════════════════════════════════════════════════
 
-EstimateImportance = Literal["primary", "secondary", "ignore"]
+EstimateTier = Literal["high", "medium", "minor"]
 EstimateStrategy = Literal[
     "repair_only", "replace_only", "repair_or_replace",
     "service_only", "inspect_only",
@@ -50,13 +55,10 @@ EstimateStackBehavior = Literal["sum", "group_cap", "max_only"]
 @dataclass(frozen=True)
 class CatalogEstimateMeta:
     """Estimate behaviour attached to a catalog item."""
-    quick_include: bool = False
-    importance: EstimateImportance = "ignore"
+    estimate_tier: EstimateTier = "minor"
     strategy: EstimateStrategy = "repair_only"
     group: EstimateGroup = "other"
-    big_ticket: bool = False
     stack_behavior: EstimateStackBehavior = "sum"
-    allow_revisit_pass: bool = False
 
 
 ESTIMATE_DEFAULTS = CatalogEstimateMeta()
@@ -66,14 +68,14 @@ def resolve_estimate_meta(raw: Optional[Dict[str, Any]]) -> CatalogEstimateMeta:
     """Parse an estimate block from catalog JSON, falling back to defaults."""
     if not raw or not isinstance(raw, dict):
         return ESTIMATE_DEFAULTS
+    tier = raw.get("estimate_tier", "minor")
+    if tier not in ("high", "medium", "minor"):
+        tier = "minor"
     return CatalogEstimateMeta(
-        quick_include=bool(raw.get("quick_include", False)),
-        importance=raw.get("importance", "ignore"),
+        estimate_tier=tier,
         strategy=raw.get("strategy", "repair_only"),
         group=raw.get("group", "other"),
-        big_ticket=bool(raw.get("big_ticket", False)),
         stack_behavior=raw.get("stack_behavior", "sum"),
-        allow_revisit_pass=bool(raw.get("allow_revisit_pass", False)),
     )
 
 
@@ -134,18 +136,18 @@ def resolve_effective_posture(candidate: EstimateCandidate) -> str:
     return candidate.estimate_meta.strategy
 
 
+_TIER_RANK = {"high": 0, "medium": 1, "minor": 2}
+
+
 def extract_estimate_candidates(
     issues_flat: List[Dict[str, Any]],
     issue_catalog: Dict[str, Any],
-    *,
-    include_secondary: bool = False,
 ) -> List[EstimateCandidate]:
     """
     Filter issues_flat into estimate-ready candidates.
 
-    Only returns items where:
-      - catalog item has estimate.quick_include == True
-      - estimate.importance is 'primary' (or 'secondary' if include_secondary)
+    Only returns items where estimate_tier is 'high' or 'medium'.
+    Minor-tier items are excluded from the quick estimate entirely.
     """
     catalog_lookup: Dict[str, Dict[str, Any]] = {}
     for item in issue_catalog.get("items", []):
@@ -164,17 +166,8 @@ def extract_estimate_candidates(
         cat = catalog_lookup[cat_id]
         est_meta = resolve_estimate_meta(cat.get("estimate"))
 
-        # Filter gate
-        if est_meta.importance == "ignore":
-            continue
-        if not est_meta.quick_include:
-            # Secondary items have quick_include=False but can still
-            # participate when include_secondary is set.
-            if est_meta.importance == "secondary" and include_secondary:
-                pass  # allow through
-            else:
-                continue
-        if est_meta.importance == "secondary" and not include_secondary:
+        # Filter gate: only high and medium tiers participate
+        if est_meta.estimate_tier == "minor":
             continue
 
         scene_groups = sorted(set(
@@ -204,9 +197,9 @@ def extract_estimate_candidates(
             issue_ids=issue_ids,
         ))
 
-    # Sort: big_ticket first, then severity desc, then occurrences desc
+    # Sort: high tier first, then medium, then severity desc, then occurrences desc
     candidates.sort(key=lambda c: (
-        -int(c.estimate_meta.big_ticket),
+        _TIER_RANK.get(c.estimate_meta.estimate_tier, 2),
         -c.severity,
         -c.occurrences,
     ))
@@ -292,6 +285,9 @@ def resolve_pass_2f_model_config(
 # Pass 2f batch runner — optional LLM revisit for eligible candidates
 # ═══════════════════════════════════════════════════════════════════════════════
 
+_DEFAULT_PASS_2F_TIERS = frozenset({"high", "medium"})
+
+
 async def run_pass_2f_batch(
     candidates: List[EstimateCandidate],
     issues_flat: List[Dict[str, Any]],
@@ -300,11 +296,15 @@ async def run_pass_2f_batch(
     model_config: dict,
     photo_key_to_path: Dict[str, Path],
     provider: str = "premium",
+    pass_2f_tiers: Optional[frozenset] = None,
 ) -> List[EstimateCandidate]:
     """
     Run Pass 2f on eligible candidates and populate their review override fields.
 
-    Only candidates with allow_revisit_pass=True are sent to the VLM.
+    Only candidates whose estimate_tier is in pass_2f_tiers are sent to the VLM.
+    Defaults to {"high", "medium"}. Pass frozenset({"high"}) to restrict to
+    high-tier only.
+
     For each candidate, picks a representative image (first photo_key with a
     valid path) and the first issue description as context.
 
@@ -325,11 +325,12 @@ async def run_pass_2f_batch(
         if cid and cid not in desc_lookup and issue.get("description"):
             desc_lookup[cid] = issue["description"]
 
-    eligible = [c for c in candidates if c.estimate_meta.allow_revisit_pass]
+    _tiers = pass_2f_tiers if pass_2f_tiers is not None else _DEFAULT_PASS_2F_TIERS
+    eligible = [c for c in candidates if c.estimate_meta.estimate_tier in _tiers]
 
     # Tag non-eligible candidates with fallback reason
     for c in candidates:
-        if not c.estimate_meta.allow_revisit_pass:
+        if c.estimate_meta.estimate_tier not in _tiers:
             c.pass_2f_fallback_reason = PASS_2F_FALLBACK_NOT_ELIGIBLE
 
     if not eligible:
@@ -513,7 +514,7 @@ def compute_group_estimate(
             "group": group,
             "low": 0, "high": 0,
             "raw_sum_low": 0, "raw_sum_high": 0,
-            "has_big_ticket": False,
+            "has_high_tier": False,
             "stack_behavior": "sum",
             "inspection_only": False,
             "item_count": 0,
@@ -533,10 +534,9 @@ def compute_group_estimate(
             "occurrences": c.occurrences,
             "strategy": c.estimate_meta.strategy,
             "stack_behavior": c.estimate_meta.stack_behavior,
-            "big_ticket": c.estimate_meta.big_ticket,
+            "estimate_tier": c.estimate_meta.estimate_tier,
             "cost_low": low,
             "cost_high": high,
-            "allow_revisit_pass": c.estimate_meta.allow_revisit_pass,
             # ── Validity & posture audit trail (always present) ──
             "is_valid_detection": c.is_valid_detection,
             "default_posture": c.estimate_meta.strategy,
@@ -555,7 +555,7 @@ def compute_group_estimate(
     dominant = _resolve_dominant_stack(candidates)
     raw_sum_low = sum(li["cost_low"] for li in line_items)
     raw_sum_high = sum(li["cost_high"] for li in line_items)
-    has_big_ticket = any(c.estimate_meta.big_ticket for c in candidates)
+    has_high_tier = any(c.estimate_meta.estimate_tier == "high" for c in candidates)
     all_inspect = all(c.estimate_meta.strategy == "inspect_only" for c in candidates)
 
     # Apply stack behavior
@@ -581,7 +581,7 @@ def compute_group_estimate(
         "high": capped_high,
         "raw_sum_low": raw_sum_low,
         "raw_sum_high": raw_sum_high,
-        "has_big_ticket": has_big_ticket,
+        "has_high_tier": has_high_tier,
         "stack_behavior": dominant,
         "inspection_only": all_inspect,
         "item_count": len(candidates),
@@ -590,15 +590,15 @@ def compute_group_estimate(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Big-ticket summary — elevates Pass 2f-validated big-ticket items
+# Tier summary — elevates Pass 2f-validated high/medium items
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def compute_big_ticket_summary(
+def compute_tier_summary(
     candidates: List[EstimateCandidate],
     groups_out: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
     """
-    Extract big-ticket items and partition by Pass 2f validation status.
+    Partition high+medium tier items by Pass 2f validation status.
 
     Only items that were explicitly validated by Pass 2f (pass_2f_attempted=True
     AND is_valid_detection=True) contribute to validated_total.  Unreviewed and
@@ -607,18 +607,18 @@ def compute_big_ticket_summary(
     Costs are pulled from the already-computed group line items so that group
     caps and stack behaviors are respected — no re-computation.
     """
-    big_ticket = [c for c in candidates if c.estimate_meta.big_ticket]
+    reviewable = [c for c in candidates if c.estimate_meta.estimate_tier in ("high", "medium")]
 
-    if not big_ticket:
+    if not reviewable:
         return {
-            "version": "big_ticket_v1",
+            "version": "tier_summary_v1",
             "validated_total": {"low": 0, "high": 0},
             "validated_items": [],
             "invalidated_items": [],
             "unreviewed_items": [],
             "confidence": "low",
             "meta": {
-                "total_big_ticket": 0,
+                "total_reviewable": 0,
                 "validated_count": 0,
                 "invalidated_count": 0,
                 "unreviewed_count": 0,
@@ -637,6 +637,7 @@ def compute_big_ticket_summary(
         return {
             "catalog_item_id": c.catalog_item_id,
             "name": c.catalog_item_name,
+            "estimate_tier": c.estimate_meta.estimate_tier,
             "group": c.estimate_meta.group,
             "cost_low": li.get("cost_low", 0),
             "cost_high": li.get("cost_high", 0),
@@ -653,7 +654,7 @@ def compute_big_ticket_summary(
     invalidated: List[Dict[str, Any]] = []
     unreviewed: List[Dict[str, Any]] = []
 
-    for c in big_ticket:
+    for c in reviewable:
         rec = _item_record(c)
         if c.is_valid_detection is False:
             invalidated.append(rec)
@@ -666,7 +667,7 @@ def compute_big_ticket_summary(
     validated_high = sum(r["cost_high"] for r in validated)
 
     # Confidence based on review coverage
-    total = len(big_ticket)
+    total = len(reviewable)
     n_validated = len(validated)
     n_invalidated = len(invalidated)
     n_reviewed = n_validated + n_invalidated  # 2f ran on these
@@ -679,14 +680,14 @@ def compute_big_ticket_summary(
         confidence = "low"
 
     return {
-        "version": "big_ticket_v1",
+        "version": "tier_summary_v1",
         "validated_total": {"low": validated_low, "high": validated_high},
         "validated_items": validated,
         "invalidated_items": invalidated,
         "unreviewed_items": unreviewed,
         "confidence": confidence,
         "meta": {
-            "total_big_ticket": total,
+            "total_reviewable": total,
             "validated_count": n_validated,
             "invalidated_count": n_invalidated,
             "unreviewed_count": len(unreviewed),
@@ -702,7 +703,6 @@ def compute_renovation_estimate(
     issues_flat: List[Dict[str, Any]],
     issue_catalog: Dict[str, Any],
     *,
-    include_secondary: bool = False,
     prebuilt_candidates: Optional[List[EstimateCandidate]] = None,
 ) -> Dict[str, Any]:
     """
@@ -715,29 +715,27 @@ def compute_renovation_estimate(
     """
     candidates = prebuilt_candidates or extract_estimate_candidates(
         issues_flat, issue_catalog,
-        include_secondary=include_secondary,
     )
 
     if not candidates:
         return {
-            "version": "renovation_estimate_v1",
+            "version": "renovation_estimate_v2",
             "groups": [],
             "raw_totals": {"low": 0, "high": 0},
             "primary_estimate": {
                 "low": 0, "high": 0,
                 "source": "full_estimate_fallback",
-                "big_ticket_portion": {"low": 0, "high": 0},
-                "minor_items_portion": {"low": 0, "high": 0},
+                "validated_portion": {"low": 0, "high": 0},
             },
-            "big_ticket_summary": {
-                "version": "big_ticket_v1",
+            "tier_summary": {
+                "version": "tier_summary_v1",
                 "validated_total": {"low": 0, "high": 0},
                 "validated_items": [],
                 "invalidated_items": [],
                 "unreviewed_items": [],
                 "confidence": "low",
                 "meta": {
-                    "total_big_ticket": 0,
+                    "total_reviewable": 0,
                     "validated_count": 0,
                     "invalidated_count": 0,
                     "unreviewed_count": 0,
@@ -745,7 +743,8 @@ def compute_renovation_estimate(
             },
             "meta": {
                 "candidate_count": 0,
-                "big_ticket_count": 0,
+                "high_tier_count": 0,
+                "medium_tier_count": 0,
                 "groups_active": 0,
                 "pass_2f_reviewed_count": 0,
                 "pass_2f_applied_count": 0,
@@ -772,18 +771,19 @@ def compute_renovation_estimate(
         result = compute_group_estimate(group, group_candidates)
         groups_out.append(result)
 
-    # Sort: big_ticket groups first, then by high desc
+    # Sort: high-tier groups first, then by high desc
     groups_out.sort(key=lambda g: (
-        -int(g["has_big_ticket"]),
+        -int(g["has_high_tier"]),
         -g["high"],
     ))
 
     total_low = sum(g["low"] for g in groups_out)
     total_high = sum(g["high"] for g in groups_out)
-    big_ticket_count = sum(1 for c in candidates if c.estimate_meta.big_ticket)
+    high_tier_count = sum(1 for c in candidates if c.estimate_meta.estimate_tier == "high")
+    medium_tier_count = sum(1 for c in candidates if c.estimate_meta.estimate_tier == "medium")
 
     # ── Build 2f review audit from eligible candidates ──
-    eligible_candidates = [c for c in candidates if c.estimate_meta.allow_revisit_pass]
+    eligible_candidates = [c for c in candidates if c.estimate_meta.estimate_tier in ("high", "medium")]
     pass_2f_reviewed_count = sum(1 for c in candidates if c.pass_2f_attempted)
     pass_2f_applied_count = sum(1 for c in candidates if c.pass_2f_applied)
     pass_2f_invalidated_count = sum(1 for c in candidates if c.is_valid_detection is False)
@@ -800,6 +800,7 @@ def compute_renovation_estimate(
             {
                 "catalog_item_id": c.catalog_item_id,
                 "name": c.catalog_item_name,
+                "estimate_tier": c.estimate_meta.estimate_tier,
                 "is_valid_detection": c.is_valid_detection,
                 "default_posture": c.estimate_meta.strategy,
                 "review_posture": c.review_posture,
@@ -815,56 +816,41 @@ def compute_renovation_estimate(
         ],
     }
 
-    # ── Big-ticket summary & primary estimate ──
-    bt_summary = compute_big_ticket_summary(candidates, groups_out)
-    bt_validated_low = bt_summary["validated_total"]["low"]
-    bt_validated_high = bt_summary["validated_total"]["high"]
+    # ── Tier summary & primary estimate ──
+    tier_summary = compute_tier_summary(candidates, groups_out)
+    validated_low = tier_summary["validated_total"]["low"]
+    validated_high = tier_summary["validated_total"]["high"]
 
-    # Total cost of ALL big-ticket items (validated + invalidated + unreviewed)
-    # so we can fully subtract them from totals to get truly-minor items only.
-    _all_bt_ids = {c.catalog_item_id for c in candidates if c.estimate_meta.big_ticket}
-    _all_bt_low = 0
-    _all_bt_high = 0
-    for g in groups_out:
-        for li in g.get("line_items", []):
-            if li["catalog_item_id"] in _all_bt_ids:
-                _all_bt_low += li["cost_low"]
-                _all_bt_high += li["cost_high"]
-
-    if bt_validated_low > 0 or bt_validated_high > 0:
-        # Minor items = full totals minus ALL big-ticket items (not just validated).
-        # This ensures unreviewed big-ticket items don't sneak back into primary.
-        minor_low = max(0, total_low - _all_bt_low)
-        minor_high = max(0, total_high - _all_bt_high)
+    if validated_low > 0 or validated_high > 0:
+        # Primary estimate = only 2f-validated items
         primary_estimate = {
-            "low": bt_validated_low + minor_low,
-            "high": bt_validated_high + minor_high,
-            "source": "big_ticket_primary",
-            "big_ticket_portion": {"low": bt_validated_low, "high": bt_validated_high},
-            "minor_items_portion": {"low": minor_low, "high": minor_high},
+            "low": validated_low,
+            "high": validated_high,
+            "source": "validated_primary",
+            "validated_portion": {"low": validated_low, "high": validated_high},
         }
     else:
-        # No validated big-ticket items — fall back to full totals
+        # No validated items — fall back to full group totals
         primary_estimate = {
             "low": total_low,
             "high": total_high,
             "source": "full_estimate_fallback",
-            "big_ticket_portion": {"low": 0, "high": 0},
-            "minor_items_portion": {"low": total_low, "high": total_high},
+            "validated_portion": {"low": 0, "high": 0},
         }
 
     return {
-        "version": "renovation_estimate_v1",
+        "version": "renovation_estimate_v2",
         "groups": groups_out,
         "raw_totals": {
             "low": total_low,
             "high": total_high,
         },
         "primary_estimate": primary_estimate,
-        "big_ticket_summary": bt_summary,
+        "tier_summary": tier_summary,
         "meta": {
             "candidate_count": len(candidates),
-            "big_ticket_count": big_ticket_count,
+            "high_tier_count": high_tier_count,
+            "medium_tier_count": medium_tier_count,
             "groups_active": len(groups_out),
             "pass_2f_reviewed_count": pass_2f_reviewed_count,
             "pass_2f_applied_count": pass_2f_applied_count,
@@ -874,6 +860,6 @@ def compute_renovation_estimate(
         "disclaimer": (
             "Quick photo-based estimate. Ranges reflect allowance-level budgets, "
             "not contractor bids. Inspect-only items carry a nominal inspection allowance. "
-            "Primary estimate driven by premium-model-validated big-ticket items."
+            "Primary estimate driven by 2f-validated high and medium tier items."
         ),
     }

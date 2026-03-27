@@ -321,13 +321,10 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "medium",
         "strategy": "replace_only",
         "group": "flooring",
-        "big_ticket": false,
-        "stack_behavior": "group_cap",
-        "allow_revisit_pass": true
+        "stack_behavior": "group_cap"
       }
     },
     {
@@ -372,13 +369,10 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "medium",
         "strategy": "repair_or_replace",
         "group": "flooring",
-        "big_ticket": false,
-        "stack_behavior": "group_cap",
-        "allow_revisit_pass": true
+        "stack_behavior": "group_cap"
       }
     },
     {
@@ -464,13 +458,10 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "medium",
         "strategy": "repair_or_replace",
         "group": "exterior",
-        "big_ticket": false,
-        "stack_behavior": "sum",
-        "allow_revisit_pass": true
+        "stack_behavior": "sum"
       }
     },
     {
@@ -512,13 +503,10 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "high",
         "strategy": "repair_or_replace",
         "group": "roof",
-        "big_ticket": true,
-        "stack_behavior": "max_only",
-        "allow_revisit_pass": true
+        "stack_behavior": "max_only"
       }
     },
     {
@@ -609,13 +597,10 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "medium",
         "strategy": "replace_only",
         "group": "windows_doors",
-        "big_ticket": false,
-        "stack_behavior": "sum",
-        "allow_revisit_pass": true
+        "stack_behavior": "sum"
       }
     },
     {
@@ -655,13 +640,10 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "high",
         "strategy": "repair_or_replace",
         "group": "kitchen",
-        "big_ticket": true,
-        "stack_behavior": "group_cap",
-        "allow_revisit_pass": true
+        "stack_behavior": "group_cap"
       }
     },
     {
@@ -701,13 +683,10 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "medium",
         "strategy": "replace_only",
         "group": "kitchen",
-        "big_ticket": false,
-        "stack_behavior": "group_cap",
-        "allow_revisit_pass": true
+        "stack_behavior": "group_cap"
       }
     },
     {
@@ -747,13 +726,10 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "medium",
         "strategy": "repair_only",
         "group": "bathroom",
-        "big_ticket": false,
-        "stack_behavior": "group_cap",
-        "allow_revisit_pass": true
+        "stack_behavior": "group_cap"
       }
     },
     {
@@ -794,13 +770,10 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "medium",
         "strategy": "replace_only",
         "group": "kitchen",
-        "big_ticket": false,
-        "stack_behavior": "group_cap",
-        "allow_revisit_pass": true
+        "stack_behavior": "group_cap"
       }
     },
     {
@@ -882,13 +855,10 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "medium",
         "strategy": "replace_only",
         "group": "bathroom",
-        "big_ticket": false,
-        "stack_behavior": "group_cap",
-        "allow_revisit_pass": true
+        "stack_behavior": "group_cap"
       }
     },
     {
@@ -1060,13 +1030,10 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "high",
         "strategy": "inspect_only",
         "group": "structure",
-        "big_ticket": true,
-        "stack_behavior": "max_only",
-        "allow_revisit_pass": true
+        "stack_behavior": "max_only"
       }
     },
     {
@@ -1299,13 +1266,10 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "high",
         "strategy": "replace_only",
         "group": "kitchen",
-        "big_ticket": true,
-        "stack_behavior": "group_cap",
-        "allow_revisit_pass": true
+        "stack_behavior": "group_cap"
       }
     },
     {
@@ -1345,13 +1309,10 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "high",
         "strategy": "replace_only",
         "group": "bathroom",
-        "big_ticket": true,
-        "stack_behavior": "group_cap",
-        "allow_revisit_pass": true
+        "stack_behavior": "group_cap"
       }
     },
     {
@@ -1393,13 +1354,10 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "high",
         "strategy": "replace_only",
         "group": "flooring",
-        "big_ticket": true,
-        "stack_behavior": "group_cap",
-        "allow_revisit_pass": true
+        "stack_behavior": "group_cap"
       }
     },
     {
@@ -2600,13 +2558,10 @@
         "mode": "heuristic"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "high",
         "strategy": "replace_only",
         "group": "exterior",
-        "big_ticket": true,
-        "stack_behavior": "sum",
-        "allow_revisit_pass": true
+        "stack_behavior": "sum"
       }
     },
     {
@@ -2803,13 +2758,10 @@
         "mode": "heuristic"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "high",
         "strategy": "replace_only",
         "group": "kitchen",
-        "big_ticket": true,
-        "stack_behavior": "group_cap",
-        "allow_revisit_pass": true
+        "stack_behavior": "group_cap"
       }
     },
     {
@@ -2843,13 +2795,10 @@
         "mode": "heuristic"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "high",
         "strategy": "repair_only",
         "group": "structure",
-        "big_ticket": true,
-        "stack_behavior": "max_only",
-        "allow_revisit_pass": true
+        "stack_behavior": "max_only"
       }
     },
     {
@@ -2885,13 +2834,10 @@
         "mode": "heuristic"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "high",
         "strategy": "repair_or_replace",
         "group": "structure",
-        "big_ticket": true,
-        "stack_behavior": "max_only",
-        "allow_revisit_pass": true
+        "stack_behavior": "max_only"
       }
     },
     {
@@ -2929,13 +2875,10 @@
         "mode": "heuristic"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "high",
         "strategy": "replace_only",
         "group": "windows_doors",
-        "big_ticket": true,
-        "stack_behavior": "sum",
-        "allow_revisit_pass": true
+        "stack_behavior": "sum"
       }
     },
     {
@@ -3013,13 +2956,10 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "quick_include": true,
-        "importance": "primary",
+        "estimate_tier": "high",
         "strategy": "inspect_only",
         "group": "pool",
-        "big_ticket": true,
-        "stack_behavior": "max_only",
-        "allow_revisit_pass": true
+        "stack_behavior": "max_only"
       }
     }
   ]
