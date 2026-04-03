@@ -30,6 +30,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
+from tools.project_scopes import get_project_scope, get_project_scope_name
+
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -838,6 +840,33 @@ def compute_renovation_estimate(
             "validated_portion": {"low": 0, "high": 0},
         }
 
+    # ── Project scope summary (presentation rollup) ──
+    scope_accum: Dict[str, Dict[str, Any]] = {}
+    for c in candidates:
+        sid = get_project_scope(c.trade_bucket, strict=False)
+        if sid not in scope_accum:
+            scope_accum[sid] = {"low": 0, "high": 0, "item_count": 0}
+        c_low, c_high = _compute_candidate_cost(c)
+        if c.is_valid_detection is False:
+            c_low, c_high = 0, 0
+        scope_accum[sid]["low"] += c_low
+        scope_accum[sid]["high"] += c_high
+        scope_accum[sid]["item_count"] += 1
+
+    project_scope_summary = sorted(
+        [
+            {
+                "scope_id": sid,
+                "scope_name": get_project_scope_name(sid),
+                "low": s["low"],
+                "high": s["high"],
+                "item_count": s["item_count"],
+            }
+            for sid, s in scope_accum.items()
+        ],
+        key=lambda x: -x["high"],
+    )
+
     return {
         "version": "renovation_estimate_v2",
         "groups": groups_out,
@@ -847,6 +876,7 @@ def compute_renovation_estimate(
         },
         "primary_estimate": primary_estimate,
         "tier_summary": tier_summary,
+        "project_scope_summary": project_scope_summary,
         "meta": {
             "candidate_count": len(candidates),
             "high_tier_count": high_tier_count,

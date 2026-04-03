@@ -70,10 +70,6 @@
       "name": "Cleaning / Turnover"
     },
     {
-      "id": "interior_paint_drywall",
-      "name": "Interior Paint & Drywall"
-    },
-    {
       "id": "interior_finishes",
       "name": "Interior Finishes"
     }
@@ -295,7 +291,15 @@
         "worn",
         "frayed"
       ],
-      "keywords_deny": [],
+      "keywords_deny": [
+        "linoleum",
+        "vinyl",
+        "vinyl sheet",
+        "sheet flooring",
+        "laminate",
+        "hardwood",
+        "tile"
+      ],
       "embed_text": "Worn or stained carpet. Dirty, stained, frayed carpet. Replace carpet.",
       "kind": "defect",
       "id": "worn_or_stained_carpet",
@@ -326,6 +330,41 @@
         "group": "flooring",
         "stack_behavior": "group_cap"
       }
+    },
+    {
+      "name": "Worn or Stained Vinyl / Linoleum Flooring",
+      "category": "cosmetic",
+      "severity": 1,
+      "trade_bucket": "flooring",
+      "work_item_code": "FLOORING_REPLACE",
+      "description": "Vinyl sheet, linoleum, or resilient flooring that is visibly stained, discolored, worn through, or peeling.",
+      "keywords_any": [
+        "linoleum",
+        "vinyl",
+        "vinyl sheet",
+        "sheet flooring",
+        "resilient flooring",
+        "worn vinyl",
+        "stained vinyl",
+        "discolored flooring"
+      ],
+      "keywords_deny": [
+        "carpet",
+        "hardwood",
+        "tile"
+      ],
+      "embed_text": "Worn or stained vinyl or linoleum flooring. Stained, discolored, worn sheet flooring. Replace vinyl or linoleum.",
+      "kind": "defect",
+      "id": "worn_or_stained_vinyl_linoleum",
+      "scope": "replace",
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ]
     },
     {
       "name": "Scratched or Damaged Hard Flooring",
@@ -390,7 +429,16 @@
         "lip",
         "threshold"
       ],
-      "keywords_deny": [],
+      "keywords_deny": [
+        "stain",
+        "stained",
+        "dirty",
+        "discoloration",
+        "pattern",
+        "worn",
+        "cosmetic",
+        "scuffed"
+      ],
       "embed_text": "Trip hazard or unlevel floor. Uneven floors, loose thresholds, height changes. Correct flooring/transition.",
       "kind": "defect",
       "id": "trip_hazard_or_unlevel_floor",
@@ -568,7 +616,14 @@
         "floor",
         "ceiling",
         "paint",
-        "drywall"
+        "drywall",
+        "diamond",
+        "patterned glass",
+        "decorative glass",
+        "leaded glass",
+        "textured glass",
+        "frosted glass",
+        "ornamental"
       ],
       "embed_text": "Broken or fogged windows. Cracked glass, fogged panes, failed seals, damaged frames. Window repair or replacement.",
       "kind": "defect",
@@ -1632,7 +1687,7 @@
       "name": "Wall Scuffs, Marks, or Dents",
       "category": "cosmetic",
       "severity": 1,
-      "trade_bucket": "interior_paint_drywall",
+      "trade_bucket": "paint_drywall",
       "work_item_code": "DRYWALL_PATCH",
       "description": "Walls show visible scuffs, stains, dents, or minor damage indicating heavy use or deferred maintenance.",
       "keywords_any": [
@@ -2961,6 +3016,47 @@
         "group": "pool",
         "stack_behavior": "max_only"
       }
+    },
+    {
+      "name": "Worn or Stained Flooring",
+      "category": "cosmetic",
+      "severity": 1,
+      "trade_bucket": "flooring",
+      "work_item_code": "FLOORING_REPLACE",
+      "description": "Flooring that appears worn, stained, discolored, or aged without structural concern.",
+      "keywords_any": [
+        "worn",
+        "stained",
+        "dirty",
+        "discoloration",
+        "aged",
+        "dated",
+        "scuffed",
+        "debris",
+        "soiled",
+        "faded"
+      ],
+      "keywords_deny": [
+        "trip",
+        "unlevel",
+        "raised",
+        "threshold",
+        "lip",
+        "structural"
+      ],
+      "embed_text": "Worn or stained flooring. Discolored, dirty, aged, or scuffed floor surface. Cosmetic flooring wear without structural concern.",
+      "kind": "upgrade",
+      "id": "worn_or_stained_flooring",
+      "scope": "replace",
+      "defaultHidden": true,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility",
+        "other"
+      ]
     }
   ]
 }

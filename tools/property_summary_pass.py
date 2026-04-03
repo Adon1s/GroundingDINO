@@ -20,6 +20,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from tools.project_scopes import get_project_scope
+
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -335,6 +337,7 @@ def build_property_summary_v1(
         buckets.append({
             "bucket_id": tb_id,
             "bucket_name": tb_name,
+            "project_scope": get_project_scope(tb_id, strict=False),
             "top_severity": bucket_top_sev,
             "issue_count": bucket_issue_count,
             "defect_count": bucket_defect_count,

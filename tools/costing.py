@@ -30,6 +30,8 @@ import logging
 from math import exp
 from typing import Any, Dict, List, Optional, Tuple
 
+from tools.project_scopes import get_project_scope, get_project_scope_name
+
 logger = logging.getLogger(__name__)
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -63,6 +65,10 @@ TRADE_MULT: Dict[str, float] = {
     "flooring":                  0.9,
     "paint_drywall":             0.8,
     "landscaping_drains":        0.8,
+    "masonry_exterior_structure": 1.1,
+    "exterior_paint_trim":       0.8,
+    "cleaning_turnover":         0.7,
+    "interior_finishes":         0.9,
 }
 
 DIMINISH_FACTOR: float = 0.35
@@ -84,6 +90,10 @@ TRADE_TO_SUBSCORE: Dict[str, str] = {
     "bathroom_fixtures_tile":    "cosmetic_score",
     "exterior_siding_trim":      "exterior_score",
     "landscaping_drains":        "exterior_score",
+    "masonry_exterior_structure": "exterior_score",
+    "exterior_paint_trim":       "exterior_score",
+    "cleaning_turnover":         "cosmetic_score",
+    "interior_finishes":         "cosmetic_score",
 }
 
 MAJOR_SYSTEM_BUCKETS = frozenset({
@@ -504,6 +514,51 @@ def compute_estimates(
         key=lambda x: -x["high"],
     )
 
+    # ── D) Project scope breakdown (presentation rollup) ────────────────────
+    scope_accum: Dict[str, Dict[str, Any]] = {}
+    for tb_entry in trade_breakdown:
+        scope_id = get_project_scope(tb_entry["bucket_id"], strict=False)
+        if scope_id not in scope_accum:
+            scope_accum[scope_id] = {"low": 0, "high": 0, "item_count": 0}
+        scope_accum[scope_id]["low"] += tb_entry["low"]
+        scope_accum[scope_id]["high"] += tb_entry["high"]
+        scope_accum[scope_id]["item_count"] += tb_entry["item_count"]
+
+    project_scope_breakdown = sorted(
+        [
+            {
+                "scope_id": sid,
+                "scope_name": get_project_scope_name(sid),
+                "low": s["low"],
+                "high": s["high"],
+                "item_count": s["item_count"],
+            }
+            for sid, s in scope_accum.items()
+        ],
+        key=lambda x: -x["high"],
+    )
+
+    # ── E) Project scope concentration signals (observation only) ─────────
+    total_items = sum(s["item_count"] for s in scope_accum.values())
+    total_scope_high = sum(s["high"] for s in scope_accum.values())
+
+    dominant_by_cost = max(scope_accum.items(), key=lambda x: x[1]["high"])[0] if scope_accum else "unknown"
+    dominant_by_items = max(scope_accum.items(), key=lambda x: x[1]["item_count"])[0] if scope_accum else "unknown"
+
+    project_scope_signals = {
+        "dominant_project_scope_by_cost": dominant_by_cost,
+        "dominant_project_scope_by_items": dominant_by_items,
+        "scope_concentration_by_cost": (
+            round(scope_accum[dominant_by_cost]["high"] / total_scope_high, 3)
+            if total_scope_high > 0 else 0.0
+        ),
+        "scope_concentration_by_items": (
+            round(scope_accum[dominant_by_items]["item_count"] / total_items, 3)
+            if total_items > 0 else 0.0
+        ),
+        "scope_fragmentation_count": len(scope_accum),
+    }
+
     # ── Assemble output ─────────────────────────────────────────────────────
     return {
         "version": "estimates_v1",
@@ -527,6 +582,8 @@ def compute_estimates(
         },
         "per_item": sorted(per_item_detail, key=lambda x: -x["impact_points"]),
         "trade_breakdown": trade_breakdown,
+        "project_scope_breakdown": project_scope_breakdown,
+        "project_scope_signals": project_scope_signals,
         "meta": {
             "issues_scored": sum(len(v) for v in grouped.values()),
             "unique_catalog_items": len(grouped),
