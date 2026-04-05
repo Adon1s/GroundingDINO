@@ -523,7 +523,7 @@ Rules:
 - Description must be 5–25 words.
 - Be factual and non-speculative. Only include if the text says "strongly suggests" or something similar.
 - Do NOT infer causes, consequences, or hidden problems.
-- If the notes are empty or the word "none", return an empty list.
+- If the notes are empty or contain just the word none or none as the last word, return an empty list.
 
 Return JSON only:
 {

@@ -375,6 +375,94 @@ def _build_model_overrides(args: argparse.Namespace) -> Dict[str, str]:
     return overrides
 
 
+def _compute_timing_stats(results: List["ImageResult"], total_wall_clock: float) -> Dict[str, Any]:
+    """Compute aggregate timing statistics from per-image results."""
+    photo_times = []
+    pass_totals: Dict[str, float] = {}
+    passes_actually_run: set = set()
+
+    for res in results:
+        if res.error:
+            continue
+        photo_times.append(res.processing_time)
+        data = res.scene_data or res.scene_classifier or {}
+        pass_timings = data.get("pass_timings", {})
+        for pass_key, secs in pass_timings.items():
+            pass_totals[pass_key] = pass_totals.get(pass_key, 0.0) + secs
+        # Track which passes actually executed (vs skipped)
+        for p in data.get("passes_run", []):
+            passes_actually_run.add(p)
+
+    n = len(photo_times)
+    if n == 0:
+        return {"photo_count": 0, "total_wall_clock_sec": round(total_wall_clock, 2)}
+
+    # Sort pass keys in logical order
+    pass_order = ['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f', '4', '4a', '4b', '4c']
+    sorted_passes = [p for p in pass_order if p in pass_totals]
+    # Include any extra passes not in the predefined order
+    sorted_passes += [p for p in sorted(pass_totals) if p not in sorted_passes]
+
+    # Separate skipped passes from actually-run passes
+    skipped = [p for p in sorted_passes if p not in passes_actually_run]
+
+    return {
+        "photo_count": n,
+        "total_wall_clock_sec": round(total_wall_clock, 2),
+        "avg_photo_sec": round(sum(photo_times) / n, 2),
+        "min_photo_sec": round(min(photo_times), 2),
+        "max_photo_sec": round(max(photo_times), 2),
+        "per_pass_total_sec": {p: round(pass_totals[p], 2) for p in sorted_passes},
+        "per_pass_avg_sec": {p: round(pass_totals[p] / n, 2) for p in sorted_passes},
+        "passes_run": [p for p in sorted_passes if p not in skipped],
+        "passes_skipped": skipped,
+    }
+
+
+def _log_timing_stats(stats: Dict[str, Any], property_key: str) -> None:
+    """Log a formatted timing table to stderr."""
+    n = stats.get("photo_count", 0)
+    wall = stats.get("total_wall_clock_sec", 0)
+
+    logger.info("=" * 55)
+    logger.info(f"TIMING STATS: {property_key} ({n} photos, {wall:.1f}s)")
+    logger.info("=" * 55)
+
+    if n == 0:
+        logger.info("  No successful photos to report.")
+        logger.info("=" * 55)
+        return
+
+    per_pass_total = stats.get("per_pass_total_sec", {})
+    per_pass_avg = stats.get("per_pass_avg_sec", {})
+    skipped = set(stats.get("passes_skipped", []))
+    all_passes = stats.get("passes_run", []) + stats.get("passes_skipped", [])
+    # Re-sort combined list in canonical order
+    pass_order = ['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f', '4', '4a', '4b', '4c']
+    all_passes_sorted = [p for p in pass_order if p in all_passes]
+    all_passes_sorted += [p for p in all_passes if p not in all_passes_sorted]
+
+    llm_total = sum(v for p, v in per_pass_total.items() if p not in skipped)
+
+    logger.info(f"  {'Pass':<8} {'Total(s)':>9} {'Avg(s)':>9} {'% of wall':>10}")
+    logger.info(f"  {'--------':8} {'---------':9} {'---------':9} {'----------':10}")
+
+    for p in all_passes_sorted:
+        if p in skipped:
+            logger.info(f"  {p:<8} {'--':>9} {'--':>9} {'skipped':>10}")
+            continue
+        t = per_pass_total.get(p, 0)
+        a = per_pass_avg.get(p, 0)
+        pct = (t / wall * 100) if wall > 0 else 0
+        logger.info(f"  {p:<8} {t:>9.2f} {a:>9.2f} {pct:>9.1f}%")
+
+    logger.info(f"  {'--------':8} {'---------':9} {'---------':9} {'----------':10}")
+    llm_pct = (llm_total / wall * 100) if wall > 0 else 0
+    logger.info(f"  {'LLM':<8} {llm_total:>9.2f} {llm_total / n:>9.2f} {llm_pct:>9.1f}%")
+    logger.info(f"  {'Wall':<8} {wall:>9.2f} {wall / n:>9.2f} {'100.0%':>10}")
+    logger.info("=" * 55)
+
+
 def _build_summary(
         job: Any,
         photo_intel_path: Optional[Path] = None,
@@ -383,6 +471,7 @@ def _build_summary(
         pass_toggles: Optional[Dict[str, bool]] = None,
         model_overrides: Optional[Dict[str, str]] = None,
         used_pass_architecture: Optional[bool] = None,
+        timing_stats: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Build JSON summary for Node.js caller."""
     total_detections = sum((res.detection_count or 0) for res in job.results)
@@ -409,6 +498,8 @@ def _build_summary(
         summary["model_overrides"] = model_overrides
     if used_pass_architecture is not None:
         summary["used_pass_architecture"] = used_pass_architecture
+    if timing_stats:
+        summary["timing_stats"] = timing_stats
 
     return summary
 
@@ -690,6 +781,12 @@ def main() -> int:
         photo_intel_path = None
 
     # ─────────────────────────────────────────────────────────────────────────
+    # Compute and log timing statistics
+    # ─────────────────────────────────────────────────────────────────────────
+    timing_stats = _compute_timing_stats(results, total_time)
+    _log_timing_stats(timing_stats, args.property_key)
+
+    # ─────────────────────────────────────────────────────────────────────────
     # Build summary for Node.js caller
     # ─────────────────────────────────────────────────────────────────────────
     summary = _build_summary(
@@ -700,6 +797,7 @@ def main() -> int:
         pass_toggles=pass_toggles if pass_toggles else None,
         model_overrides=model_overrides if model_overrides else None,
         used_pass_architecture=True,
+        timing_stats=timing_stats,
     )
 
     if args.output_json:

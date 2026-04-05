@@ -395,60 +395,38 @@ class SceneClassifierOrchestrator:
 
         # ─────────────────────────────────────────────────────────────────────
         # Pass 1b: Feature/Market Appeal Notes (FREEFORM)
+        # DISABLED — outputs not consumed downstream. Stubbed for compat.
         # ─────────────────────────────────────────────────────────────────────
         feature_notes = ""
 
         if self._t(toggles, '1b'):
-            model_config = self._get_model_config('1b', options)
-            model_name = self._get_model_name('1b', options)
-
-            logger.debug(f"Running Pass 1b with {model_name}")
-            t0 = time.time()
-            result.pass_1b = await run_pass_1b_feature_notes(
-                image_path=image_path,
-                vlm_client=self.vlm_client,
-                model_config=model_config,
-                context=context,
-            )
-            result.pass_timings['1b'] = round(time.time() - t0, 3)
-
-            feature_notes = result.pass_1b.feature_notes
-            result.feature_notes = feature_notes
-            result.positives_notes = feature_notes  # legacy alias
+            logger.debug("Pass 1b: skipped (disabled) — outputting blank stub")
+            result.pass_1b = Pass1bResult(feature_notes="")
+            result.pass_timings['1b'] = 0.0
+            result.feature_notes = ""
+            result.positives_notes = ""
             result.passes_run.append('1b')
-            result.models_used['1b'] = model_name
+            result.models_used['1b'] = "none"
 
         # ─────────────────────────────────────────────────────────────────────
         # Pass 1c: Feature Notes -> JSON Structuring (text-only)
+        # DISABLED — outputs not consumed downstream. Stubbed for compat.
         # ─────────────────────────────────────────────────────────────────────
         if self._t(toggles, '1c'):
-            model_config = self._get_model_config('1c', options)
-            model_name = self._get_model_name('1c', options)
-
-            logger.debug(f"Running Pass 1c with {model_name}")
-            t0 = time.time()
-            result.pass_1c = await run_pass_1c_feature_structuring(
-                vlm_client=self.vlm_client,
-                model_config=model_config,
-                feature_notes=feature_notes,
-            )
-            result.pass_timings['1c'] = round(time.time() - t0, 3)
-
-            # Pass 1c now produces overall_impression, image_summary, notable_features
-            result.overall_impression = result.pass_1c.overall_impression
-            result.image_summary = result.pass_1c.image_summary
-            result.notable_features = result.pass_1c.notable_features or []
-
-            # Store features_struct for Streamlit parity
+            logger.debug("Pass 1c: skipped (disabled) — outputting blank stub")
+            result.pass_1c = Pass1cResult()
+            result.pass_timings['1c'] = 0.0
+            result.overall_impression = ""
+            result.image_summary = ""
+            result.notable_features = []
             result.features_struct = {
-                "overall_impression": result.overall_impression,
-                "image_summary": result.image_summary,
-                "notable_features": result.notable_features,
+                "overall_impression": "",
+                "image_summary": "",
+                "notable_features": [],
             }
             context["features_struct"] = result.features_struct
-
             result.passes_run.append('1c')
-            result.models_used['1c'] = model_name
+            result.models_used['1c'] = "none"
 
         # ─────────────────────────────────────────────────────────────────────
         # Pass 2a: Observations Freeform (vision)
