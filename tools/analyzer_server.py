@@ -231,6 +231,7 @@ def _process_job(
     artifacts_root = Path(request["artifactsRoot"]).resolve()
     analysis_profile = request.get("analysisProfile", "standard")
     detection_backend = request.get("detectionBackend", "dinox")
+    concurrency = request.get("concurrency", int(os.environ.get("ANALYZER_CONCURRENCY", "3")))
 
     logger.info(f"[Job {ts_job_id}] Starting: {property_key} ({len(image_paths)} images)")
 
@@ -252,49 +253,57 @@ def _process_job(
     total_start = time.time()
 
     async def _analyze_all():
-        for idx, image_path in enumerate(image_paths):
-            img_start = time.time()
-            logger.info(f"  [{idx + 1}/{total_images}] Analyzing: {image_path.name}")
+        sem = asyncio.Semaphore(concurrency)
+        completed = 0
 
-            try:
-                img_options = options.with_meta(
-                    run_id=internal_job_id,
-                    photo_key=image_path.name,
-                    property_key=property_key,
-                )
-                result = await orchestrator.analyze_image(
-                    image_path=image_path,
-                    options=img_options,
-                )
-                elapsed = time.time() - img_start
-                result_dict = result.to_dict()
+        async def _analyze_one(idx, image_path):
+            nonlocal completed
+            async with sem:
+                img_start = time.time()
+                logger.info(f"  [start] Analyzing: {image_path.name}")
 
-                results.append(ImageResult(
-                    image_path=str(image_path),
-                    scene_data=result_dict,
-                    scene=result.scene or "unknown",
-                    processing_time=elapsed,
-                ))
-                logger.info(f"    ✅ {image_path.name} → {result.scene} ({elapsed:.1f}s)")
+                try:
+                    img_options = options.with_meta(
+                        run_id=internal_job_id,
+                        photo_key=image_path.name,
+                        property_key=property_key,
+                    )
+                    analysis = await orchestrator.analyze_image(
+                        image_path=image_path,
+                        options=img_options,
+                    )
+                    elapsed = time.time() - img_start
 
-            except Exception as exc:
-                elapsed = time.time() - img_start
-                logger.error(f"    ❌ {image_path.name} failed: {exc}", exc_info=True)
-                results.append(ImageResult(
-                    image_path=str(image_path),
-                    scene="unknown",
-                    processing_time=elapsed,
-                    error=str(exc),
-                ))
+                    img_result = ImageResult(
+                        image_path=str(image_path),
+                        scene_data=analysis.to_dict(),
+                        scene=analysis.scene or "unknown",
+                        processing_time=elapsed,
+                    )
+                    logger.info(f"    ✅ {image_path.name} → {analysis.scene} ({elapsed:.1f}s)")
 
-            # Emit progress after each image
-            _emit({
-                "type": "progress",
-                "jobId": ts_job_id,
-                "itemsDone": idx + 1,
-                "itemsTotal": total_images,
-                "progress": round(((idx + 1) / total_images) * 100),
-            })
+                except Exception as exc:
+                    elapsed = time.time() - img_start
+                    logger.error(f"    ❌ {image_path.name} failed: {exc}", exc_info=True)
+                    img_result = ImageResult(
+                        image_path=str(image_path),
+                        scene="unknown",
+                        processing_time=elapsed,
+                        error=str(exc),
+                    )
+
+                completed += 1
+                _emit({
+                    "type": "progress",
+                    "jobId": ts_job_id,
+                    "itemsDone": completed,
+                    "itemsTotal": total_images,
+                    "progress": round((completed / total_images) * 100),
+                })
+                return img_result
+
+        tasks = [_analyze_one(i, img) for i, img in enumerate(image_paths)]
+        results.extend(await asyncio.gather(*tasks))
 
     asyncio.run(_analyze_all())
 

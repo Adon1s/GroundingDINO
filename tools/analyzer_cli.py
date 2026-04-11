@@ -257,6 +257,8 @@ Pass Control Examples:
                         help="Python executable for subprocesses")
     parser.add_argument("--debug", action="store_true",
                         help="Enable debug logging")
+    parser.add_argument("--concurrency", type=int, default=3,
+                        help="Max concurrent image analysis tasks (default: %(default)s)")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Detection/threshold options
@@ -444,7 +446,7 @@ def _log_timing_stats(stats: Dict[str, Any], property_key: str) -> None:
 
     llm_total = sum(v for p, v in per_pass_total.items() if p not in skipped)
 
-    logger.info(f"  {'Pass':<8} {'Total(s)':>9} {'Avg(s)':>9} {'% of wall':>10}")
+    logger.info(f"  {'Pass':<8} {'Total(s)':>9} {'Avg(s)':>9} {'% of LLM':>10}")
     logger.info(f"  {'--------':8} {'---------':9} {'---------':9} {'----------':10}")
 
     for p in all_passes_sorted:
@@ -453,13 +455,14 @@ def _log_timing_stats(stats: Dict[str, Any], property_key: str) -> None:
             continue
         t = per_pass_total.get(p, 0)
         a = per_pass_avg.get(p, 0)
-        pct = (t / wall * 100) if wall > 0 else 0
+        pct = (t / llm_total * 100) if llm_total > 0 else 0
         logger.info(f"  {p:<8} {t:>9.2f} {a:>9.2f} {pct:>9.1f}%")
 
     logger.info(f"  {'--------':8} {'---------':9} {'---------':9} {'----------':10}")
-    llm_pct = (llm_total / wall * 100) if wall > 0 else 0
-    logger.info(f"  {'LLM':<8} {llm_total:>9.2f} {llm_total / n:>9.2f} {llm_pct:>9.1f}%")
-    logger.info(f"  {'Wall':<8} {wall:>9.2f} {wall / n:>9.2f} {'100.0%':>10}")
+    logger.info(f"  {'LLM':<8} {llm_total:>9.2f} {llm_total / n:>9.2f} {'100.0%':>10}")
+    logger.info(f"  {'Wall':<8} {wall:>9.2f} {wall / n:>9.2f}")
+    speedup = llm_total / wall if wall > 0 else 0
+    logger.info(f"  Concurrency speedup: {speedup:.1f}x")
     logger.info("=" * 55)
 
 
@@ -713,40 +716,51 @@ def main() -> int:
     total_start = time.time()
 
     async def _analyze_all():
-        for idx, image_path in enumerate(images):
-            img_start = time.time()
-            logger.info(f"[{idx + 1}/{len(images)}] Analyzing: {image_path.name}")
+        sem = asyncio.Semaphore(args.concurrency)
+        completed = 0
 
-            try:
-                img_options = options.with_meta(
-                    run_id=job_id,
-                    photo_key=image_path.name,
-                    property_key=args.property_key,
-                )
-                result = await orchestrator.analyze_image(
-                    image_path=image_path,
-                    options=img_options,
-                )
-                elapsed = time.time() - img_start
-                result_dict = result.to_dict()
+        async def _analyze_one(idx, image_path):
+            nonlocal completed
+            async with sem:
+                img_start = time.time()
+                logger.info(f"[start] Analyzing: {image_path.name}")
 
-                results.append(ImageResult(
-                    image_path=str(image_path),
-                    scene_data=result_dict,
-                    scene=result.scene or "unknown",
-                    processing_time=elapsed,
-                ))
-                logger.info(f"  ✅ {image_path.name} → {result.scene} ({elapsed:.1f}s)")
+                try:
+                    img_options = options.with_meta(
+                        run_id=job_id,
+                        photo_key=image_path.name,
+                        property_key=args.property_key,
+                    )
+                    analysis = await orchestrator.analyze_image(
+                        image_path=image_path,
+                        options=img_options,
+                    )
+                    elapsed = time.time() - img_start
 
-            except Exception as exc:
-                elapsed = time.time() - img_start
-                logger.error(f"  ❌ {image_path.name} failed: {exc}", exc_info=args.debug)
-                results.append(ImageResult(
-                    image_path=str(image_path),
-                    scene="unknown",
-                    processing_time=elapsed,
-                    error=str(exc),
-                ))
+                    img_result = ImageResult(
+                        image_path=str(image_path),
+                        scene_data=analysis.to_dict(),
+                        scene=analysis.scene or "unknown",
+                        processing_time=elapsed,
+                    )
+                    logger.info(f"  ✅ {image_path.name} → {analysis.scene} ({elapsed:.1f}s)")
+
+                except Exception as exc:
+                    elapsed = time.time() - img_start
+                    logger.error(f"  ❌ {image_path.name} failed: {exc}", exc_info=args.debug)
+                    img_result = ImageResult(
+                        image_path=str(image_path),
+                        scene="unknown",
+                        processing_time=elapsed,
+                        error=str(exc),
+                    )
+
+                completed += 1
+                logger.info(f"  [{completed}/{len(images)}] images complete")
+                return img_result
+
+        tasks = [_analyze_one(i, img) for i, img in enumerate(images)]
+        results.extend(await asyncio.gather(*tasks))
 
     asyncio.run(_analyze_all())
 
