@@ -240,7 +240,7 @@ class SceneClassifierRunOptions:
 # - 2a uses GPT-5 (observations detection needs strong vision)
 # - 2b stays Qwen (structuring is text-only)
 # - 2c stays Qwen (labeling is text-only)
-# - 2d uses GPT-5 (resolver benefits from reasoning)
+# - 2d stays Qwen (resolver uses local model)
 # - 2e stays Qwen (rule-based normalizer, no LLM call)
 # - 2f uses GPT-5 (big-ticket review needs strong vision for posture decisions)
 # - 4/4a/4b/4c stay Qwen (legacy, may be deprecated)
@@ -252,7 +252,7 @@ PREMIUM_MODEL_MAP: Dict[PassKey, ModelName] = {
     '2a': 'gpt5',   # observations detection needs strong vision
     '2b': 'qwen',
     '2c': 'qwen',
-    '2d': 'gpt5',   # resolver benefits from GPT reasoning
+    '2d': 'qwen',   # resolver uses local model
     '2e': 'qwen',   # rule-based normalizer, no LLM call
     '2f': 'gpt5',   # big-ticket review benefits from strong vision
     '4': 'qwen',

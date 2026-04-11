@@ -237,6 +237,7 @@ class SceneClassifierOrchestrator:
                 self.catalog_meta_by_id[item_id] = {
                     "tier": item.get("tier", "work"),
                     "drop_if_generic": bool(item.get("drop_if_generic", False)),
+                    "defaultHidden": bool(item.get("defaultHidden", False)),
                     "kind": item.get("kind", "defect"),
                     "trade_bucket": item.get("trade_bucket", ""),
                 }
@@ -492,6 +493,7 @@ class SceneClassifierOrchestrator:
                 vlm_client=self.vlm_client,
                 model_config=model_config,
                 observations=observations_in,
+                scene=result.scene or "other",
             )
             result.pass_timings['2c'] = round(time.time() - t0, 3)
 
@@ -804,6 +806,7 @@ class SceneClassifierOrchestrator:
                 result.models_used['2e'] = model_name
 
                 removed = pass_2e_result.removed or []
+                suppressed = pass_2e_result.suppressed_issues or []
                 result.passes["2e"] = {
                     "notes": pass_2e_result.notes,
                     "input_count": pass_2e_result.input_count,
@@ -823,6 +826,14 @@ class SceneClassifierOrchestrator:
                             "reason": x.get("removed_reason", ""),
                         }
                         for x in removed
+                    ],
+                    "suppressed": [
+                        {
+                            "issue_id": x.get("issue_id"),
+                            "description": x.get("description", ""),
+                            "reason": x.get("suppressed_reason", ""),
+                        }
+                        for x in suppressed
                     ],
                 }
                 result.debug["pass_2e_summary"] = {

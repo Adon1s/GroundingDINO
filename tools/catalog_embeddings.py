@@ -51,6 +51,23 @@ def _cosine_topk(q: np.ndarray, mat: np.ndarray, k: int) -> Tuple[np.ndarray, np
     return scores[idxs], idxs
 
 
+def build_guardrails_from_catalog(catalog: Dict[str, Any]) -> Dict[str, Dict[str, List[str]]]:
+    """Build guardrails dict from catalog keywords_allow / keywords_deny fields."""
+    guardrails: Dict[str, Dict[str, List[str]]] = {}
+    for item in catalog.get("items", []):
+        item_id = str(item.get("id") or item.get("defect_id") or item.get("upgrade_id") or "").strip()
+        if not item_id:
+            continue
+        deny = item.get("keywords_deny", [])
+        must = item.get("keywords_allow", [])
+        if deny or must:
+            guardrails[item_id] = {
+                "deny_any": [t.lower() for t in deny],
+                "must_any": [t.lower() for t in must],
+            }
+    return guardrails
+
+
 @dataclass(frozen=True)
 class CatalogItemMeta:
     item_id: str

@@ -202,7 +202,6 @@ Classify the image into exactly ONE of these categories:
 - pool
 - roof
 - hvac
-- pool
 - other
 
 Respond with ONLY a JSON object:
@@ -450,11 +449,8 @@ async def run_pass_1c_feature_structuring(
 # Pass 2a: Observations Freeform (Vision)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_2A_SYSTEM_PROMPT = ""  # blank on purpose
-PASS_2A_USER_PROMPT = (
-    "What stands out here to a renovator, based on what's visible? Dont mention trivial things"
-    "If nothing stands out, reply with only the word 'none'."
-)
+PASS_2A_SYSTEM_PROMPT = "You are a real estate photo analyst"
+PASS_2A_USER_PROMPT = "What stands out here to a renovator"
 
 
 async def run_pass_2a(
@@ -521,7 +517,7 @@ Rules:
 - Only output observations explicitly stated or directly described in the notes.
 - One observation per item.
 - Description must be 5–25 words.
-- Be factual and non-speculative. Only include if the text says "strongly suggests" or something similar.
+- Be factual and non-speculative
 - Do NOT infer causes, consequences, or hidden problems.
 - If the notes are empty or contain just the word none or none as the last word, return an empty list.
 
@@ -609,20 +605,19 @@ async def run_pass_2b(
 PASS_2C_SYSTEM_PROMPT = """Label each observation with a simple type.
 
 Allowed labels:
-- defect_or_damage: visible wear, damage, missing, broken, poor condition
-- safety: tripping hazards, exposed wiring, unsafe conditions
+- defect_or_damage: visible wear, damage, missing, broken, poor condition, or safety hazards (exposed wiring, tripping hazards, unsafe conditions)
 - upgrade_candidate: dated/cheap fixture/finish that a renovator would likely replace or update
 - good_condition: explicitly says looks good / intact / clean
-- generic_presence: neutral existence of an item (e.g., "there is a door")
+- generic_presence: neutral existence of an item (e.g., “there is a door”)
 - other: anything else
 
 Rules:
 - Do NOT add new observations.
 - Use ONLY the provided descriptions.
 - One label per item.
-- If the description is advice/process language (e.g., “needs inspection”, “recommend evaluation”, “cannot determine from photo”), label "other".
-- If the description mentions hidden systems (structural/foundation, electrical, plumbing, HVAC) but does NOT mention a specific visible sign (e.g., stain, crack, leak, rust, exposed wire, damage), label "other".
-- If the description suggests a renovation action for a visible finish/surface (refinish/replace/update/paint) such as floors, cabinets, counters, fixtures, tile, paint, label "upgrade_candidate".
+- If the description is advice/process language (e.g., “needs inspection”, “recommend evaluation”, “cannot determine from photo”), label “other”.
+- If the description mentions hidden systems (structural/foundation, electrical, plumbing, HVAC) but does NOT mention a specific visible sign (e.g., stain, crack, leak, rust, exposed wire, damage), label “other”.
+- If the description suggests a renovation action for a visible finish/surface (refinish/replace/update/paint) such as floors, cabinets, counters, fixtures, tile, paint, label “upgrade_candidate”.
 
 Return JSON only:
 {
@@ -636,7 +631,7 @@ PASS_2C_USER_PROMPT_TEMPLATE = """OBSERVATIONS_JSON:
 {observations_json}
 """
 
-VALID_LABELS = {"defect_or_damage", "safety", "upgrade_candidate", "good_condition", "generic_presence", "other"}
+VALID_LABELS = {"defect_or_damage", "upgrade_candidate", "good_condition", "generic_presence", "other"}
 
 
 def _coerce_labeled_2c(x: Any) -> List[Dict[str, str]]:
@@ -664,6 +659,7 @@ async def run_pass_2c(
         vlm_client: Any,
         model_config: dict,
         observations: List[Dict[str, str]],
+        scene: str = "other",
 ) -> Pass2cResult:
     """
     Pass 2c: Label observations and split into debug/forward lists.
@@ -683,7 +679,7 @@ async def run_pass_2c(
         return Pass2cResult(labeled_debug=[], labeled_forward=[], raw_response=None)
 
     observations_json = json.dumps(observations, ensure_ascii=False)
-    user_prompt = safe_format_prompt(PASS_2C_USER_PROMPT_TEMPLATE, observations_json=observations_json)
+    user_prompt = f"Scene: {scene}\n\n" + safe_format_prompt(PASS_2C_USER_PROMPT_TEMPLATE, observations_json=observations_json)
 
     logger.debug("Pass 2c: Labeling observations (text-only)")
 
@@ -829,6 +825,13 @@ async def run_pass_2d(
             if resolved_id is not None:
                 resolved_id = str(resolved_id).strip() if resolved_id else None
 
+        # Validate resolved_id exists in the candidate list
+        if resolved_id:
+            valid_ids = {_candidate_item_id(c) for c in candidates}
+            if resolved_id not in valid_ids:
+                logger.warning("Pass 2d: hallucinated ID %r, setting to None", resolved_id)
+                resolved_id = None
+
         return Pass2dResult(
             observation=observation,
             resolved_item_id=resolved_id,
@@ -882,7 +885,8 @@ class Pass2eResult:
     """Result from Pass 2e: normalized, filtered, deduplicated issues."""
     verified_issues: List[Dict[str, Any]]       # final issues (renovator-facing)
     matched_issues: List[Dict[str, Any]] = field(default_factory=list)  # all post-sanity+dedupe (superset of final)
-    removed: List[Dict[str, Any]] = field(default_factory=list)         # truly removed (sanity failures)
+    removed: List[Dict[str, Any]] = field(default_factory=list)         # sanity failures (empty desc, invalid kind, duplicate)
+    suppressed_issues: List[Dict[str, Any]] = field(default_factory=list)  # policy-gated (in matched, not in final)
     notes: Optional[str] = None
     # Telemetry counters
     input_count: int = 0
@@ -1130,6 +1134,7 @@ async def run_pass_2e(
 
     # ── Stage 5: Policy gating → final_issues ──
     final: List[Dict[str, Any]] = []
+    suppressed_issues: List[Dict[str, Any]] = []
     suppressed_reason_counts: Dict[str, int] = {}
     suppressed_samples: List[Dict[str, Any]] = []
     _MAX_SUPPRESSED_SAMPLES = 10
@@ -1138,6 +1143,7 @@ async def run_pass_2e(
         reason = _2e_policy_reason(issue, deny_phrases, catalog_meta, policy)
         if reason:
             suppressed_reason_counts[reason] = suppressed_reason_counts.get(reason, 0) + 1
+            suppressed_issues.append({**issue, "suppressed_reason": reason})
             if len(suppressed_samples) < _MAX_SUPPRESSED_SAMPLES:
                 suppressed_samples.append({
                     "issue_id": issue.get("issue_id"),
@@ -1146,10 +1152,6 @@ async def run_pass_2e(
                     "catalogItemId": issue.get("catalogItemId"),
                     "suppressed_reason": reason,
                 })
-            # Policy-suppressed items stay in matched but are excluded from final.
-            # Also add to removed for full audit trail.
-            removed.append({**issue, "removed_reason": reason})
-            removed_reason_counts[reason] = removed_reason_counts.get(reason, 0) + 1
             continue
         final.append(issue)
 
@@ -1168,6 +1170,7 @@ async def run_pass_2e(
         verified_issues=final,
         matched_issues=matched,
         removed=removed,
+        suppressed_issues=suppressed_issues,
         notes="rule_based_normalization_v2",
         input_count=input_count,
         deduped_count=deduped_count,

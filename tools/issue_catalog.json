@@ -82,7 +82,7 @@
       "trade_bucket": "moisture_mold",
       "work_item_code": "MOISTURE_REMEDIATION",
       "description": "Visible brown or dark discoloration on the ceiling suggesting past or active moisture intrusion.",
-      "keywords_any": [
+      "keywords_allow": [
         "water stain",
         "stain",
         "discoloration",
@@ -124,7 +124,7 @@
       "trade_bucket": "paint_drywall",
       "work_item_code": "PAINT_INTERIOR",
       "description": "Paint that is peeling, bubbling, cracked, or visibly aged.",
-      "keywords_any": [
+      "keywords_allow": [
         "peeling",
         "bubbling",
         "cracked paint",
@@ -164,7 +164,7 @@
       "trade_bucket": "moisture_mold",
       "work_item_code": "MOISTURE_REMEDIATION",
       "description": "Dark, fuzzy, or patchy growth on surfaces indicative of active or past moisture problems.",
-      "keywords_any": [
+      "keywords_allow": [
         "mold",
         "mildew",
         "fungus",
@@ -207,7 +207,7 @@
       "trade_bucket": "paint_drywall",
       "work_item_code": "DRYWALL_PATCH",
       "description": "Cracks, holes, nail pops, or uneven drywall indicating settling, impact damage, or poor repairs.",
-      "keywords_any": [
+      "keywords_allow": [
         "drywall",
         "crack",
         "hole",
@@ -248,19 +248,23 @@
       "trade_bucket": "foundation_structure",
       "work_item_code": "DRYWALL_PATCH",
       "description": "Cracks, separation at joints, or sagging areas in ceiling indicating movement or moisture damage.",
-      "keywords_any": [
+      "keywords_allow": [
         "ceiling crack",
         "sagging",
         "separation",
         "bowing"
       ],
       "keywords_deny": [],
-      "embed_text": "Ceiling cracks or sagging. Separation, sagging ceiling areas. Investigate and repair ceiling/drywall.",
+      "embed_text": "Ceiling cracks or sagging. Separation, sagging ceiling areas. Exposed ceiling joists or framing, missing ceiling panels or sections, open unfinished ceiling, incomplete ceiling finish. Investigate and repair ceiling/drywall.",
       "kind": "defect",
       "id": "ceiling_cracks_or_sagging",
       "scope": "repair",
       "defaultHidden": false,
       "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
         "utility",
         "other"
       ],
@@ -284,7 +288,7 @@
       "trade_bucket": "flooring",
       "work_item_code": "CARPET_REPLACE",
       "description": "Carpet that is visibly dirty, stained, frayed, or heavily worn.",
-      "keywords_any": [
+      "keywords_allow": [
         "carpet",
         "stain",
         "dirty",
@@ -338,7 +342,7 @@
       "trade_bucket": "flooring",
       "work_item_code": "FLOORING_REPLACE",
       "description": "Vinyl sheet, linoleum, or resilient flooring that is visibly stained, discolored, worn through, or peeling.",
-      "keywords_any": [
+      "keywords_allow": [
         "linoleum",
         "vinyl",
         "vinyl sheet",
@@ -373,7 +377,7 @@
       "trade_bucket": "flooring",
       "work_item_code": "FLOORING_REPLACE",
       "description": "Hardwood/laminate/vinyl/tile with scratches, chips, warping, broken tiles, or visible damage.",
-      "keywords_any": [
+      "keywords_allow": [
         "scratch",
         "scuff",
         "worn floor",
@@ -421,7 +425,7 @@
       "trade_bucket": "safety_general",
       "work_item_code": "FLOORING_REPLACE",
       "description": "Uneven flooring, loose thresholds, or abrupt height changes posing a trip risk or indicating settlement.",
-      "keywords_any": [
+      "keywords_allow": [
         "trip hazard",
         "uneven",
         "unlevel",
@@ -474,7 +478,7 @@
       "trade_bucket": "exterior_siding_trim",
       "work_item_code": "EXTERIOR_REPAIR",
       "description": "Exterior siding/trim showing rot, warping, cracks, missing sections, or deterioration.",
-      "keywords_any": [
+      "keywords_allow": [
         "rot",
         "rotted",
         "siding",
@@ -484,7 +488,7 @@
         "missing"
       ],
       "keywords_deny": [],
-      "embed_text": "Damaged or rotted exterior siding or trim. Rot, warping, cracking, missing sections. Exterior repair.",
+      "embed_text": "Damaged or rotted exterior siding or trim. Rot, warping, cracking, missing sections. Rotted door bottom, water damage at door base, deteriorated door sill or frame, door frame rot. Exterior repair.",
       "kind": "defect",
       "id": "damaged_or_rotted_siding_or_trim",
       "scope": "replace",
@@ -519,7 +523,7 @@
       "trade_bucket": "roof_gutters",
       "work_item_code": "ROOF_REPAIR",
       "description": "Missing, curling, patchy, worn shingles or debris suggesting reduced remaining life.",
-      "keywords_any": [
+      "keywords_allow": [
         "roof",
         "shingle",
         "curling",
@@ -529,7 +533,7 @@
         "debris"
       ],
       "keywords_deny": [],
-      "embed_text": "Damaged or aged roof shingles. Missing/curling/worn shingles, moss, debris. Roof repair.",
+      "embed_text": "Damaged or aged roof shingles. Missing, curling, or worn shingles. Roof surface discoloration, debris-covered or dirty shingles, moss or algae growth on roof, patched or uneven roof surface. Roof repair.",
       "kind": "defect",
       "id": "damaged_or_aged_roof_shingles",
       "scope": "repair",
@@ -564,7 +568,7 @@
       "trade_bucket": "exterior_siding_trim",
       "work_item_code": "DECK_REPAIR",
       "description": "Deck/porch/stairs with loose, rotted, or missing boards or railings appearing unsafe.",
-      "keywords_any": [
+      "keywords_allow": [
         "deck",
         "porch",
         "railing",
@@ -604,7 +608,7 @@
       "trade_bucket": "trim_doors_windows",
       "work_item_code": "WINDOW_REPAIR",
       "description": "Cracked glass, damaged frames, missing panes, or fogged double-pane windows indicating failed seals.",
-      "keywords_any": [
+      "keywords_allow": [
         "window",
         "fogged",
         "condensation",
@@ -659,13 +663,35 @@
       }
     },
     {
+      "id": "dated_or_older_windows",
+      "name": "Dated or Older Windows",
+      "tier": "optional",
+      "defaultHidden": false,
+      "scope": [
+        "interior",
+        "exterior"
+      ],
+      "embed_text": "Dated or older windows. Older single-hung or sliding window frames, dated window style, older basement slider windows, aging window units. Window replacement opportunity for improved energy efficiency and appearance.",
+      "keywords_allow": [
+        "window",
+        "windows",
+        "single-pane",
+        "double-pane",
+        "slider",
+        "casement",
+        "dated windows",
+        "old windows",
+        "older windows"
+      ]
+    },
+    {
       "name": "Damaged or Outdated Cabinets",
       "category": "cosmetic",
       "severity": 2,
       "trade_bucket": "kitchen_cabinets_counters",
       "work_item_code": "CABINET_REPLACE",
       "description": "Cabinets with visible wear, damaged doors/drawers, water staining, or dated style.",
-      "keywords_any": [
+      "keywords_allow": [
         "cabinet",
         "drawer",
         "damaged",
@@ -708,7 +734,7 @@
       "trade_bucket": "kitchen_cabinets_counters",
       "work_item_code": "COUNTERTOP_REPLACE",
       "description": "Countertops with burns, chips, cracks, swollen seams, or missing sections.",
-      "keywords_any": [
+      "keywords_allow": [
         "countertop",
         "chip",
         "crack",
@@ -751,7 +777,7 @@
       "trade_bucket": "bathroom_fixtures_tile",
       "work_item_code": "TILE_GROUT_REPAIR",
       "description": "Broken/loose/missing tile or grout that may allow moisture intrusion.",
-      "keywords_any": [
+      "keywords_allow": [
         "tile",
         "grout",
         "cracked tile",
@@ -794,7 +820,7 @@
       "trade_bucket": "kitchen_cabinets_counters",
       "work_item_code": "APPLIANCE_REPLACE",
       "description": "Key appliances missing, visibly broken, significantly aged or neglected.",
-      "keywords_any": [
+      "keywords_allow": [
         "appliance",
         "missing",
         "broken",
@@ -838,7 +864,7 @@
       "trade_bucket": "plumbing",
       "work_item_code": "PLUMBING_REPAIR",
       "description": "Leaks, corrosion, staining, or mineral buildup at sinks/toilets/tubs/showers.",
-      "keywords_any": [
+      "keywords_allow": [
         "leak",
         "leaking",
         "corrosion",
@@ -880,7 +906,7 @@
       "trade_bucket": "bathroom_fixtures_tile",
       "work_item_code": "FIXTURES_UPDATE",
       "description": "Tubs/showers/toilets with heavy staining, chipped enamel, or worn finishes.",
-      "keywords_any": [
+      "keywords_allow": [
         "tub",
         "shower",
         "toilet",
@@ -923,7 +949,7 @@
       "trade_bucket": "electrical",
       "work_item_code": "ELECTRICAL_REPAIR",
       "description": "Exposed wiring, missing covers, scorch marks, overloaded strips, unsafe components.",
-      "keywords_any": [
+      "keywords_allow": [
         "exposed wire",
         "wiring",
         "missing cover",
@@ -933,7 +959,7 @@
         "power strip"
       ],
       "keywords_deny": [],
-      "embed_text": "Visible electrical risks. Exposed wiring, missing outlet covers, scorch marks, overloaded power strips. Electrical repair.",
+      "embed_text": "Visible electrical risks. Exposed wiring, missing outlet covers, scorch marks, overloaded power strips. Bare bulb on hanging socket, temporary hanging light, unfinished light connection, fixture wiring exposed from ceiling. Electrical repair.",
       "kind": "defect",
       "id": "visible_electrical_risks",
       "scope": "repair",
@@ -968,7 +994,7 @@
       "trade_bucket": "safety_general",
       "work_item_code": "RAILING_REPAIR",
       "description": "Missing/loose/broken railings on stairs, balconies, decks.",
-      "keywords_any": [
+      "keywords_allow": [
         "handrail",
         "guardrail",
         "railing",
@@ -1012,7 +1038,7 @@
       "trade_bucket": "foundation_structure",
       "work_item_code": "FOUNDATION_REPAIR",
       "description": "Cracking, moisture intrusion, efflorescence, or structural wear in basement/garage walls or floors.",
-      "keywords_any": [
+      "keywords_allow": [
         "basement",
         "garage",
         "crack",
@@ -1021,7 +1047,7 @@
         "structural"
       ],
       "keywords_deny": [],
-      "embed_text": "Basement or garage damage. Cracks, moisture intrusion, efflorescence, structural wear. Structural repair evaluation.",
+      "embed_text": "Basement or garage damage. Cracks, moisture intrusion, efflorescence, structural wear. Lower wall moisture staining, wall discoloration at base or corners, bubbling or peeling wall texture, staining beneath windows, patch lines and cracking on basement walls. Structural repair evaluation.",
       "kind": "defect",
       "id": "garage_or_basement_damage",
       "scope": "repair",
@@ -1050,7 +1076,7 @@
       "trade_bucket": "foundation_structure",
       "work_item_code": "STRUCTURAL_REPAIR",
       "description": "Large step cracks, sloped floors, misaligned doors/windows, signs of notable settlement.",
-      "keywords_any": [
+      "keywords_allow": [
         "foundation",
         "settlement",
         "step crack",
@@ -1098,7 +1124,7 @@
       "trade_bucket": "safety_general",
       "work_item_code": "PEST_CONTROL",
       "description": "Droppings, chewed materials, nests, or clear signs of insects/rodents.",
-      "keywords_any": [
+      "keywords_allow": [
         "droppings",
         "rodent",
         "pest",
@@ -1140,7 +1166,7 @@
       "trade_bucket": "landscaping_drains",
       "work_item_code": "GRADING_DRAINAGE",
       "description": "Standing water, negative grading, saturated soil near structure increasing moisture risk.",
-      "keywords_any": [
+      "keywords_allow": [
         "standing water",
         "poor grading",
         "negative grading",
@@ -1178,7 +1204,7 @@
       "trade_bucket": "landscaping_drains",
       "work_item_code": "CONCRETE_REPAIR",
       "description": "Cracks, heaving, spalling, or settlement in concrete/paved areas impacting safety or curb appeal.",
-      "keywords_any": [
+      "keywords_allow": [
         "driveway",
         "walkway",
         "crack",
@@ -1217,7 +1243,7 @@
       "trade_bucket": "roof_gutters",
       "work_item_code": "GUTTER_REPAIR",
       "description": "Gutters/downspouts clogged, sagging, disconnected, or dumping water near foundation.",
-      "keywords_any": [
+      "keywords_allow": [
         "gutter",
         "downspout",
         "clogged",
@@ -1254,7 +1280,7 @@
       "trade_bucket": "landscaping_drains",
       "work_item_code": "LANDSCAPE_TRIM",
       "description": "Vegetation contacting or very close to siding/roof/foundation promoting moisture, pests, or damage.",
-      "keywords_any": [
+      "keywords_allow": [
         "tree",
         "vegetation",
         "overgrown",
@@ -1292,7 +1318,7 @@
       "trade_bucket": "kitchen_cabinets_counters",
       "work_item_code": "CABINET_REPLACE",
       "description": "Older cabinetry, counters, appliances, or finishes that would benefit from modernization.",
-      "keywords_any": [
+      "keywords_allow": [
         "dated",
         "outdated",
         "old",
@@ -1334,7 +1360,7 @@
       "trade_bucket": "bathroom_fixtures_tile",
       "work_item_code": "FIXTURES_UPDATE",
       "description": "Older tile, vanity, fixtures, or layout where an update would improve appeal.",
-      "keywords_any": [
+      "keywords_allow": [
         "dated",
         "outdated",
         "old",
@@ -1377,7 +1403,7 @@
       "trade_bucket": "flooring",
       "work_item_code": "FLOORING_REPLACE",
       "description": "Flooring is clean but visually outdated (older carpet, laminate, linoleum, dated tile).",
-      "keywords_any": [
+      "keywords_allow": [
         "dated flooring",
         "old carpet",
         "old laminate",
@@ -1422,7 +1448,7 @@
       "trade_bucket": "electrical",
       "work_item_code": "FIXTURES_UPDATE",
       "description": "Older ceiling lights, fans, sconces, or track lighting where modern fixtures improve the look.",
-      "keywords_any": [
+      "keywords_allow": [
         "dated light",
         "old fixture",
         "ceiling fan",
@@ -1430,7 +1456,7 @@
         "builder grade"
       ],
       "keywords_deny": [],
-      "embed_text": "Outdated lighting fixtures. Dated ceiling light or ceiling fan. Fixture update.",
+      "embed_text": "Outdated lighting fixtures. Dated ceiling light or ceiling fan. Brass chandelier, ornate chandelier, candelabra-style hanging fixture, dated dining room chandelier, vintage hanging light. Fixture update.",
       "kind": "upgrade",
       "id": "dated_lighting_fixtures",
       "scope": "replace",
@@ -1464,7 +1490,7 @@
       "trade_bucket": "paint_drywall",
       "work_item_code": "PAINT_INTERIOR",
       "description": "Older or highly personalized colors where repainting in modern neutrals would improve appeal.",
-      "keywords_any": [
+      "keywords_allow": [
         "repaint",
         "paint refresh",
         "dated paint",
@@ -1503,7 +1529,7 @@
       "trade_bucket": "landscaping_drains",
       "work_item_code": "LANDSCAPE_CLEANUP",
       "description": "Exterior/yard appears sparse, overgrown, or tired; could improve with landscaping cleanup.",
-      "keywords_any": [
+      "keywords_allow": [
         "overgrown",
         "weeds",
         "yard",
@@ -1541,7 +1567,7 @@
       "trade_bucket": "exterior_siding_trim",
       "work_item_code": "EXTERIOR_COSMETIC_UPDATE",
       "description": "Entry/porch/facade could benefit from cosmetic updates (paint, hardware, accents).",
-      "keywords_any": [
+      "keywords_allow": [
         "curb appeal",
         "entry",
         "front door",
@@ -1549,7 +1575,7 @@
         "facade"
       ],
       "keywords_deny": [],
-      "embed_text": "Curb appeal upgrade. Improve entry, porch, exterior accents. Exterior cosmetic updates.",
+      "embed_text": "Curb appeal upgrade. Improve entry, porch, exterior accents. Undersized or visually weak front entry, uninviting front door area, small entry presence, minimal exterior articulation. Exterior cosmetic updates.",
       "kind": "upgrade",
       "id": "curb_appeal_upgrade",
       "scope": "cosmetic",
@@ -1578,7 +1604,7 @@
       "trade_bucket": "foundation_structure",
       "work_item_code": "DRYWALL_PATCH",
       "description": "Unfinished basement suggests opportunity for added space through future finishing.",
-      "keywords_any": [
+      "keywords_allow": [
         "unfinished basement",
         "basement",
         "unfinished"
@@ -1612,7 +1638,7 @@
       "trade_bucket": "safety_general",
       "work_item_code": "STAGING_DECLUTTER",
       "description": "Rooms appear cluttered/personalized; decluttering or staging improves perception.",
-      "keywords_any": [
+      "keywords_allow": [
         "clutter",
         "messy",
         "staging",
@@ -1651,7 +1677,7 @@
       "trade_bucket": "trim_doors_windows",
       "work_item_code": "TRIM_REPAIR",
       "description": "Baseboards show scuffs, paint loss, dents, or general wear that reduces perceived condition.",
-      "keywords_any": [
+      "keywords_allow": [
         "baseboard",
         "baseboards",
         "scuff",
@@ -1690,7 +1716,7 @@
       "trade_bucket": "paint_drywall",
       "work_item_code": "DRYWALL_PATCH",
       "description": "Walls show visible scuffs, stains, dents, or minor damage indicating heavy use or deferred maintenance.",
-      "keywords_any": [
+      "keywords_allow": [
         "wall",
         "walls",
         "scuff",
@@ -1732,7 +1758,7 @@
       "trade_bucket": "electrical",
       "work_item_code": "FIXTURES_UPDATE",
       "description": "Ceiling fan has mismatched or damaged blades, indicating a repair issue and reduced visual appeal.",
-      "keywords_any": [
+      "keywords_allow": [
         "ceiling fan",
         "fan",
         "mismatched blades",
@@ -1769,7 +1795,7 @@
       "trade_bucket": "electrical",
       "work_item_code": "FIXTURES_UPDATE",
       "description": "Ceiling fan appears older/builder-grade; a modern replacement improves lighting and overall look.",
-      "keywords_any": [
+      "keywords_allow": [
         "ceiling fan",
         "older fan",
         "dated fan",
@@ -1805,7 +1831,7 @@
       "trade_bucket": "paint_drywall",
       "work_item_code": "CEILING_TEXTURE_UPDATE",
       "description": "Ceiling has popcorn/acoustic texture; smoothing or re-texturing modernizes the interior.",
-      "keywords_any": [
+      "keywords_allow": [
         "popcorn ceiling",
         "acoustic texture",
         "textured ceiling",
@@ -1817,7 +1843,7 @@
         "sagging",
         "crack"
       ],
-      "embed_text": "Popcorn or acoustic ceiling texture. Textured ceiling (popcorn). Modernize by smoothing or re-texturing.",
+      "embed_text": "Popcorn or acoustic ceiling texture. Textured ceiling (popcorn). Stippled or spray-textured ceiling, acoustic ceiling finish, dated popcorn texture in bathroom or bedroom. Modernize by smoothing or re-texturing.",
       "kind": "upgrade",
       "id": "popcorn_or_acoustic_ceiling_texture",
       "scope": "repair",
@@ -1842,7 +1868,7 @@
       "trade_bucket": "paint_drywall",
       "work_item_code": "FRAMING_DRYWALL_FINISH",
       "description": "Exposed OSB/sheathing on an interior wall indicates an unfinished or incomplete wall assembly requiring proper finishing.",
-      "keywords_any": [
+      "keywords_allow": [
         "osb",
         "exposed osb",
         "sheathing",
@@ -1879,7 +1905,7 @@
       "trade_bucket": "cleaning_turnover",
       "work_item_code": "FLOOR_CLEAN_RESTORE",
       "description": "Floor appears visibly dirty or heavily soiled, reducing perceived condition and possibly indicating deeper wear.",
-      "keywords_any": [
+      "keywords_allow": [
         "dirty floor",
         "floor is dirty",
         "soiled",
@@ -1917,7 +1943,7 @@
       "trade_bucket": "bathroom_fixtures_tile",
       "work_item_code": "TILE_UPDATE",
       "description": "Tile pattern/style reads as vintage or dated; updating tile can modernize the bathroom.",
-      "keywords_any": [
+      "keywords_allow": [
         "vintage tile",
         "dated tile",
         "old tile",
@@ -1951,7 +1977,7 @@
       "trade_bucket": "bathroom_fixtures_tile",
       "work_item_code": "FIXTURES_UPDATE",
       "description": "Ornate or vintage-style mirror (e.g., oval ornate frame) reads dated; swapping improves appeal.",
-      "keywords_any": [
+      "keywords_allow": [
         "ornate mirror",
         "oval mirror",
         "vintage mirror",
@@ -1983,7 +2009,7 @@
       "trade_bucket": "electrical",
       "work_item_code": "FIXTURES_UPDATE",
       "description": "Stained-glass or vintage-style light fixture reads dated; replacing can modernize the space.",
-      "keywords_any": [
+      "keywords_allow": [
         "stained glass light",
         "vintage light",
         "old-style fixture",
@@ -2020,7 +2046,7 @@
       "trade_bucket": "trim_doors_windows",
       "work_item_code": "WINDOW_TREATMENT_UPDATE",
       "description": "Vintage-style valance or dated window treatments reduce perceived condition; updating improves appeal.",
-      "keywords_any": [
+      "keywords_allow": [
         "valance",
         "window treatment",
         "dated curtains",
@@ -2058,7 +2084,7 @@
       "trade_bucket": "interior_finishes",
       "work_item_code": "WALLPAPER_REMOVE_PAINT",
       "description": "Wallpaper appears dated or visually busy; removal and repainting improves market appeal.",
-      "keywords_any": [
+      "keywords_allow": [
         "wallpaper",
         "dated wallpaper",
         "busy wallpaper",
@@ -2094,7 +2120,7 @@
       "trade_bucket": "paint_drywall",
       "work_item_code": "PANELING_UPDATE",
       "description": "Wood paneling appears dated; painting, removing, or replacing can modernize the room.",
-      "keywords_any": [
+      "keywords_allow": [
         "wood paneling",
         "paneling",
         "dated paneling",
@@ -2130,7 +2156,7 @@
       "trade_bucket": "safety_general",
       "work_item_code": "STAGING_REFRESH",
       "description": "Furniture and decor appear mismatched or distracting; staging improvements can improve perception and photos.",
-      "keywords_any": [
+      "keywords_allow": [
         "mismatched furniture",
         "cow-print",
         "staging",
@@ -2164,7 +2190,7 @@
       "trade_bucket": "safety_general",
       "work_item_code": "COSMETIC_MODERNIZATION",
       "description": "Overall decor/finish selections feel dated; targeted cosmetic modernization may increase appeal.",
-      "keywords_any": [
+      "keywords_allow": [
         "dated decor",
         "overall decor",
         "dated style",
@@ -2176,7 +2202,7 @@
         "leaking",
         "mold"
       ],
-      "embed_text": "Overall decor style appears dated. General dated finishes and decor. Targeted cosmetic modernization.",
+      "embed_text": "Overall decor style appears dated. General dated finishes and decor. Older interior doors, dated door styles, old-fashioned millwork or trim, dated interior hardware. Targeted cosmetic modernization.",
       "kind": "upgrade",
       "id": "dated_overall_decor_style",
       "scope": "cosmetic",
@@ -2201,7 +2227,7 @@
       "trade_bucket": "landscaping_drains",
       "work_item_code": "LANDSCAPE_CLEANUP",
       "description": "Landscaping appears overgrown with fallen leaves or debris; cleanup improves curb appeal and drainage performance.",
-      "keywords_any": [
+      "keywords_allow": [
         "overgrown",
         "fallen leaves",
         "leaves",
@@ -2236,7 +2262,7 @@
       "trade_bucket": "roof_gutters",
       "work_item_code": "ROOF_REPAIR",
       "description": "Discoloration, staining, or deterioration near the roofline suggests possible moisture intrusion requiring evaluation.",
-      "keywords_any": [
+      "keywords_allow": [
         "roofline",
         "water damage",
         "staining",
@@ -2248,7 +2274,10 @@
       ],
       "keywords_deny": [
         "interior ceiling",
-        "water stain on ceiling"
+        "water stain on ceiling",
+        "door bottom",
+        "door sill",
+        "door frame rot"
       ],
       "embed_text": "Possible water damage at roofline. Staining/deterioration at eaves/fascia/soffit. Inspect and repair leak source.",
       "kind": "defect",
@@ -2272,7 +2301,7 @@
       "trade_bucket": "roof_gutters",
       "work_item_code": "GUTTER_SERVICE",
       "description": "Gutters/downspouts appear to need cleaning, inspection, or minor service to ensure proper drainage.",
-      "keywords_any": [
+      "keywords_allow": [
         "gutters",
         "downspouts",
         "needs cleaning",
@@ -2307,7 +2336,7 @@
       "trade_bucket": "exterior_paint_trim",
       "work_item_code": "PAINT_EXTERIOR",
       "description": "Shed shows peeling or failing exterior paint, indicating deferred maintenance and exposure wear.",
-      "keywords_any": [
+      "keywords_allow": [
         "shed",
         "peeling paint",
         "paint failure",
@@ -2337,7 +2366,7 @@
       "trade_bucket": "landscaping_drains",
       "work_item_code": "CONCRETE_REPAIR",
       "description": "Concrete driveway shows surface wear with visible evidence of spalling, pitting, or rough patch breakdown \u00e2\u20ac\u201d not simple aging or discoloration alone.",
-      "keywords_any": [
+      "keywords_allow": [
         "spalling",
         "pitting",
         "spalled concrete",
@@ -2371,7 +2400,7 @@
       "trade_bucket": "safety_general",
       "work_item_code": "DECLUTTER_CLEAN",
       "description": "Visible storage piles or heavy clutter reduces usable perception of space and harms listing presentation.",
-      "keywords_any": [
+      "keywords_allow": [
         "clutter",
         "storage items",
         "boxes",
@@ -2406,7 +2435,7 @@
       "trade_bucket": "exterior_siding_trim",
       "work_item_code": "EXTERIOR_REPAIR",
       "description": "Metal carport or similar exterior metal structure shows visible rust, corrosion, or deterioration along seams, edges, or roof panels.",
-      "keywords_any": [
+      "keywords_allow": [
         "carport",
         "metal carport",
         "rust",
@@ -2420,7 +2449,7 @@
         "roof shingle",
         "asphalt shingle"
       ],
-      "embed_text": "Metal carport rust or corrosion. Rusted or corroded metal carport structure, seams, or roof panels. Repair, treat rust, or replace affected components.",
+      "embed_text": "Metal carport rust or corrosion. Rusted or corroded metal carport structure. Weathered, aged, or deteriorated carport or outbuilding. General wear and structural aging on carport or shed exterior. Repair, treat rust, or replace affected components.",
       "kind": "defect",
       "id": "metal_carport_rust_corrosion",
       "scope": "repair",
@@ -2436,13 +2465,31 @@
       }
     },
     {
+      "id": "fence_damaged_or_weathered",
+      "name": "Fence Damaged or Weathered",
+      "tier": "work",
+      "defaultHidden": false,
+      "scope": [
+        "exterior"
+      ],
+      "embed_text": "Fence damaged or weathered. Wood fence rotting, leaning, uneven, or deteriorated. Weathered fence boards, leaning fence sections, fence in need of repair or replacement. Fence repair or replacement.",
+      "keywords_allow": [
+        "fence",
+        "fencing",
+        "privacy fence",
+        "wood fence",
+        "leaning fence",
+        "weathered fence"
+      ]
+    },
+    {
       "name": "Exterior Siding Discoloration or Fading",
       "category": "exterior",
       "severity": 1,
       "trade_bucket": "exterior_siding_trim",
       "work_item_code": "PAINT_EXTERIOR",
       "description": "Exterior siding or trim shows fading, chalking, staining, or uneven discoloration indicating aging finishes and reduced curb appeal.",
-      "keywords_any": [
+      "keywords_allow": [
         "discoloration",
         "faded siding",
         "chalky siding",
@@ -2478,7 +2525,7 @@
       "trade_bucket": "landscaping_drains",
       "work_item_code": "HARDSCAPE_REPAIR",
       "description": "Gravel driveway or parking surface appears uneven, rutted, or loosely scattered, creating potential drainage or trip concerns.",
-      "keywords_any": [
+      "keywords_allow": [
         "gravel driveway",
         "gravel surface",
         "uneven gravel",
@@ -2513,7 +2560,7 @@
       "trade_bucket": "exterior_siding_trim",
       "work_item_code": "EXTERIOR_COSMETIC_UPDATE",
       "description": "Overall exterior appearance feels dated due to color palette, materials, or trim details; cosmetic updates may improve curb appeal.",
-      "keywords_any": [
+      "keywords_allow": [
         "dated exterior",
         "old exterior style",
         "outdated facade",
@@ -2547,7 +2594,7 @@
       "trade_bucket": "foundation_structure",
       "work_item_code": "LAYOUT_RECONFIGURE",
       "description": "Interior layout suggests potential for modernization (e.g., opening walls, reconfiguring rooms) to improve flow and market appeal.",
-      "keywords_any": [
+      "keywords_allow": [
         "dated layout",
         "closed floor plan",
         "compartmentalized",
@@ -2587,7 +2634,7 @@
       "trade_bucket": "exterior_siding_trim",
       "work_item_code": "EXTERIOR_REPAIR",
       "description": "Exterior wall area shows exposed OSB/sheathing or missing siding panels, indicating incomplete or damaged exterior cladding.",
-      "keywords_any": [
+      "keywords_allow": [
         "exposed osb",
         "exposed sheathing",
         "missing siding",
@@ -2598,7 +2645,7 @@
       "keywords_deny": [
         "interior wall"
       ],
-      "embed_text": "Exposed sheathing or missing exterior siding. Exterior wall with visible OSB or missing cladding. Replace siding and properly weatherproof.",
+      "embed_text": "Exposed sheathing or missing exterior siding. Exterior wall with visible OSB or missing cladding. Dark staining or weathering on exposed sheathing, unfinished wall section, incomplete exterior enclosure. Replace siding and properly weatherproof.",
       "kind": "defect",
       "id": "exposed_sheathing_or_missing_siding",
       "scope": "replace",
@@ -2626,7 +2673,7 @@
       "trade_bucket": "exterior_siding_trim",
       "work_item_code": "DECK_REFINISH",
       "description": "Deck surface shows fading, graying, or surface wear consistent with weather exposure but not obvious structural failure.",
-      "keywords_any": [
+      "keywords_allow": [
         "weathered deck",
         "faded deck",
         "gray wood",
@@ -2663,7 +2710,7 @@
       "trade_bucket": "landscaping_drains",
       "work_item_code": "STUMP_REMOVAL",
       "description": "Visible tree stump remaining in yard area, affecting curb appeal and potentially posing a trip hazard.",
-      "keywords_any": [
+      "keywords_allow": [
         "tree stump",
         "stump",
         "cut tree",
@@ -2692,7 +2739,7 @@
       "trade_bucket": "trim_doors_windows",
       "work_item_code": "PAINT_EXTERIOR",
       "description": "Exterior door paint appears worn, chipped, or peeling around edges, panels, or trim.",
-      "keywords_any": [
+      "keywords_allow": [
         "door paint",
         "chipped door",
         "peeling door",
@@ -2724,7 +2771,7 @@
       "trade_bucket": "masonry_exterior_structure",
       "work_item_code": "MASONRY_REPAIR",
       "description": "Brickwork shows weathering, discoloration, or deteriorating mortar joints that may require cleaning, sealing, or repointing.",
-      "keywords_any": [
+      "keywords_allow": [
         "brick weathering",
         "discolored brick",
         "repoint",
@@ -2755,7 +2802,7 @@
       "trade_bucket": "exterior_siding_trim",
       "work_item_code": "SURFACE_RESURFACE",
       "description": "Covered patio or porch surface shows aging, surface wear, or coating breakdown suggesting resurfacing or sealing.",
-      "keywords_any": [
+      "keywords_allow": [
         "patio surface",
         "porch surface",
         "resurface",
@@ -2790,7 +2837,7 @@
       "trade_bucket": "kitchen_cabinets_counters",
       "work_item_code": "CABINET_REPLACE",
       "description": "Lower cabinets are missing, exposing subflooring, framing, or plumbing areas. Indicates significant renovation required.",
-      "keywords_any": [
+      "keywords_allow": [
         "missing cabinets",
         "no cabinets",
         "exposed subfloor",
@@ -2826,7 +2873,7 @@
       "trade_bucket": "foundation_structure",
       "work_item_code": "STRUCTURAL_REPAIR",
       "description": "Subflooring or framing members appear saturated, deteriorated, or structurally compromised due to prolonged moisture exposure.",
-      "keywords_any": [
+      "keywords_allow": [
         "rotted subfloor",
         "saturated framing",
         "wood rot",
@@ -2841,6 +2888,10 @@
       "scope": "repair",
       "defaultHidden": false,
       "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
         "utility",
         "other"
       ],
@@ -2863,7 +2914,7 @@
       "trade_bucket": "paint_drywall",
       "work_item_code": "FRAMING_DRYWALL_FINISH",
       "description": "Interior wall has drywall removed, exposing studs and insulation, indicating incomplete renovation or severe damage.",
-      "keywords_any": [
+      "keywords_allow": [
         "stripped to studs",
         "exposed insulation",
         "no drywall",
@@ -2902,7 +2953,7 @@
       "trade_bucket": "trim_doors_windows",
       "work_item_code": "DOOR_WINDOW_REPLACE",
       "description": "Door or window opening is boarded over, indicating damage, vacancy security measures, or structural compromise.",
-      "keywords_any": [
+      "keywords_allow": [
         "boarded up",
         "plywood door",
         "covered window",
@@ -2943,7 +2994,7 @@
       "trade_bucket": "landscaping_drains",
       "work_item_code": "MASONRY_REPAIR",
       "description": "Retaining wall section appears missing, collapsed, or structurally compromised, affecting grading and soil stability.",
-      "keywords_any": [
+      "keywords_allow": [
         "retaining wall",
         "collapsed wall",
         "missing section",
@@ -2973,7 +3024,7 @@
       "trade_bucket": "masonry_exterior_structure",
       "work_item_code": "POOL_REHAB",
       "description": "In-ground pool appears empty, neglected, or visibly deteriorated, suggesting repair, restoration, or secure fill-in may be needed.",
-      "keywords_any": [
+      "keywords_allow": [
         "empty pool",
         "drained pool",
         "in-ground pool",
@@ -3024,7 +3075,7 @@
       "trade_bucket": "flooring",
       "work_item_code": "FLOORING_REPLACE",
       "description": "Flooring that appears worn, stained, discolored, or aged without structural concern.",
-      "keywords_any": [
+      "keywords_allow": [
         "worn",
         "stained",
         "dirty",

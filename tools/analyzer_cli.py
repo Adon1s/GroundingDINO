@@ -652,7 +652,7 @@ def main() -> int:
     candidate_provider = None
     if getattr(cfg, "USE_EMBEDDINGS_CATALOG", False):
         try:
-            from tools.catalog_embeddings import CatalogEmbeddingsRetriever
+            from tools.catalog_embeddings import CatalogEmbeddingsRetriever, build_guardrails_from_catalog
             from dataclasses import asdict
 
             retriever = CatalogEmbeddingsRetriever(
@@ -661,6 +661,7 @@ def main() -> int:
                 device=getattr(cfg, "EMBEDDINGS_DEVICE", "cpu"),
                 trust_remote_code=getattr(cfg, "EMBEDDINGS_TRUST_REMOTE_CODE", False),
                 default_topk=getattr(cfg, "EMBEDDINGS_TOPK", 10),
+                guardrails=build_guardrails_from_catalog(catalog),
             )
 
             def candidate_provider(observation_text: str, context: dict) -> list:
