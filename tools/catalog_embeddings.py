@@ -52,18 +52,26 @@ def _cosine_topk(q: np.ndarray, mat: np.ndarray, k: int) -> Tuple[np.ndarray, np
 
 
 def build_guardrails_from_catalog(catalog: Dict[str, Any]) -> Dict[str, Dict[str, List[str]]]:
-    """Build guardrails dict from catalog keywords_allow / keywords_deny fields."""
+    """Build hard/soft keyword constraints from catalog.
+
+    Catalog keyword schema (three-tier):
+      keywords_deny  → deny_any:    hard reject (if any token matches, reject)
+      keywords_allow → require_any: hard require (at least one token must match)
+      keywords_any   → support_any: soft support / ranking hint only (not enforced as gate)
+    """
     guardrails: Dict[str, Dict[str, List[str]]] = {}
     for item in catalog.get("items", []):
         item_id = str(item.get("id") or item.get("defect_id") or item.get("upgrade_id") or "").strip()
         if not item_id:
             continue
-        deny = item.get("keywords_deny", [])
-        must = item.get("keywords_allow", [])
-        if deny or must:
+        deny = [t.lower() for t in item.get("keywords_deny", []) if str(t).strip()]
+        support = [t.lower() for t in item.get("keywords_any", []) if str(t).strip()]
+        require = [t.lower() for t in item.get("keywords_allow", []) if str(t).strip()]
+        if deny or support or require:
             guardrails[item_id] = {
-                "deny_any": [t.lower() for t in deny],
-                "must_any": [t.lower() for t in must],
+                "deny_any": deny,
+                "support_any": support,
+                "require_any": require,
             }
     return guardrails
 
@@ -243,8 +251,8 @@ class CatalogEmbeddingsRetriever:
         deny = g.get("deny_any", [])
         if deny and any(x in t for x in deny):
             return False
-        must = g.get("must_any", [])
-        if must and not any(x in t for x in must):
+        require = g.get("require_any", [])
+        if require and not any(x in t for x in require):
             return False
         return True
 

@@ -99,6 +99,12 @@ GPT_PASS_4B_MODEL = _env_any("OPENAI_PASS_4B_MODEL", "OPENAI_PASS4B_MODEL") or G
 GPT_PASS_4C_MODEL = _env_any("OPENAI_PASS_4C_MODEL", "OPENAI_PASS4C_MODEL") or GPT_MODEL
 
 # =============================================================================
+# GOOGLE GEMINI SETTINGS (Cloud - for catalog_auditor)
+# =============================================================================
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBVoSb4gygaBh2ScxfceIIAJ7-1bjnQJLc")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-pro-preview")
+
+# =============================================================================
 # Embeddings-based catalog matching
 # =============================================================================
 USE_EMBEDDINGS_CATALOG = True

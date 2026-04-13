@@ -6,6 +6,7 @@ Provides a unified interface for calling Vision Language Models.
 Supports:
 - LM Studio (local Qwen, etc.) - uses requests for chat/completions
 - OpenAI API (GPT-4o, GPT-5) - uses official OpenAI Python SDK
+- Google Gemini API - uses google-genai SDK
 
 Usage:
     client = VLMClient()
@@ -54,10 +55,20 @@ except ImportError:
     OPENAI_SDK_AVAILABLE = False
     print("WARNING: openai package not installed. Install with: pip install openai")
 
+try:
+    from google import genai
+    from google.genai import types as genai_types
+
+    GEMINI_SDK_AVAILABLE = True
+except ImportError:
+    genai = None
+    genai_types = None
+    GEMINI_SDK_AVAILABLE = False
+
 logger = logging.getLogger(__name__)
 
 # Provider types
-ProviderType = Literal["openai", "lmstudio", "auto"]
+ProviderType = Literal["openai", "lmstudio", "gemini", "auto"]
 
 
 class VLMClient:
@@ -83,6 +94,9 @@ class VLMClient:
 
         # Cache for uploaded file IDs (avoid re-uploading same file)
         self._file_cache: Dict[str, str] = {}
+
+        # Cache for Gemini clients (keyed by api_key)
+        self._gemini_clients: Dict[str, Any] = {}
 
     def _detect_provider(self, url: Optional[str], api_key: Optional[str]) -> ProviderType:
         """
@@ -283,6 +297,87 @@ class VLMClient:
         return response.output_text
 
     # ═══════════════════════════════════════════════════════════════════════════
+    # Google Gemini Methods (using google-genai)
+    # ═══════════════════════════════════════════════════════════════════════════
+
+    def _get_gemini_client(self, api_key: Optional[str] = None) -> Any:
+        """Get or create a Gemini client. If api_key is None, rely on GEMINI_API_KEY env."""
+        if not GEMINI_SDK_AVAILABLE:
+            raise RuntimeError("google-genai SDK not installed. Run: pip install google-genai")
+
+        key = api_key or os.environ.get("GEMINI_API_KEY", "")
+        if not key:
+            raise ValueError("Gemini API key required. Set GEMINI_API_KEY env var or pass api_key.")
+
+        if key not in self._gemini_clients:
+            self._gemini_clients[key] = genai.Client(api_key=key)
+
+        return self._gemini_clients[key]
+
+    async def _analyze_image_gemini(
+            self,
+            image_path: Path,
+            system_prompt: str,
+            user_prompt: str,
+            model: str,
+            api_key: Optional[str],
+            max_tokens: int,
+    ) -> str:
+        """Analyze image using Google Gemini's generate_content API."""
+        if not image_path.exists():
+            raise FileNotFoundError(f"Image not found: {image_path}")
+
+        client = self._get_gemini_client(api_key)
+
+        # Read image bytes and determine mime type
+        image_data, media_type = self._encode_image_base64(image_path)
+        image_bytes = base64.b64decode(image_data)
+
+        logger.debug(f"Calling Gemini ({model}) for image: {image_path.name}")
+
+        def _call():
+            return client.models.generate_content(
+                model=model,
+                contents=[
+                    genai_types.Part.from_bytes(data=image_bytes, mime_type=media_type),
+                    user_prompt,
+                ],
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    max_output_tokens=max_tokens,
+                ),
+            )
+
+        response = await asyncio.get_event_loop().run_in_executor(None, _call)
+        return response.text
+
+    async def _analyze_text_gemini(
+            self,
+            system_prompt: str,
+            user_prompt: str,
+            model: str,
+            api_key: Optional[str],
+            max_tokens: int,
+    ) -> str:
+        """Text-only analysis using Google Gemini."""
+        client = self._get_gemini_client(api_key)
+
+        logger.debug(f"Calling Gemini ({model}) for text analysis")
+
+        def _call():
+            return client.models.generate_content(
+                model=model,
+                contents=user_prompt,
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=system_prompt,
+                    max_output_tokens=max_tokens,
+                ),
+            )
+
+        response = await asyncio.get_event_loop().run_in_executor(None, _call)
+        return response.text
+
+    # ═══════════════════════════════════════════════════════════════════════════
     # LM Studio Methods (using requests)
     # ═══════════════════════════════════════════════════════════════════════════
 
@@ -476,6 +571,16 @@ class VLMClient:
                 max_tokens=max_tokens,
             )
 
+        elif provider == "gemini":
+            return await self._analyze_image_gemini(
+                image_path=image_path,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                model=model,
+                api_key=api_key,
+                max_tokens=max_tokens,
+            )
+
         else:  # lmstudio
             if not url:
                 raise ValueError("URL required for LM Studio provider")
@@ -552,6 +657,15 @@ class VLMClient:
                 max_tokens=max_tokens,
             )
 
+        elif provider == "gemini":
+            return await self._analyze_text_gemini(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                model=model,
+                api_key=api_key,
+                max_tokens=max_tokens,
+            )
+
         else:  # lmstudio
             if not url:
                 raise ValueError("URL required for LM Studio provider")
@@ -604,7 +718,7 @@ def get_model_configs_from_pipeline_config(cfg: Any) -> Tuple[Dict[str, Any], Di
     """
     qwen_config = {
         'url': getattr(cfg, 'LM_STUDIO_URL', 'http://localhost:1234'),
-        'model': getattr(cfg, 'LM_STUDIO_MODEL', 'qwen-vl'),
+        'model': getattr(cfg, 'LM_STUDIO_MODEL', 'unsloth/gemma-4-31B-it'),
         'provider': 'lmstudio',
     }
 
@@ -617,7 +731,7 @@ def get_model_configs_from_pipeline_config(cfg: Any) -> Tuple[Dict[str, Any], Di
             os.environ.get('GPT_MODEL') or
             os.environ.get('GPT5_MODEL') or
             os.environ.get('OPENAI_MODEL') or
-            'gpt-4o'
+            'gpt-5.4'
     )
 
     # Get API key from config or environment
@@ -633,6 +747,31 @@ def get_model_configs_from_pipeline_config(cfg: Any) -> Tuple[Dict[str, Any], Di
     }
 
     return qwen_config, gpt_config
+
+
+def get_gemini_config_from_pipeline_config(cfg: Any) -> Dict[str, Any]:
+    """
+    Extract Gemini cloud model config from pipeline_config module.
+
+    Returns:
+        Config dict ready for VLMClient with provider='gemini'
+    """
+    gemini_model = (
+            getattr(cfg, 'GEMINI_MODEL', None) or
+            os.environ.get('GEMINI_MODEL') or
+            'gemini-3.1-pro-preview'
+    )
+
+    api_key = (
+            getattr(cfg, 'GEMINI_API_KEY', None) or
+            os.environ.get('GEMINI_API_KEY', '')
+    )
+
+    return {
+        'model': gemini_model,
+        'api_key': api_key,
+        'provider': 'gemini',
+    }
 
 
 def get_pass_specific_gpt_config(cfg: Any, pass_key: str) -> Dict[str, Any]:

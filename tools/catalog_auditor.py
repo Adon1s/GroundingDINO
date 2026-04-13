@@ -1,13 +1,16 @@
 """
-Catalog Auditor — GPT-5.4 judge-based catalog improvement tool.
+Catalog Auditor — cloud-model judge-based catalog improvement tool.
 
-Runs dual-model analysis (local + GPT-5.4) on property images, then uses
-GPT-5.4 as a judge to diagnose pipeline failures and propose catalog
-improvements.
+Runs dual-model analysis (local + cloud) on property images, then uses
+the cloud model as a judge to diagnose pipeline failures and propose
+catalog improvements.
+
+Supports OpenAI GPT and Google Gemini as cloud providers (--cloud-provider).
 
 Usage:
     python tools/catalog_auditor.py --max-images 20
-    python tools/catalog_auditor.py --dry-run --max-images 5
+    python tools/catalog_auditor.py --cloud-provider gemini --max-images 20
+    python tools/catalog_auditor.py --cloud-provider openai --dry-run --max-images 5
     python tools/catalog_auditor.py --mode full-scan --max-images 10
 """
 
@@ -35,7 +38,7 @@ if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
 import pipeline_config as cfg
-from vlm_client import VLMClient, create_vlm_client, get_model_configs_from_pipeline_config
+from vlm_client import VLMClient, create_vlm_client, get_model_configs_from_pipeline_config, get_gemini_config_from_pipeline_config
 from catalog_embeddings import CatalogEmbeddingsRetriever, MatchCandidate
 from scene_classifier_passes import (
     run_pass_1a_scene_type,
@@ -77,7 +80,7 @@ SCENE_TO_GROUP: Dict[str, str] = {
 class ObservationRecord:
     """A single observation with full provenance tracking."""
     description: str
-    source_model_2a: str           # "local" or "gpt"
+    source_model_2a: str           # "local", "openai", or "gemini"
     structured_by_model: str       # always "local"
     labeled_by_model: str          # always "local"
     label: str                     # defect_or_damage, upgrade_candidate, etc.
@@ -104,8 +107,8 @@ class ImageResult:
 
     # Local model observations (from artifacts or fresh run)
     local_observations: List[ObservationRecord] = field(default_factory=list)
-    # GPT model observations
-    gpt_observations: List[ObservationRecord] = field(default_factory=list)
+    # Cloud model observations (GPT or Gemini)
+    cloud_observations: List[ObservationRecord] = field(default_factory=list)
 
     # Judge verdicts (Phase 3)
     judge_verdicts: List[Dict] = field(default_factory=list)
@@ -113,7 +116,7 @@ class ImageResult:
 
     # Raw data for debugging
     local_freeform: str = ""
-    gpt_freeform: str = ""
+    cloud_freeform: str = ""
     error: Optional[str] = None
 
 
@@ -410,7 +413,7 @@ async def process_single_image(
     vlm_client: VLMClient,
     retriever: CatalogEmbeddingsRetriever,
     local_config: Dict,
-    gpt_config: Dict,
+    cloud_config: Dict,
     mode: str,
 ) -> ImageResult:
     """Process a single image: collect observations from both models + embedding audit."""
@@ -440,34 +443,36 @@ async def process_single_image(
         result.scene_group = SCENE_TO_GROUP.get(scene_id, "other")
         result.local_observations = local_records
 
-        # ── Run GPT-5.4 Pass 2a on the image ────────────────────────────
-        gpt_2a = await run_pass_2a(image_path, vlm_client, gpt_config)
-        result.gpt_freeform = gpt_2a.observations_freeform
+        # ── Run cloud model Pass 2a on the image ────────────────────────
+        cloud_provider = cloud_config.get("provider", "openai")
+        cloud_model = cloud_config.get("model", "unknown")
+        cloud_2a = await run_pass_2a(image_path, vlm_client, cloud_config)
+        result.cloud_freeform = cloud_2a.observations_freeform
 
-        gpt_freeform = gpt_2a.observations_freeform.strip()
-        if gpt_freeform:
-            # Truncate if GPT output is excessively long (prevent context overflow on local model)
+        cloud_freeform = cloud_2a.observations_freeform.strip()
+        if cloud_freeform:
+            # Truncate if cloud output is excessively long (prevent context overflow on local model)
             MAX_FREEFORM_CHARS = 3000
-            if len(gpt_freeform) > MAX_FREEFORM_CHARS:
+            if len(cloud_freeform) > MAX_FREEFORM_CHARS:
                 logger.warning(
-                    f"  GPT freeform output truncated: {len(gpt_freeform)} → {MAX_FREEFORM_CHARS} chars"
+                    f"  {cloud_provider}/{cloud_model} freeform output truncated: {len(cloud_freeform)} → {MAX_FREEFORM_CHARS} chars"
                 )
-                gpt_freeform = gpt_freeform[:MAX_FREEFORM_CHARS]
+                cloud_freeform = cloud_freeform[:MAX_FREEFORM_CHARS]
 
-            # Structure GPT observations through local model (2b + 2c)
-            gpt_2b = await run_pass_2b(vlm_client, local_config, gpt_freeform)
-            if gpt_2b.observations:
-                gpt_2c = await run_pass_2c(vlm_client, local_config, gpt_2b.observations, scene_id)
-                # Run embedding audit on GPT's forward observations
-                gpt_records = _run_embedding_audit(
-                    gpt_2c.labeled_forward, retriever, result.scene_group, "gpt"
+            # Structure cloud observations through local model (2b + 2c)
+            cloud_2b = await run_pass_2b(vlm_client, local_config, cloud_freeform)
+            if cloud_2b.observations:
+                cloud_2c = await run_pass_2c(vlm_client, local_config, cloud_2b.observations, scene_id)
+                # Run embedding audit on cloud model's forward observations
+                cloud_records = _run_embedding_audit(
+                    cloud_2c.labeled_forward, retriever, result.scene_group, cloud_provider
                 )
-                result.gpt_observations = gpt_records
+                result.cloud_observations = cloud_records
 
         logger.info(
             f"  {photo_key}: scene={scene_id}, "
             f"local_obs={len(result.local_observations)}, "
-            f"gpt_obs={len(result.gpt_observations)}"
+            f"cloud_obs({cloud_provider}/{cloud_model})={len(result.cloud_observations)}"
         )
 
     except Exception as e:
@@ -482,7 +487,7 @@ async def process_single_image_fullscan(
     vlm_client: VLMClient,
     retriever: CatalogEmbeddingsRetriever,
     local_config: Dict,
-    gpt_config: Dict,
+    cloud_config: Dict,
 ) -> ImageResult:
     """Full-scan mode: run both models from scratch."""
     image_path = Path(image_info["image_path"])
@@ -498,18 +503,21 @@ async def process_single_image_fullscan(
     )
 
     try:
+        cloud_provider = cloud_config.get("provider", "openai")
+        cloud_model = cloud_config.get("model", "unknown")
+
         # Pass 1a: Scene classification
         scene_result = await run_pass_1a_scene_type(image_path, vlm_client, local_config)
         result.scene = scene_result.scene
         result.scene_group = SCENE_TO_GROUP.get(scene_result.scene, "other")
 
         # Pass 2a: Run both models concurrently
-        local_2a, gpt_2a = await asyncio.gather(
+        local_2a, cloud_2a = await asyncio.gather(
             run_pass_2a(image_path, vlm_client, local_config),
-            run_pass_2a(image_path, vlm_client, gpt_config),
+            run_pass_2a(image_path, vlm_client, cloud_config),
         )
         result.local_freeform = local_2a.observations_freeform
-        result.gpt_freeform = gpt_2a.observations_freeform
+        result.cloud_freeform = cloud_2a.observations_freeform
 
         # Pass 2b+2c for both (using local model for structuring)
         async def _structure_and_audit(freeform: str, source: str) -> List[ObservationRecord]:
@@ -521,16 +529,16 @@ async def process_single_image_fullscan(
             r2c = await run_pass_2c(vlm_client, local_config, r2b.observations, result.scene)
             return _run_embedding_audit(r2c.labeled_forward, retriever, result.scene_group, source)
 
-        local_records, gpt_records = await asyncio.gather(
+        local_records, cloud_records = await asyncio.gather(
             _structure_and_audit(local_2a.observations_freeform, "local"),
-            _structure_and_audit(gpt_2a.observations_freeform, "gpt"),
+            _structure_and_audit(cloud_2a.observations_freeform, cloud_provider),
         )
         result.local_observations = local_records
-        result.gpt_observations = gpt_records
+        result.cloud_observations = cloud_records
 
         logger.info(
             f"  {photo_key}: scene={result.scene}, "
-            f"local_obs={len(local_records)}, gpt_obs={len(gpt_records)}"
+            f"local_obs={len(local_records)}, cloud_obs({cloud_provider}/{cloud_model})={len(cloud_records)}"
         )
 
     except Exception as e:
@@ -541,14 +549,14 @@ async def process_single_image_fullscan(
 
 
 # ---------------------------------------------------------------------------
-# Phase 3: GPT-5.4 Judge
+# Phase 3: Cloud Model Judge
 # ---------------------------------------------------------------------------
 
 JUDGE_SYSTEM_PROMPT = """\
 You are an expert real estate photo analyst and issue catalog quality auditor.
 Your job is to diagnose failures in an automated defect/upgrade detection pipeline.
 
-You will see an image, observations from two models (local and GPT), and the catalog items they matched to.
+You will see an image, observations from two models (local and cloud), and the catalog items they matched to.
 For each observation, diagnose WHICH STEP in the pipeline failed (if any):
 - observation: the model hallucinated or described something not visible
 - structuring: the freeform text was reasonable but got mangled during JSON structuring
@@ -580,18 +588,18 @@ def _build_judge_prompt(image_result: ImageResult, catalog: Dict) -> str:
             supp = f" [SUPPRESSED: {obs.suppression_reason}]"
         lines.append(f"  {i}. {status} ({obs.label}/{obs.kind}) {obs.description}{match_info}{supp}")
 
-    # GPT model observations
-    lines.append("\n## GPT Model Observations:")
-    if not image_result.gpt_observations:
+    # Cloud model observations
+    lines.append("\n## Cloud Model Observations:")
+    if not image_result.cloud_observations:
         lines.append("(none detected)")
-    for i, obs in enumerate(image_result.gpt_observations, 1):
+    for i, obs in enumerate(image_result.cloud_observations, 1):
         status = f"[{obs.retrieval_status}]"
         match_info = f" → matched: {obs.best_match_id} (score={obs.best_match_score:.3f})" if obs.best_match_id else " → no match"
         lines.append(f"  {i}. {status} ({obs.label}/{obs.kind}) {obs.description}{match_info}")
 
     # Relevant catalog snippets
     mentioned_ids = set()
-    all_obs = image_result.local_observations + image_result.gpt_observations
+    all_obs = image_result.local_observations + image_result.cloud_observations
     for obs in all_obs:
         if obs.best_match_id:
             mentioned_ids.add(obs.best_match_id)
@@ -605,9 +613,12 @@ def _build_judge_prompt(image_result: ImageResult, catalog: Dict) -> str:
             if item:
                 lines.append(f"  - {cid}: \"{item.get('name', '')}\" (kind={item.get('kind', '')}, trade={item.get('trade_bucket', '')})")
                 lines.append(f"    embed_text: \"{item.get('embed_text', '')}\"")
-                kw = item.get("keywords_allow", [])
-                if kw:
-                    lines.append(f"    keywords_allow: {kw}")
+                kw_any = item.get("keywords_any", [])
+                kw_allow = item.get("keywords_allow", [])
+                if kw_any:
+                    lines.append(f"    keywords_any: {kw_any}")
+                if kw_allow:
+                    lines.append(f"    keywords_allow: {kw_allow}")
 
     lines.append("""
 ## Your Task:
@@ -617,7 +628,7 @@ Return JSON:
 {
   "observation_verdicts": [
     {
-      "source": "local" or "gpt",
+      "source": "local" or "cloud",
       "description": "the original observation text",
       "is_visible_issue": true/false,
       "is_observation_reasonable": true/false,
@@ -648,15 +659,15 @@ Return JSON:
 async def run_judge(
     image_result: ImageResult,
     vlm_client: VLMClient,
-    gpt_config: Dict,
+    cloud_config: Dict,
     catalog: Dict,
 ) -> Tuple[List[Dict], List[Dict]]:
-    """Run the GPT-5.4 judge on a single image. Returns (verdicts, missed_issues)."""
+    """Run the cloud model judge on a single image. Returns (verdicts, missed_issues)."""
     user_prompt = _build_judge_prompt(image_result, catalog)
 
     # Need higher token limit for the judge response — complex images with
     # many observations can produce very long verdicts
-    judge_config = {**gpt_config, "max_tokens": 4000}
+    judge_config = {**cloud_config, "max_tokens": 4000}
 
     try:
         response = await vlm_client.analyze_image(
@@ -702,6 +713,10 @@ async def run_judge(
         return verdicts, missed
 
     except Exception as e:
+        err_str = str(e)
+        # Propagate quota/billing errors so the caller can abort early
+        if "insufficient_quota" in err_str or "billing" in err_str.lower() or "quota" in err_str.lower() or "ResourceExhausted" in err_str:
+            raise
         logger.error(f"Judge error for {image_result.photo_key}: {e}")
         return [], []
 
@@ -721,13 +736,13 @@ def _synthesize_report(
 
     # ── Summary stats ────────────────────────────────────────────────────
     total_local = sum(len(r.local_observations) for r in image_results)
-    total_gpt = sum(len(r.gpt_observations) for r in image_results)
+    total_cloud = sum(len(r.cloud_observations) for r in image_results)
     total_missed = sum(len(r.missed_issues) for r in image_results)
 
     all_obs = []
     for r in image_results:
         all_obs.extend(r.local_observations)
-        all_obs.extend(r.gpt_observations)
+        all_obs.extend(r.cloud_observations)
 
     strong = sum(1 for o in all_obs if o.retrieval_status == "strong")
     weak = sum(1 for o in all_obs if o.retrieval_status == "weak")
@@ -770,7 +785,7 @@ def _synthesize_report(
     # Also count heuristic stages for observations without judge verdicts
     judged_descs = {(v.get("source", ""), v.get("description", "")) for v in all_verdicts}
     for r in image_results:
-        for obs in r.local_observations + r.gpt_observations:
+        for obs in r.local_observations + r.cloud_observations:
             key = (obs.source_model_2a, obs.description)
             if key not in judged_descs and obs.failure_stage in stage_map:
                 stage_counts[stage_map[obs.failure_stage]].append({
@@ -896,7 +911,7 @@ def _synthesize_report(
             "catalog_id": cid,
             "improvement_type": entries[0]["improvement_type"],
             "current_embed_text": item.get("embed_text", ""),
-            "current_keywords": item.get("keywords_allow", []),
+            "current_keywords": item.get("keywords_any", []) + item.get("keywords_allow", []),
             "suggested_fixes": [e.get("suggested_fix") for e in entries if e.get("suggested_fix")],
             "evidence_observations": [e["description"] for e in entries],
             "reason": entries[0].get("notes", ""),
@@ -944,7 +959,7 @@ def _synthesize_report(
             "scene": r.scene,
             "scene_group": r.scene_group,
             "local_observations": [asdict(o) for o in r.local_observations],
-            "gpt_observations": [asdict(o) for o in r.gpt_observations],
+            "cloud_observations": [asdict(o) for o in r.cloud_observations],
             "judge_verdicts": r.judge_verdicts,
             "missed_issues": r.missed_issues,
             "error": r.error,
@@ -962,7 +977,7 @@ def _synthesize_report(
         },
         "summary": {
             "total_local_obs": total_local,
-            "total_gpt_obs": total_gpt,
+            "total_cloud_obs": total_cloud,
             "true_positives": true_pos,
             "false_positives": false_pos,
             "missed_issues": total_missed,
@@ -977,7 +992,7 @@ def _synthesize_report(
         "per_image": per_image,
         "high_confidence_new_entries": high_confidence,
         "candidate_new_entries": candidate_entries,
-        "proposed_catalog_improvements": proposed_improvements,
+        "proposed_improvements": proposed_improvements,
         "false_positive_patterns": false_positives,
         "missed_issue_patterns": missed_list[:20],
     }
@@ -1035,6 +1050,16 @@ async def async_main(args: argparse.Namespace):
     vlm_client = create_vlm_client()
     local_config, gpt_config = get_model_configs_from_pipeline_config(cfg)
 
+    # Select cloud provider
+    if args.cloud_provider == "gemini":
+        cloud_config = get_gemini_config_from_pipeline_config(cfg)
+    else:
+        cloud_config = gpt_config
+
+    cloud_provider = cloud_config.get("provider", args.cloud_provider)
+    cloud_model = cloud_config.get("model", "unknown")
+    cloud_label = f"{cloud_provider}/{cloud_model}"
+
     # Apply local model override if specified
     if args.local_model:
         local_config["model"] = args.local_model
@@ -1050,10 +1075,11 @@ async def async_main(args: argparse.Namespace):
 
     models_info = {
         "local_model": local_config.get("model", "unknown"),
-        "gpt_model": gpt_config.get("model", "unknown"),
+        "cloud_model": cloud_model,
+        "cloud_provider": cloud_provider,
         "embeddings_model": cfg.EMBEDDINGS_MODEL_NAME,
     }
-    logger.info(f"Models: local={models_info['local_model']}, gpt={models_info['gpt_model']}")
+    logger.info(f"Models: local={models_info['local_model']}, cloud={cloud_label}")
 
     # Discover images
     artifacts_dir = Path(args.artifacts_dir)
@@ -1088,11 +1114,11 @@ async def async_main(args: argparse.Namespace):
             logger.info(f"  Processing {key}...")
             if args.mode == "full-scan":
                 return await process_single_image_fullscan(
-                    img_info, vlm_client, retriever, local_config, gpt_config
+                    img_info, vlm_client, retriever, local_config, cloud_config
                 )
             else:
                 return await process_single_image(
-                    img_info, vlm_client, retriever, local_config, gpt_config, args.mode
+                    img_info, vlm_client, retriever, local_config, cloud_config, args.mode
                 )
 
     tasks = [_process_with_sem(img) for img in images]
@@ -1111,15 +1137,30 @@ async def async_main(args: argparse.Namespace):
     # ── Phase 3: Judge ───────────────────────────────────────────────────
     if not args.dry_run:
         logger.info(f"\n{'='*60}")
-        logger.info(f"Phase 3: Running GPT-5.4 judge on {len(successful)} images...")
+        logger.info(f"Phase 3: Running {cloud_label} judge on {len(successful)} images...")
         logger.info(f"{'='*60}")
 
+        judge_delay = args.judge_delay
+        judged_count = 0
         for i, result in enumerate(successful, 1):
             logger.info(f"  [{i}/{len(successful)}] Judging {result.property_id}/{result.photo_key}...")
-            verdicts, missed = await run_judge(result, vlm_client, gpt_config, catalog)
-            result.judge_verdicts = verdicts
-            result.missed_issues = missed
-            logger.info(f"    → {len(verdicts)} verdicts, {len(missed)} missed issues")
+            try:
+                verdicts, missed = await run_judge(result, vlm_client, cloud_config, catalog)
+                result.judge_verdicts = verdicts
+                result.missed_issues = missed
+                judged_count += 1
+                logger.info(f"    → {len(verdicts)} verdicts, {len(missed)} missed issues")
+            except Exception as e:
+                err_str = str(e)
+                if "insufficient_quota" in err_str or "billing" in err_str.lower() or "quota" in err_str.lower() or "ResourceExhausted" in err_str:
+                    logger.error(f"  {cloud_label} quota exceeded — aborting judge phase. "
+                                 f"({judged_count}/{len(successful)} images judged)")
+                    break
+                logger.error(f"  Judge error for {result.photo_key}: {e}")
+
+            # Pace requests to avoid rate limits
+            if judge_delay > 0 and i < len(successful):
+                await asyncio.sleep(judge_delay)
     else:
         logger.info("\n[dry-run] Skipping Phase 3 (judge)")
 
@@ -1143,8 +1184,9 @@ async def async_main(args: argparse.Namespace):
     print(f"CATALOG AUDIT REPORT")
     print(f"{'='*60}")
     print(f"Images processed:        {report['meta']['images_processed']}")
+    print(f"Cloud provider:          {cloud_label}")
     print(f"Local observations:      {s['total_local_obs']}")
-    print(f"GPT observations:        {s['total_gpt_obs']}")
+    print(f"Cloud observations:      {s['total_cloud_obs']}")
     if not args.dry_run:
         print(f"True positives:          {s['true_positives']}")
         print(f"False positives:         {s['false_positives']}")
@@ -1165,7 +1207,7 @@ async def async_main(args: argparse.Namespace):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Catalog Auditor — GPT-5.4 judge-based catalog improvement tool",
+        description="Catalog Auditor — cloud-model judge-based catalog improvement tool (supports OpenAI GPT and Google Gemini)",
     )
     parser.add_argument(
         "--artifacts-dir",
@@ -1188,6 +1230,12 @@ def parse_args() -> argparse.Namespace:
         help="Filter to a specific property ID (e.g. redfin_126224899)",
     )
     parser.add_argument(
+        "--cloud-provider",
+        choices=["openai", "gemini"],
+        default="openai",
+        help="Cloud model provider for dual-model analysis and judge (default: %(default)s)",
+    )
+    parser.add_argument(
         "--local-model",
         default=None,
         help="Override the local LM Studio model name (e.g. google/gemma-4-26b-a4b)",
@@ -1207,13 +1255,19 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--dry-run",
         action="store_true",
-        help="Skip Phase 3 GPT judge (only dual-model comparison + match scores)",
+        help="Skip Phase 3 cloud judge (only dual-model comparison + match scores)",
     )
     parser.add_argument(
         "--concurrency",
         type=int,
         default=3,
         help="Max concurrent image processing tasks (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--judge-delay",
+        type=float,
+        default=2.0,
+        help="Seconds to wait between judge calls to avoid rate limits (default: %(default)s)",
     )
     parser.add_argument(
         "--verbose", "-v",
