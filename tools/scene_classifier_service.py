@@ -64,6 +64,9 @@ def scene_classifier_payload(
     payload.setdefault("keyword_categories", None)
     payload.setdefault("issues_natural_language", [])
     payload.setdefault("verified_issues", [])
+    payload.setdefault("matched_issues", [])
+    payload.setdefault("canonical_issues", [])
+    payload.setdefault("display_issues", [])
     payload.setdefault("catalog_flags", {})
     payload.setdefault("processing_time", payload.get("processing_time"))
     payload.setdefault("pass_timings", payload.get("pass_timings", {}))
@@ -116,6 +119,9 @@ def parse_orchestrator_result(result: Any) -> SceneClassification:
     payload['catalog_flags'] = data.get('catalog_flags', {})
     payload['issues_natural_language'] = data.get('issues_natural_language', [])
     payload['verified_issues'] = data.get('verified_issues', [])
+    payload['matched_issues'] = data.get('matched_issues', [])
+    payload['canonical_issues'] = data.get('canonical_issues', [])
+    payload['display_issues'] = data.get('display_issues', [])
     payload['models_used'] = data.get('models_used', {})
 
     # V2 fields from orchestrator

@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple
@@ -61,6 +62,8 @@ class CatalogEstimateMeta:
     strategy: EstimateStrategy = "repair_only"
     group: EstimateGroup = "other"
     stack_behavior: EstimateStackBehavior = "sum"
+    affects_estimate: bool = False
+    requires_2f_for_estimate: bool = False
 
 
 ESTIMATE_DEFAULTS = CatalogEstimateMeta()
@@ -73,12 +76,35 @@ def resolve_estimate_meta(raw: Optional[Dict[str, Any]]) -> CatalogEstimateMeta:
     tier = raw.get("estimate_tier", "minor")
     if tier not in ("high", "medium", "minor"):
         tier = "minor"
+    affects_estimate = raw.get("affects_estimate")
+    if affects_estimate is None:
+        affects_estimate = tier in ("high", "medium")
+    requires_2f = raw.get("requires_2f_for_estimate")
+    if requires_2f is None:
+        # Backward-compatible default: existing high/medium estimate blocks keep
+        # the old behavior unless the catalog opts out per item.
+        requires_2f = tier in ("high", "medium")
     return CatalogEstimateMeta(
         estimate_tier=tier,
         strategy=raw.get("strategy", "repair_only"),
         group=raw.get("group", "other"),
         stack_behavior=raw.get("stack_behavior", "sum"),
+        affects_estimate=bool(affects_estimate),
+        requires_2f_for_estimate=bool(requires_2f),
     )
+
+
+def _resolve_catalog_estimate_meta(item: Dict[str, Any]) -> CatalogEstimateMeta:
+    """Resolve estimate meta, allowing top-level flags to override the block."""
+    raw_estimate = item.get("estimate")
+    if isinstance(raw_estimate, dict):
+        raw = dict(raw_estimate)
+    else:
+        raw = {}
+    for field_name in ("affects_estimate", "requires_2f_for_estimate"):
+        if field_name in item and field_name not in raw:
+            raw[field_name] = item[field_name]
+    return resolve_estimate_meta(raw or None)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -96,10 +122,18 @@ class EstimateCandidate:
     scope: str                              # repair | replace | cosmetic | service
     trade_bucket: str                       # original trade bucket (for cost lookup)
     cost_obj: Dict[str, Any] = field(default_factory=dict)
-    occurrences: int = 1
+    occurrences: int = 1                 # supporting detections, not a pricing multiplier
+    estimate_unit_count: int = 1          # scope count used for pricing
     scene_groups_seen: List[str] = field(default_factory=list)
     photo_keys: List[str] = field(default_factory=list)
     issue_ids: List[str] = field(default_factory=list)
+    estimate_unit_id: str = ""
+    estimate_scope_key: str = ""
+    room_surrogate_id: str = ""
+    supporting_observations: List[str] = field(default_factory=list)
+    distinct_photo_count: int = 0
+    distinct_scene_group_count: int = 0
+    representative_issue_id: Optional[str] = None
     # ── Pass 2f review override fields (populated by revisit pass) ────────
     is_valid_detection: Optional[bool] = None  # None = 2f didn't run; False = model deemed invalid
     review_posture: Optional[str] = None    # e.g. "repair", "replace", "keep_default"
@@ -115,7 +149,7 @@ class EstimateCandidate:
 
 
 # Valid postures that 2f can authoritatively set
-_AUTHORITATIVE_POSTURES = {"repair", "replace"}
+_AUTHORITATIVE_POSTURES = {"repair", "replace", "inspect"}
 
 # ── Pass 2f fallback reason constants ──
 PASS_2F_FALLBACK_NOT_ELIGIBLE = "not_eligible"
@@ -141,6 +175,59 @@ def resolve_effective_posture(candidate: EstimateCandidate) -> str:
 _TIER_RANK = {"high": 0, "medium": 1, "minor": 2}
 
 
+_GENERIC_SCOPE_HINTS = {
+    "", "unknown", "other", "n/a", "na", "none", "room", "area", "space",
+    "interior", "exterior", "floor", "flooring", "wall", "walls", "ceiling",
+    "visible", "general",
+}
+
+
+def _clean_scope_component(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    text = re.sub(r"\s+", "_", text)
+    text = re.sub(r"[^a-z0-9_/-]+", "", text)
+    text = text.strip("_-/")
+    return text
+
+
+def _meaningful_scope_hint(value: Any) -> str:
+    hint = _clean_scope_component(value)
+    if hint in _GENERIC_SCOPE_HINTS:
+        return ""
+    return hint
+
+
+def _estimate_scope_key_for_issue(
+    catalog_item_id: str,
+    issue: Dict[str, Any],
+) -> Tuple[str, str]:
+    """Build a scope key where photos are evidence, not multipliers."""
+    scene_group = _meaningful_scope_hint(issue.get("scene_group")) or "other"
+
+    room_surrogate = ""
+    for field_name in (
+        "room_surrogate_id", "room_id", "room_key", "area_id",
+        "location_hint", "scope_hint",
+    ):
+        room_surrogate = _meaningful_scope_hint(issue.get(field_name))
+        if room_surrogate:
+            break
+
+    if not room_surrogate:
+        room_surrogate = (
+            _meaningful_scope_hint(issue.get("scene"))
+            or scene_group
+            or "property"
+        )
+
+    scope_key = (
+        f"catalog:{catalog_item_id}|"
+        f"scene_group:{scene_group}|"
+        f"room:{room_surrogate}"
+    )
+    return scope_key, room_surrogate
+
+
 def extract_estimate_candidates(
     issues_flat: List[Dict[str, Any]],
     issue_catalog: Dict[str, Any],
@@ -156,24 +243,29 @@ def extract_estimate_candidates(
         if isinstance(item, dict) and item.get("id"):
             catalog_lookup[item["id"]] = item
 
-    # Group issues by catalog_item_id
-    grouped: Dict[str, List[Dict[str, Any]]] = {}
+    # Group issues into estimate units. Photos are evidence inside a unit, not
+    # separate cost multipliers.
+    grouped: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = {}
     for issue in (issues_flat or []):
         cat_id = issue.get("catalog_item_id")
-        if cat_id and cat_id in catalog_lookup:
-            grouped.setdefault(cat_id, []).append(issue)
+        if not cat_id or cat_id not in catalog_lookup:
+            continue
+        est_meta = _resolve_catalog_estimate_meta(catalog_lookup[cat_id])
+        if not est_meta.affects_estimate:
+            continue
+        scope_key, room_surrogate = _estimate_scope_key_for_issue(cat_id, issue)
+        grouped.setdefault((cat_id, scope_key, room_surrogate), []).append(issue)
 
     candidates: List[EstimateCandidate] = []
-    for cat_id, occurrences in grouped.items():
+    for (cat_id, scope_key, room_surrogate), occurrences in grouped.items():
         cat = catalog_lookup[cat_id]
-        est_meta = resolve_estimate_meta(cat.get("estimate"))
+        est_meta = _resolve_catalog_estimate_meta(cat)
 
-        # Filter gate: only high and medium tiers participate
-        if est_meta.estimate_tier == "minor":
+        if not est_meta.affects_estimate:
             continue
 
         scene_groups = sorted(set(
-            issue.get("scene_group", "other") for issue in occurrences
+            issue.get("scene_group", "other") or "other" for issue in occurrences
         ))
         photo_keys = sorted(set(
             issue.get("photo_key", "") for issue in occurrences
@@ -183,6 +275,11 @@ def extract_estimate_candidates(
             issue.get("issue_id", "") for issue in occurrences
             if issue.get("issue_id")
         ]
+        observations = [
+            issue.get("description", "") for issue in occurrences
+            if issue.get("description")
+        ]
+        unit_id = f"{cat_id}:{_clean_scope_component(scope_key)}"
 
         candidates.append(EstimateCandidate(
             catalog_item_id=cat_id,
@@ -194,16 +291,25 @@ def extract_estimate_candidates(
             trade_bucket=cat.get("trade_bucket", "safety_general"),
             cost_obj=cat.get("cost") or {},
             occurrences=len(occurrences),
+            estimate_unit_count=1,
             scene_groups_seen=scene_groups,
             photo_keys=photo_keys,
             issue_ids=issue_ids,
+            estimate_unit_id=unit_id,
+            estimate_scope_key=scope_key,
+            room_surrogate_id=room_surrogate,
+            supporting_observations=observations,
+            distinct_photo_count=len(photo_keys),
+            distinct_scene_group_count=len(scene_groups),
+            representative_issue_id=issue_ids[0] if issue_ids else None,
         ))
 
-    # Sort: high tier first, then medium, then severity desc, then occurrences desc
+    # Sort: high tier first, then medium, then severity desc, evidence desc.
     candidates.sort(key=lambda c: (
         _TIER_RANK.get(c.estimate_meta.estimate_tier, 2),
         -c.severity,
         -c.occurrences,
+        c.estimate_scope_key,
     ))
 
     return candidates
@@ -323,16 +429,23 @@ async def run_pass_2f_batch(
     # Build issue description lookup: catalog_item_id → first description
     desc_lookup: Dict[str, str] = {}
     for issue in (issues_flat or []):
-        cid = issue.get("catalog_item_id")
-        if cid and cid not in desc_lookup and issue.get("description"):
-            desc_lookup[cid] = issue["description"]
+        iid = issue.get("issue_id")
+        if iid and iid not in desc_lookup and issue.get("description"):
+            desc_lookup[iid] = issue["description"]
 
     _tiers = pass_2f_tiers if pass_2f_tiers is not None else _DEFAULT_PASS_2F_TIERS
-    eligible = [c for c in candidates if c.estimate_meta.estimate_tier in _tiers]
+    eligible = [
+        c for c in candidates
+        if c.estimate_meta.estimate_tier in _tiers
+        and c.estimate_meta.requires_2f_for_estimate
+    ]
 
     # Tag non-eligible candidates with fallback reason
     for c in candidates:
-        if c.estimate_meta.estimate_tier not in _tiers:
+        if (
+            c.estimate_meta.estimate_tier not in _tiers
+            or not c.estimate_meta.requires_2f_for_estimate
+        ):
             c.pass_2f_fallback_reason = PASS_2F_FALLBACK_NOT_ELIGIBLE
 
     if not eligible:
@@ -357,7 +470,11 @@ async def run_pass_2f_batch(
 
         cat_item = cat_lookup.get(candidate.catalog_item_id, {})
         item_description = cat_item.get("description", "")
-        issue_description = desc_lookup.get(candidate.catalog_item_id, "")
+        issue_description = ""
+        if candidate.representative_issue_id:
+            issue_description = desc_lookup.get(candidate.representative_issue_id, "")
+        if not issue_description and candidate.supporting_observations:
+            issue_description = candidate.supporting_observations[0]
         scene = candidate.scene_groups_seen[0] if candidate.scene_groups_seen else "other"
 
         candidate.pass_2f_attempted = True
@@ -475,7 +592,7 @@ def resolve_pricing_band(
 
     return compute_item_cost_range(
         cost_obj=candidate.cost_obj,
-        n_occurrences=candidate.occurrences,
+        n_occurrences=max(1, candidate.estimate_unit_count),
         kind=candidate.kind,
         scope=costing_scope,
         trade_bucket=candidate.trade_bucket,
@@ -531,12 +648,20 @@ def compute_group_estimate(
         if c.is_valid_detection is False:
             low, high = 0, 0
         li: Dict[str, Any] = {
+            "estimate_unit_id": c.estimate_unit_id,
+            "estimate_scope_key": c.estimate_scope_key,
+            "room_surrogate_id": c.room_surrogate_id,
             "catalog_item_id": c.catalog_item_id,
             "name": c.catalog_item_name,
             "occurrences": c.occurrences,
+            "estimate_unit_count": c.estimate_unit_count,
+            "supporting_photo_count": c.distinct_photo_count or len(c.photo_keys),
+            "supporting_scene_group_count": c.distinct_scene_group_count or len(c.scene_groups_seen),
+            "supporting_observations": c.supporting_observations,
             "strategy": c.estimate_meta.strategy,
             "stack_behavior": c.estimate_meta.stack_behavior,
             "estimate_tier": c.estimate_meta.estimate_tier,
+            "requires_2f_for_estimate": c.estimate_meta.requires_2f_for_estimate,
             "cost_low": low,
             "cost_high": high,
             # ── Validity & posture audit trail (always present) ──
@@ -632,15 +757,20 @@ def compute_tier_summary(
     line_item_lookup: Dict[str, Dict[str, Any]] = {}
     for g in groups_out:
         for li in g.get("line_items", []):
-            line_item_lookup[li["catalog_item_id"]] = li
+            line_item_lookup[li.get("estimate_unit_id") or li["catalog_item_id"]] = li
 
     def _item_record(c: EstimateCandidate) -> Dict[str, Any]:
-        li = line_item_lookup.get(c.catalog_item_id, {})
+        li = line_item_lookup.get(c.estimate_unit_id or c.catalog_item_id, {})
         return {
+            "estimate_unit_id": c.estimate_unit_id,
+            "estimate_scope_key": c.estimate_scope_key,
+            "room_surrogate_id": c.room_surrogate_id,
             "catalog_item_id": c.catalog_item_id,
             "name": c.catalog_item_name,
             "estimate_tier": c.estimate_meta.estimate_tier,
             "group": c.estimate_meta.group,
+            "occurrences": c.occurrences,
+            "estimate_unit_count": c.estimate_unit_count,
             "cost_low": li.get("cost_low", 0),
             "cost_high": li.get("cost_high", 0),
             "effective_posture": c.effective_posture or c.estimate_meta.strategy,
@@ -745,6 +875,7 @@ def compute_renovation_estimate(
             },
             "meta": {
                 "candidate_count": 0,
+                "estimate_unit_count": 0,
                 "high_tier_count": 0,
                 "medium_tier_count": 0,
                 "groups_active": 0,
@@ -800,9 +931,14 @@ def compute_renovation_estimate(
         ),
         "items": [
             {
+                "estimate_unit_id": c.estimate_unit_id,
+                "estimate_scope_key": c.estimate_scope_key,
+                "room_surrogate_id": c.room_surrogate_id,
                 "catalog_item_id": c.catalog_item_id,
                 "name": c.catalog_item_name,
                 "estimate_tier": c.estimate_meta.estimate_tier,
+                "occurrences": c.occurrences,
+                "estimate_unit_count": c.estimate_unit_count,
                 "is_valid_detection": c.is_valid_detection,
                 "default_posture": c.estimate_meta.strategy,
                 "review_posture": c.review_posture,
@@ -879,6 +1015,7 @@ def compute_renovation_estimate(
         "project_scope_summary": project_scope_summary,
         "meta": {
             "candidate_count": len(candidates),
+            "estimate_unit_count": sum(max(1, c.estimate_unit_count) for c in candidates),
             "high_tier_count": high_tier_count,
             "medium_tier_count": medium_tier_count,
             "groups_active": len(groups_out),

@@ -138,6 +138,7 @@ def write_photo_intel(
 
     photos: Dict[str, Any] = {}
     issues_flat: List[Dict[str, Any]] = []  # Flat index of all issues (property-level)
+    estimate_issues_flat: List[Dict[str, Any]] = []  # Canonical issues for renovation estimate units
     unmapped_issues: List[Dict[str, Any]] = []  # Issues with no catalog match (debug)
 
     for photo_index, res in enumerate(job.results, start=1):
@@ -173,38 +174,68 @@ def write_photo_intel(
         if not final_issues:
             final_issues = safe_list((passes.get("2b", {}) or {}).get("issues_natural_language"))
 
-        # Matched issues (post-sanity+dedupe, superset of final; for debug/analytics)
+        # Canonical issues are the truth lane; final/display issues are the UI lane.
         matched_issues = safe_list(payload.get("matched_issues"))
+        canonical_issues = safe_list(payload.get("canonical_issues")) or matched_issues
+        if canonical_issues and not matched_issues:
+            matched_issues = canonical_issues
+        estimate_source_issues = canonical_issues or matched_issues or final_issues
         # Removed issues (explicitly discarded with reasons)
         removed_issues = safe_list((passes.get("2e", {}) or {}).get("removed"))
 
-        # -- Backfill stable issue_id + source linkage on every final issue -----
-        issue_sig_counts: Dict[Tuple[str, str, str], int] = {}
-        for issue in final_issues:
+        # -- Backfill stable issue_id + source linkage on issue lanes ------------
+        def _stamp_issue(issue: Dict[str, Any], counts: Dict[Tuple[str, str, str], int]) -> bool:
             if not (isinstance(issue, dict) and issue.get("description")):
-                continue
+                return False
             sig = (issue.get("description", ""), issue.get("location_hint", ""), issue.get("label", ""))
-            ordinal = issue_sig_counts.get(sig, 0)
-            issue_sig_counts[sig] = ordinal + 1
+            ordinal = counts.get(sig, 0)
+            counts[sig] = ordinal + 1
             if not issue.get("issue_id"):
                 issue["issue_id"] = make_issue_id(job.job_id, image_key, sig[0], sig[1], sig[2], ordinal)
             issue.setdefault("source_photo_key", image_key)
             issue.setdefault("source_photo_id",  photo_id)
             issue.setdefault("scene",             scene)
             issue.setdefault("scene_group",       scene_group)
+            return True
 
-            issues_flat.append({
+        def _flat_issue(issue: Dict[str, Any], *, source_lane: str) -> Dict[str, Any]:
+            return {
                 "issue_id":    issue["issue_id"],
-                "photo_id":    photo_id,
-                "photo_key":   image_key,
-                "scene":       scene,
-                "scene_group": scene_group,
+                "photo_id":    issue.get("source_photo_id") or photo_id,
+                "photo_key":   issue.get("source_photo_key") or image_key,
+                "scene":       issue.get("scene") or scene,
+                "scene_group": issue.get("scene_group") or scene_group,
                 "description": issue.get("description", ""),
                 "label":       issue.get("label", ""),
                 "location_hint": issue.get("location_hint", ""),
-                "catalog_item_id":  issue.get("catalogItemId") or issue.get("resolved_item_id"),
+                "room_surrogate_id": issue.get("room_surrogate_id") or issue.get("room_id"),
+                "scope_hint": issue.get("scope_hint"),
+                "source_lane": source_lane,
+                "catalog_item_id":  issue.get("catalogItemId") or issue.get("catalog_item_id") or issue.get("resolved_item_id"),
                 "catalog_item_kind": issue.get("catalogItemKind") or issue.get("kind"),
-            })
+            }
+
+        issue_sig_counts: Dict[Tuple[str, str, str], int] = {}
+        for issue in final_issues:
+            if _stamp_issue(issue, issue_sig_counts):
+                issues_flat.append(_flat_issue(issue, source_lane="display"))
+
+        estimate_sig_counts: Dict[Tuple[str, str, str], int] = {}
+        estimate_seen: set = set()
+        for issue in estimate_source_issues:
+            if not _stamp_issue(issue, estimate_sig_counts):
+                continue
+            flat = _flat_issue(issue, source_lane="canonical")
+            dedupe_key = (
+                flat.get("issue_id"),
+                flat.get("photo_key"),
+                flat.get("catalog_item_id"),
+                flat.get("description"),
+            )
+            if dedupe_key in estimate_seen:
+                continue
+            estimate_seen.add(dedupe_key)
+            estimate_issues_flat.append(flat)
 
         # -- Build trace (pass internals -- debug/auditing, not read by UI) -----
         pass_2c   = passes.get("2c", {}) or {}
@@ -384,6 +415,8 @@ def write_photo_intel(
         "room_groups": room_groups,
         "issues_flat": issues_flat,
         "issues_flat_count": len(issues_flat),
+        "estimate_issues_flat": estimate_issues_flat,
+        "estimate_issues_flat_count": len(estimate_issues_flat),
     }
 
     # renovation_needs disabled: severity not reliable at this stage
@@ -447,6 +480,7 @@ def write_photo_intel(
     # -- Compute renovation estimate (primary cost estimation engine) -------------
     try:
         from tools.renovation_estimate import compute_renovation_estimate
+        renovation_issues_flat = estimate_issues_flat or issues_flat
 
         # Run Pass 2f revisit on eligible candidates if vlm_client available
         import time as _time
@@ -469,9 +503,13 @@ def write_photo_intel(
                 )
 
                 candidates = extract_estimate_candidates(
-                    issues_flat, issue_catalog,
+                    renovation_issues_flat, issue_catalog,
                 )
-                eligible = [c for c in candidates if c.estimate_meta.estimate_tier in ("high", "medium")]
+                eligible = [
+                    c for c in candidates
+                    if c.estimate_meta.estimate_tier in ("high", "medium")
+                    and c.estimate_meta.requires_2f_for_estimate
+                ]
                 if eligible:
                     # Build photo_key → image_path mapping from job results
                     photo_key_to_path: Dict[str, Path] = {}
@@ -497,7 +535,7 @@ def write_photo_intel(
                                     loop2.run_until_complete,
                                     run_pass_2f_batch(
                                         candidates=candidates,
-                                        issues_flat=issues_flat,
+                                        issues_flat=renovation_issues_flat,
                                         issue_catalog=issue_catalog,
                                         vlm_client=vlm_client,
                                         model_config=pass_2f_model_config,
@@ -510,7 +548,7 @@ def write_photo_intel(
                             candidates = loop.run_until_complete(
                                 run_pass_2f_batch(
                                     candidates=candidates,
-                                    issues_flat=issues_flat,
+                                    issues_flat=renovation_issues_flat,
                                     issue_catalog=issue_catalog,
                                     vlm_client=vlm_client,
                                     model_config=pass_2f_model_config,
@@ -523,7 +561,7 @@ def write_photo_intel(
                         candidates = asyncio.run(
                             run_pass_2f_batch(
                                 candidates=candidates,
-                                issues_flat=issues_flat,
+                                issues_flat=renovation_issues_flat,
                                 issue_catalog=issue_catalog,
                                 vlm_client=vlm_client,
                                 model_config=pass_2f_model_config,
@@ -556,7 +594,7 @@ def write_photo_intel(
                 logger.error(f"Pass 2f batch failed (non-fatal): {exc_2f}", exc_info=True)
 
         quick_est = compute_renovation_estimate(
-            issues_flat=issues_flat,
+            issues_flat=renovation_issues_flat,
             issue_catalog=issue_catalog,
             prebuilt_candidates=reviewed_candidates,
         )

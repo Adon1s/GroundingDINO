@@ -10,7 +10,7 @@ Pass 2a: Observations freeform (premium uses GPT-5.2)
 Pass 2b: Observations → JSON (text-only)
 Pass 2c: Label observations + debug/forward split (text-only)
 Pass 2d: Resolve catalog item ID from candidates (text-only, optional)
-Pass 2e: Normalize / filter / dedupe verified issues (rule-based, no LLM)
+Pass 2e: Normalize canonical issues and build display-filtered issues (rule-based, no LLM)
 """
 
 from tools.llm_json import extract_json_object
@@ -850,7 +850,7 @@ async def run_pass_2d(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 2e: Normalize / Filter / Deduplicate Verified Issues (rule-based, no LLM)
+# Pass 2e: Canonical issue normalization + display filtering (rule-based, no LLM)
 # ═══════════════════════════════════════════════════════════════════════════════
 
 # Default deny phrases — loaded from cfg.PASS_2E_DENY_PHRASES at call time when available
@@ -882,11 +882,18 @@ _GENERIC_ADVICE_PATTERNS: List[str] = [
 
 @dataclass
 class Pass2eResult:
-    """Result from Pass 2e: normalized, filtered, deduplicated issues."""
-    verified_issues: List[Dict[str, Any]]       # final issues (renovator-facing)
-    matched_issues: List[Dict[str, Any]] = field(default_factory=list)  # all post-sanity+dedupe (superset of final)
-    removed: List[Dict[str, Any]] = field(default_factory=list)         # sanity failures (empty desc, invalid kind, duplicate)
-    suppressed_issues: List[Dict[str, Any]] = field(default_factory=list)  # policy-gated (in matched, not in final)
+    """Result from Pass 2e: canonical truth lane plus display-filtered lane."""
+    # Backward-compatible aliases:
+    #   verified_issues == display_issues
+    #   matched_issues == canonical_issues
+    verified_issues: List[Dict[str, Any]]       # display lane (renovator/UI-facing)
+    matched_issues: List[Dict[str, Any]] = field(default_factory=list)  # canonical lane alias
+    canonical_issues: List[Dict[str, Any]] = field(default_factory=list)
+    display_issues: List[Dict[str, Any]] = field(default_factory=list)
+    removed_invalid: List[Dict[str, Any]] = field(default_factory=list)
+    display_suppressed_issues: List[Dict[str, Any]] = field(default_factory=list)
+    removed: List[Dict[str, Any]] = field(default_factory=list)         # alias for removed_invalid
+    suppressed_issues: List[Dict[str, Any]] = field(default_factory=list)  # alias for display_suppressed_issues
     notes: Optional[str] = None
     # Telemetry counters
     input_count: int = 0
@@ -896,6 +903,25 @@ class Pass2eResult:
     removed_reason_counts: Dict[str, int] = field(default_factory=dict)
     suppressed_reason_counts: Dict[str, int] = field(default_factory=dict)
     suppressed_samples: List[Dict[str, Any]] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        # Keep older call sites that only look at verified/matched working.
+        if not self.display_issues and self.verified_issues:
+            self.display_issues = self.verified_issues
+        if not self.verified_issues and self.display_issues:
+            self.verified_issues = self.display_issues
+        if not self.canonical_issues and self.matched_issues:
+            self.canonical_issues = self.matched_issues
+        if not self.matched_issues and self.canonical_issues:
+            self.matched_issues = self.canonical_issues
+        if not self.removed_invalid and self.removed:
+            self.removed_invalid = self.removed
+        if not self.removed and self.removed_invalid:
+            self.removed = self.removed_invalid
+        if not self.display_suppressed_issues and self.suppressed_issues:
+            self.display_suppressed_issues = self.suppressed_issues
+        if not self.suppressed_issues and self.display_suppressed_issues:
+            self.suppressed_issues = self.display_suppressed_issues
 
 
 def _2e_norm_text(s: str) -> str:
@@ -1009,14 +1035,36 @@ def _2e_policy_reason(
 
 def _2e_dedupe_key(issue: Dict[str, Any]) -> str:
     """
-    Stable deduplication key.
-    Prefers catalogItemId when available (catalog-resolved runs);
-    falls back to normalized description (pre-resolution or orchestrator path).
+    Exact-artifact deduplication key for the canonical truth lane.
+
+    This intentionally does not collapse by catalogItemId alone. Multiple rooms
+    can legitimately share a catalog item; broad consolidation belongs in the
+    display lane or the estimate-unit builder, not canonical 2e output.
     """
-    cid = (issue.get("catalogItemId") or "").strip()
-    if cid:
-        return f"cid:{cid}"
-    return f"desc:{_2e_norm_text(issue.get('description', '')).lower()}"
+    source = _2e_norm_text(
+        issue.get("source_photo_key")
+        or issue.get("photo_key")
+        or issue.get("source_photo_id")
+        or issue.get("photo_id")
+        or issue.get("image_key")
+        or ""
+    ).lower()
+    cid = _2e_norm_text(
+        issue.get("catalogItemId")
+        or issue.get("catalog_item_id")
+        or issue.get("resolved_item_id")
+        or ""
+    ).lower()
+    kind = _2e_norm_text(issue.get("kind", "")).lower()
+    desc = _2e_norm_text(issue.get("description", "")).lower()
+    location = _2e_norm_text(issue.get("location_hint", "")).lower()
+    return "|".join([
+        f"src:{source}",
+        f"kind:{kind}",
+        f"cid:{cid}",
+        f"desc:{desc}",
+        f"loc:{location}",
+    ])
 
 
 async def run_pass_2e(
@@ -1072,12 +1120,13 @@ async def run_pass_2e(
     removed: List[Dict[str, Any]] = []
     removed_reason_counts: Dict[str, int] = {}
     seen: set = set()
-    matched: List[Dict[str, Any]] = []
+    canonical: List[Dict[str, Any]] = []
 
     # ── Stage 1-4: sanity → normalize → strip → dedupe → matched_issues ──
     for issue in (verified_issues or []):
         if not isinstance(issue, dict):
             continue
+        issue = dict(issue)
 
         desc = issue.get("description", "")
 
@@ -1113,18 +1162,18 @@ async def run_pass_2e(
             continue
         seen.add(key)
 
-        matched.append(issue)
+        canonical.append(issue)
 
-    deduped_count = len(matched)
+    deduped_count = len(canonical)
 
     # ── Stage 5: Policy gating → final_issues ──
-    final: List[Dict[str, Any]] = []
+    display: List[Dict[str, Any]] = []
     suppressed_issues: List[Dict[str, Any]] = []
     suppressed_reason_counts: Dict[str, int] = {}
     suppressed_samples: List[Dict[str, Any]] = []
     _MAX_SUPPRESSED_SAMPLES = 10
 
-    for issue in matched:
+    for issue in canonical:
         reason = _2e_policy_reason(issue, deny_phrases, catalog_meta, policy)
         if reason:
             suppressed_reason_counts[reason] = suppressed_reason_counts.get(reason, 0) + 1
@@ -1138,13 +1187,13 @@ async def run_pass_2e(
                     "suppressed_reason": reason,
                 })
             continue
-        final.append(issue)
+        display.append(issue)
 
-    final_count = len(final)
+    final_count = len(display)
     removed_count = len(removed)
 
     logger.debug(
-        "Pass 2e: input=%d deduped/matched=%d final=%d removed=%d suppressed=%d",
+        "Pass 2e: input=%d canonical=%d display=%d removed=%d display_suppressed=%d",
         input_count, deduped_count, final_count, removed_count,
         sum(suppressed_reason_counts.values()),
     )
@@ -1152,11 +1201,15 @@ async def run_pass_2e(
         logger.debug("Pass 2e suppression reasons: %s", suppressed_reason_counts)
 
     return Pass2eResult(
-        verified_issues=final,
-        matched_issues=matched,
+        verified_issues=display,
+        matched_issues=canonical,
+        canonical_issues=canonical,
+        display_issues=display,
+        removed_invalid=removed,
+        display_suppressed_issues=suppressed_issues,
         removed=removed,
         suppressed_issues=suppressed_issues,
-        notes="rule_based_normalization_v2",
+        notes="canonical_display_split_v1",
         input_count=input_count,
         deduped_count=deduped_count,
         final_count=final_count,

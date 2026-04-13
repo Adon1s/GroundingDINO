@@ -130,10 +130,12 @@ class ImageAnalysisResult:
     # Optional resolver output (2d). Orchestrator stores results if run elsewhere.
     resolved_items: List[Dict[str, Any]] = field(default_factory=list)    # unified: defects + upgrades
 
-    # Final normalized/filtered issues after Pass 2e (populated if 2e ran)
+    # Display-filtered issues after Pass 2e (populated if 2e ran)
     verified_issues: List[Dict[str, Any]] = field(default_factory=list)
-    # All issues that passed sanity + dedupe (superset of verified_issues; for debug/analytics)
+    # Canonical issues that passed sanity + exact dedupe (superset of verified_issues)
     matched_issues: List[Dict[str, Any]] = field(default_factory=list)
+    canonical_issues: List[Dict[str, Any]] = field(default_factory=list)
+    display_issues: List[Dict[str, Any]] = field(default_factory=list)
 
     # Metadata
     passes_run: List[str] = field(default_factory=list)
@@ -171,6 +173,8 @@ class ImageAnalysisResult:
             "resolved_items": self.resolved_items,
             "verified_issues": self.verified_issues,
             "matched_issues": self.matched_issues,
+            "canonical_issues": self.canonical_issues,
+            "display_issues": self.display_issues,
 
             "passes_run": self.passes_run,
             "passes": self.passes,
@@ -800,24 +804,31 @@ class SceneClassifierOrchestrator:
                     verified_issues=issues_for_2e,
                     context=context,
                 )
-                result.verified_issues = pass_2e_result.verified_issues or []
-                result.matched_issues = pass_2e_result.matched_issues or []
+                result.verified_issues = pass_2e_result.display_issues or pass_2e_result.verified_issues or []
+                result.matched_issues = pass_2e_result.canonical_issues or pass_2e_result.matched_issues or []
+                result.canonical_issues = result.matched_issues
+                result.display_issues = result.verified_issues
                 result.passes_run.append('2e')
                 result.models_used['2e'] = model_name
 
-                removed = pass_2e_result.removed or []
-                suppressed = pass_2e_result.suppressed_issues or []
+                removed = pass_2e_result.removed_invalid or pass_2e_result.removed or []
+                suppressed = pass_2e_result.display_suppressed_issues or pass_2e_result.suppressed_issues or []
                 result.passes["2e"] = {
                     "notes": pass_2e_result.notes,
                     "input_count": pass_2e_result.input_count,
                     "deduped_count": pass_2e_result.deduped_count,
                     "final_count": pass_2e_result.final_count,
+                    "canonical_count": len(result.canonical_issues),
+                    "display_count": len(result.display_issues),
                     "removed_count": pass_2e_result.removed_count,
                     "removed_reason_counts": pass_2e_result.removed_reason_counts,
                     "suppressed_reason_counts": pass_2e_result.suppressed_reason_counts,
                     "suppressed_samples": pass_2e_result.suppressed_samples,
                     "kept_issue_ids": [
                         x["issue_id"] for x in result.verified_issues if x.get("issue_id")
+                    ],
+                    "canonical_issue_ids": [
+                        x["issue_id"] for x in result.canonical_issues if x.get("issue_id")
                     ],
                     "removed": [
                         {
@@ -840,6 +851,8 @@ class SceneClassifierOrchestrator:
                     "input_count": pass_2e_result.input_count,
                     "deduped_count": pass_2e_result.deduped_count,
                     "final_count": pass_2e_result.final_count,
+                    "canonical_count": len(result.canonical_issues),
+                    "display_count": len(result.display_issues),
                     "removed_count": pass_2e_result.removed_count,
                     "removed_reason_counts": pass_2e_result.removed_reason_counts,
                     "suppressed_reason_counts": pass_2e_result.suppressed_reason_counts,
@@ -858,6 +871,8 @@ class SceneClassifierOrchestrator:
                 # Fallback: pass labeled_forward through unchanged as verified_issues
                 result.verified_issues = list(result.labeled_forward or [])
                 result.matched_issues = list(result.labeled_forward or [])
+                result.canonical_issues = result.matched_issues
+                result.display_issues = result.verified_issues
                 result.passes["2e"] = {"error": str(exc)}
                 result.debug["pass_2e_summary"] = {"error": str(exc)}
             result.pass_timings['2e'] = round(time.time() - t0, 3)
@@ -875,6 +890,9 @@ class SceneClassifierOrchestrator:
                 _x["kind"] = _existing if _existing in {"defect", "upgrade"} else _label_to_kind(_x.get("label", ""))
                 _out.append(_x)
             result.verified_issues = _out
+            result.display_issues = _out
+            result.matched_issues = list(_out)
+            result.canonical_issues = result.matched_issues
             result.passes["2e"] = {"skipped": True}
             result.debug["pass_2e_summary"] = {"skipped": True}
 
