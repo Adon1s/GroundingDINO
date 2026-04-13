@@ -903,21 +903,6 @@ def _2e_norm_text(s: str) -> str:
     return re.sub(r"\s+", " ", (s or "").strip())
 
 
-def _2e_is_junk(description: str, deny_phrases: List[str]) -> bool:
-    """Return True if the description matches any deny phrase or generic advice pattern.
-    DEPRECATED: kept for backwards compatibility. New code uses _2e_is_sanity_junk + _2e_policy_reason.
-    """
-    d = _2e_norm_text(description).lower()
-    if not d:
-        return True
-    for phrase in deny_phrases:
-        if phrase.lower() in d:
-            return True
-    for pat in _GENERIC_ADVICE_PATTERNS:
-        if re.search(pat, d):
-            return True
-    return False
-
 
 def _2e_is_sanity_junk(description: str) -> Optional[str]:
     """True sanity check — returns removal reason or None if clean.

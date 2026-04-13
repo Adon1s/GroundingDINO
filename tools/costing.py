@@ -34,6 +34,11 @@ from tools.project_scopes import get_project_scope, get_project_scope_name
 
 logger = logging.getLogger(__name__)
 
+
+class CatalogDataError(Exception):
+    """Raised when a catalog item has invalid or missing fields."""
+    pass
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Constants
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -373,6 +378,11 @@ def compute_estimates(
         sev = cat.get("severity", 2)
         kind = cat.get("kind", "defect")
         scope = cat.get("scope", "repair")
+        if not isinstance(scope, str):
+            raise CatalogDataError(
+                f"Faulty catalog item '{cat_id}': 'scope' must be a string "
+                f"(repair|replace|cosmetic|service), got {type(scope).__name__}: {scope!r}"
+            )
         tb = cat.get("trade_bucket", "safety_general")
 
         base_pts = compute_issue_points(sev, kind, scope, tb)
@@ -401,6 +411,11 @@ def compute_estimates(
         cat = catalog_lookup[cat_id]
         kind = cat.get("kind", "defect")
         scope = cat.get("scope", "repair")
+        if not isinstance(scope, str):
+            raise CatalogDataError(
+                f"Faulty catalog item '{cat_id}': 'scope' must be a string "
+                f"(repair|replace|cosmetic|service), got {type(scope).__name__}: {scope!r}"
+            )
         tb = cat.get("trade_bucket", "safety_general")
         sev = cat.get("severity", 2)
         cost_obj = cat.get("cost") or {}

@@ -399,7 +399,7 @@ def write_photo_intel(
 
     # -- Compute estimates (scoring + costing) ---------------------------------
     try:
-        from tools.costing import compute_estimates
+        from tools.costing import compute_estimates, CatalogDataError
         estimates = compute_estimates(
             issues_flat=issues_flat,
             issue_catalog=issue_catalog,
@@ -415,6 +415,9 @@ def write_photo_intel(
             estimates["meta"]["issues_scored"],
             estimates["meta"]["unresolved_issues"],
         )
+    except CatalogDataError:
+        logger.error("Estimates failed due to faulty catalog data — marking job as failed", exc_info=True)
+        raise
     except Exception as exc:
         logger.error(f"Failed to compute estimates: {exc}", exc_info=True)
         photo_intel["estimates"] = None
