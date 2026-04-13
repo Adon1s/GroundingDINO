@@ -55,18 +55,18 @@ def build_guardrails_from_catalog(catalog: Dict[str, Any]) -> Dict[str, Dict[str
     """Build hard/soft keyword constraints from catalog.
 
     Catalog keyword schema (three-tier):
-      keywords_deny  → deny_any:    hard reject (if any token matches, reject)
-      keywords_allow → require_any: hard require (at least one token must match)
-      keywords_any   → support_any: soft support / ranking hint only (not enforced as gate)
+      deny_any:    if any term matches, reject the candidate
+      require_any: at least one term must match, or reject
+      support_any: soft support / ranking hint only (not enforced as gate)
     """
     guardrails: Dict[str, Dict[str, List[str]]] = {}
     for item in catalog.get("items", []):
         item_id = str(item.get("id") or item.get("defect_id") or item.get("upgrade_id") or "").strip()
         if not item_id:
             continue
-        deny = [t.lower() for t in item.get("keywords_deny", []) if str(t).strip()]
-        support = [t.lower() for t in item.get("keywords_any", []) if str(t).strip()]
-        require = [t.lower() for t in item.get("keywords_allow", []) if str(t).strip()]
+        deny = [t.lower() for t in item.get("deny_any", []) if str(t).strip()]
+        support = [t.lower() for t in item.get("support_any", []) if str(t).strip()]
+        require = [t.lower() for t in item.get("require_any", []) if str(t).strip()]
         if deny or support or require:
             guardrails[item_id] = {
                 "deny_any": deny,

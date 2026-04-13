@@ -613,12 +613,15 @@ def _build_judge_prompt(image_result: ImageResult, catalog: Dict) -> str:
             if item:
                 lines.append(f"  - {cid}: \"{item.get('name', '')}\" (kind={item.get('kind', '')}, trade={item.get('trade_bucket', '')})")
                 lines.append(f"    embed_text: \"{item.get('embed_text', '')}\"")
-                kw_any = item.get("keywords_any", [])
-                kw_allow = item.get("keywords_allow", [])
-                if kw_any:
-                    lines.append(f"    keywords_any: {kw_any}")
-                if kw_allow:
-                    lines.append(f"    keywords_allow: {kw_allow}")
+                support = item.get("support_any", [])
+                require = item.get("require_any", [])
+                deny = item.get("deny_any", [])
+                if support:
+                    lines.append(f"    support_any: {support}")
+                if require:
+                    lines.append(f"    require_any: {require}")
+                if deny:
+                    lines.append(f"    deny_any: {deny}")
 
     lines.append("""
 ## Your Task:
@@ -911,7 +914,7 @@ def _synthesize_report(
             "catalog_id": cid,
             "improvement_type": entries[0]["improvement_type"],
             "current_embed_text": item.get("embed_text", ""),
-            "current_keywords": item.get("keywords_any", []) + item.get("keywords_allow", []),
+            "current_keywords": item.get("support_any", []) + item.get("require_any", []),
             "suggested_fixes": [e.get("suggested_fix") for e in entries if e.get("suggested_fix")],
             "evidence_observations": [e["description"] for e in entries],
             "reason": entries[0].get("notes", ""),
