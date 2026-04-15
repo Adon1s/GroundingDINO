@@ -174,7 +174,7 @@
         "growth"
       ],
       "deny_any": [],
-      "embed_text": "Visible mold or mildew. Dark organic-looking staining or microbial growth on surfaces. Dark patchy staining along base of walls, cabinets, trim, or floor perimeter suggesting moisture-related mold or mildew. Mold remediation and moisture source repair.",
+      "embed_text": "Visible mold or mildew. Dark organic-looking staining or microbial growth on surfaces. Dark patchy staining along base of walls, cabinets, trim, or floor perimeter suggesting moisture-related mold or mildew. Dark staining in open wall cavities, blackened sheathing, green discoloration along wall base. Mold remediation and moisture source repair.",
       "kind": "defect",
       "id": "visible_mold_or_mildew",
       "scope": "repair",
@@ -218,7 +218,7 @@
         "uneven"
       ],
       "deny_any": [],
-      "embed_text": "Drywall damage or cracks. Holes, cracks, nail pops, uneven drywall. Corner damage, deteriorated wall areas around windows or doors, patch failures, missing drywall sections, moisture-damaged drywall. Patch and repair.",
+      "embed_text": "Drywall damage or cracks. Holes, cracks, nail pops, uneven drywall. Corner damage, deteriorated wall areas around windows or doors, patch failures, missing drywall sections, moisture-damaged drywall. Unfinished drywall patch, visible spackle or joint compound, rough or unsanded wall repair. Visible wall patch, drywall access panel, rough wall repair, improvised wall cover, patched mechanical chase, cut panel around pipes or ducts. Patch and repair.",
       "kind": "defect",
       "id": "damaged_drywall_or_cracks",
       "scope": "repair",
@@ -387,7 +387,8 @@
         "bedroom",
         "living_areas",
         "utility"
-      ]
+      ],
+      "tier": "work"
     },
     {
       "name": "Scratched or Damaged Hard Flooring",
@@ -594,7 +595,7 @@
         "missing"
       ],
       "deny_any": [],
-      "embed_text": "Damaged or unsafe deck or porch. Loose, rotted, or missing boards or railings. Weathered deck boards, aged wood walkway or decking, worn porch flooring, deteriorated wood walking surface. Exterior repair.",
+      "embed_text": "Damaged or unsafe deck or porch. Loose, rotted, or missing boards or railings. Weathered deck boards, aged wood walkway or decking, worn porch flooring, deteriorated wood walking surface. Worn exterior wood entry steps, weathered wood railings, aged stair assemblies, deteriorated small porch landing. Exterior repair.",
       "kind": "defect",
       "id": "damaged_or_unsafe_deck_or_porch",
       "scope": "repair",
@@ -812,7 +813,7 @@
         "loose tile"
       ],
       "deny_any": [],
-      "embed_text": "Damaged tile or grout. Cracked, loose, missing tiles or grout. Separated or deteriorated caulk at tub edges, tile transitions, or shower corners. Tile or grout repair to prevent moisture intrusion.",
+      "embed_text": "Damaged tile or grout. Cracked, loose, missing tiles or grout. Aged grout, discolored grout, dingy or stained grout lines, worn grout without cracking. Separated or deteriorated caulk at tub edges, tile transitions, or shower corners. Tile or grout repair to prevent moisture intrusion.",
       "kind": "defect",
       "id": "tile_or_grout_damage",
       "scope": "repair",
@@ -1382,7 +1383,7 @@
         "kitchen"
       ],
       "deny_any": [],
-      "embed_text": "Outdated kitchen finishes. Dated cabinetry, countertops, appliances. Kitchen update and modernization.",
+      "embed_text": "Outdated kitchen finishes. Dated cabinetry, countertops, appliances, hardware, and mixed or mismatched kitchen finishes. Absent or minimal backsplash, bare painted wall above counters. Short upper cabinets, soffit or dead space above cabinetry. Laminate countertop, speckled or postform laminate counter. Honey oak cabinets, arched oak cabinet doors, dated oak cabinetry. Kitchen update and modernization.",
       "kind": "upgrade",
       "id": "outdated_kitchen_finishes",
       "scope": "replace",
@@ -1478,7 +1479,7 @@
         "living_areas",
         "utility"
       ],
-      "tier": "optional",
+      "tier": "work",
       "drop_if_generic": false,
       "cost": {
         "mode": "allowance",
@@ -1512,14 +1513,13 @@
         "builder grade"
       ],
       "deny_any": [],
-      "embed_text": "Outdated lighting fixtures. Dated ceiling light or ceiling fan. Brass chandelier, ornate chandelier, candelabra-style hanging fixture, dated dining room chandelier, vintage hanging light. Basic flush mount fixture, builder-grade ceiling light, single bare-bulb overhead fixture, simple recessed light in dated setting. Fixture update.",
+      "embed_text": "Outdated lighting fixtures. Dated ceiling light or ceiling fan. Brass chandelier, ornate chandelier, candelabra-style hanging fixture, dated dining room chandelier, vintage hanging light. Basic flush-mount dome light, mushroom light, boob light, builder-grade ceiling light, single bare-bulb overhead fixture, simple recessed light in dated setting. Fluorescent tube fixture, fluorescent strip light, shop-style fluorescent light, dated fluorescent ceiling fixture. Fixture update.",
       "kind": "upgrade",
       "id": "dated_lighting_fixtures",
       "scope": "replace",
       "defaultHidden": false,
       "scene_groups": [
         "kitchen",
-        "bathroom",
         "bedroom",
         "living_areas",
         "utility",
@@ -1538,6 +1538,42 @@
         "cap_high": 12000,
         "cost_source": "manual"
       }
+    },
+    {
+      "name": "Dated Bathroom Vanity Light",
+      "category": "cosmetic",
+      "severity": 1,
+      "trade_bucket": "electrical",
+      "work_item_code": "FIXTURES_UPDATE",
+      "description": "Dated or builder-grade bathroom vanity light fixture above mirror or sink area.",
+      "support_any": [
+        "vanity light",
+        "vanity fixture",
+        "bathroom light",
+        "vanity bar",
+        "mirror light"
+      ],
+      "embed_text": "Dated bathroom vanity light. Three-bulb vanity bar, builder-grade vanity fixture, curved arm vanity fixture with frosted shades, basic bathroom light over mirror, Hollywood-style vanity strip light, outdated bath sconce. Vanity lighting update.",
+      "kind": "upgrade",
+      "id": "dated_bathroom_vanity_light",
+      "scope": "repair",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "optional",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 75,
+        "base_high": 300,
+        "per_occurrence_low": 75,
+        "per_occurrence_high": 250,
+        "cap_low": 300,
+        "cap_high": 750,
+        "cost_source": "manual"
+      },
+      "require_any": []
     },
     {
       "name": "Paint Refresh Opportunity",
@@ -1590,10 +1626,14 @@
         "weeds",
         "yard",
         "landscaping",
-        "cleanup"
+        "cleanup",
+        "patchy",
+        "sparse",
+        "lawn",
+        "grass"
       ],
       "deny_any": [],
-      "embed_text": "Landscape improvement. Yard cleanup, trimming, debris removal, refresh for curb appeal. Dirt or debris buildup around exterior areas, general site cleanup needed.",
+      "embed_text": "Landscape improvement. Yard cleanup, trimming, debris removal, refresh for curb appeal. Dirt or debris buildup around exterior areas, general site cleanup needed. Patchy, sparse, or bare lawn, thin turf, dormant grass areas needing overseeding or sod.",
       "kind": "upgrade",
       "id": "landscape_improvement_needed",
       "scope": "service",
@@ -1631,7 +1671,7 @@
         "facade"
       ],
       "deny_any": [],
-      "embed_text": "Curb appeal upgrade. Improve entry, porch, exterior accents. Undersized or visually weak front entry, uninviting front door area, small entry presence, dark entry, flat or uninviting entry, dated front door area, minimal exterior articulation. Exterior cosmetic updates.",
+      "embed_text": "Curb appeal upgrade. Improve entry, porch, exterior accents. Undersized or visually weak front entry, uninviting front door area, small entry presence, dark entry, flat or uninviting entry, dated front door area, minimal exterior articulation. Worn or weathered entry trim, aging front door, plain or dated front door style, tired entry surround. Rear entry stairs, side stoop, basic concrete landing, dated exterior stairway, small exterior patio or pad. Exterior cosmetic updates.",
       "kind": "upgrade",
       "id": "curb_appeal_upgrade",
       "scope": "cosmetic",
@@ -1789,7 +1829,7 @@
         "mildew",
         "water stain"
       ],
-      "embed_text": "Wall scuffs, marks, dents, or localized staining. Visible wear on walls: scuffs, stains, dents, smudges. Lower-wall stains near baseboards or floor line, patchy discoloration on painted interior walls. Patch and prep for paint.",
+      "embed_text": "Wall scuffs, marks, dents, or localized staining. Visible wear on walls: scuffs, stains, dents, smudges. Lower-wall stains near baseboards or floor line, patchy discoloration on painted interior walls. Extensive wall staining, wall discoloration, dirty lower walls, dark marks under windows. Patch and prep for paint.",
       "kind": "defect",
       "id": "wall_scuffs_marks_or_dents",
       "scope": "cosmetic",
@@ -1898,7 +1938,7 @@
         "water stain",
         "sagging"
       ],
-      "embed_text": "Popcorn or acoustic ceiling texture. Textured ceiling (popcorn). Stippled or spray-textured ceiling, acoustic ceiling finish, dated popcorn texture in bathroom or bedroom. Modernize by smoothing or re-texturing.",
+      "embed_text": "Popcorn or acoustic ceiling texture. Textured ceiling (popcorn). Stippled or spray-textured ceiling, acoustic ceiling finish, dated popcorn texture in bathroom or bedroom. Heavy popcorn texture, knockdown texture, heavy knockdown ceiling, dated ceiling texture, acoustic tile or panel ceiling. Modernize by smoothing or re-texturing.",
       "kind": "upgrade",
       "id": "popcorn_or_acoustic_ceiling_texture",
       "scope": "repair",
@@ -1908,7 +1948,8 @@
         "bathroom",
         "bedroom",
         "living_areas",
-        "utility"
+        "utility",
+        "other"
       ],
       "tier": "work",
       "drop_if_generic": false,
@@ -1973,7 +2014,7 @@
         "warped",
         "broken tile"
       ],
-      "embed_text": "Dirty or heavily soiled floor. Visible dark grime, mud, staining, tracked-in dirt, or widespread soil and discoloration on hard surface floors. Stained grout on floor tiles, darkened grout lines from heavy soiling. Clean, restore, and evaluate for replacement if needed.",
+      "embed_text": "Dirty or heavily soiled floor. Visible dark grime, mud, staining, tracked-in dirt, or widespread soil and discoloration on hard surface floors. Stained grout on floor tiles, darkened grout lines from heavy soiling. Stained concrete slab, garage floor staining, oil-stained concrete, discolored unfinished concrete floor. Clean, restore, and evaluate for replacement if needed.",
       "kind": "defect",
       "id": "floor_dirty_or_heavily_soiled",
       "scope": "cosmetic",
@@ -2046,7 +2087,11 @@
       ],
       "deny_any": [
         "broken mirror",
-        "cracked"
+        "cracked",
+        "plain",
+        "frameless",
+        "basic mirror",
+        "flat mirror"
       ],
       "embed_text": "Ornate/vintage mirror style. Oval ornate framed mirror. Replace with modern mirror/vanity setup.",
       "kind": "upgrade",
@@ -2122,7 +2167,7 @@
         "fogged window",
         "failed seal"
       ],
-      "embed_text": "Dated window treatment or valance. Vintage window valance or curtains. Aged, bent, or damaged mini blinds, outdated horizontal blinds, worn window coverings. Update treatments for a modern look.",
+      "embed_text": "Basic or builder-grade mini blinds, horizontal blinds, older blinds, worn window coverings. Dated window treatment or valance. Vintage window valance or curtains. Aged, bent, or damaged mini blinds, outdated horizontal blinds. Update treatments for a modern look.",
       "kind": "upgrade",
       "id": "dated_window_treatment_valance",
       "scope": "replace",
@@ -2194,7 +2239,7 @@
         "structural crack",
         "water stain"
       ],
-      "embed_text": "Dated wood paneling. Wood-paneled walls that look dated. Update by painting, removing, or replacing.",
+      "embed_text": "Dated wood paneling. Wood-paneled walls that look dated. Vertical wood paneling, dark wood paneling throughout room, extensive wall paneling, 1970s wood paneling, faux wood paneling, paneled walls needing paint or removal. Knotty pine walls, pine paneling, floor-to-ceiling paneling. Update by painting, removing, or replacing.",
       "kind": "upgrade",
       "id": "dated_wood_paneling",
       "scope": "repair",
@@ -2264,7 +2309,7 @@
         "leaking",
         "mold"
       ],
-      "embed_text": "Overall decor style appears dated. General dated finishes and decor. Older interior doors, dated door styles, old-fashioned millwork or trim, dated interior hardware. Dated built-in cabinetry or shelving, honey oak built-in, medium-stain wood built-in, older wood shelving unit. Targeted cosmetic modernization.",
+      "embed_text": "Overall decor style appears dated. General dated finishes and decor. Older interior doors, dated door styles, old-fashioned millwork or trim, dated interior hardware. Dated built-in cabinetry or shelving, honey oak built-in, medium-stain wood built-in, older wood shelving unit. Dated bathroom finishes, older vanity style, retro bathroom tile patterns, older bath fixtures. Builder-grade baseboards, thin baseboards, plain door casing, minimal trim, basic millwork, mixed interior door styles. Targeted cosmetic modernization.",
       "kind": "upgrade",
       "id": "dated_overall_decor_style",
       "scope": "cosmetic",
@@ -2427,7 +2472,7 @@
       "severity": 1,
       "trade_bucket": "landscaping_drains",
       "work_item_code": "CONCRETE_REPAIR",
-      "description": "Concrete driveway shows surface wear with visible evidence of spalling, pitting, or rough patch breakdown â€” not simple aging or discoloration alone.",
+      "description": "Concrete driveway shows surface wear with visible evidence of spalling, pitting, or rough patch breakdown \u00e2\u20ac\u201d not simple aging or discoloration alone.",
       "support_any": [
         "spalling",
         "pitting",
@@ -2539,7 +2584,7 @@
       "tier": "work",
       "defaultHidden": false,
       "description": "Wood fence rotting, leaning, uneven, or deteriorated. Weathered fence boards or leaning fence sections in need of repair or replacement.",
-      "embed_text": "Fence damaged or weathered. Wood fence rotting, leaning, uneven, or deteriorated. Weathered fence boards, leaning fence sections, fence in need of repair or replacement. Fence repair or replacement.",
+      "embed_text": "Fence damaged or weathered. Wood fence rotting, leaning, uneven, or deteriorated. Aging fence, worn fence finish, faded or darkened fence boards, older wood fence at end of useful life. Weathered fence boards, leaning fence sections, fence in need of repair or replacement. Fence repair or replacement.",
       "support_any": [
         "fence",
         "fencing",
@@ -2891,7 +2936,7 @@
         "structural crack",
         "settlement"
       ],
-      "embed_text": "Patio or porch surface wear. Aging or worn surface needing resurfacing or resealing.",
+      "embed_text": "Patio or porch surface wear. Aging, worn, stained, or eroded concrete patio or porch slab. Spalled entry landing, weathered porch concrete, deteriorated patio coating or surface finish. Resurface or reseal.",
       "kind": "defect",
       "id": "patio_or_porch_surface_wear",
       "scope": "cosmetic",
@@ -2923,7 +2968,7 @@
         "cabinet removed"
       ],
       "deny_any": [],
-      "embed_text": "Missing base cabinets with exposed subfloor or framing. Major cabinetry replacement and substrate repair required.",
+      "embed_text": "Missing base cabinets with exposed subfloor or framing. Open or damaged under-sink cabinet area with exposed substrate, plumbing, or framing. Missing lower cabinet section, gutted base cabinetry, open cabinet void below countertop. Major cabinetry replacement and substrate repair required.",
       "kind": "defect",
       "id": "missing_base_cabinets_exposed_subfloor",
       "scope": "replace",
@@ -3187,7 +3232,8 @@
         "living_areas",
         "utility",
         "other"
-      ]
+      ],
+      "tier": "work"
     },
     {
       "id": "bare_or_missing_finish_flooring",

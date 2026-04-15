@@ -235,6 +235,12 @@ def _process_job(
 
     logger.info(f"[Job {ts_job_id}] Starting: {property_key} ({len(image_paths)} images)")
 
+    # Reset token counters so this job's TIMING STATS reflect only its own usage.
+    try:
+        vlm_client.reset_usage_stats()
+    except AttributeError:
+        pass
+
     # Build run options from profile
     options = SceneClassifierRunOptions.from_analysis_profile(
         analysis_profile=analysis_profile,
@@ -280,7 +286,19 @@ def _process_job(
                         scene=analysis.scene or "unknown",
                         processing_time=elapsed,
                     )
-                    logger.info(f"    ✅ {image_path.name} → {analysis.scene} ({elapsed:.1f}s)")
+                    # Aggregate tok/s accounting for concurrency:
+                    # (avg tokens per image / this image's wall time) × concurrency.
+                    # Uses the avg instead of a per-image delta so concurrent completions
+                    # don't pollute one image's bucket.
+                    tok_total = int(getattr(vlm_client, "usage_stats", {}).get("total_tokens", 0) or 0)
+                    done_so_far = completed + 1  # this image counts; `completed` is incremented below
+                    if tok_total > 0 and elapsed > 0 and done_so_far > 0:
+                        per_image_rate = (tok_total / done_so_far) / elapsed
+                        tps = per_image_rate * concurrency
+                        tps_suffix = f", {tps:,.0f} tok/s"
+                    else:
+                        tps_suffix = ""
+                    logger.info(f"    ✅ {image_path.name} → {analysis.scene} ({elapsed:.1f}s{tps_suffix})")
 
                 except Exception as exc:
                     elapsed = time.time() - img_start
@@ -339,7 +357,9 @@ def _process_job(
         photo_intel_path = None
 
     # Compute and log timing statistics
-    timing_stats = _compute_timing_stats(results, total_time)
+    timing_stats = _compute_timing_stats(
+        results, total_time, usage_stats=getattr(vlm_client, "usage_stats", None)
+    )
     _log_timing_stats(timing_stats, property_key)
 
     # Build summary (same format as analyzer_cli)

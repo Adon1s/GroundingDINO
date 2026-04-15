@@ -40,6 +40,7 @@ import base64
 import json
 import logging
 import os
+import threading
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple, Literal
 
@@ -97,6 +98,43 @@ class VLMClient:
 
         # Cache for Gemini clients (keyed by api_key)
         self._gemini_clients: Dict[str, Any] = {}
+
+        # Token usage accumulator — shared across provider calls.
+        # Calls run in run_in_executor threads, so guard with a lock.
+        self._usage_lock = threading.Lock()
+        self.usage_stats: Dict[str, int] = {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "calls": 0,
+        }
+
+    def reset_usage_stats(self) -> None:
+        """Zero out the accumulated token counters. Call between jobs."""
+        with self._usage_lock:
+            self.usage_stats["input_tokens"] = 0
+            self.usage_stats["output_tokens"] = 0
+            self.usage_stats["total_tokens"] = 0
+            self.usage_stats["calls"] = 0
+
+    def _record_usage(
+            self,
+            input_tokens: Optional[int],
+            output_tokens: Optional[int],
+            total_tokens: Optional[int],
+    ) -> None:
+        """Add a single call's token usage to the running totals. Tolerant of None/missing fields."""
+        try:
+            i = int(input_tokens) if input_tokens is not None else 0
+            o = int(output_tokens) if output_tokens is not None else 0
+            t = int(total_tokens) if total_tokens is not None else (i + o)
+        except (TypeError, ValueError):
+            return
+        with self._usage_lock:
+            self.usage_stats["input_tokens"] += i
+            self.usage_stats["output_tokens"] += o
+            self.usage_stats["total_tokens"] += t
+            self.usage_stats["calls"] += 1
 
     def _detect_provider(self, url: Optional[str], api_key: Optional[str]) -> ProviderType:
         """
@@ -259,6 +297,13 @@ class VLMClient:
             )
 
         response = await asyncio.get_event_loop().run_in_executor(None, _call)
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            self._record_usage(
+                getattr(usage, "input_tokens", None),
+                getattr(usage, "output_tokens", None),
+                getattr(usage, "total_tokens", None),
+            )
         return response.output_text
 
     async def _analyze_text_openai(
@@ -294,6 +339,13 @@ class VLMClient:
             )
         )
 
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            self._record_usage(
+                getattr(usage, "input_tokens", None),
+                getattr(usage, "output_tokens", None),
+                getattr(usage, "total_tokens", None),
+            )
         return response.output_text
 
     # ═══════════════════════════════════════════════════════════════════════════
@@ -349,6 +401,13 @@ class VLMClient:
             )
 
         response = await asyncio.get_event_loop().run_in_executor(None, _call)
+        usage = getattr(response, "usage_metadata", None)
+        if usage is not None:
+            self._record_usage(
+                getattr(usage, "prompt_token_count", None),
+                getattr(usage, "candidates_token_count", None),
+                getattr(usage, "total_token_count", None),
+            )
         return response.text
 
     async def _analyze_text_gemini(
@@ -375,6 +434,13 @@ class VLMClient:
             )
 
         response = await asyncio.get_event_loop().run_in_executor(None, _call)
+        usage = getattr(response, "usage_metadata", None)
+        if usage is not None:
+            self._record_usage(
+                getattr(usage, "prompt_token_count", None),
+                getattr(usage, "candidates_token_count", None),
+                getattr(usage, "total_token_count", None),
+            )
         return response.text
 
     # ═══════════════════════════════════════════════════════════════════════════
@@ -447,6 +513,13 @@ class VLMClient:
             logger.error(f"LM Studio response missing 'choices': {data}")
             raise RuntimeError(f"Unexpected LM Studio response format from LM Studio")
 
+        usage = data.get("usage") or {}
+        if usage:
+            self._record_usage(
+                usage.get("prompt_tokens"),
+                usage.get("completion_tokens"),
+                usage.get("total_tokens"),
+            )
         return data["choices"][0]["message"]["content"]
 
     async def _analyze_text_lmstudio(
@@ -501,6 +574,13 @@ class VLMClient:
             logger.error(f"LM Studio response missing 'choices': {data}")
             raise RuntimeError(f"Unexpected LM Studio response format from LM Studio")
 
+        usage = data.get("usage") or {}
+        if usage:
+            self._record_usage(
+                usage.get("prompt_tokens"),
+                usage.get("completion_tokens"),
+                usage.get("total_tokens"),
+            )
         return data["choices"][0]["message"]["content"]
 
     # ═══════════════════════════════════════════════════════════════════════════

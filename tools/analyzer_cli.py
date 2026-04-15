@@ -377,7 +377,11 @@ def _build_model_overrides(args: argparse.Namespace) -> Dict[str, str]:
     return overrides
 
 
-def _compute_timing_stats(results: List["ImageResult"], total_wall_clock: float) -> Dict[str, Any]:
+def _compute_timing_stats(
+    results: List["ImageResult"],
+    total_wall_clock: float,
+    usage_stats: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
     """Compute aggregate timing statistics from per-image results."""
     photo_times = []
     pass_totals: Dict[str, float] = {}
@@ -395,9 +399,17 @@ def _compute_timing_stats(results: List["ImageResult"], total_wall_clock: float)
         for p in data.get("passes_run", []):
             passes_actually_run.add(p)
 
+    def _with_usage(d: Dict[str, Any]) -> Dict[str, Any]:
+        if usage_stats:
+            d["input_tokens"] = int(usage_stats.get("input_tokens", 0) or 0)
+            d["output_tokens"] = int(usage_stats.get("output_tokens", 0) or 0)
+            d["total_tokens"] = int(usage_stats.get("total_tokens", 0) or 0)
+            d["llm_calls"] = int(usage_stats.get("calls", 0) or 0)
+        return d
+
     n = len(photo_times)
     if n == 0:
-        return {"photo_count": 0, "total_wall_clock_sec": round(total_wall_clock, 2)}
+        return _with_usage({"photo_count": 0, "total_wall_clock_sec": round(total_wall_clock, 2)})
 
     # Sort pass keys in logical order
     pass_order = ['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f', '4', '4a', '4b', '4c']
@@ -408,7 +420,7 @@ def _compute_timing_stats(results: List["ImageResult"], total_wall_clock: float)
     # Separate skipped passes from actually-run passes
     skipped = [p for p in sorted_passes if p not in passes_actually_run]
 
-    return {
+    return _with_usage({
         "photo_count": n,
         "total_wall_clock_sec": round(total_wall_clock, 2),
         "avg_photo_sec": round(sum(photo_times) / n, 2),
@@ -418,7 +430,7 @@ def _compute_timing_stats(results: List["ImageResult"], total_wall_clock: float)
         "per_pass_avg_sec": {p: round(pass_totals[p] / n, 2) for p in sorted_passes},
         "passes_run": [p for p in sorted_passes if p not in skipped],
         "passes_skipped": skipped,
-    }
+    })
 
 
 def _log_timing_stats(stats: Dict[str, Any], property_key: str) -> None:
@@ -463,6 +475,16 @@ def _log_timing_stats(stats: Dict[str, Any], property_key: str) -> None:
     logger.info(f"  {'Wall':<8} {wall:>9.2f} {wall / n:>9.2f}")
     speedup = llm_total / wall if wall > 0 else 0
     logger.info(f"  Concurrency speedup: {speedup:.1f}x")
+
+    total_tokens = int(stats.get("total_tokens", 0) or 0)
+    if total_tokens > 0:
+        in_tok = int(stats.get("input_tokens", 0) or 0)
+        out_tok = int(stats.get("output_tokens", 0) or 0)
+        calls = int(stats.get("llm_calls", 0) or 0)
+        tps = (total_tokens / wall) if wall > 0 else 0.0
+        logger.info(f"  Tokens:     {total_tokens:,} ({in_tok:,} in / {out_tok:,} out, {calls:,} calls)")
+        logger.info(f"  Tokens/sec: {tps:,.1f}")
+
     logger.info("=" * 55)
 
 
@@ -743,7 +765,19 @@ def main() -> int:
                         scene=analysis.scene or "unknown",
                         processing_time=elapsed,
                     )
-                    logger.info(f"  ✅ {image_path.name} → {analysis.scene} ({elapsed:.1f}s)")
+                    # Aggregate tok/s accounting for concurrency:
+                    # (avg tokens per image / this image's wall time) × concurrency.
+                    # Uses the avg instead of a per-image delta so concurrent completions
+                    # don't pollute one image's bucket.
+                    tok_total = int(getattr(vlm_client, "usage_stats", {}).get("total_tokens", 0) or 0)
+                    done_so_far = completed + 1  # this image counts; `completed` is incremented below
+                    if tok_total > 0 and elapsed > 0 and done_so_far > 0:
+                        per_image_rate = (tok_total / done_so_far) / elapsed
+                        tps = per_image_rate * args.concurrency
+                        tps_suffix = f", {tps:,.0f} tok/s"
+                    else:
+                        tps_suffix = ""
+                    logger.info(f"  ✅ {image_path.name} → {analysis.scene} ({elapsed:.1f}s{tps_suffix})")
 
                 except Exception as exc:
                     elapsed = time.time() - img_start
@@ -798,7 +832,7 @@ def main() -> int:
     # ─────────────────────────────────────────────────────────────────────────
     # Compute and log timing statistics
     # ─────────────────────────────────────────────────────────────────────────
-    timing_stats = _compute_timing_stats(results, total_time)
+    timing_stats = _compute_timing_stats(results, total_time, usage_stats=vlm_client.usage_stats)
     _log_timing_stats(timing_stats, args.property_key)
 
     # ─────────────────────────────────────────────────────────────────────────
