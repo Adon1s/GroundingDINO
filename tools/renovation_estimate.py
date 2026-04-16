@@ -50,6 +50,14 @@ EstimateGroup = Literal[
     "plumbing", "electrical", "landscaping", "pool", "other",
 ]
 EstimateStackBehavior = Literal["sum", "group_cap", "max_only"]
+EstimateUnitPolicy = Literal[
+    "per_scope", "per_property", "per_room", "per_opening",
+    "per_kitchen", "per_bathroom", "per_system", "per_area",
+]
+_VALID_UNIT_POLICIES = {
+    "per_scope", "per_property", "per_room", "per_opening",
+    "per_kitchen", "per_bathroom", "per_system", "per_area",
+}
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Catalog estimate metadata
@@ -62,6 +70,7 @@ class CatalogEstimateMeta:
     strategy: EstimateStrategy = "repair_only"
     group: EstimateGroup = "other"
     stack_behavior: EstimateStackBehavior = "sum"
+    unit_policy: EstimateUnitPolicy = "per_scope"
     affects_estimate: bool = False
     requires_2f_for_estimate: bool = False
 
@@ -84,11 +93,15 @@ def resolve_estimate_meta(raw: Optional[Dict[str, Any]]) -> CatalogEstimateMeta:
         # Backward-compatible default: existing high/medium estimate blocks keep
         # the old behavior unless the catalog opts out per item.
         requires_2f = tier in ("high", "medium")
+    unit_policy = raw.get("unit_policy", "per_scope")
+    if unit_policy not in _VALID_UNIT_POLICIES:
+        unit_policy = "per_scope"
     return CatalogEstimateMeta(
         estimate_tier=tier,
         strategy=raw.get("strategy", "repair_only"),
         group=raw.get("group", "other"),
         stack_behavior=raw.get("stack_behavior", "sum"),
+        unit_policy=unit_policy,
         affects_estimate=bool(affects_estimate),
         requires_2f_for_estimate=bool(requires_2f),
     )
@@ -129,11 +142,19 @@ class EstimateCandidate:
     issue_ids: List[str] = field(default_factory=list)
     estimate_unit_id: str = ""
     estimate_scope_key: str = ""
+    resolved_cluster_key: str = ""
     room_surrogate_id: str = ""
     supporting_observations: List[str] = field(default_factory=list)
     distinct_photo_count: int = 0
     distinct_scene_group_count: int = 0
     representative_issue_id: Optional[str] = None
+    estimate_unit_label: str = ""
+    unit_resolution_method: str = ""
+    unit_resolution_confidence: str = ""
+    unit_resolution_notes: List[str] = field(default_factory=list)
+    unit_members: List[Dict[str, Any]] = field(default_factory=list)
+    source_estimate_unit_ids: List[str] = field(default_factory=list)
+    source_issue_ids: List[str] = field(default_factory=list)
     # ── Pass 2f review override fields (populated by revisit pass) ────────
     is_valid_detection: Optional[bool] = None  # None = 2f didn't run; False = model deemed invalid
     review_posture: Optional[str] = None    # e.g. "repair", "replace", "keep_default"
@@ -313,6 +334,17 @@ def extract_estimate_candidates(
     ))
 
     return candidates
+
+
+def resolve_estimate_units(
+    candidates: List[EstimateCandidate],
+    issues_flat: List[Dict[str, Any]],
+    issue_catalog: Dict[str, Any],
+) -> List[EstimateCandidate]:
+    """Resolve extracted evidence candidates into conservative pricing units."""
+    from tools.estimate_units import resolve_estimate_units as _resolve_estimate_units
+
+    return _resolve_estimate_units(candidates, issues_flat, issue_catalog)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -650,11 +682,20 @@ def compute_group_estimate(
         li: Dict[str, Any] = {
             "estimate_unit_id": c.estimate_unit_id,
             "estimate_scope_key": c.estimate_scope_key,
+            "resolved_cluster_key": c.resolved_cluster_key,
             "room_surrogate_id": c.room_surrogate_id,
             "catalog_item_id": c.catalog_item_id,
             "name": c.catalog_item_name,
             "occurrences": c.occurrences,
             "estimate_unit_count": c.estimate_unit_count,
+            "unit_policy": c.estimate_meta.unit_policy,
+            "estimate_unit_label": c.estimate_unit_label,
+            "unit_resolution_method": c.unit_resolution_method,
+            "unit_resolution_confidence": c.unit_resolution_confidence,
+            "unit_resolution_notes": c.unit_resolution_notes,
+            "unit_members": c.unit_members,
+            "source_estimate_unit_ids": c.source_estimate_unit_ids,
+            "source_issue_ids": c.source_issue_ids,
             "supporting_photo_count": c.distinct_photo_count or len(c.photo_keys),
             "supporting_scene_group_count": c.distinct_scene_group_count or len(c.scene_groups_seen),
             "supporting_observations": c.supporting_observations,
@@ -764,6 +805,7 @@ def compute_tier_summary(
         return {
             "estimate_unit_id": c.estimate_unit_id,
             "estimate_scope_key": c.estimate_scope_key,
+            "resolved_cluster_key": c.resolved_cluster_key,
             "room_surrogate_id": c.room_surrogate_id,
             "catalog_item_id": c.catalog_item_id,
             "name": c.catalog_item_name,
@@ -771,6 +813,14 @@ def compute_tier_summary(
             "group": c.estimate_meta.group,
             "occurrences": c.occurrences,
             "estimate_unit_count": c.estimate_unit_count,
+            "unit_policy": c.estimate_meta.unit_policy,
+            "estimate_unit_label": c.estimate_unit_label,
+            "unit_resolution_method": c.unit_resolution_method,
+            "unit_resolution_confidence": c.unit_resolution_confidence,
+            "unit_resolution_notes": c.unit_resolution_notes,
+            "unit_members": c.unit_members,
+            "source_estimate_unit_ids": c.source_estimate_unit_ids,
+            "source_issue_ids": c.source_issue_ids,
             "cost_low": li.get("cost_low", 0),
             "cost_high": li.get("cost_high", 0),
             "effective_posture": c.effective_posture or c.estimate_meta.strategy,
@@ -848,6 +898,7 @@ def compute_renovation_estimate(
     candidates = prebuilt_candidates or extract_estimate_candidates(
         issues_flat, issue_catalog,
     )
+    candidates = resolve_estimate_units(candidates, issues_flat, issue_catalog)
 
     if not candidates:
         return {
@@ -933,12 +984,21 @@ def compute_renovation_estimate(
             {
                 "estimate_unit_id": c.estimate_unit_id,
                 "estimate_scope_key": c.estimate_scope_key,
+                "resolved_cluster_key": c.resolved_cluster_key,
                 "room_surrogate_id": c.room_surrogate_id,
                 "catalog_item_id": c.catalog_item_id,
                 "name": c.catalog_item_name,
                 "estimate_tier": c.estimate_meta.estimate_tier,
                 "occurrences": c.occurrences,
                 "estimate_unit_count": c.estimate_unit_count,
+                "unit_policy": c.estimate_meta.unit_policy,
+                "estimate_unit_label": c.estimate_unit_label,
+                "unit_resolution_method": c.unit_resolution_method,
+                "unit_resolution_confidence": c.unit_resolution_confidence,
+                "unit_resolution_notes": c.unit_resolution_notes,
+                "unit_members": c.unit_members,
+                "source_estimate_unit_ids": c.source_estimate_unit_ids,
+                "source_issue_ids": c.source_issue_ids,
                 "is_valid_detection": c.is_valid_detection,
                 "default_posture": c.estimate_meta.strategy,
                 "review_posture": c.review_posture,

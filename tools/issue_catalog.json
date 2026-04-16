@@ -346,7 +346,8 @@
         "estimate_tier": "medium",
         "strategy": "replace_only",
         "group": "flooring",
-        "stack_behavior": "group_cap"
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_room"
       },
       "require_any": [
         "carpet",
@@ -435,7 +436,8 @@
         "estimate_tier": "medium",
         "strategy": "repair_or_replace",
         "group": "flooring",
-        "stack_behavior": "group_cap"
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_room"
       }
     },
     {
@@ -530,7 +532,8 @@
         "estimate_tier": "medium",
         "strategy": "repair_or_replace",
         "group": "exterior",
-        "stack_behavior": "sum"
+        "stack_behavior": "sum",
+        "unit_policy": "per_area"
       }
     },
     {
@@ -575,7 +578,8 @@
         "estimate_tier": "high",
         "strategy": "repair_or_replace",
         "group": "roof",
-        "stack_behavior": "max_only"
+        "stack_behavior": "max_only",
+        "unit_policy": "per_property"
       }
     },
     {
@@ -672,7 +676,8 @@
         "estimate_tier": "medium",
         "strategy": "replace_only",
         "group": "windows_doors",
-        "stack_behavior": "sum"
+        "stack_behavior": "sum",
+        "unit_policy": "per_opening"
       }
     },
     {
@@ -752,7 +757,8 @@
         "estimate_tier": "high",
         "strategy": "repair_or_replace",
         "group": "kitchen",
-        "stack_behavior": "group_cap"
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_kitchen"
       }
     },
     {
@@ -795,7 +801,8 @@
         "estimate_tier": "medium",
         "strategy": "replace_only",
         "group": "kitchen",
-        "stack_behavior": "group_cap"
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_kitchen"
       }
     },
     {
@@ -838,7 +845,8 @@
         "estimate_tier": "medium",
         "strategy": "repair_only",
         "group": "bathroom",
-        "stack_behavior": "group_cap"
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
       }
     },
     {
@@ -882,7 +890,8 @@
         "estimate_tier": "medium",
         "strategy": "replace_only",
         "group": "kitchen",
-        "stack_behavior": "group_cap"
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_kitchen"
       }
     },
     {
@@ -967,7 +976,8 @@
         "estimate_tier": "medium",
         "strategy": "replace_only",
         "group": "bathroom",
-        "stack_behavior": "group_cap"
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
       }
     },
     {
@@ -1149,7 +1159,8 @@
         "estimate_tier": "high",
         "strategy": "inspect_only",
         "group": "structure",
-        "stack_behavior": "max_only"
+        "stack_behavior": "max_only",
+        "unit_policy": "per_property"
       }
     },
     {
@@ -1407,7 +1418,8 @@
         "estimate_tier": "high",
         "strategy": "replace_only",
         "group": "kitchen",
-        "stack_behavior": "group_cap"
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_kitchen"
       }
     },
     {
@@ -1450,7 +1462,8 @@
         "estimate_tier": "high",
         "strategy": "replace_only",
         "group": "bathroom",
-        "stack_behavior": "group_cap"
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
       }
     },
     {
@@ -1495,7 +1508,8 @@
         "estimate_tier": "high",
         "strategy": "replace_only",
         "group": "flooring",
-        "stack_behavior": "group_cap"
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_room"
       }
     },
     {
@@ -2773,7 +2787,8 @@
         "estimate_tier": "high",
         "strategy": "replace_only",
         "group": "exterior",
-        "stack_behavior": "sum"
+        "stack_behavior": "sum",
+        "unit_policy": "per_area"
       }
     },
     {
@@ -2985,7 +3000,8 @@
         "estimate_tier": "high",
         "strategy": "replace_only",
         "group": "kitchen",
-        "stack_behavior": "group_cap"
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_kitchen"
       }
     },
     {
@@ -3026,7 +3042,8 @@
         "estimate_tier": "high",
         "strategy": "repair_only",
         "group": "structure",
-        "stack_behavior": "max_only"
+        "stack_behavior": "max_only",
+        "unit_policy": "per_room"
       }
     },
     {
@@ -3065,7 +3082,8 @@
         "estimate_tier": "high",
         "strategy": "repair_or_replace",
         "group": "structure",
-        "stack_behavior": "max_only"
+        "stack_behavior": "max_only",
+        "unit_policy": "per_room"
       }
     },
     {
@@ -3106,7 +3124,8 @@
         "estimate_tier": "high",
         "strategy": "replace_only",
         "group": "windows_doors",
-        "stack_behavior": "sum"
+        "stack_behavior": "sum",
+        "unit_policy": "per_opening"
       }
     },
     {
@@ -3186,7 +3205,8 @@
         "estimate_tier": "high",
         "strategy": "inspect_only",
         "group": "pool",
-        "stack_behavior": "max_only"
+        "stack_behavior": "max_only",
+        "unit_policy": "per_property"
       },
       "require_any": [
         "pool",

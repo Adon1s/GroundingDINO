@@ -173,8 +173,10 @@ class Pass2dResult:
 class Pass2fResult:
     """Result from Pass 2f: Big-ticket estimate review for a single item."""
     catalog_item_id: str
+    review_outcome: str = "uncertain"       # confirmed | uncertain
+    visible_scope: str = "localized"        # localized | partial | room_wide
     is_valid_detection: bool = True          # False if the model deems the detection invalid
-    pricing_posture: str = "keep_default"   # repair | replace | keep_default
+    pricing_posture: str = "inspect"        # repair | replace | inspect | keep_default
     rationale: str = ""
     raw_response: Optional[str] = None
 
@@ -1241,8 +1243,10 @@ PASS_2F_USER_PROMPT = (
     "- Matched observation: {issue_description}\n"
     "- Scene: {scene}\n\n"
     "{{\n"
+    '  "review_outcome": "confirmed" or "uncertain",\n'
+    '  "visible_scope": "localized" or "partial" or "room_wide",\n'
     '  "is_valid_detection": true or false,\n'
-    '  "pricing_posture": "repair" or "replace" or "keep_default",'
+    '  "pricing_posture": "repair" or "replace" or "inspect" or "keep_default",\n'
     '  "rationale": "A brief explanation on why is_valid_detection and pricing_posture decisions were made."\n'
     "}}\n"
 )
@@ -1250,7 +1254,9 @@ PASS_2F_USER_PROMPT = (
 
 def _coerce_pass_2f(raw: dict, catalog_item_id: str) -> Pass2fResult:
     """Normalize parsed JSON into a Pass2fResult with guardrails."""
-    VALID_POSTURES = {"repair", "replace", "keep_default"}
+    VALID_OUTCOMES = {"confirmed", "uncertain"}
+    VALID_SCOPES = {"localized", "partial", "room_wide"}
+    VALID_POSTURES = {"repair", "replace", "inspect", "keep_default"}
 
     # Coerce is_valid_detection: accept bool, string "false"/"true", default True
     raw_valid = raw.get("is_valid_detection", True)
@@ -1259,12 +1265,16 @@ def _coerce_pass_2f(raw: dict, catalog_item_id: str) -> Pass2fResult:
     else:
         is_valid = bool(raw_valid)
 
-    posture = str(raw.get("pricing_posture", "keep_default")).lower()
+    outcome = str(raw.get("review_outcome", "uncertain")).strip().lower()
+    scope = str(raw.get("visible_scope", "localized")).strip().lower()
+    posture = str(raw.get("pricing_posture", "inspect")).strip().lower()
 
     return Pass2fResult(
         catalog_item_id=catalog_item_id,
+        review_outcome=outcome if outcome in VALID_OUTCOMES else "uncertain",
+        visible_scope=scope if scope in VALID_SCOPES else "localized",
         is_valid_detection=is_valid,
-        pricing_posture=posture if posture in VALID_POSTURES else "keep_default",
+        pricing_posture=posture if posture in VALID_POSTURES else "inspect",
         rationale=str(raw.get("rationale", "")).strip()[:300],
     )
 
@@ -1327,6 +1337,8 @@ async def run_pass_2f(
         result = _coerce_pass_2f(parsed, catalog_item_id)
         result = Pass2fResult(
             catalog_item_id=result.catalog_item_id,
+            review_outcome=result.review_outcome,
+            visible_scope=result.visible_scope,
             is_valid_detection=result.is_valid_detection,
             pricing_posture=result.pricing_posture,
             rationale=result.rationale,

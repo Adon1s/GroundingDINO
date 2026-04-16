@@ -498,12 +498,16 @@ def write_photo_intel(
                 import asyncio
                 from tools.renovation_estimate import (
                     extract_estimate_candidates,
+                    resolve_estimate_units,
                     resolve_pass_2f_model_config,
                     run_pass_2f_batch,
                 )
 
                 candidates = extract_estimate_candidates(
                     renovation_issues_flat, issue_catalog,
+                )
+                candidates = resolve_estimate_units(
+                    candidates, renovation_issues_flat, issue_catalog,
                 )
                 eligible = [
                     c for c in candidates
