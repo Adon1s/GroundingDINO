@@ -30,6 +30,22 @@ from tools.scene_classifier_service import scene_classifier_payload
 logger = logging.getLogger(__name__)
 
 
+def _strip_pass_2f_audit_rationale(renovation_estimate: Any) -> None:
+    """Remove model-written Pass 2f rationale from frontend-facing audit items."""
+    if not isinstance(renovation_estimate, dict):
+        return
+    audit = renovation_estimate.get("pass_2f_review_audit")
+    if not isinstance(audit, dict):
+        return
+    items = audit.get("items")
+    if not isinstance(items, list):
+        return
+    for item in items:
+        if isinstance(item, dict):
+            item.pop("rationale", None)
+            item.pop("review_rationale", None)
+
+
 # Import defect events layer
 try:
     from tools.defect_events import build_defect_events, generate_work_items, build_search_index
@@ -687,6 +703,8 @@ def write_photo_intel(
     # Strip analysis_debug and pass_2f_trace (debug-only, not for UI)
     slim.pop("analysis_debug", None)
     slim.pop("pass_2f_trace", None)
+
+    _strip_pass_2f_audit_rationale(slim.get("renovation_estimate"))
 
     # Strip per-photo debug fields (v3 schema)
     for _img_key, _photo in (slim.get("photos") or {}).items():

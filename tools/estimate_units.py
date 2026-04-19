@@ -401,7 +401,7 @@ def _copy_common_review_fields(
     sources: List[EstimateCandidate],
 ) -> None:
     attrs = (
-        "is_valid_detection", "review_posture", "review_rationale",
+        "is_valid_detection", "review_posture", "review_visible_scope", "review_rationale",
         "review_source", "effective_posture", "review_image_path",
         "pass_2f_attempted", "pass_2f_applied", "pass_2f_fallback_reason",
     )

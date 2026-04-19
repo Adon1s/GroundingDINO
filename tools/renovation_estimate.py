@@ -158,7 +158,8 @@ class EstimateCandidate:
     # ── Pass 2f review override fields (populated by revisit pass) ────────
     is_valid_detection: Optional[bool] = None  # None = 2f didn't run; False = model deemed invalid
     review_posture: Optional[str] = None    # e.g. "repair", "replace", "keep_default"
-    review_rationale: Optional[str] = None  # LLM-generated explanation
+    review_visible_scope: Optional[str] = None  # localized | partial | room_wide | unknown
+    review_rationale: Optional[str] = None  # debug-only LLM explanation
     review_source: Optional[str] = None     # "pass_2f" | None (indicates origin)
     # ── Resolved posture (set by resolve_effective_posture) ────────────
     effective_posture: Optional[str] = None # authoritative posture for pricing
@@ -526,6 +527,7 @@ async def run_pass_2f_batch(
 
             candidate.is_valid_detection = result.is_valid_detection
             candidate.review_posture = result.pricing_posture
+            candidate.review_visible_scope = result.visible_scope
             candidate.review_rationale = result.rationale
             candidate.review_source = f"pass_2f:{provider}"
             candidate.review_image_path = str(image_path)
@@ -768,7 +770,6 @@ def compute_group_estimate(
             "review_posture": c.review_posture,
             "effective_posture": effective,
             "review_source": c.review_source,
-            "review_rationale": c.review_rationale,
             "review_image_path": c.review_image_path,
             # ── Pass 2f fallback tracking ──
             "pass_2f_attempted": c.pass_2f_attempted,
@@ -899,7 +900,6 @@ def compute_tier_summary(
             "risk_exposure_high": li.get("risk_exposure_high", 0),
             "effective_posture": c.effective_posture or c.estimate_meta.strategy,
             "review_posture": c.review_posture,
-            "review_rationale": c.review_rationale,
             "review_source": c.review_source,
             "pass_2f_attempted": c.pass_2f_attempted,
             "pass_2f_applied": c.pass_2f_applied,
@@ -1086,12 +1086,14 @@ def compute_renovation_estimate(
                 "source_estimate_unit_ids": c.source_estimate_unit_ids,
                 "source_issue_ids": c.source_issue_ids,
                 "is_valid_detection": c.is_valid_detection,
+                "visible_scope": c.review_visible_scope,
                 "default_posture": c.estimate_meta.strategy,
                 "review_posture": c.review_posture,
+                "pricing_posture": c.review_posture,
                 "effective_posture": c.effective_posture,
                 "review_source": c.review_source,
                 "review_image_path": c.review_image_path,
-                "review_rationale": c.review_rationale,
+                "rationale": c.review_rationale,
                 "pass_2f_attempted": c.pass_2f_attempted,
                 "pass_2f_applied": c.pass_2f_applied,
                 "pass_2f_fallback_reason": c.pass_2f_fallback_reason,
