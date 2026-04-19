@@ -47,7 +47,7 @@ EstimateStrategy = Literal[
 EstimateGroup = Literal[
     "kitchen", "bathroom", "flooring", "paint_drywall",
     "windows_doors", "roof", "exterior", "structure",
-    "plumbing", "electrical", "landscaping", "pool", "other",
+    "remediation", "plumbing", "electrical", "landscaping", "pool", "other",
 ]
 EstimateStackBehavior = Literal["sum", "group_cap", "max_only"]
 EstimateUnitPolicy = Literal[
@@ -176,6 +176,7 @@ _AUTHORITATIVE_POSTURES = {"repair", "replace", "inspect"}
 PASS_2F_FALLBACK_NOT_ELIGIBLE = "not_eligible"
 PASS_2F_FALLBACK_NO_IMAGE     = "no_valid_image"
 PASS_2F_FALLBACK_VLM_ERROR    = "vlm_error"
+PASS_2F_FALLBACK_INVALID_RESPONSE = "invalid_response"
 PASS_2F_FALLBACK_KEEP_DEFAULT = "keep_default"
 
 
@@ -450,7 +451,7 @@ async def run_pass_2f_batch(
 
     Mutates candidates in-place and also returns the list for convenience.
     """
-    from tools.scene_classifier_passes import run_pass_2f
+    from tools.scene_classifier_passes import Pass2fInvalidResponseError, run_pass_2f
 
     # Build catalog description lookup
     cat_lookup: Dict[str, Dict[str, Any]] = {}
@@ -531,7 +532,7 @@ async def run_pass_2f_batch(
             candidate.effective_posture = resolve_effective_posture(candidate)
 
             # Tag applied vs keep_default
-            if result.pricing_posture in _AUTHORITATIVE_POSTURES:
+            if result.is_valid_detection is True and result.pricing_posture in _AUTHORITATIVE_POSTURES:
                 candidate.pass_2f_applied = True
             elif result.pricing_posture == "keep_default":
                 candidate.pass_2f_fallback_reason = PASS_2F_FALLBACK_KEEP_DEFAULT
@@ -541,6 +542,10 @@ async def run_pass_2f_batch(
                 candidate.catalog_item_id,
                 result.pricing_posture,
             )
+        except Pass2fInvalidResponseError as e:
+            logger.error("Pass 2f: invalid response on %s: %s", candidate.catalog_item_id, e)
+            candidate.pass_2f_fallback_reason = PASS_2F_FALLBACK_INVALID_RESPONSE
+            # Leave review fields as None; probable totals use the catalog default.
         except Exception as e:
             logger.error("Pass 2f: error on %s: %s", candidate.catalog_item_id, e)
             candidate.pass_2f_fallback_reason = PASS_2F_FALLBACK_VLM_ERROR
@@ -566,6 +571,7 @@ GROUP_BUDGET_CAPS: Dict[str, Tuple[int, int]] = {
     "flooring":      (2_000,  20_000),
     "roof":          (1_000,  25_000),
     "structure":     (1_000,  50_000),
+    "remediation":   (500,    15_000),
     "windows_doors": (500,    15_000),
     "exterior":      (1_000,  25_000),
     "plumbing":      (500,    12_000),
@@ -598,6 +604,26 @@ POSTURE_TO_SCOPE: Dict[str, Optional[str]] = {
 _INSPECT_POSTURES = {"inspect", "inspect_only"}
 
 
+def _is_manual_allowance_cost(cost_obj: Dict[str, Any]) -> bool:
+    return (
+        isinstance(cost_obj, dict)
+        and cost_obj.get("mode") == "allowance"
+        and cost_obj.get("cost_source") == "manual"
+    )
+
+
+def _pricing_cost_basis(candidate: EstimateCandidate, effective_posture: str) -> str:
+    if candidate.is_valid_detection is False:
+        return "invalidated"
+    if effective_posture in _INSPECT_POSTURES:
+        return "inspection_allowance"
+    if _is_manual_allowance_cost(candidate.cost_obj):
+        return "manual_allowance"
+    if not candidate.cost_obj or candidate.cost_obj.get("mode") == "heuristic":
+        return "heuristic"
+    return str(candidate.cost_obj.get("mode") or "allowance")
+
+
 def resolve_pricing_band(
     candidate: EstimateCandidate,
     effective_posture: str,
@@ -627,6 +653,28 @@ def resolve_pricing_band(
         n_occurrences=max(1, candidate.estimate_unit_count),
         kind=candidate.kind,
         scope=costing_scope,
+        trade_bucket=candidate.trade_bucket,
+        severity=candidate.severity,
+    )
+
+
+def resolve_risk_exposure_band(
+    candidate: EstimateCandidate,
+    effective_posture: str,
+) -> Tuple[int, int]:
+    """
+    Estimate latent exposure for inspect-only items without adding it to probable cost.
+    """
+    if effective_posture not in _INSPECT_POSTURES or candidate.is_valid_detection is False:
+        return 0, 0
+
+    from tools.costing import compute_item_cost_range
+
+    return compute_item_cost_range(
+        cost_obj=candidate.cost_obj,
+        n_occurrences=max(1, candidate.estimate_unit_count),
+        kind=candidate.kind,
+        scope=candidate.scope,
         trade_bucket=candidate.trade_bucket,
         severity=candidate.severity,
     )
@@ -665,6 +713,8 @@ def compute_group_estimate(
             "group": group,
             "low": 0, "high": 0,
             "raw_sum_low": 0, "raw_sum_high": 0,
+            "risk_exposure_low": 0, "risk_exposure_high": 0,
+            "inspection_allowance_low": 0, "inspection_allowance_high": 0,
             "has_high_tier": False,
             "stack_behavior": "sum",
             "inspection_only": False,
@@ -675,10 +725,14 @@ def compute_group_estimate(
     # Compute per-candidate costs
     line_items: List[Dict[str, Any]] = []
     for c in candidates:
-        low, high = _compute_candidate_cost(c)
+        effective = c.effective_posture or c.estimate_meta.strategy
+        low, high = resolve_pricing_band(c, effective)
+        risk_low, risk_high = resolve_risk_exposure_band(c, effective)
+        cost_basis = _pricing_cost_basis(c, effective)
         # Zero out cost for detections the model deemed invalid
         if c.is_valid_detection is False:
             low, high = 0, 0
+            risk_low, risk_high = 0, 0
         li: Dict[str, Any] = {
             "estimate_unit_id": c.estimate_unit_id,
             "estimate_scope_key": c.estimate_scope_key,
@@ -703,13 +757,16 @@ def compute_group_estimate(
             "stack_behavior": c.estimate_meta.stack_behavior,
             "estimate_tier": c.estimate_meta.estimate_tier,
             "requires_2f_for_estimate": c.estimate_meta.requires_2f_for_estimate,
+            "cost_basis": cost_basis,
             "cost_low": low,
             "cost_high": high,
+            "risk_exposure_low": risk_low,
+            "risk_exposure_high": risk_high,
             # ── Validity & posture audit trail (always present) ──
             "is_valid_detection": c.is_valid_detection,
             "default_posture": c.estimate_meta.strategy,
             "review_posture": c.review_posture,
-            "effective_posture": c.effective_posture or c.estimate_meta.strategy,
+            "effective_posture": effective,
             "review_source": c.review_source,
             "review_rationale": c.review_rationale,
             "review_image_path": c.review_image_path,
@@ -723,8 +780,18 @@ def compute_group_estimate(
     dominant = _resolve_dominant_stack(candidates)
     raw_sum_low = sum(li["cost_low"] for li in line_items)
     raw_sum_high = sum(li["cost_high"] for li in line_items)
+    raw_risk_exposure_low = sum(li["risk_exposure_low"] for li in line_items)
+    raw_risk_exposure_high = sum(li["risk_exposure_high"] for li in line_items)
+    inspection_allowance_low = sum(
+        li["cost_low"] for li in line_items
+        if li.get("effective_posture") in _INSPECT_POSTURES
+    )
+    inspection_allowance_high = sum(
+        li["cost_high"] for li in line_items
+        if li.get("effective_posture") in _INSPECT_POSTURES
+    )
     has_high_tier = any(c.estimate_meta.estimate_tier == "high" for c in candidates)
-    all_inspect = all(c.estimate_meta.strategy == "inspect_only" for c in candidates)
+    all_inspect = all(li.get("effective_posture") in _INSPECT_POSTURES for li in line_items)
 
     # Apply stack behavior
     if dominant == "max_only":
@@ -749,6 +816,10 @@ def compute_group_estimate(
         "high": capped_high,
         "raw_sum_low": raw_sum_low,
         "raw_sum_high": raw_sum_high,
+        "risk_exposure_low": raw_risk_exposure_low,
+        "risk_exposure_high": raw_risk_exposure_high,
+        "inspection_allowance_low": inspection_allowance_low,
+        "inspection_allowance_high": inspection_allowance_high,
         "has_high_tier": has_high_tier,
         "stack_behavior": dominant,
         "inspection_only": all_inspect,
@@ -821,14 +892,18 @@ def compute_tier_summary(
             "unit_members": c.unit_members,
             "source_estimate_unit_ids": c.source_estimate_unit_ids,
             "source_issue_ids": c.source_issue_ids,
+            "cost_basis": li.get("cost_basis"),
             "cost_low": li.get("cost_low", 0),
             "cost_high": li.get("cost_high", 0),
+            "risk_exposure_low": li.get("risk_exposure_low", 0),
+            "risk_exposure_high": li.get("risk_exposure_high", 0),
             "effective_posture": c.effective_posture or c.estimate_meta.strategy,
             "review_posture": c.review_posture,
             "review_rationale": c.review_rationale,
             "review_source": c.review_source,
             "pass_2f_attempted": c.pass_2f_attempted,
             "pass_2f_applied": c.pass_2f_applied,
+            "pass_2f_fallback_reason": c.pass_2f_fallback_reason,
             "is_valid_detection": c.is_valid_detection,
         }
 
@@ -840,7 +915,7 @@ def compute_tier_summary(
         rec = _item_record(c)
         if c.is_valid_detection is False:
             invalidated.append(rec)
-        elif c.pass_2f_attempted and c.is_valid_detection is True:
+        elif c.pass_2f_applied and c.is_valid_detection is True:
             validated.append(rec)
         else:
             unreviewed.append(rec)
@@ -902,12 +977,19 @@ def compute_renovation_estimate(
 
     if not candidates:
         return {
-            "version": "renovation_estimate_v2",
+            "version": "renovation_estimate_v3",
             "groups": [],
+            "totals": {
+                "validated_total": {"low": 0, "high": 0},
+                "probable_total": {"low": 0, "high": 0},
+                "unreviewed_risk_total": {"low": 0, "high": 0},
+                "inspection_allowance_total": {"low": 0, "high": 0},
+                "risk_exposure_total": {"low": 0, "high": 0},
+            },
             "raw_totals": {"low": 0, "high": 0},
             "primary_estimate": {
                 "low": 0, "high": 0,
-                "source": "full_estimate_fallback",
+                "source": "probable_total",
                 "validated_portion": {"low": 0, "high": 0},
             },
             "tier_summary": {
@@ -963,6 +1045,10 @@ def compute_renovation_estimate(
 
     total_low = sum(g["low"] for g in groups_out)
     total_high = sum(g["high"] for g in groups_out)
+    inspection_allowance_low = sum(g.get("inspection_allowance_low", 0) for g in groups_out)
+    inspection_allowance_high = sum(g.get("inspection_allowance_high", 0) for g in groups_out)
+    risk_exposure_low = sum(g.get("risk_exposure_low", 0) for g in groups_out)
+    risk_exposure_high = sum(g.get("risk_exposure_high", 0) for g in groups_out)
     high_tier_count = sum(1 for c in candidates if c.estimate_meta.estimate_tier == "high")
     medium_tier_count = sum(1 for c in candidates if c.estimate_meta.estimate_tier == "medium")
 
@@ -1019,22 +1105,35 @@ def compute_renovation_estimate(
     validated_low = tier_summary["validated_total"]["low"]
     validated_high = tier_summary["validated_total"]["high"]
 
-    if validated_low > 0 or validated_high > 0:
-        # Primary estimate = only 2f-validated items
-        primary_estimate = {
-            "low": validated_low,
-            "high": validated_high,
-            "source": "validated_primary",
-            "validated_portion": {"low": validated_low, "high": validated_high},
-        }
-    else:
-        # No validated items — fall back to full group totals
-        primary_estimate = {
-            "low": total_low,
-            "high": total_high,
-            "source": "full_estimate_fallback",
-            "validated_portion": {"low": 0, "high": 0},
-        }
+    unreviewed_low = sum(
+        item.get("cost_low", 0)
+        for item in tier_summary.get("unreviewed_items", [])
+        if item.get("is_valid_detection") is not False
+    )
+    unreviewed_high = sum(
+        item.get("cost_high", 0)
+        for item in tier_summary.get("unreviewed_items", [])
+        if item.get("is_valid_detection") is not False
+    )
+    totals = {
+        "validated_total": {"low": validated_low, "high": validated_high},
+        "probable_total": {"low": total_low, "high": total_high},
+        "unreviewed_risk_total": {"low": unreviewed_low, "high": unreviewed_high},
+        "inspection_allowance_total": {
+            "low": inspection_allowance_low,
+            "high": inspection_allowance_high,
+        },
+        "risk_exposure_total": {
+            "low": risk_exposure_low,
+            "high": risk_exposure_high,
+        },
+    }
+    primary_estimate = {
+        "low": total_low,
+        "high": total_high,
+        "source": "probable_total",
+        "validated_portion": {"low": validated_low, "high": validated_high},
+    }
 
     # ── Project scope summary (presentation rollup) ──
     scope_accum: Dict[str, Dict[str, Any]] = {}
@@ -1064,8 +1163,9 @@ def compute_renovation_estimate(
     )
 
     return {
-        "version": "renovation_estimate_v2",
+        "version": "renovation_estimate_v3",
         "groups": groups_out,
+        "totals": totals,
         "raw_totals": {
             "low": total_low,
             "high": total_high,
@@ -1087,6 +1187,7 @@ def compute_renovation_estimate(
         "disclaimer": (
             "Quick photo-based estimate. Ranges reflect allowance-level budgets, "
             "not contractor bids. Inspect-only items carry a nominal inspection allowance. "
-            "Primary estimate driven by 2f-validated high and medium tier items."
+            "Primary estimate mirrors probable_total; validated and risk exposure totals "
+            "are shown separately."
         ),
     }

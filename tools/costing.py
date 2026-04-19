@@ -1,7 +1,7 @@
 """
 costing.py
 ----------
-Property-level scoring and cost estimation.
+Property-level scoring and low-level cost helpers.
 
 Pure functions — no LLM calls, no I/O.  Called from artifact_writers.write_photo_intel()
 after issues_flat is assembled.
@@ -15,10 +15,11 @@ Diminishing returns (geometric decay per catalog item group):
 Rehab score (0–100, saturating exponential):
     rehab_score = round(100 * (1 - exp(-raw / K)))
 
-Cost range (allowance-based per catalog item):
+Cost range helper (allowance-based per catalog item):
     low  = min(base_low  + (n-1)*per_occurrence_low,  cap_low)
     high = min(base_high + (n-1)*per_occurrence_high, cap_high)
-    then multiply by kind_mult * scope_mult * trade_mult (NOT severity).
+    manual allowances are final ranges; heuristic/missing-cost items still use
+    kind_mult * scope_mult * trade_mult (NOT severity).
 
 Uncertainty (widen high only):
     high_final = high * (1 + widen_pct)
@@ -27,6 +28,7 @@ Uncertainty (widen high only):
 from __future__ import annotations
 
 import logging
+from collections import defaultdict
 from math import exp
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -265,13 +267,21 @@ def compute_item_cost_range(
     raw_high = min(raw_high, cap_high)
 
     # Apply multipliers (kind, scope, trade — NOT severity)
-    mult = (
-        KIND_MULT.get(kind, 1.0)
-        * SCOPE_MULT.get(scope, 1.0)
-        * TRADE_MULT.get(trade_bucket, 1.0)
+    manual_allowance = (
+        cost_obj.get("mode") == "allowance"
+        and cost_obj.get("cost_source") == "manual"
     )
-    low = round(raw_low * mult)
-    high = round(raw_high * mult)
+    if manual_allowance:
+        low = round(raw_low)
+        high = round(raw_high)
+    else:
+        mult = (
+            KIND_MULT.get(kind, 1.0)
+            * SCOPE_MULT.get(scope, 1.0)
+            * TRADE_MULT.get(trade_bucket, 1.0)
+        )
+        low = round(raw_low * mult)
+        high = round(raw_high * mult)
 
     # Final guardrail: high >= low
     if high < low:
@@ -312,66 +322,51 @@ def compute_uncertainty_widen(
 # Main entry point
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def compute_estimates(
+def compute_scoring(
     issues_flat: List[Dict[str, Any]],
     issue_catalog: Dict[str, Any],
     n_photos: int = 0,
-    include_optional: bool = False,
 ) -> Dict[str, Any]:
     """
-    Compute property-level rehab score and cost estimates.
+    Compute rehab scoring only.
 
-    Args:
-        issues_flat: Property-level flat list of issues (from photo_intel).
-                     Each dict must have 'catalog_item_id' and 'catalog_item_kind'.
-        issue_catalog: Full catalog dict with 'items' list.
-        n_photos: Number of photos analysed (for uncertainty).
-        include_optional: If False (default), exclude upgrade/optional items
-                          from cost totals. Scoring always includes them at 0.6x.
-
-    Returns:
-        Estimates dict ready for JSON serialisation into photo_intel.
+    This intentionally emits no dollar figures. Costing and budget rollups are
+    owned by renovation_estimate.
     """
-    # -- Build catalog lookup by id --
-    catalog_items = issue_catalog.get("items", [])
+    catalog_items = issue_catalog.get("items", []) or []
     catalog_lookup: Dict[str, Dict[str, Any]] = {}
     for item in catalog_items:
         if isinstance(item, dict) and item.get("id"):
             catalog_lookup[item["id"]] = item
 
-    # -- Build trade_bucket name lookup from catalog --
-    trade_bucket_names: Dict[str, str] = {}
-    for tb in issue_catalog.get("trade_buckets", []):
-        if isinstance(tb, dict) and tb.get("id"):
-            trade_bucket_names[tb["id"]] = tb.get("name", tb["id"])
-
-    # -- Group issues_flat by catalog_item_id --
     grouped: Dict[str, List[Dict[str, Any]]] = {}
-    unresolved_ids: set = set()  # catalog_item_ids that have at least one unresolved
     has_speculative = False
     unresolved_count = 0
-    for issue in (issues_flat or []):
-        cat_id = issue.get("catalog_item_id")
+    for issue in issues_flat or []:
+        cat_id = issue.get("catalog_item_id") or issue.get("issue_id") or issue.get("id")
         if not cat_id or cat_id not in catalog_lookup:
             unresolved_count += 1
             continue
         status = issue.get("status", "confirmed")
-        if status == "unresolved":
+        if status in {"unresolved", "unknown"}:
             unresolved_count += 1
-            unresolved_ids.add(cat_id)
-        if status == "speculative":
+            continue
+        if status in {"speculative", "suspected"}:
             has_speculative = True
         grouped.setdefault(cat_id, []).append(issue)
 
-    # ── A) Scoring ──────────────────────────────────────────────────────────
     total_raw = 0.0
-    points_per_item: Dict[str, float] = {}
     subscore_accum: Dict[str, float] = {
         "systems_score": 0.0,
         "structure_score": 0.0,
         "cosmetic_score": 0.0,
         "exterior_score": 0.0,
     }
+    per_item_detail: List[Dict[str, Any]] = []
+    scope_accum: Dict[str, Dict[str, Any]] = defaultdict(
+        lambda: {"points": 0.0, "item_count": 0, "scope_name": ""}
+    )
+    has_major_systems = False
 
     for cat_id, occurrences in grouped.items():
         cat = catalog_lookup[cat_id]
@@ -384,17 +379,34 @@ def compute_estimates(
                 f"(repair|replace|cosmetic|service), got {type(scope).__name__}: {scope!r}"
             )
         tb = cat.get("trade_bucket", "safety_general")
+        if tb in MAJOR_SYSTEM_BUCKETS:
+            has_major_systems = True
 
         base_pts = compute_issue_points(sev, kind, scope, tb)
-        group_pts = compute_group_points(base_pts, len(occurrences))
-        group_pts = round(group_pts, 3)
-
-        points_per_item[cat_id] = group_pts
+        group_pts = round(compute_group_points(base_pts, len(occurrences)), 3)
         total_raw += group_pts
 
-        # Accumulate subscores
         subscore_key = TRADE_TO_SUBSCORE.get(tb, "cosmetic_score")
         subscore_accum[subscore_key] += group_pts
+
+        scope_id = get_project_scope(tb, strict=False)
+        scope_name = get_project_scope_name(scope_id)
+        scope_accum[scope_id]["points"] += group_pts
+        scope_accum[scope_id]["item_count"] += 1
+        scope_accum[scope_id]["scope_name"] = scope_name
+
+        per_item_detail.append({
+            "catalog_item_id": cat_id,
+            "name": cat.get("name", cat_id),
+            "occurrences": len(occurrences),
+            "severity": sev,
+            "kind": kind,
+            "scope": scope,
+            "trade_bucket": tb,
+            "impact_points": group_pts,
+            "project_scope_id": scope_id,
+            "project_scope_name": scope_name,
+        })
 
     total_raw = round(total_raw, 3)
     rehab_score = compute_rehab_score(total_raw)
@@ -402,209 +414,65 @@ def compute_estimates(
         key: compute_rehab_score(pts) for key, pts in subscore_accum.items()
     }
 
-    # ── B) Costing ──────────────────────────────────────────────────────────
-    item_costs: Dict[str, Tuple[int, int]] = {}
-    per_item_detail: List[Dict[str, Any]] = []
-    has_major_systems = False
+    total_items = sum(s["item_count"] for s in scope_accum.values())
+    total_scope_points = sum(s["points"] for s in scope_accum.values())
+    dominant_by_points = (
+        max(scope_accum.items(), key=lambda x: x[1]["points"])[0]
+        if scope_accum else "unknown"
+    )
+    dominant_by_items = (
+        max(scope_accum.items(), key=lambda x: x[1]["item_count"])[0]
+        if scope_accum else "unknown"
+    )
+    project_scope_signals = {
+        "dominant_project_scope_by_points": dominant_by_points,
+        "dominant_project_scope_by_items": dominant_by_items,
+        "scope_concentration_by_points": (
+            round(scope_accum[dominant_by_points]["points"] / total_scope_points, 3)
+            if total_scope_points > 0 and dominant_by_points in scope_accum else 0.0
+        ),
+        "scope_concentration_by_items": (
+            round(scope_accum[dominant_by_items]["item_count"] / total_items, 3)
+            if total_items > 0 and dominant_by_items in scope_accum else 0.0
+        ),
+        "scope_fragmentation_count": len(scope_accum),
+    }
 
-    for cat_id, occurrences in grouped.items():
-        cat = catalog_lookup[cat_id]
-        kind = cat.get("kind", "defect")
-        scope = cat.get("scope", "repair")
-        if not isinstance(scope, str):
-            raise CatalogDataError(
-                f"Faulty catalog item '{cat_id}': 'scope' must be a string "
-                f"(repair|replace|cosmetic|service), got {type(scope).__name__}: {scope!r}"
-            )
-        tb = cat.get("trade_bucket", "safety_general")
-        sev = cat.get("severity", 2)
-        cost_obj = cat.get("cost") or {}
-
-        # Unresolved issues contribute 0 cost (uncertainty widened instead)
-        if cat_id in unresolved_ids:
-            per_item_detail.append({
-                "catalog_item_id": cat_id,
-                "name": cat.get("name", cat_id),
-                "occurrences": len(occurrences),
-                "severity": sev,
-                "kind": kind,
-                "scope": scope,
-                "trade_bucket": tb,
-                "impact_points": points_per_item.get(cat_id, 0.0),
-                "cost_low": 0,
-                "cost_high": 0,
-                "cost_source": "unresolved",
-            })
-            if tb in MAJOR_SYSTEM_BUCKETS:
-                has_major_systems = True
-            continue
-
-        # Check if this is an upgrade and we're excluding optional
-        is_upgrade = kind == "upgrade"
-        if is_upgrade and not include_optional:
-            # Still record in per_item for transparency, but zero cost
-            per_item_detail.append({
-                "catalog_item_id": cat_id,
-                "name": cat.get("name", cat_id),
-                "occurrences": len(occurrences),
-                "severity": sev,
-                "kind": kind,
-                "scope": scope,
-                "trade_bucket": tb,
-                "impact_points": points_per_item.get(cat_id, 0.0),
-                "cost_low": 0,
-                "cost_high": 0,
-                "cost_source": "excluded_optional",
-            })
-            continue
-
-        n = len(occurrences)
-        low, high = compute_item_cost_range(
-            cost_obj=cost_obj,
-            n_occurrences=n,
-            kind=kind,
-            scope=scope,
-            trade_bucket=tb,
-            severity=sev,
-        )
-
-        item_costs[cat_id] = (low, high)
-
-        cost_source = cost_obj.get("cost_source", "heuristic")
-        if cost_obj.get("mode") == "heuristic" or not cost_obj.get("base_low"):
-            cost_source = "heuristic"
-
-        per_item_detail.append({
-            "catalog_item_id": cat_id,
-            "name": cat.get("name", cat_id),
-            "occurrences": n,
-            "severity": sev,
-            "kind": kind,
-            "scope": scope,
-            "trade_bucket": tb,
-            "impact_points": points_per_item.get(cat_id, 0.0),
-            "cost_low": low,
-            "cost_high": high,
-            "cost_source": cost_source,
-        })
-
-        if tb in MAJOR_SYSTEM_BUCKETS:
-            has_major_systems = True
-
-    # -- Sum totals --
-    total_low = sum(lh[0] for lh in item_costs.values())
-    total_high = sum(lh[1] for lh in item_costs.values())
-
-    # -- Uncertainty (widen high only) --
-    adjusted_high, widen_pct = compute_uncertainty_widen(
-        total_high=total_high,
+    _, widen_pct = compute_uncertainty_widen(
+        total_high=0,
         n_photos=n_photos,
         has_speculative=has_speculative,
         has_major_systems=has_major_systems,
         unresolved_count=unresolved_count,
     )
 
-    # ── C) Trade breakdown ──────────────────────────────────────────────────
-    bucket_accum: Dict[str, Dict[str, Any]] = {}
-    for cat_id, (low, high) in item_costs.items():
-        cat = catalog_lookup.get(cat_id, {})
-        tb = cat.get("trade_bucket", "safety_general")
-        if tb not in bucket_accum:
-            bucket_accum[tb] = {"low": 0, "high": 0, "item_count": 0}
-        bucket_accum[tb]["low"] += low
-        bucket_accum[tb]["high"] += high
-        bucket_accum[tb]["item_count"] += 1
-
-    trade_breakdown = sorted(
-        [
-            {
-                "bucket_id": bid,
-                "bucket_name": trade_bucket_names.get(bid, bid.replace("_", " ").title()),
-                "low": b["low"],
-                "high": b["high"],
-                "item_count": b["item_count"],
-            }
-            for bid, b in bucket_accum.items()
-        ],
-        key=lambda x: -x["high"],
-    )
-
-    # ── D) Project scope breakdown (presentation rollup) ────────────────────
-    scope_accum: Dict[str, Dict[str, Any]] = {}
-    for tb_entry in trade_breakdown:
-        scope_id = get_project_scope(tb_entry["bucket_id"], strict=False)
-        if scope_id not in scope_accum:
-            scope_accum[scope_id] = {"low": 0, "high": 0, "item_count": 0}
-        scope_accum[scope_id]["low"] += tb_entry["low"]
-        scope_accum[scope_id]["high"] += tb_entry["high"]
-        scope_accum[scope_id]["item_count"] += tb_entry["item_count"]
-
-    project_scope_breakdown = sorted(
-        [
-            {
-                "scope_id": sid,
-                "scope_name": get_project_scope_name(sid),
-                "low": s["low"],
-                "high": s["high"],
-                "item_count": s["item_count"],
-            }
-            for sid, s in scope_accum.items()
-        ],
-        key=lambda x: -x["high"],
-    )
-
-    # ── E) Project scope concentration signals (observation only) ─────────
-    total_items = sum(s["item_count"] for s in scope_accum.values())
-    total_scope_high = sum(s["high"] for s in scope_accum.values())
-
-    dominant_by_cost = max(scope_accum.items(), key=lambda x: x[1]["high"])[0] if scope_accum else "unknown"
-    dominant_by_items = max(scope_accum.items(), key=lambda x: x[1]["item_count"])[0] if scope_accum else "unknown"
-
-    project_scope_signals = {
-        "dominant_project_scope_by_cost": dominant_by_cost,
-        "dominant_project_scope_by_items": dominant_by_items,
-        "scope_concentration_by_cost": (
-            round(scope_accum[dominant_by_cost]["high"] / total_scope_high, 3)
-            if total_scope_high > 0 else 0.0
-        ),
-        "scope_concentration_by_items": (
-            round(scope_accum[dominant_by_items]["item_count"] / total_items, 3)
-            if total_items > 0 else 0.0
-        ),
-        "scope_fragmentation_count": len(scope_accum),
-    }
-
-    # ── Assemble output ─────────────────────────────────────────────────────
     return {
-        "version": "estimates_v1",
-        "mode": "include_optional" if include_optional else "required_only",
-        "scoring": {
-            "raw_points": total_raw,
-            "rehab_score": rehab_score,
-            "K": REHAB_K,
-            "systems_score": subscores.get("systems_score", 0),
-            "structure_score": subscores.get("structure_score", 0),
-            "cosmetic_score": subscores.get("cosmetic_score", 0),
-            "exterior_score": subscores.get("exterior_score", 0),
-        },
-        "costs": {
-            "total_low": total_low,
-            "total_high": adjusted_high,
-            "total_high_unadjusted": total_high,
+        "version": "scoring_v1",
+        "raw_points": total_raw,
+        "rehab_score": rehab_score,
+        "K": REHAB_K,
+        "systems_score": subscores.get("systems_score", 0),
+        "structure_score": subscores.get("structure_score", 0),
+        "cosmetic_score": subscores.get("cosmetic_score", 0),
+        "exterior_score": subscores.get("exterior_score", 0),
+        "uncertainty": {
             "uncertainty_pct": widen_pct,
-            "currency": "USD",
-            "disclaimer": "Allowance-based photo estimate. Ranges widened for uncertainty.",
+            "n_photos": n_photos,
+            "has_speculative_items": has_speculative,
+            "has_major_system_items": has_major_systems,
+            "unresolved_item_count": unresolved_count,
         },
-        "per_item": sorted(per_item_detail, key=lambda x: -x["impact_points"]),
-        "trade_breakdown": trade_breakdown,
-        "project_scope_breakdown": project_scope_breakdown,
         "project_scope_signals": project_scope_signals,
+        "per_item": sorted(per_item_detail, key=lambda x: -x["impact_points"]),
         "meta": {
             "issues_scored": sum(len(v) for v in grouped.values()),
             "unique_catalog_items": len(grouped),
             "unresolved_issues": unresolved_count,
-            "n_photos": n_photos,
-            "has_major_systems": has_major_systems,
             "diminish_factor": DIMINISH_FACTOR,
+            "notes": [
+                "Scoring is for ranking/filtering and contains no dollar estimates.",
+                "Minor issues still contribute to scoring.",
+            ],
         },
     }
+

@@ -7,7 +7,7 @@ grouped by trade_bucket → scene_group → catalog_item (block).
 Each block gets a computed display_severity based on:
   base_severity + evidence_boost + scope_boost + kind_boost + multi_scene_boost
 
-Called from artifact_writers.write_photo_intel() alongside compute_estimates().
+Called from artifact_writers.write_photo_intel() alongside scoring and renovation estimates.
 
 NOTE: This module replaces the LLM-based property_summarizer.py.
 property_summarizer.py is dead code and can be safely deleted.

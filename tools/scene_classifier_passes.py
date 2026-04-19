@@ -169,6 +169,10 @@ class Pass2dResult:
     raw_response: Optional[str] = None
 
 
+class Pass2fInvalidResponseError(ValueError):
+    """Raised when Pass 2f returns no parseable or actionable JSON decision."""
+
+
 @dataclass
 class Pass2fResult:
     """Result from Pass 2f: Big-ticket estimate review for a single item."""
@@ -176,7 +180,7 @@ class Pass2fResult:
     review_outcome: str = "uncertain"       # confirmed | uncertain
     visible_scope: str = "localized"        # localized | partial | room_wide
     is_valid_detection: bool = True          # False if the model deems the detection invalid
-    pricing_posture: str = "inspect"        # repair | replace | inspect | keep_default
+    pricing_posture: str = "keep_default"   # repair | replace | inspect | keep_default
     rationale: str = ""
     raw_response: Optional[str] = None
 
@@ -1251,12 +1255,13 @@ PASS_2F_USER_PROMPT = (
     "}}\n"
 )
 
+PASS_2F_VALID_POSTURES = {"repair", "replace", "inspect", "keep_default"}
+
 
 def _coerce_pass_2f(raw: dict, catalog_item_id: str) -> Pass2fResult:
     """Normalize parsed JSON into a Pass2fResult with guardrails."""
     VALID_OUTCOMES = {"confirmed", "uncertain"}
     VALID_SCOPES = {"localized", "partial", "room_wide"}
-    VALID_POSTURES = {"repair", "replace", "inspect", "keep_default"}
 
     # Coerce is_valid_detection: accept bool, string "false"/"true", default True
     raw_valid = raw.get("is_valid_detection", True)
@@ -1267,14 +1272,14 @@ def _coerce_pass_2f(raw: dict, catalog_item_id: str) -> Pass2fResult:
 
     outcome = str(raw.get("review_outcome", "uncertain")).strip().lower()
     scope = str(raw.get("visible_scope", "localized")).strip().lower()
-    posture = str(raw.get("pricing_posture", "inspect")).strip().lower()
+    posture = str(raw.get("pricing_posture", "keep_default")).strip().lower()
 
     return Pass2fResult(
         catalog_item_id=catalog_item_id,
         review_outcome=outcome if outcome in VALID_OUTCOMES else "uncertain",
         visible_scope=scope if scope in VALID_SCOPES else "localized",
         is_valid_detection=is_valid,
-        pricing_posture=posture if posture in VALID_POSTURES else "inspect",
+        pricing_posture=posture if posture in PASS_2F_VALID_POSTURES else "keep_default",
         rationale=str(raw.get("rationale", "")).strip()[:300],
     )
 
@@ -1333,7 +1338,18 @@ async def run_pass_2f(
             **model_config,
         )
 
-        parsed = extract_json_object(response) or {}
+        try:
+            parsed = extract_json_object(response)
+        except ValueError as e:
+            raise Pass2fInvalidResponseError(str(e)) from e
+        if not isinstance(parsed, dict) or not parsed:
+            raise Pass2fInvalidResponseError("missing JSON object")
+        if "pricing_posture" not in parsed:
+            raise Pass2fInvalidResponseError("missing required Pass 2f fields")
+        raw_posture = str(parsed.get("pricing_posture", "")).strip().lower()
+        if raw_posture not in PASS_2F_VALID_POSTURES:
+            raise Pass2fInvalidResponseError(f"invalid pricing_posture: {raw_posture!r}")
+
         result = _coerce_pass_2f(parsed, catalog_item_id)
         result = Pass2fResult(
             catalog_item_id=result.catalog_item_id,
@@ -1351,9 +1367,9 @@ async def run_pass_2f(
         )
         return result
 
+    except Pass2fInvalidResponseError as e:
+        logger.error(f"Pass 2f: Invalid response for {catalog_item_id}: {e}")
+        raise
     except Exception as e:
         logger.error(f"Pass 2f: Error reviewing {catalog_item_id}: {e}")
-        return Pass2fResult(
-            catalog_item_id=catalog_item_id,
-            raw_response=None,
-        )
+        raise

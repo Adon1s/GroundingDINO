@@ -11,7 +11,6 @@ from __future__ import annotations
 import copy
 import json
 import logging
-import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -430,30 +429,28 @@ def write_photo_intel(
     if unmapped_issues:
         logger.info("Unmapped issues (no catalog match): %d items", len(unmapped_issues))
 
-    # -- Compute estimates (scoring + costing) ---------------------------------
+    # -- Compute scoring (ranking/filtering only; no dollars) -------------------
     try:
-        from tools.costing import compute_estimates, CatalogDataError
-        estimates = compute_estimates(
+        from tools.costing import compute_scoring, CatalogDataError
+        scoring = compute_scoring(
             issues_flat=issues_flat,
             issue_catalog=issue_catalog,
             n_photos=len(photos),
-            include_optional=False,
         )
-        photo_intel["estimates"] = estimates
+        photo_intel["scoring"] = scoring
         logger.info(
-            "Estimates: rehab_score=%d cost=$%s-$%s (%d items scored, %d unresolved)",
-            estimates["scoring"]["rehab_score"],
-            f'{estimates["costs"]["total_low"]:,}',
-            f'{estimates["costs"]["total_high"]:,}',
-            estimates["meta"]["issues_scored"],
-            estimates["meta"]["unresolved_issues"],
+            "Scoring: rehab_score=%d raw_points=%s (%d items scored, %d unresolved)",
+            scoring["rehab_score"],
+            scoring["raw_points"],
+            scoring["meta"]["issues_scored"],
+            scoring["meta"]["unresolved_issues"],
         )
     except CatalogDataError:
-        logger.error("Estimates failed due to faulty catalog data — marking job as failed", exc_info=True)
+        logger.error("Scoring failed due to faulty catalog data - marking job as failed", exc_info=True)
         raise
     except Exception as exc:
-        logger.error(f"Failed to compute estimates: {exc}", exc_info=True)
-        photo_intel["estimates"] = None
+        logger.error(f"Failed to compute scoring: {exc}", exc_info=True)
+        photo_intel["scoring"] = None
 
     # -- Compute deterministic summary v1 ----------------------------------------
     try:

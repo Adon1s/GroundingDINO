@@ -115,6 +115,13 @@
         "cap_high": 3500,
         "cost_source": "manual"
       },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_only",
+        "group": "remediation",
+        "stack_behavior": "sum",
+        "unit_policy": "per_room"
+      },
       "require_any": [
         "ceiling"
       ]
@@ -200,6 +207,13 @@
         "cap_low": 5000,
         "cap_high": 15000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "repair_or_replace",
+        "group": "remediation",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_room"
       }
     },
     {
@@ -281,6 +295,13 @@
         "cap_low": 8000,
         "cap_high": 20000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "repair_or_replace",
+        "group": "structure",
+        "stack_behavior": "max_only",
+        "unit_policy": "per_room"
       }
     },
     {
@@ -3155,7 +3176,21 @@
       "tier": "work",
       "drop_if_generic": false,
       "cost": {
-        "mode": "heuristic"
+        "mode": "allowance",
+        "base_low": 1500,
+        "base_high": 25000,
+        "per_occurrence_low": 2000,
+        "per_occurrence_high": 10000,
+        "cap_low": 25000,
+        "cap_high": 75000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "inspect_only",
+        "group": "landscaping",
+        "stack_behavior": "max_only",
+        "unit_policy": "per_area"
       }
     },
     {
@@ -3266,6 +3301,23 @@
       "defaultHidden": false,
       "description": "Floor stripped to subfloor, concrete slab, or underlayment. Missing finish flooring or exposed subfloor with adhesive remnants. Flooring installation needed.",
       "embed_text": "Bare or missing finish flooring. Floor stripped to subfloor, concrete slab, or underlayment. Missing finish flooring, exposed subfloor with adhesive remnants or patches, stripped linoleum backing, unfinished floor surface. Flooring installation needed.",
+      "cost": {
+        "mode": "allowance",
+        "base_low": 800,
+        "base_high": 6000,
+        "per_occurrence_low": 1000,
+        "per_occurrence_high": 3000,
+        "cap_low": 6000,
+        "cap_high": 18000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "flooring",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_room"
+      },
       "require_any": [
         "floor",
         "flooring",
