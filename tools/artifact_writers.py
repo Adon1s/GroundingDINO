@@ -31,12 +31,13 @@ logger = logging.getLogger(__name__)
 
 
 def _strip_pass_2f_audit_rationale(renovation_estimate: Any) -> None:
-    """Remove model-written Pass 2f rationale from frontend-facing audit items."""
+    """Remove debug-only Pass 2f audit fields from frontend-facing payloads."""
     if not isinstance(renovation_estimate, dict):
         return
     audit = renovation_estimate.get("pass_2f_review_audit")
     if not isinstance(audit, dict):
         return
+    audit.pop("consistency_flag_counts", None)
     items = audit.get("items")
     if not isinstance(items, list):
         return
@@ -44,6 +45,7 @@ def _strip_pass_2f_audit_rationale(renovation_estimate: Any) -> None:
         if isinstance(item, dict):
             item.pop("rationale", None)
             item.pop("review_rationale", None)
+            item.pop("consistency_flags", None)
 
 
 # Import defect events layer
@@ -504,6 +506,7 @@ def write_photo_intel(
         n_applied = 0
         posture_counts: Dict[str, int] = {}
         fallback_counts: Dict[str, int] = {}
+        consistency_flag_counts: Dict[str, int] = {}
         eligible: list = []
         pass_2f_enabled = pass_toggles.get("2f", True) if pass_toggles else True
         if vlm_client and gpt_config and pass_2f_enabled:
@@ -598,13 +601,17 @@ def write_photo_intel(
                     for c in candidates:
                         if c.pass_2f_fallback_reason:
                             fallback_counts[c.pass_2f_fallback_reason] = fallback_counts.get(c.pass_2f_fallback_reason, 0) + 1
+                    for c in candidates:
+                        for flag in c.review_consistency_flags or []:
+                            consistency_flag_counts[flag] = consistency_flag_counts.get(flag, 0) + 1
                     logger.info(
-                        "Pass 2f: eligible=%d attempted=%d applied=%d postures=%s fallbacks=%s (%.1fs)",
+                        "Pass 2f: eligible=%d attempted=%d applied=%d postures=%s fallbacks=%s consistency_flags=%s (%.1fs)",
                         len(eligible),
                         n_attempted,
                         n_applied,
                         posture_counts or {},
                         fallback_counts or {},
+                        consistency_flag_counts or {},
                         pass_2f_elapsed,
                     )
             except Exception as exc_2f:
@@ -632,6 +639,7 @@ def write_photo_intel(
                 "invalidated_count": n_invalidated,
                 "posture_counts": posture_counts,
                 "fallback_counts": fallback_counts,
+                "consistency_flag_counts": consistency_flag_counts,
             }
         elif pass_2f_enabled:
             # Toggle was on but no candidates were reviewed (no eligible or no VLM)

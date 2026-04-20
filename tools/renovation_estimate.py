@@ -160,6 +160,7 @@ class EstimateCandidate:
     review_posture: Optional[str] = None    # e.g. "repair", "replace", "keep_default"
     review_visible_scope: Optional[str] = None  # localized | partial | room_wide | unknown
     review_rationale: Optional[str] = None  # debug-only LLM explanation
+    review_consistency_flags: List[str] = field(default_factory=list)  # debug-only Pass 2f checks
     review_source: Optional[str] = None     # "pass_2f" | None (indicates origin)
     # ── Resolved posture (set by resolve_effective_posture) ────────────
     effective_posture: Optional[str] = None # authoritative posture for pricing
@@ -193,6 +194,44 @@ def resolve_effective_posture(candidate: EstimateCandidate) -> str:
             and candidate.review_posture in _AUTHORITATIVE_POSTURES):
         return candidate.review_posture
     return candidate.estimate_meta.strategy
+
+
+def _dedupe_consistency_flags(flags: List[Any]) -> List[str]:
+    return sorted({
+        str(flag).strip()
+        for flag in (flags or [])
+        if str(flag or "").strip()
+    })
+
+
+def _resolve_pass_2f_consistency_flags(
+    candidate: EstimateCandidate,
+    result: Any,
+) -> List[str]:
+    flags: List[str] = list(getattr(result, "consistency_flags", []) or [])
+    visible_scope = getattr(result, "visible_scope", None)
+    pricing_posture = getattr(result, "pricing_posture", None)
+
+    if visible_scope == "room_wide" and pricing_posture == "repair":
+        flags.append("room_wide_repair")
+    if (
+        visible_scope == "localized"
+        and pricing_posture == "replace"
+        and candidate.estimate_meta.strategy != "replace_only"
+    ):
+        flags.append("localized_replace_non_replacement_only")
+    if visible_scope == "unknown" and pricing_posture == "replace":
+        flags.append("unknown_replace")
+
+    return _dedupe_consistency_flags(flags)
+
+
+def _consistency_flag_counts(candidates: List[EstimateCandidate]) -> Dict[str, int]:
+    counts: Dict[str, int] = {}
+    for candidate in candidates:
+        for flag in candidate.review_consistency_flags or []:
+            counts[flag] = counts.get(flag, 0) + 1
+    return dict(sorted(counts.items()))
 
 
 _TIER_RANK = {"high": 0, "medium": 1, "minor": 2}
@@ -529,6 +568,9 @@ async def run_pass_2f_batch(
             candidate.review_posture = result.pricing_posture
             candidate.review_visible_scope = result.visible_scope
             candidate.review_rationale = result.rationale
+            candidate.review_consistency_flags = _resolve_pass_2f_consistency_flags(
+                candidate, result,
+            )
             candidate.review_source = f"pass_2f:{provider}"
             candidate.review_image_path = str(image_path)
             candidate.effective_posture = resolve_effective_posture(candidate)
@@ -1022,6 +1064,7 @@ def compute_renovation_estimate(
                 "applied_count": 0,
                 "invalidated_count": 0,
                 "fallback_count": 0,
+                "consistency_flag_counts": {},
                 "items": [],
             },
             "disclaimer": "No estimate-eligible items detected.",
@@ -1057,6 +1100,7 @@ def compute_renovation_estimate(
     pass_2f_reviewed_count = sum(1 for c in candidates if c.pass_2f_attempted)
     pass_2f_applied_count = sum(1 for c in candidates if c.pass_2f_applied)
     pass_2f_invalidated_count = sum(1 for c in candidates if c.is_valid_detection is False)
+    consistency_flag_counts = _consistency_flag_counts(eligible_candidates)
     pass_2f_review_audit = {
         "ran": any(c.pass_2f_attempted for c in candidates),
         "reviewed_count": pass_2f_reviewed_count,
@@ -1066,6 +1110,7 @@ def compute_renovation_estimate(
             1 for c in candidates
             if c.pass_2f_attempted and not c.pass_2f_applied
         ),
+        "consistency_flag_counts": consistency_flag_counts,
         "items": [
             {
                 "estimate_unit_id": c.estimate_unit_id,
@@ -1091,6 +1136,7 @@ def compute_renovation_estimate(
                 "review_posture": c.review_posture,
                 "pricing_posture": c.review_posture,
                 "effective_posture": c.effective_posture,
+                "consistency_flags": c.review_consistency_flags,
                 "review_source": c.review_source,
                 "review_image_path": c.review_image_path,
                 "rationale": c.review_rationale,

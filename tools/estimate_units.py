@@ -409,6 +409,13 @@ def _copy_common_review_fields(
         values = [getattr(source, attr) for source in sources]
         if len(sources) == 1 or all(value == values[0] for value in values):
             setattr(target, attr, values[0])
+    flags = {
+        str(flag).strip()
+        for source in sources
+        for flag in (getattr(source, "review_consistency_flags", []) or [])
+        if str(flag or "").strip()
+    }
+    target.review_consistency_flags = sorted(flags)
 
 
 def _member_for_candidates(

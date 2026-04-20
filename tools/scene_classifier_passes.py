@@ -181,6 +181,7 @@ class Pass2fResult:
     is_valid_detection: bool = True          # False if the model deems the detection invalid
     pricing_posture: str = "keep_default"   # repair | replace | inspect | keep_default
     rationale: str = ""
+    consistency_flags: List[str] = field(default_factory=list)
     raw_response: Optional[str] = None
 
 
@@ -1270,10 +1271,14 @@ def _coerce_pass_2f(raw: dict, catalog_item_id: str) -> Pass2fResult:
         is_valid = bool(raw_valid)
 
     scope = str(raw.get("visible_scope", "unknown")).strip().lower()
-    posture = str(raw.get("pricing_posture", "keep_default")).strip().lower()
+    raw_posture = str(raw.get("pricing_posture", "keep_default")).strip().lower()
+    posture = raw_posture
     if posture not in PASS_2F_VALID_POSTURES:
         posture = "keep_default"
+    consistency_flags: List[str] = []
     if is_valid is False:
+        if raw_posture in {"repair", "replace", "inspect"}:
+            consistency_flags.append("invalid_detection_forced_keep_default")
         posture = "keep_default"
 
     return Pass2fResult(
@@ -1282,6 +1287,7 @@ def _coerce_pass_2f(raw: dict, catalog_item_id: str) -> Pass2fResult:
         is_valid_detection=is_valid,
         pricing_posture=posture,
         rationale=str(raw.get("rationale", "")).strip()[:300],
+        consistency_flags=consistency_flags,
     )
 
 
@@ -1358,6 +1364,7 @@ async def run_pass_2f(
             is_valid_detection=result.is_valid_detection,
             pricing_posture=result.pricing_posture,
             rationale=result.rationale,
+            consistency_flags=result.consistency_flags,
             raw_response=response,
         )
 
