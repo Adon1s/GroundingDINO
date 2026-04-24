@@ -81,7 +81,7 @@ GPT_MODEL = (
         os.environ.get("GPT5_MODEL")
         or os.environ.get("GPT_MODEL")
         or os.environ.get("OPENAI_MODEL")
-        or "gpt-5.4-mini"  #Need to stop relying on this and use env variables
+        or "gpt-5.4"  #Need to stop relying on this and use env variables
 )
 
 # Alias for backward compatibility with vlm_client.py
