@@ -1,5 +1,5 @@
 {
-  "version": "2.0",
+  "version": "2.1",
   "trade_buckets": [
     {
       "id": "flooring",
@@ -398,7 +398,7 @@
         "hardwood",
         "tile"
       ],
-      "embed_text": "Worn or stained vinyl or linoleum flooring. Stained, discolored, worn, torn, or stripped sheet flooring or vinyl tile. Heavily soiled, deteriorated, or moisture-damaged vinyl surface. Replace or resurface flooring.",
+      "embed_text": "Worn or stained vinyl or linoleum flooring. Stained, discolored, worn, torn, or stripped sheet flooring or vinyl tile. Heavily soiled, deteriorated, or moisture-damaged vinyl surface. Also covers dated but undamaged vinyl: older sheet vinyl, dated linoleum, outdated vinyl tile flooring, peel-and-stick vinyl, dated kitchen or bathroom vinyl floor. Replace or resurface flooring.",
       "kind": "defect",
       "id": "worn_or_stained_vinyl_linoleum",
       "scope": "replace",
@@ -699,7 +699,21 @@
         "group": "windows_doors",
         "stack_behavior": "sum",
         "unit_policy": "per_opening"
-      }
+      },
+      "require_any": [
+        "broken",
+        "cracked",
+        "fogged",
+        "fogging",
+        "condensation between",
+        "shattered",
+        "missing pane",
+        "failed seal",
+        "broken glass",
+        "cracked glass",
+        "pane crack",
+        "smashed"
+      ]
     },
     {
       "id": "dirty_or_grimy_window_screens",
@@ -2770,7 +2784,23 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "require_any": [
+        "open up",
+        "open concept",
+        "open floor plan",
+        "open-concept",
+        "wall removal",
+        "remove wall",
+        "remove a wall",
+        "knock down",
+        "knock out",
+        "reconfigure",
+        "compartmentalized",
+        "closed floor plan",
+        "choppy layout",
+        "cramped layout"
+      ]
     },
     {
       "name": "Exposed Sheathing or Missing Exterior Siding",
@@ -3352,7 +3382,7 @@
         "burn mark",
         "missing cover"
       ],
-      "embed_text": "Dated electrical outlets or switches. Older-style receptacles, discolored outlet covers, aged or yellowed switch plates, basic or builder-grade electrical outlets. Cosmetic electrical cover plate update.",
+      "embed_text": "Dated electrical outlets or switches. Older-style receptacles, discolored outlet covers, aged or yellowed switch plates, basic or builder-grade electrical outlets. Brass switch plates, brass outlet covers, yellowed outlet covers, mismatched switch plates, dated metal wall plates, old-fashioned outlets and switches, ivory outlets in white walls. Cosmetic electrical cover plate update.",
       "scene_groups": [
         "kitchen",
         "bathroom",
@@ -3361,6 +3391,122 @@
         "utility"
       ],
       "drop_if_generic": true,
+      "cost": {
+        "mode": "heuristic"
+      }
+    },
+    {
+      "id": "dated_interior_trim",
+      "name": "Dated or Basic Interior Trim",
+      "category": "opportunity",
+      "severity": 1,
+      "trade_bucket": "trim_doors_windows",
+      "work_item_code": "TRIM_REPLACE",
+      "description": "Plain, thin, or dated interior trim package including baseboards, window casing, and door casing. Builder-grade millwork suitable for modernization.",
+      "support_any": [
+        "baseboard",
+        "baseboards",
+        "trim",
+        "casing",
+        "window trim",
+        "door casing",
+        "millwork"
+      ],
+      "deny_any": [],
+      "embed_text": "Dated or builder-grade interior trim. Plain or basic baseboards, thin baseboards, older painted baseboards, dated window casing, basic window trim, plain door casing, minimal millwork, builder-grade trim, older painted window surround, basic wood trim. Trim modernization opportunity.",
+      "kind": "upgrade",
+      "scope": "replace",
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ],
+      "tier": "optional",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
+    },
+    {
+      "id": "dated_interior_doors",
+      "name": "Dated or Basic Interior Doors",
+      "category": "opportunity",
+      "severity": 1,
+      "trade_bucket": "trim_doors_windows",
+      "work_item_code": "DOOR_REPLACE",
+      "description": "Hollow-core, six-panel, louvered, or otherwise dated interior doors that are candidates for replacement.",
+      "support_any": [
+        "interior door",
+        "hollow core",
+        "hollow-core",
+        "six panel",
+        "six-panel",
+        "louvered",
+        "bifold",
+        "closet door"
+      ],
+      "deny_any": [
+        "hardware",
+        "knob",
+        "lockset",
+        "deadbolt"
+      ],
+      "embed_text": "Dated or basic interior doors. Hollow-core six-panel doors, basic builder-grade interior doors, dated wood interior doors, older painted interior doors, louvered closet doors, dated bifold closet doors, mismatched interior door styles, basic panel doors. Door replacement opportunity, not just hardware.",
+      "kind": "upgrade",
+      "scope": "replace",
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ],
+      "tier": "optional",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      }
+    },
+    {
+      "id": "dated_entry_or_patio_door",
+      "name": "Dated Entry or Patio Door",
+      "category": "opportunity",
+      "severity": 2,
+      "trade_bucket": "trim_doors_windows",
+      "work_item_code": "EXTERIOR_DOOR_REPLACE",
+      "description": "Dated front, entry, storm, sliding glass, or patio door that is a candidate for replacement (the door itself, not just the hardware).",
+      "support_any": [
+        "front door",
+        "entry door",
+        "storm door",
+        "sliding glass door",
+        "patio door",
+        "double door",
+        "sliding door"
+      ],
+      "deny_any": [
+        "knob",
+        "lockset",
+        "deadbolt",
+        "lever",
+        "garage door"
+      ],
+      "embed_text": "Dated entry, front, storm, sliding glass, or patio door. Older front door style, basic builder-grade entry door, dated storm door, older sliding glass door, dated patio door, double entry doors that look aged, worn front door style, older slider, dated rear sliding door. Door unit replacement opportunity, not just hardware.",
+      "kind": "upgrade",
+      "scope": "replace",
+      "defaultHidden": false,
+      "scene_groups": [
+        "exterior",
+        "living_areas",
+        "kitchen",
+        "other"
+      ],
+      "tier": "optional",
+      "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
       }

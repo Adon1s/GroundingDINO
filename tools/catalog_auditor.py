@@ -41,6 +41,8 @@ import pipeline_config as cfg
 from vlm_client import VLMClient, create_vlm_client, get_model_configs_from_pipeline_config, get_gemini_config_from_pipeline_config
 from catalog_embeddings import CatalogEmbeddingsRetriever, MatchCandidate
 from scene_classifier_passes import (
+    evaluate_kind_routing,
+    prioritize_resolution_candidates,
     run_pass_1a_scene_type,
     run_pass_2a,
     run_pass_2b,
@@ -56,6 +58,42 @@ logger = logging.getLogger("catalog_auditor")
 
 DEFAULT_ARTIFACTS_DIR = Path("C:/Users/Steven/IntelliJProjects/realtorvision/artifacts")
 DEFAULT_IMAGES_BASE = Path("C:/Users/Steven/IntelliJProjects/realtorvision/public/images/properties")
+
+# Freeform output truncation cap (chars). Now that 2b/2c structuring uses
+# the cloud structuring model (not local), context limits are much less of
+# a concern — we only truncate as a sanity guard against runaway outputs.
+# Truncation is paragraph-aware: we cut at the last paragraph break before
+# the cap to avoid splitting an observation mid-sentence.
+DEFAULT_FREEFORM_CAP = 12000
+
+
+def _truncate_freeform(text: str, cap: int) -> Tuple[str, bool]:
+    """
+    Paragraph-aware truncation. Returns (truncated_text, was_truncated).
+
+    If text is over `cap`, cut at the last paragraph break (\\n\\n) before
+    `cap`, falling back to last newline, then last sentence end, then a
+    hard cut as a last resort.
+    """
+    if cap <= 0 or len(text) <= cap:
+        return text, False
+
+    head = text[:cap]
+    # Prefer paragraph break
+    cut = head.rfind("\n\n")
+    if cut < cap // 2:
+        cut = head.rfind("\n")
+    if cut < cap // 2:
+        # Sentence-end fallback
+        for sep in (". ", "! ", "? "):
+            i = head.rfind(sep)
+            if i > cut:
+                cut = i + 1
+    if cut < cap // 2:
+        cut = cap  # hard cut
+
+    return text[:cut].rstrip(), True
+
 
 SCENE_TO_GROUP: Dict[str, str] = {
     "kitchen": "kitchen", "pantry": "kitchen",
@@ -118,6 +156,10 @@ class ImageResult:
     local_freeform: str = ""
     cloud_freeform: str = ""
     error: Optional[str] = None
+
+    # Provenance — when the local artifacts (issues-only mode) were generated.
+    # Empty for full-scan mode since local observations come from a fresh run.
+    artifact_run_id: Optional[str] = None
 
 
 # ---------------------------------------------------------------------------
@@ -196,6 +238,7 @@ def discover_images(
                 "image_path": str(image_path),
                 "debug_data": photo_data,
                 "issue_count": issue_count,
+                "artifact_run_id": run_dir.name,
             })
 
     # Sort by issue count descending — highest-issue images first
@@ -270,13 +313,36 @@ def _run_embedding_audit(
 
         label = obs.get("label", "")
         kind = obs.get("kind") or _label_to_kind(label)
+        routing = evaluate_kind_routing(desc, kind)
+        allowed_kinds = set(routing.expanded_kinds) if routing.expanded_kinds else ({kind} if kind else None)
+        requested_topk = 10 if allowed_kinds and len(allowed_kinds) > 1 else 5
 
         candidates = retriever.retrieve_candidates(
             desc,
-            allowed_kinds={kind},
+            allowed_kinds=allowed_kinds,
             allowed_groups={scene_group},
-            topk=5,
+            topk=requested_topk,
         )
+        candidates = prioritize_resolution_candidates(
+            [asdict(candidate) for candidate in candidates],
+            widened_routing=len(routing.expanded_kinds) > 1,
+        )
+        candidates = [
+            MatchCandidate(
+                item_id=c["item_id"],
+                name=c["name"],
+                kind=c["kind"],
+                trade_bucket=c["trade_bucket"],
+                severity=c["severity"],
+                description=c["description"],
+                support_any=tuple(c["support_any"]),
+                defaultHidden=bool(c["defaultHidden"]),
+                drop_if_generic=bool(c["drop_if_generic"]),
+                score=float(c["score"]),
+                scene_groups=tuple(c["scene_groups"]),
+            )
+            for c in candidates[:5]
+        ]
 
         best_score = candidates[0].score if candidates else 0.0
         best_id = candidates[0].item_id if candidates else None
@@ -367,12 +433,35 @@ def _load_local_observations_from_artifact(
             suppression_reason = "removed_or_deduped"
 
         # Run embedding audit for this observation
+        routing = evaluate_kind_routing(desc, kind)
+        allowed_kinds = set(routing.expanded_kinds) if routing.expanded_kinds else ({kind} if kind else None)
+        requested_topk = 10 if allowed_kinds and len(allowed_kinds) > 1 else 5
         candidates = retriever.retrieve_candidates(
             desc,
-            allowed_kinds={kind},
+            allowed_kinds=allowed_kinds,
             allowed_groups={scene_group},
-            topk=5,
+            topk=requested_topk,
         )
+        candidates = prioritize_resolution_candidates(
+            [asdict(candidate) for candidate in candidates],
+            widened_routing=len(routing.expanded_kinds) > 1,
+        )
+        candidates = [
+            MatchCandidate(
+                item_id=c["item_id"],
+                name=c["name"],
+                kind=c["kind"],
+                trade_bucket=c["trade_bucket"],
+                severity=c["severity"],
+                description=c["description"],
+                support_any=tuple(c["support_any"]),
+                defaultHidden=bool(c["defaultHidden"]),
+                drop_if_generic=bool(c["drop_if_generic"]),
+                score=float(c["score"]),
+                scene_groups=tuple(c["scene_groups"]),
+            )
+            for c in candidates[:5]
+        ]
 
         best_score = candidates[0].score if candidates else 0.0
         best_id = candidates[0].item_id if candidates else None
@@ -414,6 +503,7 @@ async def process_single_image(
     retriever: CatalogEmbeddingsRetriever,
     local_config: Dict,
     cloud_config: Dict,
+    structuring_config: Dict,
     mode: str,
 ) -> ImageResult:
     """Process a single image: collect observations from both models + embedding audit."""
@@ -428,6 +518,7 @@ async def process_single_image(
         photo_key=photo_key,
         scene="other",
         scene_group="other",
+        artifact_run_id=image_info.get("artifact_run_id"),
     )
 
     try:
@@ -451,18 +542,21 @@ async def process_single_image(
 
         cloud_freeform = cloud_2a.observations_freeform.strip()
         if cloud_freeform:
-            # Truncate if cloud output is excessively long (prevent context overflow on local model)
-            MAX_FREEFORM_CHARS = 3000
-            if len(cloud_freeform) > MAX_FREEFORM_CHARS:
+            cloud_freeform, was_truncated = _truncate_freeform(
+                cloud_freeform, DEFAULT_FREEFORM_CAP
+            )
+            if was_truncated:
                 logger.warning(
-                    f"  {cloud_provider}/{cloud_model} freeform output truncated: {len(cloud_freeform)} → {MAX_FREEFORM_CHARS} chars"
+                    f"  {cloud_provider}/{cloud_model} freeform output truncated to "
+                    f"{len(cloud_freeform)} chars (paragraph-aware) for {photo_key}"
                 )
-                cloud_freeform = cloud_freeform[:MAX_FREEFORM_CHARS]
 
-            # Structure cloud observations through local model (2b + 2c)
-            cloud_2b = await run_pass_2b(vlm_client, local_config, cloud_freeform)
+            # Structure cloud observations through the structuring model
+            # (cloud-grade by default — gpt-5.4-mini — to avoid local-model
+            # mangling cloud freeform during 2b/2c).
+            cloud_2b = await run_pass_2b(vlm_client, structuring_config, cloud_freeform)
             if cloud_2b.observations:
-                cloud_2c = await run_pass_2c(vlm_client, local_config, cloud_2b.observations, scene_id)
+                cloud_2c = await run_pass_2c(vlm_client, structuring_config, cloud_2b.observations, scene_id)
                 # Run embedding audit on cloud model's forward observations
                 cloud_records = _run_embedding_audit(
                     cloud_2c.labeled_forward, retriever, result.scene_group, cloud_provider
@@ -488,6 +582,7 @@ async def process_single_image_fullscan(
     retriever: CatalogEmbeddingsRetriever,
     local_config: Dict,
     cloud_config: Dict,
+    structuring_config: Dict,
 ) -> ImageResult:
     """Full-scan mode: run both models from scratch."""
     image_path = Path(image_info["image_path"])
@@ -519,19 +614,31 @@ async def process_single_image_fullscan(
         result.local_freeform = local_2a.observations_freeform
         result.cloud_freeform = cloud_2a.observations_freeform
 
-        # Pass 2b+2c for both (using local model for structuring)
+        local_freeform_capped, local_truncated = _truncate_freeform(
+            local_2a.observations_freeform, DEFAULT_FREEFORM_CAP
+        )
+        cloud_freeform_capped, cloud_truncated = _truncate_freeform(
+            cloud_2a.observations_freeform, DEFAULT_FREEFORM_CAP
+        )
+        if local_truncated:
+            logger.warning(f"  local freeform truncated to {len(local_freeform_capped)} chars for {photo_key}")
+        if cloud_truncated:
+            logger.warning(f"  cloud freeform truncated to {len(cloud_freeform_capped)} chars for {photo_key}")
+
+        # Pass 2b+2c for both — use the structuring_config (cloud-grade)
+        # so the local model doesn't mangle either side's freeform output.
         async def _structure_and_audit(freeform: str, source: str) -> List[ObservationRecord]:
             if not freeform.strip():
                 return []
-            r2b = await run_pass_2b(vlm_client, local_config, freeform)
+            r2b = await run_pass_2b(vlm_client, structuring_config, freeform)
             if not r2b.observations:
                 return []
-            r2c = await run_pass_2c(vlm_client, local_config, r2b.observations, result.scene)
+            r2c = await run_pass_2c(vlm_client, structuring_config, r2b.observations, result.scene)
             return _run_embedding_audit(r2c.labeled_forward, retriever, result.scene_group, source)
 
         local_records, cloud_records = await asyncio.gather(
-            _structure_and_audit(local_2a.observations_freeform, "local"),
-            _structure_and_audit(cloud_2a.observations_freeform, cloud_provider),
+            _structure_and_audit(local_freeform_capped, "local"),
+            _structure_and_audit(cloud_freeform_capped, cloud_provider),
         )
         result.local_observations = local_records
         result.cloud_observations = cloud_records
@@ -556,51 +663,74 @@ JUDGE_SYSTEM_PROMPT = """\
 You are an expert real estate photo analyst and issue catalog quality auditor.
 Your job is to diagnose failures in an automated defect/upgrade detection pipeline.
 
-You will see an image, observations from two models (local and cloud), and the catalog items they matched to.
+You will see an image, a list of candidate observations (each with an opaque obs_id), and the catalog items they matched to.
+The observations come from two different detection runs, but you are NOT told which observation came from which run — judge each on its own merits against the image.
+
 For each observation, diagnose WHICH STEP in the pipeline failed (if any):
-- observation: the model hallucinated or described something not visible
+- observation: the run hallucinated or described something not visible
 - structuring: the freeform text was reasonable but got mangled during JSON structuring
 - labeling: the observation was real but got the wrong label (defect vs upgrade vs other)
 - retrieval: the observation is valid AND a matching catalog item exists, but embedding retrieval missed it
 - catalog_gap: the observation is valid but NO existing catalog item covers this issue
 - false_suppression: the observation was valid and matched, but pipeline rules incorrectly suppressed it
 
+If is_visible_issue is false, failure_stage_override MUST be "observation".
 Be precise. Do not jump to "needs new catalog entry" when the real problem is bad embed_text on an existing item."""
 
 
-def _build_judge_prompt(image_result: ImageResult, catalog: Dict) -> str:
-    """Build the user prompt for the judge, including only relevant catalog snippets."""
+def _build_judge_prompt(
+    image_result: ImageResult,
+    catalog: Dict,
+) -> Tuple[str, Dict[str, Tuple[str, ObservationRecord]]]:
+    """
+    Build the user prompt for the judge, with observations blinded under opaque IDs.
+
+    Returns (prompt, id_map) where id_map maps obs_id -> (source, ObservationRecord).
+    """
     catalog_items_by_id = {}
     for item in catalog.get("items", []):
         catalog_items_by_id[item["id"]] = item
 
     lines = [f"## Scene: {image_result.scene} ({image_result.scene_group})"]
 
-    # Local model observations
-    lines.append("\n## Local Model Observations:")
-    if not image_result.local_observations:
-        lines.append("(none detected)")
-    for i, obs in enumerate(image_result.local_observations, 1):
-        status = f"[{obs.retrieval_status}]"
-        match_info = f" → matched: {obs.best_match_id} (score={obs.best_match_score:.3f})" if obs.best_match_id else " → no match"
-        supp = ""
-        if obs.was_suppressed:
-            supp = f" [SUPPRESSED: {obs.suppression_reason}]"
-        lines.append(f"  {i}. {status} ({obs.label}/{obs.kind}) {obs.description}{match_info}{supp}")
+    # Build a single shuffled list of (obs_id, source, obs).
+    # The judge does NOT see "source" — only an opaque id. We restore source post-parse.
+    tagged: List[Tuple[str, ObservationRecord]] = []
+    for obs in image_result.local_observations:
+        tagged.append(("local", obs))
+    for obs in image_result.cloud_observations:
+        tagged.append(("cloud", obs))
 
-    # Cloud model observations
-    lines.append("\n## Cloud Model Observations:")
-    if not image_result.cloud_observations:
-        lines.append("(none detected)")
-    for i, obs in enumerate(image_result.cloud_observations, 1):
-        status = f"[{obs.retrieval_status}]"
-        match_info = f" → matched: {obs.best_match_id} (score={obs.best_match_score:.3f})" if obs.best_match_id else " → no match"
-        lines.append(f"  {i}. {status} ({obs.label}/{obs.kind}) {obs.description}{match_info}")
+    # Deterministic shuffle keyed on photo identity so a re-run produces the same order
+    # (helps debugging) but the order conveys no source signal to the judge.
+    rng = random.Random(f"{image_result.property_id}/{image_result.photo_key}")
+    rng.shuffle(tagged)
+
+    id_map: Dict[str, Tuple[str, ObservationRecord]] = {}
+    for idx, (source, obs) in enumerate(tagged, 1):
+        obs_id = f"obs_{idx:02d}"
+        id_map[obs_id] = (source, obs)
+
+    lines.append("\n## Observations:")
+    if not tagged:
+        lines.append("(none detected by any run)")
+    else:
+        for obs_id, (source, obs) in id_map.items():
+            status = f"[{obs.retrieval_status}]"
+            match_info = (
+                f" → matched: {obs.best_match_id} (score={obs.best_match_score:.3f})"
+                if obs.best_match_id else " → no match"
+            )
+            supp = ""
+            if obs.was_suppressed:
+                supp = f" [SUPPRESSED: {obs.suppression_reason}]"
+            lines.append(
+                f"  {obs_id}. {status} ({obs.label}/{obs.kind}) {obs.description}{match_info}{supp}"
+            )
 
     # Relevant catalog snippets
     mentioned_ids = set()
-    all_obs = image_result.local_observations + image_result.cloud_observations
-    for obs in all_obs:
+    for _, obs in tagged:
         if obs.best_match_id:
             mentioned_ids.add(obs.best_match_id)
         for cand in obs.top_candidates:
@@ -625,14 +755,13 @@ def _build_judge_prompt(image_result: ImageResult, catalog: Dict) -> str:
 
     lines.append("""
 ## Your Task:
-Evaluate each observation from BOTH models against what you see in the image.
+Evaluate each observation against what you actually see in the image. Reference observations by their obs_id.
 
 Return JSON:
 {
   "observation_verdicts": [
     {
-      "source": "local" or "cloud",
-      "description": "the original observation text",
+      "obs_id": "obs_01",
       "is_visible_issue": true/false,
       "is_observation_reasonable": true/false,
       "is_structured_label_reasonable": true/false,
@@ -642,12 +771,12 @@ Return JSON:
       "suggested_catalog_improvement_type": "embed_text"/"keywords"/"new_entry"/"none",
       "suggested_embed_text_fix": "..." or null,
       "failure_stage_override": "observation"/"structuring"/"labeling"/"retrieval"/"catalog_gap"/"false_suppression" or null,
-      "notes": "brief reasoning"
+      "notes": "brief reasoning, <100 words"
     }
   ],
   "missed_issues": [
     {
-      "description": "issue visible in photo that neither model caught",
+      "description": "issue visible in photo that no observation above caught",
       "kind": "defect" or "upgrade",
       "suggested_catalog_entry_name": "proposed name",
       "category": "cosmetic/moisture/structure/exterior/safety/systems/opportunity",
@@ -656,7 +785,7 @@ Return JSON:
   ]
 }""")
 
-    return "\n".join(lines)
+    return "\n".join(lines), id_map
 
 
 async def run_judge(
@@ -666,11 +795,12 @@ async def run_judge(
     catalog: Dict,
 ) -> Tuple[List[Dict], List[Dict]]:
     """Run the cloud model judge on a single image. Returns (verdicts, missed_issues)."""
-    user_prompt = _build_judge_prompt(image_result, catalog)
+    user_prompt, id_map = _build_judge_prompt(image_result, catalog)
 
-    # Need higher token limit for the judge response — complex images with
-    # many observations can produce very long verdicts
-    judge_config = {**cloud_config, "max_tokens": 4000}
+    # Higher token limit for the judge response — complex images with many
+    # observations can produce long verdicts. With blinding the schema is
+    # also slightly larger so we give it more headroom.
+    judge_config = {**cloud_config, "max_tokens": 8000}
 
     try:
         response = await vlm_client.analyze_image(
@@ -680,38 +810,50 @@ async def run_judge(
             **judge_config,
         )
 
-        result = extract_json_object(response)
-
-        # If extract_json_object fails, try repairing common truncation issues
-        if result is None and response:
-            try:
-                # Try to find and fix truncated JSON — close open arrays/objects
-                import re
-                # Find the start of our JSON
-                json_match = re.search(r'\{', response)
-                if json_match:
-                    raw = response[json_match.start():]
-                    # Count unclosed brackets and braces
-                    open_braces = raw.count('{') - raw.count('}')
-                    open_brackets = raw.count('[') - raw.count(']')
-                    # Try closing them
-                    repaired = raw + ']' * open_brackets + '}' * open_braces
-                    result = json.loads(repaired)
-                    logger.info(f"  Judge JSON repaired for {image_result.photo_key}")
-            except Exception:
-                pass
-
-        if result is None:
-            logger.warning(f"Judge returned unparseable response for {image_result.photo_key} ({len(response or '')} chars)")
+        try:
+            result = extract_json_object(response or "")
+        except (ValueError, json.JSONDecodeError) as e:
+            logger.warning(
+                f"  Judge response unparseable for {image_result.photo_key} "
+                f"({len(response or '')} chars): {e}"
+            )
             return [], []
 
-        verdicts = result.get("observation_verdicts", [])
+        verdicts_raw = result.get("observation_verdicts", [])
         missed = result.get("missed_issues", [])
 
-        if not isinstance(verdicts, list):
-            verdicts = []
+        if not isinstance(verdicts_raw, list):
+            verdicts_raw = []
         if not isinstance(missed, list):
             missed = []
+
+        # Restore source + description from the id_map so downstream consumers
+        # (synthesis, reports) see them. Verdicts referencing unknown obs_ids
+        # are dropped with a warning — judge hallucinated them.
+        verdicts: List[Dict] = []
+        unknown_ids = []
+        for v in verdicts_raw:
+            if not isinstance(v, dict):
+                continue
+            obs_id = v.get("obs_id")
+            mapping = id_map.get(obs_id) if obs_id else None
+            if mapping is None:
+                unknown_ids.append(obs_id)
+                continue
+            source, obs = mapping
+            v["source"] = source
+            v["description"] = obs.description
+            # If is_visible_issue is False and no override, force "observation"
+            # so hallucinations land in the failure breakdown.
+            if v.get("is_visible_issue") is False and not v.get("failure_stage_override"):
+                v["failure_stage_override"] = "observation"
+            verdicts.append(v)
+
+        if unknown_ids:
+            logger.warning(
+                f"  Judge returned {len(unknown_ids)} verdict(s) with unknown obs_id "
+                f"for {image_result.photo_key}: {unknown_ids[:5]}"
+            )
 
         return verdicts, missed
 
@@ -840,11 +982,18 @@ def _synthesize_report(
     high_confidence = []
     candidate_entries = []
 
+    # Promotion thresholds for clustered new-entry candidates.
+    # The previous heuristic (>=2 props OR >=2 scenes) was too permissive:
+    # any systematic judge bias trivially crosses 2 properties given a small
+    # sample. We require evidence breadth across BOTH dimensions.
+    HIGH_CONF_MIN_EVIDENCE = 3
+    HIGH_CONF_MIN_PROPERTIES = 3
+    CLUSTER_SIM_THRESHOLD = 0.72
+
     if new_entry_candidates and len(new_entry_candidates) >= 2:
         descs = [c["description"] for c in new_entry_candidates]
         embeddings = retriever._encode_queries(descs)
 
-        # Simple agglomerative clustering: cosine similarity > 0.7 = same cluster
         n = len(descs)
         sim = embeddings @ embeddings.T
         visited = [False] * n
@@ -856,7 +1005,7 @@ def _synthesize_report(
             cluster = [i]
             visited[i] = True
             for j in range(i + 1, n):
-                if not visited[j] and sim[i, j] > 0.7:
+                if not visited[j] and sim[i, j] > CLUSTER_SIM_THRESHOLD:
                     cluster.append(j)
                     visited[j] = True
             clusters.append(cluster)
@@ -877,11 +1026,15 @@ def _synthesize_report(
                 "notes": members[0].get("notes", ""),
             }
 
-            if distinct_props >= 2 or distinct_scenes >= 2:
+            if (distinct_props >= HIGH_CONF_MIN_PROPERTIES
+                    and len(members) >= HIGH_CONF_MIN_EVIDENCE):
                 high_confidence.append(entry)
             else:
                 entry["reason_for_candidate_tier"] = (
-                    f"Only {distinct_props} property(s), {distinct_scenes} scene(s)"
+                    f"{len(members)} evidence, {distinct_props} property(s), "
+                    f"{distinct_scenes} scene(s) "
+                    f"(need >={HIGH_CONF_MIN_EVIDENCE} evidence and "
+                    f">={HIGH_CONF_MIN_PROPERTIES} properties for high confidence)"
                 )
                 candidate_entries.append(entry)
     elif new_entry_candidates:
@@ -961,6 +1114,7 @@ def _synthesize_report(
             "photo_key": r.photo_key,
             "scene": r.scene,
             "scene_group": r.scene_group,
+            "artifact_run_id": r.artifact_run_id,
             "local_observations": [asdict(o) for o in r.local_observations],
             "cloud_observations": [asdict(o) for o in r.cloud_observations],
             "judge_verdicts": r.judge_verdicts,
@@ -1014,26 +1168,162 @@ def _slugify(text: str) -> str:
 # Checkpoint support
 # ---------------------------------------------------------------------------
 
+def _checkpoint_path(output_path: Path) -> Path:
+    return output_path.with_suffix(".checkpoint.json")
+
+
+def _serialize_image_result(r: ImageResult) -> Dict:
+    """Serialize a full ImageResult to a JSON-safe dict."""
+    return {
+        "image_path": r.image_path,
+        "property_id": r.property_id,
+        "photo_key": r.photo_key,
+        "scene": r.scene,
+        "scene_group": r.scene_group,
+        "local_observations": [asdict(o) for o in r.local_observations],
+        "cloud_observations": [asdict(o) for o in r.cloud_observations],
+        "judge_verdicts": r.judge_verdicts,
+        "missed_issues": r.missed_issues,
+        "local_freeform": r.local_freeform,
+        "cloud_freeform": r.cloud_freeform,
+        "error": r.error,
+        "artifact_run_id": r.artifact_run_id,
+    }
+
+
+def _deserialize_image_result(data: Dict) -> ImageResult:
+    """Reconstruct an ImageResult (and nested ObservationRecords) from a dict."""
+    def _to_obs(d: Dict) -> ObservationRecord:
+        # Filter to known fields so a schema change in the dataclass doesn't crash on stale checkpoints.
+        known = {f for f in ObservationRecord.__dataclass_fields__}
+        return ObservationRecord(**{k: v for k, v in d.items() if k in known})
+
+    return ImageResult(
+        image_path=data.get("image_path", ""),
+        property_id=data.get("property_id", ""),
+        photo_key=data.get("photo_key", ""),
+        scene=data.get("scene", "other"),
+        scene_group=data.get("scene_group", "other"),
+        local_observations=[_to_obs(o) for o in data.get("local_observations", [])],
+        cloud_observations=[_to_obs(o) for o in data.get("cloud_observations", [])],
+        judge_verdicts=data.get("judge_verdicts", []) or [],
+        missed_issues=data.get("missed_issues", []) or [],
+        local_freeform=data.get("local_freeform", "") or "",
+        cloud_freeform=data.get("cloud_freeform", "") or "",
+        error=data.get("error"),
+        artifact_run_id=data.get("artifact_run_id"),
+    )
+
+
 def _load_checkpoint(output_path: Path) -> Dict[str, ImageResult]:
-    """Load checkpoint data if it exists."""
-    ckpt_path = output_path.with_suffix(".checkpoint.json")
+    """Load checkpoint and reconstruct full ImageResult objects keyed by property/photo."""
+    ckpt_path = _checkpoint_path(output_path)
     if not ckpt_path.exists():
         return {}
     try:
         with open(ckpt_path, "r", encoding="utf-8") as f:
             data = json.load(f)
-        logger.info(f"Loaded checkpoint with {len(data)} completed images")
-        return data
+        if not isinstance(data, dict):
+            logger.warning(f"Checkpoint at {ckpt_path} has unexpected shape; ignoring")
+            return {}
+        results = {}
+        for key, payload in data.items():
+            if isinstance(payload, dict):
+                results[key] = _deserialize_image_result(payload)
+        logger.info(f"Loaded checkpoint with {len(results)} completed images from {ckpt_path}")
+        return results
     except Exception as e:
         logger.warning(f"Failed to load checkpoint: {e}")
         return {}
 
 
-def _save_checkpoint(output_path: Path, completed: Dict):
-    """Save checkpoint after each image."""
-    ckpt_path = output_path.with_suffix(".checkpoint.json")
-    with open(ckpt_path, "w", encoding="utf-8") as f:
-        json.dump(completed, f, indent=2, default=str)
+def _save_checkpoint(output_path: Path, completed: Dict[str, ImageResult]) -> None:
+    """Atomically save the full checkpoint."""
+    ckpt_path = _checkpoint_path(output_path)
+    tmp = ckpt_path.with_suffix(".checkpoint.json.tmp")
+    serialized = {k: _serialize_image_result(r) for k, r in completed.items()}
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(serialized, f, indent=2, default=str)
+    os.replace(tmp, ckpt_path)
+
+
+# ---------------------------------------------------------------------------
+# Interactive review checkpoint
+# ---------------------------------------------------------------------------
+
+async def _prompt_review(
+    phase: str,
+    image_results: List[ImageResult],
+    total: int,
+    *,
+    skipped_from_checkpoint: int = 0,
+    mode_label: str = "",
+) -> str:
+    """
+    Prompt the user mid-run to decide whether to continue, stop, or skip the
+    current phase. Returns one of: "continue", "stop", "next".
+
+    `phase` is "phase12", "judge", or "boundary". The header and stat lines
+    are tailored to each. `mode_label` (e.g. "full-scan") is appended to the
+    Phase 1+2 header for context.
+    """
+    successful = [r for r in image_results if not r.error]
+    errors = sum(1 for r in image_results if r.error)
+    local_obs = sum(len(r.local_observations) for r in successful)
+    cloud_obs = sum(len(r.cloud_observations) for r in successful)
+    verdicts = sum(len(r.judge_verdicts) for r in successful)
+    missed = sum(len(r.missed_issues) for r in successful)
+
+    if phase == "phase12":
+        header = f"Review checkpoint — Phase 1+2{f' ({mode_label})' if mode_label else ''}"
+        stats = (
+            f"  Processed: {len(image_results)}/{total} images\n"
+            f"  Successful: {len(successful)}     Errors: {errors}\n"
+            f"  Local obs so far: {local_obs}     Cloud obs so far: {cloud_obs}"
+        )
+        next_action = "next phase (skip rest of Phase 1+2)"
+    elif phase == "judge":
+        header = "Review checkpoint — Phase 3 (judge)"
+        stats = (
+            f"  Judged: {len(image_results)}/{total} images\n"
+            f"  Verdicts: {verdicts}     Missed-issues: {missed}\n"
+            f"  Skipped from checkpoint: {skipped_from_checkpoint}"
+        )
+        next_action = "next phase (skip rest of Phase 3)"
+    else:  # boundary
+        header = "Review checkpoint — between Phase 1+2 and Phase 3"
+        stats = (
+            f"  Phase 1+2 complete: {len(successful)}/{total} successful, {errors} errors\n"
+            f"  Local obs: {local_obs}     Cloud obs: {cloud_obs}"
+        )
+        next_action = "skip judging entirely (go straight to synthesis)"
+
+    bar = "─" * 3
+    prompt_text = (
+        f"\n{bar} {header} {bar}\n"
+        f"{stats}\n"
+        f"[c]ontinue / [s]top + write report / [n]ext phase ({next_action})\n"
+        "> "
+    )
+
+    # Loop until we get a valid response. asyncio.to_thread keeps the event
+    # loop alive while we wait on stdin so any in-flight tasks don't stall.
+    while True:
+        try:
+            raw = await asyncio.to_thread(input, prompt_text)
+        except EOFError:
+            # Non-interactive stdin — treat as continue so unattended runs
+            # don't hang forever.
+            logger.warning("  stdin EOF during review prompt — continuing")
+            return "continue"
+        choice = (raw or "").strip().lower()
+        if choice in ("", "c", "continue", "y", "yes"):
+            return "continue"
+        if choice in ("s", "stop", "abort", "q", "quit"):
+            return "stop"
+        if choice in ("n", "next", "skip"):
+            return "next"
+        print(f"  Unrecognized input: {raw!r}. Enter c, s, or n.")
 
 
 # ---------------------------------------------------------------------------
@@ -1063,6 +1353,23 @@ async def async_main(args: argparse.Namespace):
     cloud_model = cloud_config.get("model", "unknown")
     cloud_label = f"{cloud_provider}/{cloud_model}"
 
+    # Build structuring config — used for Pass 2b/2c on freeform output.
+    # We deliberately do NOT use the local model here: it can mangle cloud-
+    # generated freeform during JSON structuring, which previously biased
+    # the audit by misattributing structuring failures. Defaults to a
+    # cheaper cloud model (gpt-5.4-mini) so we don't pay full cloud price
+    # for what is mostly text-to-JSON conversion.
+    if args.structuring_model:
+        structuring_model = args.structuring_model
+    elif cloud_provider == "openai":
+        structuring_model = getattr(cfg, "GPT_PASS_2B_MODEL", None) or "gpt-5.4-mini"
+    else:
+        # Gemini: reuse the same cloud model since there's no configured mini.
+        structuring_model = cloud_model
+
+    structuring_config = {**cloud_config, "model": structuring_model}
+    structuring_label = f"{cloud_provider}/{structuring_model}"
+
     # Apply local model override if specified
     if args.local_model:
         local_config["model"] = args.local_model
@@ -1080,9 +1387,13 @@ async def async_main(args: argparse.Namespace):
         "local_model": local_config.get("model", "unknown"),
         "cloud_model": cloud_model,
         "cloud_provider": cloud_provider,
+        "structuring_model": structuring_model,
         "embeddings_model": cfg.EMBEDDINGS_MODEL_NAME,
     }
-    logger.info(f"Models: local={models_info['local_model']}, cloud={cloud_label}")
+    logger.info(
+        f"Models: local={models_info['local_model']}, cloud={cloud_label}, "
+        f"structuring={structuring_label}"
+    )
 
     # Discover images
     artifacts_dir = Path(args.artifacts_dir)
@@ -1103,69 +1414,171 @@ async def async_main(args: argparse.Namespace):
     logger.info(f"{'='*60}")
 
     sem = asyncio.Semaphore(args.concurrency)
-    image_results: List[ImageResult] = []
+    # Checkpoint stores full ImageResult objects keyed by "property/photo".
+    # Cached entries are passed through (Phase 1+2 skipped); the judge phase
+    # below decides separately whether to re-judge based on whether the
+    # cached result already has verdicts.
+    completed: Dict[str, ImageResult] = dict(checkpoint)
+    save_lock = asyncio.Lock()
 
     async def _process_with_sem(img_info: Dict) -> ImageResult:
-        async with sem:
-            key = f"{img_info['property_id']}/{img_info['photo_key']}"
-            if key in checkpoint:
-                logger.info(f"  [cached] {key}")
-                # Reconstruct ImageResult from checkpoint
-                # For now just skip and re-process
-                pass
+        key = f"{img_info['property_id']}/{img_info['photo_key']}"
+        cached = completed.get(key)
+        if cached is not None and not cached.error:
+            logger.info(f"  [cached] {key}")
+            return cached
 
+        async with sem:
             logger.info(f"  Processing {key}...")
             if args.mode == "full-scan":
-                return await process_single_image_fullscan(
-                    img_info, vlm_client, retriever, local_config, cloud_config
+                r = await process_single_image_fullscan(
+                    img_info, vlm_client, retriever, local_config, cloud_config, structuring_config
                 )
             else:
-                return await process_single_image(
-                    img_info, vlm_client, retriever, local_config, cloud_config, args.mode
+                r = await process_single_image(
+                    img_info, vlm_client, retriever, local_config, cloud_config, structuring_config, args.mode
                 )
 
-    tasks = [_process_with_sem(img) for img in images]
-    image_results = await asyncio.gather(*tasks)
+        # Persist after each image so a crash doesn't lose work.
+        if not r.error:
+            async with save_lock:
+                completed[key] = r
+                try:
+                    _save_checkpoint(output_path, completed)
+                except Exception as e:
+                    logger.warning(f"  Checkpoint save failed for {key}: {e}")
+        return r
 
-    # Save checkpoint
-    completed_keys = {
-        f"{r.property_id}/{r.photo_key}": True
-        for r in image_results if not r.error
-    }
-    _save_checkpoint(output_path, completed_keys)
+    # When review-every > 0 we batch-process so we can pause for user input
+    # between batches. Concurrency within a batch is preserved by the sem.
+    # When disabled (default 0), one giant batch == old gather behavior.
+    review_every = max(0, int(args.review_every or 0))
+    batch_size = review_every if review_every > 0 else len(images)
+    image_results: List[ImageResult] = []
+    stop_requested = False        # user said "stop + write report"
+    skip_phase3 = False           # user said "skip Phase 3" at the boundary
+    phase12_cut_short = False     # user said "next" mid-Phase 1+2 (just stop processing more)
+
+    for batch_start in range(0, len(images), batch_size):
+        batch = images[batch_start:batch_start + batch_size]
+        batch_results = await asyncio.gather(*[_process_with_sem(img) for img in batch])
+        image_results.extend(batch_results)
+
+        is_last_batch = (batch_start + batch_size) >= len(images)
+        if review_every > 0 and not is_last_batch:
+            action = await _prompt_review(
+                "phase12",
+                image_results,
+                total=len(images),
+                mode_label=args.mode,
+            )
+            if action == "stop":
+                logger.info("  User chose to stop after Phase 1+2 mid-phase prompt")
+                stop_requested = True
+                break
+            if action == "next":
+                logger.info("  User chose to skip rest of Phase 1+2 (will proceed to Phase 3)")
+                phase12_cut_short = True
+                break
 
     successful = [r for r in image_results if not r.error]
     logger.info(f"\nPhase 1+2 complete: {len(successful)}/{len(image_results)} images processed successfully")
 
+    # Phase boundary prompt — only when review is on AND we're not already
+    # stopping AND we didn't just say "skip rest of Phase 1+2" (which already
+    # implies "proceed to Phase 3") AND there's something to judge.
+    if (review_every > 0
+            and not stop_requested
+            and not phase12_cut_short
+            and not args.dry_run
+            and successful):
+        action = await _prompt_review(
+            "boundary",
+            image_results,
+            total=len(images),
+        )
+        if action == "stop":
+            logger.info("  User chose to stop at Phase 1+2/3 boundary")
+            stop_requested = True
+        elif action == "next":
+            logger.info("  User chose to skip Phase 3 entirely")
+            skip_phase3 = True
+
     # ── Phase 3: Judge ───────────────────────────────────────────────────
-    if not args.dry_run:
+    if not args.dry_run and not stop_requested and not skip_phase3:
         logger.info(f"\n{'='*60}")
         logger.info(f"Phase 3: Running {cloud_label} judge on {len(successful)} images...")
         logger.info(f"{'='*60}")
 
         judge_delay = args.judge_delay
         judged_count = 0
+        skipped_count = 0
+        # Tracks images we've actually fed to the judge this run, for the
+        # mid-phase prompt cadence (cached entries don't count).
+        new_judge_calls = 0
         for i, result in enumerate(successful, 1):
-            logger.info(f"  [{i}/{len(successful)}] Judging {result.property_id}/{result.photo_key}...")
+            key = f"{result.property_id}/{result.photo_key}"
+            # Skip if cached checkpoint already has judge output for this image.
+            if result.judge_verdicts or result.missed_issues:
+                skipped_count += 1
+                logger.info(f"  [{i}/{len(successful)}] [judge cached] {key}")
+                continue
+
+            logger.info(f"  [{i}/{len(successful)}] Judging {key}...")
             try:
                 verdicts, missed = await run_judge(result, vlm_client, cloud_config, catalog)
                 result.judge_verdicts = verdicts
                 result.missed_issues = missed
                 judged_count += 1
+                new_judge_calls += 1
                 logger.info(f"    → {len(verdicts)} verdicts, {len(missed)} missed issues")
+                # Persist after each judge call so a crash mid-Phase-3 doesn't lose verdicts.
+                completed[key] = result
+                try:
+                    _save_checkpoint(output_path, completed)
+                except Exception as ckpt_err:
+                    logger.warning(f"  Checkpoint save failed for {key}: {ckpt_err}")
             except Exception as e:
                 err_str = str(e)
                 if "insufficient_quota" in err_str or "billing" in err_str.lower() or "quota" in err_str.lower() or "ResourceExhausted" in err_str:
                     logger.error(f"  {cloud_label} quota exceeded — aborting judge phase. "
-                                 f"({judged_count}/{len(successful)} images judged)")
+                                 f"({judged_count}/{len(successful)} images judged this run, "
+                                 f"{skipped_count} from checkpoint)")
                     break
                 logger.error(f"  Judge error for {result.photo_key}: {e}")
+
+            # Mid-phase review prompt every N actual judge calls (cached
+            # entries don't trigger it). Skip on the very last image.
+            if (review_every > 0
+                    and new_judge_calls > 0
+                    and new_judge_calls % review_every == 0
+                    and i < len(successful)):
+                action = await _prompt_review(
+                    "judge",
+                    successful[:i],
+                    total=len(successful),
+                    skipped_from_checkpoint=skipped_count,
+                )
+                if action == "stop":
+                    logger.info("  User chose to stop in Phase 3")
+                    stop_requested = True
+                    break
+                if action == "next":
+                    logger.info("  User chose to skip rest of Phase 3")
+                    break
 
             # Pace requests to avoid rate limits
             if judge_delay > 0 and i < len(successful):
                 await asyncio.sleep(judge_delay)
-    else:
+
+        if skipped_count:
+            logger.info(f"  Phase 3: {judged_count} judged this run, {skipped_count} reused from checkpoint")
+    elif args.dry_run:
         logger.info("\n[dry-run] Skipping Phase 3 (judge)")
+    elif stop_requested:
+        logger.info("\nSkipping Phase 3 (user stopped earlier)")
+    elif skip_phase3:
+        logger.info("\nSkipping Phase 3 (user chose to skip judging at boundary)")
 
     # ── Phase 4: Synthesis ───────────────────────────────────────────────
     logger.info(f"\n{'='*60}")
@@ -1188,6 +1601,7 @@ async def async_main(args: argparse.Namespace):
     print(f"{'='*60}")
     print(f"Images processed:        {report['meta']['images_processed']}")
     print(f"Cloud provider:          {cloud_label}")
+    print(f"Structuring model:       {structuring_label}")
     print(f"Local observations:      {s['total_local_obs']}")
     print(f"Cloud observations:      {s['total_cloud_obs']}")
     if not args.dry_run:
@@ -1244,6 +1658,16 @@ def parse_args() -> argparse.Namespace:
         help="Override the local LM Studio model name (e.g. google/gemma-4-26b-a4b)",
     )
     parser.add_argument(
+        "--structuring-model",
+        default=None,
+        help=(
+            "Cloud model used for Pass 2b/2c structuring of freeform output. "
+            "Defaults to GPT_PASS_2B_MODEL or gpt-5.4-mini for OpenAI; same as "
+            "--cloud-provider model for Gemini. Avoids using the local model "
+            "for structuring (which can mangle cloud freeform)."
+        ),
+    )
+    parser.add_argument(
         "--max-images",
         type=int,
         default=None,
@@ -1271,6 +1695,16 @@ def parse_args() -> argparse.Namespace:
         type=float,
         default=2.0,
         help="Seconds to wait between judge calls to avoid rate limits (default: %(default)s)",
+    )
+    parser.add_argument(
+        "--review-every",
+        type=int,
+        default=0,
+        help=(
+            "Pause every N images and prompt the user (continue / stop / "
+            "skip-to-next-phase). Also prompts at the boundary between "
+            "Phase 1+2 and Phase 3. Default 0 disables prompting."
+        ),
     )
     parser.add_argument(
         "--verbose", "-v",

@@ -83,6 +83,10 @@ class CatalogItemMeta:
     kind: str              # defect | upgrade (safety/opportunity filtered out)
     trade_bucket: str
     severity: int
+    description: str
+    support_any: Tuple[str, ...]
+    default_hidden: bool
+    drop_if_generic: bool
     scene_groups: Tuple[str, ...]  # scene groups this item is valid for (from catalog)
     text: str              # embed this
 
@@ -94,6 +98,10 @@ class MatchCandidate:
     kind: str
     trade_bucket: str
     severity: int
+    description: str
+    support_any: Tuple[str, ...]
+    defaultHidden: bool
+    drop_if_generic: bool
     score: float
     scene_groups: Tuple[str, ...]  # passed through from CatalogItemMeta
 
@@ -204,6 +212,10 @@ class CatalogEmbeddingsRetriever:
             kind = str(it.get("kind") or "defect").strip().lower()
             trade_bucket = str(it.get("trade_bucket") or "").strip().lower()
             severity = _parse_int(it.get("severity"), default=0)
+            description = str(it.get("description") or "").strip()
+            support_any = tuple(str(x).strip() for x in (it.get("support_any") or []) if str(x).strip())
+            default_hidden = bool(it.get("defaultHidden", False))
+            drop_if_generic = bool(it.get("drop_if_generic", False))
 
             # Filter out safety and opportunity kinds - they should not appear downstream
             if kind in {"safety", "opportunity"}:
@@ -224,6 +236,10 @@ class CatalogEmbeddingsRetriever:
                 kind=kind,
                 trade_bucket=trade_bucket,
                 severity=severity,
+                description=description,
+                support_any=support_any,
+                default_hidden=default_hidden,
+                drop_if_generic=drop_if_generic,
                 scene_groups=scene_groups,
                 text=text,
             ))
@@ -341,6 +357,10 @@ class CatalogEmbeddingsRetriever:
                 kind=meta.kind,
                 trade_bucket=meta.trade_bucket,
                 severity=meta.severity,
+                description=meta.description,
+                support_any=meta.support_any,
+                defaultHidden=meta.default_hidden,
+                drop_if_generic=meta.drop_if_generic,
                 score=float(s),
                 scene_groups=meta.scene_groups,
             ))

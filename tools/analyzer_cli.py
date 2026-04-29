@@ -678,6 +678,7 @@ def main() -> int:
     if getattr(cfg, "USE_EMBEDDINGS_CATALOG", False):
         try:
             from tools.catalog_embeddings import CatalogEmbeddingsRetriever, build_guardrails_from_catalog
+            from tools.scene_classifier_passes import prioritize_resolution_candidates
             from dataclasses import asdict
 
             retriever = CatalogEmbeddingsRetriever(
@@ -694,14 +695,27 @@ def main() -> int:
                 topk = context.get("top_k_candidates")
                 scene_group = context.get("scene_group")
                 allowed_groups = {scene_group} if scene_group else None
-                allowed_kinds = {kind} if kind in ("defect", "upgrade") else None
+                allowed_kinds_ctx = context.get("allowed_kinds")
+                if allowed_kinds_ctx:
+                    allowed_kinds = {
+                        str(k).strip().lower()
+                        for k in allowed_kinds_ctx
+                        if str(k).strip().lower() in {"defect", "upgrade"}
+                    }
+                else:
+                    allowed_kinds = {kind} if kind in ("defect", "upgrade") else None
+                widened_routing = bool(allowed_kinds and len(allowed_kinds) > 1)
+                requested_topk = topk
+                if widened_routing and topk:
+                    requested_topk = max(int(topk), int(topk) * 2)
                 matches = retriever.retrieve_candidates(
                     observation_text,
-                    topk=topk,
+                    topk=requested_topk,
                     allowed_kinds=allowed_kinds,
                     allowed_groups=allowed_groups,
                 )
-                return [asdict(m) for m in matches]
+                candidates = [asdict(m) for m in matches]
+                return prioritize_resolution_candidates(candidates, widened_routing=widened_routing)
 
             logger.info(f"Pass 2d candidate_provider ready (model={retriever.model_name}, items={len(retriever._items)})")
         except Exception as exc:

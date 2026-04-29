@@ -67,7 +67,7 @@ ISSUE_CATALOG_PATH = TOOLS_DIR / "issue_catalog.json"
 # LM STUDIO / VLM SETTINGS (Qwen - local)
 # =============================================================================
 LM_STUDIO_URL = os.environ.get("LM_STUDIO_URL", "http://169.254.83.107:1234")
-LM_STUDIO_MODEL = os.environ.get("LM_STUDIO_MODEL", "qwen/qwen3-vl-30b")
+LM_STUDIO_MODEL = os.environ.get("LM_STUDIO_MODEL", "unsloth/qwen3.6-27b")
 
 # =============================================================================
 # OPENAI / GPT SETTINGS (Premium - cloud)
@@ -81,7 +81,7 @@ GPT_MODEL = (
         os.environ.get("GPT5_MODEL")
         or os.environ.get("GPT_MODEL")
         or os.environ.get("OPENAI_MODEL")
-        or "gpt-5.4"  #Need to stop relying on this and use env variables
+        or "gpt-5.5"  #Need to stop relying on this and use env variables
 )
 
 # Alias for backward compatibility with vlm_client.py
@@ -117,6 +117,15 @@ EMBEDDINGS_ROUTE_BY_ROUGH_CATEGORY = True
 EMBEDDINGS_OVERRIDE_EXISTING_FLAGS = True
 EMBEDDINGS_ATTACH_CANDIDATES = True
 EMBEDDINGS_DEVICE = "cpu"
+PASS_2D_SHORTCUT_MIN_SCORE = float(os.environ.get("PASS_2D_SHORTCUT_MIN_SCORE", "0.72"))
+PASS_2D_SHORTCUT_MIN_MARGIN = float(os.environ.get("PASS_2D_SHORTCUT_MIN_MARGIN", "0.03"))
+PASS_2D_ROUTING_NEGATION_PATTERNS = [
+    r"\bno\s+visible\s+damage\b",
+    r"\bno\s+damage\s+is\s+visible\b",
+    r"\bwithout\s+visible\s+damage\b",
+    r"\bintact\b",
+    r"\bconsistent\s+with\s+(?:the\s+)?age\b",
+]
 
 # =============================================================================
 # PASS TOGGLE SETTINGS

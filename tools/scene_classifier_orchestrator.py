@@ -46,6 +46,7 @@ from tools.pass_config import (
 )
 
 from tools.scene_classifier_passes import (
+    KindRoutingDecision,
     Pass1aResult,
     Pass1bResult,
     Pass1cResult,
@@ -54,6 +55,8 @@ from tools.scene_classifier_passes import (
     Pass2cResult,
     Pass2dResult,
     Pass2eResult,
+    evaluate_kind_routing,
+    prioritize_resolution_candidates,
     run_pass_1a_scene_type,
     run_pass_1b_feature_notes,
     run_pass_1c_feature_structuring,
@@ -630,7 +633,13 @@ class SceneClassifierOrchestrator:
                     continue
 
                 kind = obs.get("kind")   # already "defect" or "upgrade" from normalization above
-                ctx_for_provider = {**base_ctx_for_provider, "kind": kind}
+                kind_routing: KindRoutingDecision = evaluate_kind_routing(description, kind)
+                widened_routing = len(kind_routing.expanded_kinds) > 1
+                ctx_for_provider = {
+                    **base_ctx_for_provider,
+                    "kind": kind,
+                    "allowed_kinds": list(kind_routing.expanded_kinds),
+                }
 
                 debug_row = {
                     "observation": description,
@@ -641,6 +650,16 @@ class SceneClassifierOrchestrator:
                     "skipped_reason": None,
                     "top_candidate_id": None,
                     "top_candidate_score": None,
+                    "kind_routing": {
+                        "original_kind": kind_routing.original_kind,
+                        "expanded_kinds": list(kind_routing.expanded_kinds),
+                        "reason": kind_routing.reason,
+                        "matched_component_terms": list(kind_routing.matched_component_terms),
+                        "matched_condition_terms": list(kind_routing.matched_condition_terms),
+                        "blocked_by_negation": kind_routing.blocked_by_negation,
+                    },
+                    "resolution_path": None,
+                    "shortcut_reason": None,
                 }
 
                 # Retrieve candidates via provider (tolerant of signature variants)
@@ -666,6 +685,7 @@ class SceneClassifierOrchestrator:
                     result.debug["pass_2d_per_observation"].append(debug_row)
                     continue
 
+                candidates = prioritize_resolution_candidates(candidates, widened_routing=widened_routing)
                 debug_row["candidate_count"] = len(candidates)
 
                 if not candidates:
@@ -695,8 +715,11 @@ class SceneClassifierOrchestrator:
                     observation=description,
                     candidates=candidates,
                     kind=kind,
+                    kind_routing=kind_routing,
                 )
                 pass_2d_results.append(pass_2d_result)
+                debug_row["resolution_path"] = pass_2d_result.resolution_path
+                debug_row["shortcut_reason"] = pass_2d_result.shortcut_reason
 
                 resolved_item_id = pass_2d_result.resolved_item_id  # canonical
                 # issue_id must be stamped during Pass 2c — if it's missing something went wrong upstream.
@@ -713,10 +736,24 @@ class SceneClassifierOrchestrator:
                     "description": description,
                     "label": obs.get("label", ""),
                     "resolved_item_id": resolved_item_id,
-                    "resolved_kind": kind,
+                    "resolved_kind": pass_2d_result.resolved_kind or kind,
+                    "original_kind": kind,
+                    "kind_routing": debug_row["kind_routing"],
+                    "resolution_path": pass_2d_result.resolution_path,
+                    "shortcut_reason": pass_2d_result.shortcut_reason,
                     # Candidates: keep for auditability (score retained for unmapped-issue debugging)
                     "candidates": [
-                        {"item_id": c.get("item_id"), "name": c.get("name"), "trade_bucket": c.get("trade_bucket"), "score": c.get("score")}
+                        {
+                            "item_id": c.get("item_id"),
+                            "name": c.get("name"),
+                            "trade_bucket": c.get("trade_bucket"),
+                            "kind": c.get("kind"),
+                            "score": c.get("score"),
+                            "description": c.get("description"),
+                            "support_any": c.get("support_any"),
+                            "defaultHidden": c.get("defaultHidden"),
+                            "drop_if_generic": c.get("drop_if_generic"),
+                        }
                         for c in candidates
                     ],
                     "raw_response": pass_2d_result.raw_response,
@@ -784,7 +821,9 @@ class SceneClassifierOrchestrator:
                 res = resolution_index.get(str(issue.get("issue_id") or ""))
                 if res and res.get("resolved_item_id"):
                     issue.setdefault("catalogItemId", res["resolved_item_id"])
-                    issue.setdefault("catalogItemKind", res.get("resolved_kind"))
+                    if res.get("resolved_kind") in {"defect", "upgrade"}:
+                        issue["kind"] = res["resolved_kind"]
+                        issue["catalogItemKind"] = res["resolved_kind"]
                 # kind is already stamped by the normalization block above;
                 # this setdefault is a safety net for any item that somehow slipped through.
                 if not issue.get("kind"):

@@ -4,13 +4,13 @@ Scene Classifier Pass Implementations
 Individual pass functions for the scene classification pipeline.
 
 Pass 1a: Scene Type Classification (fast, always Qwen)
-Pass 1b: Feature/Market Appeal Notes - FREEFORM (premium uses GPT-5.2)
-Pass 1c: Feature Notes → JSON Structuring (text-only)
+Pass 1b: Feature/Market Appeal Notes - FREEFORM (premium uses GPT-5.2) --DEPRECATED
+Pass 1c: Feature Notes → JSON Structuring (text-only) --DEPRECATED
 Pass 2a: Observations freeform (premium uses GPT-5.2)
 Pass 2b: Observations → JSON (text-only)
 Pass 2c: Label observations + debug/forward split (text-only)
 Pass 2d: Resolve catalog item ID from candidates (text-only, optional)
-Pass 2e: Normalize canonical issues and build display-filtered issues (rule-based, no LLM)
+Pass 2e: Normalize canonical issues and build display-filtered issues (Issue cleaning for UI. Rule-based, no LLM)
 """
 
 from tools.llm_json import extract_json_object
@@ -19,7 +19,12 @@ import logging
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
+
+try:
+    from tools import pipeline_config as _pipeline_cfg
+except Exception:
+    _pipeline_cfg = None
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +114,155 @@ def force_other_if_dimensions(labeled: List[Dict[str, Any]]) -> List[Dict[str, A
     return out
 
 
+def _cfg_value(name: str, default: Any) -> Any:
+    if _pipeline_cfg is None:
+        return default
+    return getattr(_pipeline_cfg, name, default)
+
+
+_ROUTING_COMPONENT_PATTERNS: Tuple[Tuple[str, str], ...] = (
+    ("baseboards", "baseboard"),
+    ("baseboard", "baseboard"),
+    ("shingles", "shingle"),
+    ("shingle", "shingle"),
+    ("gutters", "gutter"),
+    ("gutter", "gutter"),
+    ("downspout", "downspout"),
+    ("fascia", "fascia"),
+    ("soffit", "soffit"),
+    ("siding", "siding"),
+    ("brickwork", "brickwork"),
+    ("brick", "brick"),
+    ("mortar", "mortar"),
+    ("stucco", "stucco"),
+    ("driveway", "driveway"),
+    ("walkway", "walkway"),
+    ("concrete", "concrete"),
+    ("asphalt", "asphalt"),
+    ("deck", "deck"),
+    ("porch", "porch"),
+    ("fence", "fence"),
+    ("chimney", "chimney"),
+    ("foundation", "foundation"),
+    ("slab", "slab"),
+    ("trim", "trim"),
+    ("roof", "roof"),
+)
+
+_ROUTING_VAGUE_CONDITION_PATTERNS: Tuple[Tuple[str, str], ...] = (
+    ("aging", "aged"),
+    ("aged", "aged"),
+    ("weathering", "weathered"),
+    ("weathered", "weathered"),
+)
+
+_ROUTING_CONCRETE_CONDITION_PATTERNS: Tuple[Tuple[str, str], ...] = (
+    ("cracks", "crack"),
+    ("crack", "crack"),
+    ("staining", "stain"),
+    ("stained", "stain"),
+    ("stain", "stain"),
+    ("discoloration", "discolor"),
+    ("discolored", "discolor"),
+    ("discolor", "discolor"),
+    ("fading", "fade"),
+    ("faded", "fade"),
+    ("fade", "fade"),
+    ("worn", "worn"),
+    ("wear", "worn"),
+    ("deteriorat", "deteriorated"),
+    ("peeling", "peeling"),
+    ("missing", "missing"),
+    ("broken", "broken"),
+    ("rusting", "rust"),
+    ("rusted", "rust"),
+    ("rust", "rust"),
+    ("rotting", "rot"),
+    ("rotted", "rot"),
+    ("rot", "rot"),
+    ("sagging", "sag"),
+    ("sag", "sag"),
+    ("leaking", "leak"),
+    ("leak", "leak"),
+    ("curling", "curl"),
+    ("curled", "curl"),
+    ("curl", "curl"),
+    ("patchy", "patchy"),
+    ("mold", "mold"),
+    ("mildew", "mildew"),
+)
+
+_VAGUE_ROUTING_CONDITIONS = {canonical for _, canonical in _ROUTING_VAGUE_CONDITION_PATTERNS}
+_SOFTENING_NEGATION_PATTERNS: Tuple[str, ...] = tuple(_cfg_value(
+    "PASS_2D_ROUTING_NEGATION_PATTERNS",
+    (
+        r"\bno\s+visible\s+damage\b",
+        r"\bno\s+damage\s+is\s+visible\b",
+        r"\bwithout\s+visible\s+damage\b",
+        r"\bintact\b",
+        r"\bconsistent\s+with\s+(?:the\s+)?age\b",
+    ),
+))
+_SPECIFIC_NEGATION_RULES: Tuple[Tuple[str, str], ...] = (
+    (r"\bno\s+cracks?\s+(?:are\s+)?visible\b", "crack"),
+    (r"\bwithout\s+cracks?\b", "crack"),
+    (r"\bno\s+staining\s+visible\b", "stain"),
+    (r"\bno\s+leaks?\s+(?:are\s+)?visible\b", "leak"),
+)
+
+
+def _ordered_unique(values: List[str]) -> Tuple[str, ...]:
+    seen = set()
+    out: List[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        out.append(value)
+    return tuple(out)
+
+
+def _normalize_signal_text(text: str) -> str:
+    return re.sub(r"\s+", " ", (text or "").strip()).lower()
+
+
+def _collect_signal_hits(text_lower: str, patterns: Tuple[Tuple[str, str], ...]) -> Tuple[str, ...]:
+    hits: List[str] = []
+    for needle, canonical in patterns:
+        if re.search(r"\b" + re.escape(needle), text_lower):
+            hits.append(canonical)
+    return _ordered_unique(hits)
+
+
+def _extract_component_terms(text: str) -> Tuple[str, ...]:
+    return _collect_signal_hits(_normalize_signal_text(text), _ROUTING_COMPONENT_PATTERNS)
+
+
+def _extract_condition_terms(text: str) -> Tuple[str, ...]:
+    text_lower = _normalize_signal_text(text)
+    vague = _collect_signal_hits(text_lower, _ROUTING_VAGUE_CONDITION_PATTERNS)
+    concrete = _collect_signal_hits(text_lower, _ROUTING_CONCRETE_CONDITION_PATTERNS)
+    return _ordered_unique(list(vague) + list(concrete))
+
+
+def _analyze_visible_condition_signal(text: str) -> Tuple[Tuple[str, ...], Tuple[str, ...], bool]:
+    text_lower = _normalize_signal_text(text)
+    component_hits = _collect_signal_hits(text_lower, _ROUTING_COMPONENT_PATTERNS)
+    condition_hits = list(_extract_condition_terms(text_lower))
+
+    negated_terms = {
+        term
+        for pattern, term in _SPECIFIC_NEGATION_RULES
+        if re.search(pattern, text_lower)
+    }
+    effective_conditions = tuple(term for term in condition_hits if term not in negated_terms)
+    blocked_by_negation = bool(negated_terms) or any(
+        re.search(pattern, text_lower)
+        for pattern in _SOFTENING_NEGATION_PATTERNS
+    )
+    return component_hits, effective_conditions, blocked_by_negation
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # Data Classes for Pass Results
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -160,6 +314,17 @@ class Pass2cResult:
     raw_response: Optional[str] = None
 
 
+@dataclass(frozen=True)
+class KindRoutingDecision:
+    """Routing decision for catalog retrieval after Pass 2c labeling."""
+    original_kind: str
+    expanded_kinds: Tuple[str, ...]
+    reason: str
+    matched_component_terms: Tuple[str, ...] = ()
+    matched_condition_terms: Tuple[str, ...] = ()
+    blocked_by_negation: bool = False
+
+
 @dataclass
 class Pass2dResult:
     """Result from Pass 2d: Resolved catalog item ID from candidates."""
@@ -167,6 +332,8 @@ class Pass2dResult:
     resolved_item_id: Optional[str] = None
     resolved_kind: Optional[str] = None  # "defect" or "upgrade"
     raw_response: Optional[str] = None
+    resolution_path: str = "llm"
+    shortcut_reason: Optional[str] = None
 
 
 class Pass2fInvalidResponseError(ValueError):
@@ -183,6 +350,65 @@ class Pass2fResult:
     rationale: str = ""
     consistency_flags: List[str] = field(default_factory=list)
     raw_response: Optional[str] = None
+
+
+def evaluate_kind_routing(description: str, kind: str) -> KindRoutingDecision:
+    """Decide whether Pass 2d retrieval should stay single-kind or widen."""
+    normalized_kind = (kind or "").strip().lower()
+    if normalized_kind != "upgrade":
+        expanded = (normalized_kind,) if normalized_kind in {"defect", "upgrade"} else ()
+        return KindRoutingDecision(
+            original_kind=normalized_kind,
+            expanded_kinds=expanded,
+            reason="non_upgrade_kind",
+        )
+
+    component_hits, condition_hits, blocked_by_negation = _analyze_visible_condition_signal(description)
+    if not component_hits or not condition_hits:
+        return KindRoutingDecision(
+            original_kind=normalized_kind,
+            expanded_kinds=("upgrade",),
+            reason="no_visible_condition_signal",
+            matched_component_terms=component_hits,
+            matched_condition_terms=condition_hits,
+            blocked_by_negation=blocked_by_negation,
+        )
+
+    only_vague_conditions = all(term in _VAGUE_ROUTING_CONDITIONS for term in condition_hits)
+    if blocked_by_negation and only_vague_conditions:
+        return KindRoutingDecision(
+            original_kind=normalized_kind,
+            expanded_kinds=("upgrade",),
+            reason="blocked_by_negation",
+            matched_component_terms=component_hits,
+            matched_condition_terms=condition_hits,
+            blocked_by_negation=True,
+        )
+
+    expanded_kinds = ("upgrade", "defect")
+    return KindRoutingDecision(
+        original_kind=normalized_kind,
+        expanded_kinds=expanded_kinds,
+        reason="visible_condition_signal",
+        matched_component_terms=component_hits,
+        matched_condition_terms=condition_hits,
+        blocked_by_negation=blocked_by_negation,
+    )
+
+
+def is_generic_resolution_candidate(candidate: Dict[str, Any]) -> bool:
+    return bool(candidate.get("drop_if_generic") or candidate.get("defaultHidden"))
+
+
+def prioritize_resolution_candidates(
+    candidates: List[Dict[str, Any]],
+    *,
+    widened_routing: bool = False,
+) -> List[Dict[str, Any]]:
+    ordered = list(candidates or [])
+    if not widened_routing:
+        return ordered
+    return sorted(ordered, key=is_generic_resolution_candidate)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -771,8 +997,87 @@ def format_candidates_text(candidates: List[Dict[str, Any]]) -> str:
         name = c.get("name", "")
         trade = c.get("trade_bucket", "")
         kind = c.get("kind", "")
-        lines.append(f"- {item_id} | {name} | trade={trade} | kind={kind}")
+        desc = str(c.get("description") or "").strip()
+        support_any = c.get("support_any") or []
+        if isinstance(support_any, str):
+            support_any = [support_any]
+        support_text = ", ".join(str(x).strip() for x in support_any[:6] if str(x).strip())
+
+        parts = [f"- {item_id}", f"name={name}", f"trade={trade}", f"kind={kind}"]
+        if desc:
+            parts.append(f"description={desc}")
+        if support_text:
+            parts.append(f"support_terms={support_text}")
+        if c.get("drop_if_generic"):
+            parts.append("drop_if_generic=true")
+        if c.get("defaultHidden"):
+            parts.append("default_hidden=true")
+        lines.append(" | ".join(parts))
     return "\n".join(lines) or "(none)"
+
+
+def _candidate_support_terms(candidate: Dict[str, Any]) -> List[str]:
+    raw = candidate.get("support_any") or []
+    if isinstance(raw, str):
+        raw = [raw]
+    return [_normalize_signal_text(str(x)) for x in raw if str(x).strip()]
+
+
+def _candidate_name_and_support_signal_terms(candidate: Dict[str, Any]) -> Tuple[Tuple[str, ...], Tuple[str, ...]]:
+    raw_support = candidate.get("support_any") or []
+    if isinstance(raw_support, str):
+        raw_support = [raw_support]
+    support_text = " ".join(str(x).strip() for x in raw_support if str(x).strip())
+    signal_text = " ".join(filter(None, [str(candidate.get("name") or "").strip(), support_text]))
+    return _extract_component_terms(signal_text), _extract_condition_terms(signal_text)
+
+
+def _resolved_kind_for_candidate(candidate: Optional[Dict[str, Any]], fallback_kind: str) -> str:
+    if not isinstance(candidate, dict):
+        return fallback_kind
+    candidate_kind = (candidate.get("kind") or "").strip().lower()
+    if candidate_kind in {"defect", "upgrade"}:
+        return candidate_kind
+    return fallback_kind
+
+
+def _resolve_candidate_via_lexical_shortcut(
+    observation: str,
+    candidates: List[Dict[str, Any]],
+    *,
+    kind: str,
+    kind_routing: Optional[KindRoutingDecision] = None,
+) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+    if not candidates:
+        return None, None, None
+    if kind_routing and kind_routing.blocked_by_negation:
+        return None, None, None
+
+    top_candidate = candidates[0]
+    if is_generic_resolution_candidate(top_candidate):
+        return None, None, None
+
+    top_score = float(top_candidate.get("score") or 0.0)
+    second_score = float(candidates[1].get("score") or 0.0) if len(candidates) > 1 else 0.0
+    min_score = float(_cfg_value("PASS_2D_SHORTCUT_MIN_SCORE", 0.72))
+    min_margin = float(_cfg_value("PASS_2D_SHORTCUT_MIN_MARGIN", 0.03))
+    if top_score < min_score or (top_score - second_score) < min_margin:
+        return None, None, None
+
+    observation_lower = _normalize_signal_text(observation)
+    support_terms = _candidate_support_terms(top_candidate)
+    if any(phrase and phrase in observation_lower for phrase in support_terms):
+        resolved_id = _candidate_item_id(top_candidate)
+        return resolved_id, _resolved_kind_for_candidate(top_candidate, kind), "support_phrase_hit"
+
+    observation_components = set(_extract_component_terms(observation_lower))
+    observation_conditions = set(_extract_condition_terms(observation_lower))
+    candidate_components, candidate_conditions = _candidate_name_and_support_signal_terms(top_candidate)
+    if observation_components.intersection(candidate_components) and observation_conditions.intersection(candidate_conditions):
+        resolved_id = _candidate_item_id(top_candidate)
+        return resolved_id, _resolved_kind_for_candidate(top_candidate, kind), "component_condition_overlap"
+
+    return None, None, None
 
 
 async def run_pass_2d(
@@ -781,6 +1086,7 @@ async def run_pass_2d(
         observation: str,
         candidates: List[Dict[str, Any]],
         kind: str = "defect",
+        kind_routing: Optional[KindRoutingDecision] = None,
 ) -> Pass2dResult:
     """
     Pass 2d: Resolve a canonical catalog item ID from embedding candidates.
@@ -804,6 +1110,24 @@ async def run_pass_2d(
             resolved_item_id=None,
             resolved_kind=kind,
             raw_response=None,
+            resolution_path="llm",
+        )
+
+    resolved_id, resolved_kind, shortcut_reason = _resolve_candidate_via_lexical_shortcut(
+        observation,
+        candidates,
+        kind=kind,
+        kind_routing=kind_routing,
+    )
+    if resolved_id:
+        logger.debug("Pass 2d: lexical shortcut resolved %r -> %s", observation[:60], resolved_id)
+        return Pass2dResult(
+            observation=observation,
+            resolved_item_id=resolved_id,
+            resolved_kind=resolved_kind or kind,
+            raw_response=None,
+            resolution_path="lexical_shortcut",
+            shortcut_reason=shortcut_reason,
         )
 
     candidates_text = format_candidates_text(candidates)
@@ -813,6 +1137,13 @@ async def run_pass_2d(
         candidates_text=candidates_text,
         kind=kind,
     )
+    if kind_routing and len(kind_routing.expanded_kinds) > 1:
+        user_prompt += (
+            "\nAdditional routing guidance:\n"
+            "- Both defect and upgrade candidates may be present.\n"
+            "- If a specific physical-condition defect item and a broad dated/style upgrade are both plausible, prefer the specific physical-condition item.\n"
+            "- Generic candidates marked drop_if_generic/default_hidden are lower priority than specific visible-condition matches.\n"
+        )
 
     logger.debug(f"Pass 2d: Resolving catalog item for {kind} observation: {observation[:50]}...")
 
@@ -823,8 +1154,14 @@ async def run_pass_2d(
             **model_config,
         )
         result = extract_json_object(response) or {}
+        candidate_by_id = {
+            _candidate_item_id(candidate): candidate
+            for candidate in candidates
+            if _candidate_item_id(candidate)
+        }
 
         resolved_id = None
+        resolved_kind = kind
         if isinstance(result, dict):
             # Accept both the new key and legacy keys
             resolved_id = result.get("resolved_item_id") or result.get("resolved_defect_id") or result.get("resolved_upgrade_id")
@@ -837,12 +1174,15 @@ async def run_pass_2d(
             if resolved_id not in valid_ids:
                 logger.warning("Pass 2d: hallucinated ID %r, setting to None", resolved_id)
                 resolved_id = None
+            else:
+                resolved_kind = _resolved_kind_for_candidate(candidate_by_id.get(resolved_id), kind)
 
         return Pass2dResult(
             observation=observation,
             resolved_item_id=resolved_id,
-            resolved_kind=kind,
+            resolved_kind=resolved_kind,
             raw_response=response,
+            resolution_path="llm",
         )
 
     except Exception as e:
@@ -852,6 +1192,7 @@ async def run_pass_2d(
             resolved_item_id=None,
             resolved_kind=kind,
             raw_response=None,
+            resolution_path="llm",
         )
 
 
