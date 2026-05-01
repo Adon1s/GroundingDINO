@@ -255,142 +255,209 @@ def _process_job(
     except AttributeError:
         pass
 
-    # Build run options from profile
+    # ─────────────────────────────────────────────────────────────────────────
+    # Per-job model overrides (top-picks-mini batch + similar experiments)
+    #
+    # The orchestrator reads `getattr(cfg, "GPT_PASS_{KEY}_MODEL", None)` at
+    # runtime per pass, so we can mutate cfg attrs per job and restore them
+    # after — this lets the long-running persistent worker honor per-job model
+    # swaps without restarting. The family side is handled via PassModelOverrides
+    # forced to 'gpt5', so passes that route to Qwen by default still pick up
+    # the GPT model name.
+    # ─────────────────────────────────────────────────────────────────────────
+    raw_overrides = request.get("modelOverrides") or {}
+    if not isinstance(raw_overrides, dict):
+        raw_overrides = {}
+
+    # Same allowlist as the TS side (lib/analysis/modelOverrides.ts).
+    _ALLOWED_OVERRIDE_KEYS = {"1a", "1b", "1c", "2a", "2b", "2c", "2d", "2f"}
+    filtered_overrides: Dict[str, str] = {}
+    for k, v in raw_overrides.items():
+        if not isinstance(k, str) or not isinstance(v, str):
+            continue
+        if k not in _ALLOWED_OVERRIDE_KEYS:
+            logger.warning(f"[Job {ts_job_id}] Ignoring unsupported override pass key: {k}")
+            continue
+        if not v.strip():
+            continue
+        filtered_overrides[k] = v
+
+    # Family overrides: every overridden pass goes to gpt5 family (mirrors the
+    # `--model-{pass} gpt5` flags emitted by the spawn-per-job path).
+    family_overrides: Dict[str, str] = {k: "gpt5" for k in filtered_overrides.keys()}
+
+    # Build run options. model_overrides forces the family per pass.
     options = SceneClassifierRunOptions.from_analysis_profile(
         analysis_profile=analysis_profile,
+        model_overrides=family_overrides if family_overrides else None,
     )
+
+    # Snapshot current cfg.GPT_PASS_*_MODEL values so we can restore in finally.
+    # Using a sentinel so we know whether the attr existed at all (vs. being None).
+    _SENTINEL = object()
+    cfg_snapshot: Dict[str, Any] = {}
+    for pass_key, model_name in filtered_overrides.items():
+        attr = f"GPT_PASS_{pass_key.upper()}_MODEL"
+        cfg_snapshot[attr] = getattr(cfg, attr, _SENTINEL)
+        setattr(cfg, attr, model_name)
+
+    if filtered_overrides:
+        logger.info(
+            f"[Job {ts_job_id}] modelOverrides applied (cfg mutated): {filtered_overrides}"
+        )
 
     # Generate internal job ID and create artifacts directory
     internal_job_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
     job_dir = artifacts_root / property_key / internal_job_id
     job_dir.mkdir(parents=True, exist_ok=True)
 
-    # ─────────────────────────────────────────────────────────────────────────
-    # Per-image analysis loop
-    # ─────────────────────────────────────────────────────────────────────────
-    results: List[ImageResult] = []
-    total_images = len(image_paths)
-    total_start = time.time()
-
-    async def _analyze_all():
-        sem = asyncio.Semaphore(concurrency)
-        completed = 0
-
-        async def _analyze_one(idx, image_path):
-            nonlocal completed
-            async with sem:
-                img_start = time.time()
-                logger.info(f"  [start] Analyzing: {image_path.name}")
-
-                try:
-                    img_options = options.with_meta(
-                        run_id=internal_job_id,
-                        photo_key=image_path.name,
-                        property_key=property_key,
-                    )
-                    analysis = await orchestrator.analyze_image(
-                        image_path=image_path,
-                        options=img_options,
-                    )
-                    elapsed = time.time() - img_start
-
-                    img_result = ImageResult(
-                        image_path=str(image_path),
-                        scene_data=analysis.to_dict(),
-                        scene=analysis.scene or "unknown",
-                        processing_time=elapsed,
-                    )
-                    # Aggregate tok/s accounting for concurrency:
-                    # (avg tokens per image / this image's wall time) × concurrency.
-                    # Uses the avg instead of a per-image delta so concurrent completions
-                    # don't pollute one image's bucket.
-                    tok_total = int(getattr(vlm_client, "usage_stats", {}).get("total_tokens", 0) or 0)
-                    done_so_far = completed + 1  # this image counts; `completed` is incremented below
-                    if tok_total > 0 and elapsed > 0 and done_so_far > 0:
-                        per_image_rate = (tok_total / done_so_far) / elapsed
-                        tps = per_image_rate * concurrency
-                        tps_suffix = f", {tps:,.0f} tok/s"
-                    else:
-                        tps_suffix = ""
-                    logger.info(f"    ✅ {image_path.name} → {analysis.scene} ({elapsed:.1f}s{tps_suffix})")
-
-                except Exception as exc:
-                    elapsed = time.time() - img_start
-                    logger.error(f"    ❌ {image_path.name} failed: {exc}", exc_info=True)
-                    img_result = ImageResult(
-                        image_path=str(image_path),
-                        scene="unknown",
-                        processing_time=elapsed,
-                        error=str(exc),
-                    )
-
-                completed += 1
-                _emit({
-                    "type": "progress",
-                    "jobId": ts_job_id,
-                    "itemsDone": completed,
-                    "itemsTotal": total_images,
-                    "progress": round((completed / total_images) * 100),
-                })
-                return img_result
-
-        tasks = [_analyze_one(i, img) for i, img in enumerate(image_paths)]
-        results.extend(await asyncio.gather(*tasks))
-
-    asyncio.run(_analyze_all())
-
-    total_time = time.time() - total_start
-
-    # ─────────────────────────────────────────────────────────────────────────
-    # Build job and write artifacts
-    # ─────────────────────────────────────────────────────────────────────────
-    job = PropertyAnalysisJob(
-        property_key=property_key,
-        job_id=internal_job_id,
-        artifacts_dir=str(job_dir),
-        timestamp=datetime.utcnow().isoformat() + "Z",
-        results=results,
-        total_processing_time=total_time,
-    )
-
+    # Wrap the entire job body in try/finally so cfg.GPT_PASS_*_MODEL is always
+    # restored — critical because cfg is module-global and the persistent server
+    # processes many jobs back-to-back. Without this, an exception mid-job would
+    # leave the next job inheriting this job's overrides.
     try:
-        photo_intel_path = write_photo_intel(
-            cfg=cfg,
-            job=job,
+        # ─────────────────────────────────────────────────────────────────────
+        # Per-image analysis loop
+        # ─────────────────────────────────────────────────────────────────────
+        results: List[ImageResult] = []
+        total_images = len(image_paths)
+        total_start = time.time()
+
+        async def _analyze_all():
+            sem = asyncio.Semaphore(concurrency)
+            completed = 0
+
+            async def _analyze_one(idx, image_path):
+                nonlocal completed
+                async with sem:
+                    img_start = time.time()
+                    logger.info(f"  [start] Analyzing: {image_path.name}")
+
+                    try:
+                        img_options = options.with_meta(
+                            run_id=internal_job_id,
+                            photo_key=image_path.name,
+                            property_key=property_key,
+                        )
+                        analysis = await orchestrator.analyze_image(
+                            image_path=image_path,
+                            options=img_options,
+                        )
+                        elapsed = time.time() - img_start
+
+                        img_result = ImageResult(
+                            image_path=str(image_path),
+                            scene_data=analysis.to_dict(),
+                            scene=analysis.scene or "unknown",
+                            processing_time=elapsed,
+                        )
+                        # Aggregate tok/s accounting for concurrency:
+                        # (avg tokens per image / this image's wall time) × concurrency.
+                        # Uses the avg instead of a per-image delta so concurrent completions
+                        # don't pollute one image's bucket.
+                        tok_total = int(getattr(vlm_client, "usage_stats", {}).get("total_tokens", 0) or 0)
+                        done_so_far = completed + 1  # this image counts; `completed` is incremented below
+                        if tok_total > 0 and elapsed > 0 and done_so_far > 0:
+                            per_image_rate = (tok_total / done_so_far) / elapsed
+                            tps = per_image_rate * concurrency
+                            tps_suffix = f", {tps:,.0f} tok/s"
+                        else:
+                            tps_suffix = ""
+                        logger.info(f"    ✅ {image_path.name} → {analysis.scene} ({elapsed:.1f}s{tps_suffix})")
+
+                    except Exception as exc:
+                        elapsed = time.time() - img_start
+                        logger.error(f"    ❌ {image_path.name} failed: {exc}", exc_info=True)
+                        img_result = ImageResult(
+                            image_path=str(image_path),
+                            scene="unknown",
+                            processing_time=elapsed,
+                            error=str(exc),
+                        )
+
+                    completed += 1
+                    _emit({
+                        "type": "progress",
+                        "jobId": ts_job_id,
+                        "itemsDone": completed,
+                        "itemsTotal": total_images,
+                        "progress": round((completed / total_images) * 100),
+                    })
+                    return img_result
+
+            tasks = [_analyze_one(i, img) for i, img in enumerate(image_paths)]
+            results.extend(await asyncio.gather(*tasks))
+
+        asyncio.run(_analyze_all())
+
+        total_time = time.time() - total_start
+
+        # ─────────────────────────────────────────────────────────────────────
+        # Build job and write artifacts
+        # ─────────────────────────────────────────────────────────────────────
+        job = PropertyAnalysisJob(
+            property_key=property_key,
+            job_id=internal_job_id,
+            artifacts_dir=str(job_dir),
+            timestamp=datetime.utcnow().isoformat() + "Z",
+            results=results,
+            total_processing_time=total_time,
+        )
+
+        try:
+            photo_intel_path = write_photo_intel(
+                cfg=cfg,
+                job=job,
+                detection_backend=detection_backend,
+                analysis_profile=analysis_profile,
+                use_pass_architecture=True,
+                pass_toggles={},
+                model_overrides={},
+                gpt_config=gpt5_config,
+                issue_catalog=catalog,
+                vlm_client=vlm_client,
+            )
+        except Exception as exc:
+            logger.error(f"Failed to write photo_intel: {exc}", exc_info=True)
+            photo_intel_path = None
+
+        # Compute and log timing statistics
+        timing_stats = _compute_timing_stats(
+            results, total_time, usage_stats=getattr(vlm_client, "usage_stats", None)
+        )
+        _log_timing_stats(timing_stats, property_key)
+
+        # Build summary (same format as analyzer_cli)
+        summary = _build_summary(
+            job,
+            photo_intel_path=photo_intel_path,
             detection_backend=detection_backend,
             analysis_profile=analysis_profile,
-            use_pass_architecture=True,
-            pass_toggles={},
-            model_overrides={},
-            gpt_config=gpt5_config,
-            issue_catalog=catalog,
-            vlm_client=vlm_client,
+            used_pass_architecture=True,
+            timing_stats=timing_stats,
         )
-    except Exception as exc:
-        logger.error(f"Failed to write photo_intel: {exc}", exc_info=True)
-        photo_intel_path = None
 
-    # Compute and log timing statistics
-    timing_stats = _compute_timing_stats(
-        results, total_time, usage_stats=getattr(vlm_client, "usage_stats", None)
-    )
-    _log_timing_stats(timing_stats, property_key)
+        logger.info(f"[Job {ts_job_id}] Complete: {property_key} ({total_time:.1f}s)")
 
-    # Build summary (same format as analyzer_cli)
-    summary = _build_summary(
-        job,
-        photo_intel_path=photo_intel_path,
-        detection_backend=detection_backend,
-        analysis_profile=analysis_profile,
-        used_pass_architecture=True,
-        timing_stats=timing_stats,
-    )
-
-    logger.info(f"[Job {ts_job_id}] Complete: {property_key} ({total_time:.1f}s)")
-
-    # Emit result and job_done marker
-    _emit({"type": "result", "jobId": ts_job_id, **summary})
-    _emit({"type": "job_done", "jobId": ts_job_id})
+        # Emit result and job_done marker
+        _emit({"type": "result", "jobId": ts_job_id, **summary})
+        _emit({"type": "job_done", "jobId": ts_job_id})
+    finally:
+        # Restore cfg.GPT_PASS_*_MODEL to its pre-job state. Always runs, even
+        # on exceptions — guarantees subsequent jobs in the persistent worker
+        # see clean defaults (or whatever cfg had before this job started).
+        if cfg_snapshot:
+            for attr, original in cfg_snapshot.items():
+                if original is _SENTINEL:
+                    # Attribute didn't exist before; remove it.
+                    if hasattr(cfg, attr):
+                        delattr(cfg, attr)
+                else:
+                    setattr(cfg, attr, original)
+            logger.info(
+                f"[Job {ts_job_id}] modelOverrides restored "
+                f"({len(cfg_snapshot)} cfg attr{'s' if len(cfg_snapshot) != 1 else ''})"
+            )
 
 
 if __name__ == "__main__":

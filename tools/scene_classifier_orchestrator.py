@@ -24,7 +24,7 @@ import hashlib
 import logging
 import os
 from collections import defaultdict
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 import json
 from typing import Any, Callable, Dict, List, Optional
@@ -53,9 +53,12 @@ from tools.scene_classifier_passes import (
     Pass2aResult,
     Pass2bResult,
     Pass2cResult,
+    Pass2cShadowDecision,
     Pass2dResult,
     Pass2eResult,
     evaluate_kind_routing,
+    evaluate_pass_2c_shadow_candidate,
+    has_physical_condition_signal,
     prioritize_resolution_candidates,
     run_pass_1a_scene_type,
     run_pass_1b_feature_notes,
@@ -148,6 +151,12 @@ class ImageAnalysisResult:
     total_pass_time: float = 0.0
     processing_time: float = 0.0
 
+    # Per-pass routing record. One entry per LLM pass that ran, in execution order.
+    # Each entry has shape:
+    #   {"pass": "2a", "model_family": "gpt5", "model": "gpt-5.4-mini", "source": "env_override"}
+    # Used to verify per-pass model selection without trusting the global meta.models block.
+    model_routing: List[Dict[str, Any]] = field(default_factory=list)
+
     # Debug info for troubleshooting (serialized to JSON artifact)
     debug: Dict[str, Any] = field(default_factory=dict)
 
@@ -185,6 +194,7 @@ class ImageAnalysisResult:
             "pass_timings": self.pass_timings,
             "total_pass_time": self.total_pass_time,
             "processing_time": self.processing_time,
+            "model_routing": self.model_routing,
             "debug": self.debug,
         }
 
@@ -352,6 +362,69 @@ class SceneClassifierOrchestrator:
         """Get the model name for logging."""
         return pick_model_for_pass(pass_key, options.premium, options.model_overrides)
 
+    def _record_model_routing(
+        self,
+        pass_key: PassKey,
+        options: SceneClassifierRunOptions,
+        model_config: Dict[str, Any],
+        result: "ImageAnalysisResult",
+    ) -> None:
+        """
+        Record a per-pass model routing entry on the result.
+
+        Each entry captures the *resolved* model family + name + source label so
+        downstream consumers can verify routing without trusting the global
+        `meta.models` block (which only carries one GPT model name).
+
+        ``source`` is the dominant reason this pass ended up with this exact
+        model, in priority order:
+          - "explicit_override": ``options.model_overrides`` set the family
+            (typically via ``--model-{pass}`` CLI flag or PassModelOverrides).
+          - "env_override": GPT family + ``OPENAI_PASS_{KEY}_MODEL`` env var
+            (the per-pass attr overrode the base GPT_MODEL).
+          - "premium_default": premium profile mapping put this pass on its
+            family.
+          - "standard_default": standard profile mapping (the default path).
+
+        Idempotent per pass key: if the record already exists for this pass, we
+        leave the original in place. (Routing is constant for a given run, so
+        repeated calls per image would otherwise duplicate entries.)
+        """
+        # Skip if already recorded for this pass.
+        for existing in result.model_routing:
+            if existing.get("pass") == str(pass_key):
+                return
+
+        model_family = pick_model_for_pass(
+            pass_key, options.premium, options.model_overrides
+        )
+
+        # Provider detection mirrors _get_model_config.
+        provider = model_config.get("provider")
+        if provider is None and model_config.get("api_key"):
+            provider = "openai"
+
+        # Source resolution.
+        source: str
+        override_set = bool(options.model_overrides and options.model_overrides[pass_key])
+        if override_set:
+            source = "explicit_override"
+        elif provider == "openai" and os.environ.get(
+            f"OPENAI_PASS_{str(pass_key).upper()}_MODEL"
+        ):
+            source = "env_override"
+        elif options.premium:
+            source = "premium_default"
+        else:
+            source = "standard_default"
+
+        result.model_routing.append({
+            "pass": str(pass_key),
+            "model_family": str(model_family),
+            "model": str(model_config.get("model") or ""),
+            "source": source,
+        })
+
     async def analyze_image(
         self,
         image_path: Path,
@@ -386,6 +459,7 @@ class SceneClassifierOrchestrator:
         if self._t(toggles, '1a'):
             model_config = self._get_model_config('1a', options)
             model_name = self._get_model_name('1a', options)
+            self._record_model_routing('1a', options, model_config, result)
 
             logger.debug(f"Running Pass 1a with {model_name}")
             t0 = time.time()
@@ -444,6 +518,7 @@ class SceneClassifierOrchestrator:
         if self._t(toggles, '2a'):
             model_config = self._get_model_config('2a', options)
             model_name = self._get_model_name('2a', options)
+            self._record_model_routing('2a', options, model_config, result)
 
             logger.debug(f"Running Pass 2a with {model_name}")
             t0 = time.time()
@@ -466,6 +541,7 @@ class SceneClassifierOrchestrator:
         if self._t(toggles, '2b'):
             model_config = self._get_model_config('2b', options)
             model_name = self._get_model_name('2b', options)
+            self._record_model_routing('2b', options, model_config, result)
 
             logger.debug(f"Running Pass 2b with {model_name}")
             t0 = time.time()
@@ -489,6 +565,7 @@ class SceneClassifierOrchestrator:
         if self._t(toggles, '2c'):
             model_config = self._get_model_config('2c', options)
             model_name = self._get_model_name('2c', options)
+            self._record_model_routing('2c', options, model_config, result)
 
             observations_in = []
             if isinstance(result.observations_struct, dict):
@@ -567,6 +644,162 @@ class SceneClassifierOrchestrator:
         _scene_for_2d = result.scene or "unknown"
         _scene_group_for_2d = _SCENE_TO_GROUP.get(_scene_for_2d, "other")
 
+        # ─────────────────────────────────────────────────────────────────────
+        # Pass 2c shadow lane (between Pass 2c and Pass 2d)
+        # -----------------------------------------------------------------
+        # Re-checks observations Pass 2c labeled as `generic_presence` (and any
+        # other label in cfg.SHADOW_LANE_LABELS) that nonetheless carry physical-
+        # condition language. Retrieves matcher candidates with widened kinds
+        # and decides whether a specific non-generic catalog item clearly beats
+        # broad style/dated alternatives. Always logs an audit row to
+        # result.debug["shadow_lane"]; only mutates labeled_forward when
+        # cfg.SHADOW_LANE_PROMOTE is on (default OFF — log-only first deploy).
+        # ─────────────────────────────────────────────────────────────────────
+        _shadow_lane_enabled = (
+            cfg is not None
+            and getattr(cfg, "SHADOW_LANE_ENABLED", False)
+            and self.candidate_provider is not None
+            and result.pass_2c is not None
+        )
+        if _shadow_lane_enabled:
+            _shadow_promote = bool(getattr(cfg, "SHADOW_LANE_PROMOTE", False))
+            _shadow_labels = set(getattr(cfg, "SHADOW_LANE_LABELS", ["generic_presence"]) or [])
+            _shadow_min_score = float(getattr(cfg, "SHADOW_LANE_MIN_SCORE", 0.72))
+            _shadow_min_margin = float(getattr(cfg, "SHADOW_LANE_MIN_MARGIN", 0.03))
+            _shadow_min_specific_over_generic = float(
+                getattr(cfg, "SHADOW_LANE_MIN_SPECIFIC_OVER_GENERIC", 0.02)
+            )
+
+            _shadow_inputs: List[Dict[str, Any]] = [
+                obs for obs in (result.labeled_debug or [])
+                if isinstance(obs, dict)
+                and (obs.get("label") or "").strip().lower() in _shadow_labels
+                and has_physical_condition_signal(obs.get("description") or "")
+            ]
+            _shadow_rows: List[Dict[str, Any]] = []
+            _shadow_promoted_extras: List[Dict[str, Any]] = []
+
+            _shadow_base_ctx = {
+                **context,
+                "top_k_candidates": self.top_k_candidates,
+                "scene": result.scene,
+                "scene_group": _scene_group_for_2d,
+            }
+
+            for _shadow_obs in _shadow_inputs:
+                _shadow_desc = (_shadow_obs.get("description") or "").strip()
+                if not _shadow_desc:
+                    continue
+                _shadow_label = (_shadow_obs.get("label") or "").strip().lower()
+                _shadow_ctx = {
+                    **_shadow_base_ctx,
+                    "kind": "defect",                         # nominal; widened below
+                    "allowed_kinds": ["defect", "upgrade"],
+                }
+
+                # Retrieve candidates via the same provider Pass 2d uses.
+                try:
+                    _shadow_candidates = self.candidate_provider(_shadow_desc, _shadow_ctx)
+                except TypeError:
+                    try:
+                        _shadow_candidates = self.candidate_provider(_shadow_desc)
+                    except Exception as _shadow_e:
+                        logger.debug(
+                            "Shadow lane: candidate_provider failed for %r (%s)",
+                            _shadow_desc[:60], _shadow_e,
+                        )
+                        _shadow_candidates = []
+                except Exception as _shadow_e:
+                    logger.debug(
+                        "Shadow lane: candidate_provider raised for %r (%s)",
+                        _shadow_desc[:60], _shadow_e,
+                    )
+                    _shadow_candidates = []
+                if hasattr(_shadow_candidates, "__await__"):
+                    # Provider returned a coroutine — same defensive check Pass 2d does.
+                    _shadow_candidates = []
+                if not isinstance(_shadow_candidates, list):
+                    _shadow_candidates = []
+                _shadow_candidates = prioritize_resolution_candidates(
+                    _shadow_candidates, widened_routing=True,
+                )
+                _shadow_candidates = _shadow_candidates[: self.top_k_candidates]
+
+                _decision: Pass2cShadowDecision = evaluate_pass_2c_shadow_candidate(
+                    _shadow_desc,
+                    _shadow_candidates,
+                    min_score=_shadow_min_score,
+                    min_margin=_shadow_min_margin,
+                    min_specific_over_generic=_shadow_min_specific_over_generic,
+                    label=_shadow_label,
+                )
+                _shadow_rows.append(asdict(_decision))
+
+                if _decision.promoted and _shadow_promote:
+                    _promoted = dict(_shadow_obs)  # copy so labeled_debug is untouched
+                    _promoted["label"] = (
+                        "defect_or_damage"
+                        if _decision.top_specific_kind == "defect"
+                        else "upgrade_candidate"
+                    )
+                    _promoted["kind"] = _decision.top_specific_kind
+                    _promoted["source"] = "shadow_lane"
+                    _promoted["shadow_top_specific_id"] = _decision.top_specific_id
+                    _promoted["shadow_top_specific_score"] = _decision.top_specific_score
+                    _shadow_promoted_extras.append(_promoted)
+
+            # Stamp issue_id / source_photo_key on promoted shadows using the
+            # same scheme as the Pass 2c block above. _run_id, _photo_key, and
+            # _sig_counts were defined inside the `if self._t(toggles, '2c'):`
+            # block; they're function-scoped so they're visible here.
+            for _obs in _shadow_promoted_extras:
+                _desc = (_obs.get("description") or "").strip()
+                _label = (_obs.get("label") or "").strip()
+                _loc = (_obs.get("location_hint") or "").strip()
+                _sig = (_desc, _loc, _label)
+                _ordinal = _sig_counts.get(_sig, 0)
+                _sig_counts[_sig] = _ordinal + 1
+                if not _obs.get("issue_id"):
+                    _obs["issue_id"] = _make_issue_id(
+                        _run_id, _photo_key, _desc, _loc, _label, _ordinal,
+                    )
+                _obs.setdefault("source_photo_key", _photo_key)
+
+            if _shadow_promoted_extras:
+                result.labeled_forward = list(result.labeled_forward or []) + _shadow_promoted_extras
+                context["labeled_forward"] = result.labeled_forward
+
+            _shadow_promoted_count = sum(1 for r in _shadow_rows if r.get("promoted"))
+            result.debug["shadow_lane"] = {
+                "enabled": True,
+                "promote": _shadow_promote,
+                "labels_scoped": sorted(_shadow_labels),
+                "min_score": _shadow_min_score,
+                "min_margin": _shadow_min_margin,
+                "min_specific_over_generic": _shadow_min_specific_over_generic,
+                "evaluated_count": len(_shadow_rows),
+                "promoted_count": _shadow_promoted_count,
+                "applied_count": len(_shadow_promoted_extras),
+                "per_observation": _shadow_rows,
+            }
+            logger.info(
+                "Shadow lane: evaluated=%d promoted=%d applied=%d (promote=%s, labels=%s)",
+                len(_shadow_rows),
+                _shadow_promoted_count,
+                len(_shadow_promoted_extras),
+                _shadow_promote,
+                ",".join(sorted(_shadow_labels)),
+            )
+        else:
+            result.debug["shadow_lane"] = {
+                "enabled": False,
+                "reason": (
+                    "no_pass_2c" if (result.pass_2c is None) else
+                    "no_provider" if (self.candidate_provider is None) else
+                    "config_disabled"
+                ),
+            }
+
         for _obs in (result.labeled_forward or []):
             if not isinstance(_obs, dict):
                 continue
@@ -609,6 +842,7 @@ class SceneClassifierOrchestrator:
         if pass_2d_toggle and pass_2d_provider_present and to_resolve_all:
             model_config = self._get_model_config('2d', options)
             model_name = self._get_model_name('2d', options)
+            self._record_model_routing('2d', options, model_config, result)
 
             logger.debug(f"Running Pass 2d with {model_name} for {len(to_resolve_all)} observations")
             t0 = time.time()

@@ -217,7 +217,8 @@ Return ONLY JSON:
 KNOWN_META_KEYS = {
     "run_id", "job_id", "property_key", "timestamp", "created_at", "artifacts_dir",
     "detection_backend", "analysis_profile", "used_pass_architecture", "pass_toggles",
-    "model_overrides", "model", "gpt_model", "prompt_version", "scene_policy_version",
+    "model_overrides", "model", "gpt_model", "default_local_model", "default_gpt_model",
+    "prompt_version", "scene_policy_version",
 }
 PROPERTY_SECTION_KEYS = {"property_pass4", "property_pass4a", "property_pass4b", "property_summary", "renovation_needs"}
 

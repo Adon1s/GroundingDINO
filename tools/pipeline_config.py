@@ -89,9 +89,11 @@ OPENAI_MODEL = GPT_MODEL
 
 # Optional: separate model for specific passes
 GPT_PASS_1B_MODEL = _env_any("OPENAI_PASS_1B_MODEL", "OPENAI_PASS1B_MODEL") or GPT_MODEL  # Pass 1b
+GPT_PASS_1C_MODEL = _env_any("OPENAI_PASS_1C_MODEL", "OPENAI_PASS1C_MODEL") or GPT_MODEL  # Pass 1c
 GPT_PASS_2A_MODEL = _env_any("OPENAI_PASS_2A_MODEL", "OPENAI_PASS2A_MODEL") or GPT_MODEL  # Pass 2a
 GPT_PASS_2B_MODEL = _env_any("OPENAI_PASS_2B_MODEL", "OPENAI_PASS2B_MODEL") or GPT_MODEL  # Pass 2b (if ever routed)
 GPT_PASS_2C_MODEL = _env_any("OPENAI_PASS_2C_MODEL", "OPENAI_PASS2C_MODEL") or GPT_MODEL  # Pass 2c
+GPT_PASS_2D_MODEL = _env_any("OPENAI_PASS_2D_MODEL", "OPENAI_PASS2D_MODEL") or GPT_MODEL  # Pass 2d
 
 # Optional: explicit Pass 4a/4b/4c models
 GPT_PASS_4A_MODEL = _env_any("OPENAI_PASS_4A_MODEL", "OPENAI_PASS4A_MODEL") or GPT_MODEL
@@ -126,6 +128,35 @@ PASS_2D_ROUTING_NEGATION_PATTERNS = [
     r"\bintact\b",
     r"\bconsistent\s+with\s+(?:the\s+)?age\b",
 ]
+
+# =============================================================================
+# Pass 2c shadow lane
+# -----------------------------------------------------------------------------
+# Pass 2c is a single-label filter: only `defect_or_damage` and
+# `upgrade_candidate` reach the matcher. The failure mode we're guarding against
+# is `generic_presence` (and optionally `other`) swallowing a real issue. The
+# shadow lane re-checks those observations when they carry physical-condition
+# language, retrieves catalog candidates with widened kinds, and (optionally)
+# promotes them when a specific non-generic catalog item clearly beats the
+# broad style/dated alternatives.
+#
+# Shipping posture: ENABLED on, PROMOTE off. The lane runs and writes audit
+# rows to `result.debug["shadow_lane"]` so we can measure how often it would
+# have rescued a real issue. Flip SHADOW_LANE_PROMOTE=1 once the per-observation
+# rows confirm the lane is catching genuine misses without noise.
+# =============================================================================
+SHADOW_LANE_ENABLED = os.environ.get("SHADOW_LANE_ENABLED", "1") not in {"0", "false", "False"}
+SHADOW_LANE_PROMOTE = os.environ.get("SHADOW_LANE_PROMOTE", "0") not in {"0", "false", "False"}
+SHADOW_LANE_LABELS = [
+    s.strip().lower()
+    for s in os.environ.get("SHADOW_LANE_LABELS", "generic_presence").split(",")
+    if s.strip()
+]
+SHADOW_LANE_MIN_SCORE = float(os.environ.get("SHADOW_LANE_MIN_SCORE", "0.72"))
+SHADOW_LANE_MIN_MARGIN = float(os.environ.get("SHADOW_LANE_MIN_MARGIN", "0.03"))
+SHADOW_LANE_MIN_SPECIFIC_OVER_GENERIC = float(
+    os.environ.get("SHADOW_LANE_MIN_SPECIFIC_OVER_GENERIC", "0.02")
+)
 
 # =============================================================================
 # PASS TOGGLE SETTINGS

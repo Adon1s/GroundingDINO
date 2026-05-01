@@ -314,6 +314,47 @@ class Pass2cResult:
     raw_response: Optional[str] = None
 
 
+@dataclass
+class Pass2cShadowDecision:
+    """Per-observation audit row for the Pass 2c shadow lane.
+
+    The shadow lane re-checks observations Pass 2c labeled as `generic_presence`
+    (or any label in `SHADOW_LANE_LABELS`) that nonetheless carry physical-
+    condition language. It runs them through the matcher with widened kinds
+    and decides whether a specific non-generic catalog item clearly beats the
+    broad style/dated alternatives. Every shadow input gets one of these rows
+    so we can measure recall regardless of whether promotion fired.
+    """
+    description: str
+    label: str
+    matched_components: Tuple[str, ...] = ()
+    matched_conditions: Tuple[str, ...] = ()
+    blocked_by_negation: bool = False
+    evaluated: bool = False                       # True iff candidates were retrieved
+    candidate_count: int = 0
+    top_specific_id: Optional[str] = None
+    top_specific_score: Optional[float] = None
+    top_specific_kind: Optional[str] = None       # "defect" | "upgrade" | None
+    top_generic_id: Optional[str] = None
+    top_generic_score: Optional[float] = None
+    second_specific_score: Optional[float] = None
+    promoted: bool = False
+    decision_reason: str = ""                     # see EVALUATOR REASONS below
+
+
+# Decision-reason vocabulary for Pass2cShadowDecision.decision_reason.
+# Stable string set — downstream tooling and dashboards depend on these labels.
+SHADOW_DECISION_REASONS: Tuple[str, ...] = (
+    "promoted",
+    "no_signal",                                  # filtered upstream; shouldn't appear in evaluator output
+    "no_candidates",
+    "top_is_generic",
+    "below_min_score",
+    "below_min_margin",
+    "specific_not_strong_enough_vs_generic",
+)
+
+
 @dataclass(frozen=True)
 class KindRoutingDecision:
     """Routing decision for catalog retrieval after Pass 2c labeling."""
@@ -409,6 +450,125 @@ def prioritize_resolution_candidates(
     if not widened_routing:
         return ordered
     return sorted(ordered, key=is_generic_resolution_candidate)
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Pass 2c shadow lane helpers
+# ═══════════════════════════════════════════════════════════════════════════════
+
+
+def has_physical_condition_signal(description: str) -> bool:
+    """True if `description` carries an unambiguous component+condition pair.
+
+    Used to decide whether a Pass 2c `generic_presence` (or `other`) observation
+    deserves a second look from the matcher. We require both a component term
+    (e.g. "roof", "tile") AND a condition term (e.g. "cracked", "stained"), and
+    we reject negated/softened phrases like "no visible damage" or "intact".
+    """
+    components, conditions, blocked = _analyze_visible_condition_signal(description)
+    return bool(components and conditions and not blocked)
+
+
+def evaluate_pass_2c_shadow_candidate(
+    description: str,
+    candidates: List[Dict[str, Any]],
+    *,
+    min_score: float,
+    min_margin: float,
+    min_specific_over_generic: float,
+    label: str = "",
+) -> Pass2cShadowDecision:
+    """Decide whether a shadow-lane observation qualifies for promotion.
+
+    Promotion requires ALL of:
+      - top non-generic candidate score >= `min_score`
+      - top non-generic >= second non-generic by `min_margin`
+      - top non-generic >= top generic candidate by `min_specific_over_generic`
+        (so a specific defect must clearly beat any broad style/dated upgrade)
+
+    `candidates` is the list returned by the same `candidate_provider` that
+    Pass 2d uses, optionally already passed through `prioritize_resolution_candidates`.
+    A non-generic candidate is one for which `is_generic_resolution_candidate`
+    returns False (i.e. neither `drop_if_generic` nor `defaultHidden`).
+
+    The returned `Pass2cShadowDecision` always populates `description` and
+    `label`; remaining fields are populated based on what the candidate list
+    contained. `decision_reason` is one of `SHADOW_DECISION_REASONS`.
+    """
+    components, conditions, blocked = _analyze_visible_condition_signal(description)
+    decision = Pass2cShadowDecision(
+        description=description,
+        label=label,
+        matched_components=tuple(components),
+        matched_conditions=tuple(conditions),
+        blocked_by_negation=blocked,
+    )
+
+    if not candidates:
+        decision.decision_reason = "no_candidates"
+        return decision
+
+    decision.evaluated = True
+    decision.candidate_count = len(candidates)
+
+    # Partition by generic flag, preserving original (score-sorted) order.
+    specific_candidates = [c for c in candidates if not is_generic_resolution_candidate(c)]
+    generic_candidates = [c for c in candidates if is_generic_resolution_candidate(c)]
+
+    if generic_candidates:
+        top_generic = generic_candidates[0]
+        decision.top_generic_id = _candidate_item_id(top_generic) or None
+        decision.top_generic_score = float(top_generic.get("score") or 0.0)
+
+    if not specific_candidates:
+        decision.decision_reason = "top_is_generic"
+        return decision
+
+    top_specific = specific_candidates[0]
+    top_specific_score = float(top_specific.get("score") or 0.0)
+    decision.top_specific_id = _candidate_item_id(top_specific) or None
+    decision.top_specific_score = top_specific_score
+    decision.top_specific_kind = (
+        (top_specific.get("kind") or "").strip().lower() or None
+    )
+    if len(specific_candidates) > 1:
+        decision.second_specific_score = float(specific_candidates[1].get("score") or 0.0)
+
+    # The top OVERALL candidate is generic and the specific runner-up trails it:
+    # this is the broad-style-beats-specific case the user explicitly called out.
+    overall_top = candidates[0]
+    if is_generic_resolution_candidate(overall_top):
+        overall_top_score = float(overall_top.get("score") or 0.0)
+        if (top_specific_score - overall_top_score) < min_specific_over_generic:
+            decision.decision_reason = "specific_not_strong_enough_vs_generic"
+            return decision
+
+    if top_specific_score < min_score:
+        decision.decision_reason = "below_min_score"
+        return decision
+
+    second_specific_score = decision.second_specific_score or 0.0
+    if (top_specific_score - second_specific_score) < min_margin:
+        decision.decision_reason = "below_min_margin"
+        return decision
+
+    # Final guard: specific must beat the best generic by min_specific_over_generic
+    # even when the overall top wasn't generic (covers the case where prioritization
+    # already pushed generics down).
+    top_generic_score = decision.top_generic_score or 0.0
+    if (top_specific_score - top_generic_score) < min_specific_over_generic:
+        decision.decision_reason = "specific_not_strong_enough_vs_generic"
+        return decision
+
+    if decision.top_specific_kind not in {"defect", "upgrade"}:
+        # Defensive: the matcher should always tag candidates with a kind. If it
+        # doesn't, we can't safely route the promoted observation through Pass 2d.
+        decision.decision_reason = "specific_not_strong_enough_vs_generic"
+        return decision
+
+    decision.promoted = True
+    decision.decision_reason = "promoted"
+    return decision
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

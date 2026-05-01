@@ -11,6 +11,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+import os
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -157,6 +158,11 @@ def write_photo_intel(
     issues_flat: List[Dict[str, Any]] = []  # Flat index of all issues (property-level)
     estimate_issues_flat: List[Dict[str, Any]] = []  # Canonical issues for renovation estimate units
     unmapped_issues: List[Dict[str, Any]] = []  # Issues with no catalog match (debug)
+    # Per-pass model routing aggregated across all images. Routing is constant
+    # across images for a given run, so we dedupe by pass key (first wins).
+    # Each entry: {"pass": "2a", "model_family": "gpt5", "model": "gpt-5.4-mini", "source": "env_override"}
+    aggregated_model_routing: List[Dict[str, Any]] = []
+    seen_routing_passes: set = set()
 
     for photo_index, res in enumerate(job.results, start=1):
         image_key = Path(res.image_path).name
@@ -262,9 +268,23 @@ def write_photo_intel(
         _2c_forward = safe_list(pass_2c.get("labeled_forward") or payload.get("labeled_forward"))
         _2d_resolutions = safe_list(pass_2d.get("resolutions") or payload.get("resolved_items"))
 
+        # Per-pass model routing (populated by orchestrator's _record_model_routing).
+        # Carried into the per-photo trace so each photo carries its own copy, and
+        # aggregated up to a single property-level list below.
+        per_image_routing = payload.get("model_routing", []) or []
+        for entry in per_image_routing:
+            if not isinstance(entry, dict):
+                continue
+            pkey = entry.get("pass")
+            if not pkey or pkey in seen_routing_passes:
+                continue
+            seen_routing_passes.add(pkey)
+            aggregated_model_routing.append(entry)
+
         trace = {
             "passes_run":  payload.get("passes_run", []),
             "models":      payload.get("models_used", {}),
+            "model_routing": per_image_routing,
             "timings_sec": payload.get("pass_timings", {}),
             "2c": {
                 "forwarded_count": len(_2c_forward),
@@ -421,6 +441,13 @@ def write_photo_intel(
             "used_pass_architecture": use_pass_architecture,
             "pass_toggles":        pass_toggles if pass_toggles else None,
             "model_overrides":     model_overrides if model_overrides else None,
+            # Default/base model configuration. With per-pass overrides in play,
+            # individual passes may use different models — see top-level
+            # `model_routing` array for the per-pass ground truth. These two fields
+            # remain as the fallback/default values that non-overridden passes use.
+            "default_local_model": getattr(cfg, "LM_STUDIO_MODEL", ""),
+            "default_gpt_model":   gpt_config.get('model') if gpt_config else None,
+            # Legacy aliases (kept for backward compat with any external readers).
             "model":               getattr(cfg, "LM_STUDIO_MODEL", ""),
             "gpt_model":           gpt_config.get('model') if gpt_config else None,
         },
@@ -434,6 +461,9 @@ def write_photo_intel(
         "issues_flat_count": len(issues_flat),
         "estimate_issues_flat": estimate_issues_flat,
         "estimate_issues_flat_count": len(estimate_issues_flat),
+        # Property-level per-pass routing summary. One entry per LLM pass that ran,
+        # deduped across photos. Pass 2f's entry is appended below if 2f executes.
+        "model_routing": aggregated_model_routing,
     }
 
     # renovation_needs disabled: severity not reliable at this stage
@@ -543,6 +573,30 @@ def write_photo_intel(
                         local_config=local_vlm_config,
                         premium_config=gpt_config,
                     )
+
+                    # Record 2f routing on the property-level model_routing list
+                    # (the orchestrator only records per-image passes; 2f runs once
+                    # per property here, so we add its entry separately).
+                    if pass_2f_model_config and "2f" not in {
+                        e.get("pass") for e in photo_intel.get("model_routing", [])
+                    }:
+                        _2f_provider = pass_2f_model_config.get("provider")
+                        if _2f_provider is None and pass_2f_model_config.get("api_key"):
+                            _2f_provider = "openai"
+                        _2f_family = "gpt5" if _2f_provider == "openai" else "qwen"
+                        _2f_env_set = bool(os.environ.get("OPENAI_PASS_2F_MODEL"))
+                        if _2f_env_set and _2f_provider == "openai":
+                            _2f_source = "env_override"
+                        elif pass_2f_provider == "premium":
+                            _2f_source = "premium_default"
+                        else:
+                            _2f_source = "standard_default"
+                        photo_intel.setdefault("model_routing", []).append({
+                            "pass": "2f",
+                            "model_family": _2f_family,
+                            "model": str(pass_2f_model_config.get("model") or ""),
+                            "source": _2f_source,
+                        })
 
                     pass_2f_start = _time.time()
                     try:
@@ -705,7 +759,7 @@ def write_photo_intel(
     _run = slim.get("run")
     if isinstance(_run, dict):
         for _k in ("pass_toggles", "model_overrides", "used_pass_architecture",
-                    "model", "gpt_model"):
+                    "model", "gpt_model", "default_local_model", "default_gpt_model"):
             _run.pop(_k, None)
 
     # Strip analysis_debug and pass_2f_trace (debug-only, not for UI)
