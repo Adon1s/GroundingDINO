@@ -412,7 +412,10 @@ def _process_job(
                 analysis_profile=analysis_profile,
                 use_pass_architecture=True,
                 pass_toggles={},
-                model_overrides={},
+                # Pass the resolved per-pass model names so run.model_overrides
+                # in photo_intel_debug.json reflects what was actually applied
+                # (e.g. {"2a": "gpt-5.4-mini", ...}). Empty dict if no overrides.
+                model_overrides=filtered_overrides,
                 gpt_config=gpt5_config,
                 issue_catalog=catalog,
                 vlm_client=vlm_client,

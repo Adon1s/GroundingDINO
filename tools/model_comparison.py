@@ -58,7 +58,7 @@ from vlm_client import (
     create_vlm_client,
     get_model_configs_from_pipeline_config,
 )
-from catalog_embeddings import CatalogEmbeddingsRetriever, MatchCandidate
+from catalog_embeddings import CatalogEmbeddingsRetriever, MatchCandidate, build_guardrails_from_catalog
 from scene_classifier_passes import (
     evaluate_kind_routing,
     prioritize_resolution_candidates,
@@ -1601,6 +1601,7 @@ async def async_main(args: argparse.Namespace) -> None:
         device=cfg.EMBEDDINGS_DEVICE,
         trust_remote_code=getattr(cfg, "EMBEDDINGS_TRUST_REMOTE_CODE", False),
         default_topk=cfg.EMBEDDINGS_TOPK,
+        guardrails=build_guardrails_from_catalog(catalog),
     )
 
     # ── Load checkpoint / initialize records ─────────────────────────────

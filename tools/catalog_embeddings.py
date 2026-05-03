@@ -178,7 +178,14 @@ class CatalogEmbeddingsRetriever:
         self._upgrade_kinds = {"upgrade"}
 
     def _catalog_text(self, it: Dict[str, Any]) -> str:
-        # Embed the stable semantics: name + description + aliases + trade bucket
+        # Replace semantics: a non-empty string `embed_text` is the full embedding
+        # source. The catalog auditor treats embed_text as the canonical place to
+        # tune retrieval, so when it's set we use it verbatim (after normalization).
+        raw_embed = it.get("embed_text")
+        if isinstance(raw_embed, str) and raw_embed.strip():
+            return _norm(raw_embed)
+
+        # Fallback: original composition (name + description + aliases + trade + kind).
         name = str(it.get("name") or it.get("id") or it.get("defect_id") or "").strip()
         desc = str(it.get("description") or "").strip()
         aliases = it.get("aliases") or []

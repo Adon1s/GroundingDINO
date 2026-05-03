@@ -826,6 +826,23 @@ def main() -> int:
         total_processing_time=total_time,
     )
 
+    # Build a resolved view of overrides (model names, not just families) for
+    # the artifact's run.model_overrides field. This way the same shape appears
+    # whether the run came through this CLI path or the persistent worker:
+    # {"2a": "gpt-5.4-mini", ...} rather than {"2a": "gpt5", ...}.
+    # The model_routing array remains the canonical per-pass record.
+    resolved_model_overrides: Dict[str, str] = {}
+    for _pass_key, _family in (model_overrides or {}).items():
+        if _family == "gpt5":
+            _attr = f"GPT_PASS_{str(_pass_key).upper()}_MODEL"
+            _name = getattr(cfg, _attr, None) or getattr(cfg, "GPT_MODEL", "") or ""
+            if _name:
+                resolved_model_overrides[_pass_key] = _name
+        elif _family == "qwen":
+            _name = getattr(cfg, "LM_STUDIO_MODEL", "") or ""
+            if _name:
+                resolved_model_overrides[_pass_key] = _name
+
     try:
         photo_intel_path = write_photo_intel(
             cfg=cfg,
@@ -834,7 +851,7 @@ def main() -> int:
             analysis_profile=analysis_profile,
             use_pass_architecture=True,
             pass_toggles=pass_toggles if pass_toggles else {},
-            model_overrides=model_overrides if model_overrides else {},
+            model_overrides=resolved_model_overrides,
             gpt_config=gpt5_config,
             issue_catalog=catalog,
             vlm_client=vlm_client,

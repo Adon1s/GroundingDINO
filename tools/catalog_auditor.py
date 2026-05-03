@@ -8,10 +8,11 @@ catalog improvements.
 Supports OpenAI GPT and Google Gemini as cloud providers (--cloud-provider).
 
 Usage:
-    python tools/catalog_auditor.py --max-images 20
-    python tools/catalog_auditor.py --cloud-provider gemini --max-images 20
-    python tools/catalog_auditor.py --cloud-provider openai --dry-run --max-images 5
-    python tools/catalog_auditor.py --mode full-scan --max-images 10
+    python tools/catalog_auditor.py --property redfin_126224899
+    python tools/catalog_auditor.py --property redfin_126224899 --cloud-provider gemini
+    python tools/catalog_auditor.py --property redfin_126224899 --dry-run --max-images 5
+    python tools/catalog_auditor.py --property redfin_126224899 --mode full-scan
+    python tools/catalog_auditor.py --property redfin_126224899 --resume-latest
 """
 
 import argparse
@@ -20,6 +21,7 @@ import json
 import logging
 import os
 import random
+import re
 import sys
 import time
 from dataclasses import dataclass, field, asdict
@@ -39,7 +41,7 @@ if str(_PROJECT_ROOT) not in sys.path:
 
 import pipeline_config as cfg
 from vlm_client import VLMClient, create_vlm_client, get_model_configs_from_pipeline_config, get_gemini_config_from_pipeline_config
-from catalog_embeddings import CatalogEmbeddingsRetriever, MatchCandidate
+from catalog_embeddings import CatalogEmbeddingsRetriever, MatchCandidate, build_guardrails_from_catalog
 from scene_classifier_passes import (
     evaluate_kind_routing,
     prioritize_resolution_candidates,
@@ -664,7 +666,72 @@ You are an expert real estate photo analyst and issue catalog quality auditor.
 Your job is to diagnose failures in an automated defect/upgrade detection pipeline.
 
 You will see an image, a list of candidate observations (each with an opaque obs_id), and the catalog items they matched to.
-The observations come from two different detection runs, but you are NOT told which observation came from which run — judge each on its own merits against the image.
+The observations come from two different detection runs, but you are NOT told which observation came from which run — judge each on its own merits.
+
+═══════════════════════════════════════════════════════════════════════
+TWO KINDS OF JUDGMENT — DO NOT CONFUSE THEM
+═══════════════════════════════════════════════════════════════════════
+
+(A) IMAGE-GROUNDED judgments — look at the image:
+    - is_visible_issue: is what THIS observation describes actually visible?
+    - missed_issues: what real issues did NO observation catch?
+
+(B) TEXT-ALIGNED judgments — compare TEXT to TEXT, do NOT re-scan the image:
+    - is_matched_catalog_item_correct: does the matched catalog item's
+      embed_text reasonably cover what THIS observation says?
+    - suggested_embed_text_fix: if the match was wrong for THIS observation,
+      what wording would have helped THIS observation match?
+    - best_existing_catalog_item_id_if_any, needs_new_catalog_entry,
+      suggested_catalog_improvement_type, failure_stage_override="retrieval":
+      all derive from the text-to-text comparison above.
+
+The most common failure mode in past audits: the judge looks at the image,
+notices a different salient issue (a fan, a floor, an island), and then
+judges the catalog match against THAT instead of against the observation
+text. This corrupts the verdict. DO NOT do this.
+
+═══════════════════════════════════════════════════════════════════════
+LOCK-IN RULE
+═══════════════════════════════════════════════════════════════════════
+
+For each observation you will first write `observation_paraphrase` —
+a one-sentence restatement of what THAT observation claims. Once written,
+EVERY other field for that obs_id must be evaluated against that paraphrase.
+Do not pivot mid-verdict to a different image element. The matched catalog
+item does not need to be the best item for the photo overall — only a
+reasonable fit for the observation as paraphrased.
+
+═══════════════════════════════════════════════════════════════════════
+ANTI-PATTERN EXAMPLES (do NOT do this)
+═══════════════════════════════════════════════════════════════════════
+
+Example 1 — drift to a different element:
+  Observation: "The kitchen has light oak wood cabinets described as dated."
+  Matched: outdated_kitchen_finishes
+  WRONG verdict: is_matched_catalog_item_correct=false,
+    notes="the island looks like a basic cabinet block, not heavy clutter"
+  → The judge re-noticed the island. The match was correct for the
+    observation (oak cabinets ARE outdated kitchen finishes).
+  CORRECT verdict: observation_paraphrase="cabinets are dated oak",
+    matched_item_intent="catalog item for outdated kitchen finishes",
+    is_matched_catalog_item_correct=true.
+
+Example 2 — drift to a different axis:
+  Observation: "The kitchen has older brown tile flooring."
+  Matched: outdated_kitchen_finishes
+  WRONG verdict: notes="the small ceiling fixture is visible. The match
+    should be dated_lighting_fixtures"
+  → The judge swapped the floor observation for a lighting one. The match
+    is reasonable for "older flooring" framed as a kitchen finish.
+  CORRECT verdict: observation_paraphrase="older brown tile floor",
+    matched_item_intent="outdated kitchen finishes (broad)",
+    is_matched_catalog_item_correct=true (or specify a tighter
+    floor-specific item in best_existing_catalog_item_id_if_any if one
+    exists in the listed catalog items, but do NOT pivot to lighting).
+
+═══════════════════════════════════════════════════════════════════════
+PIPELINE STAGE DIAGNOSIS
+═══════════════════════════════════════════════════════════════════════
 
 For each observation, diagnose WHICH STEP in the pipeline failed (if any):
 - observation: the run hallucinated or described something not visible
@@ -675,6 +742,11 @@ For each observation, diagnose WHICH STEP in the pipeline failed (if any):
 - false_suppression: the observation was valid and matched, but pipeline rules incorrectly suppressed it
 
 If is_visible_issue is false, failure_stage_override MUST be "observation".
+Use failure_stage_override="retrieval" ONLY when (a) is_visible_issue is true
+AND (b) is_matched_catalog_item_correct is false AND (c) you can name a
+specific best_existing_catalog_item_id_if_any from the listed catalog items.
+A judge preference for a different image element is NOT a retrieval failure.
+
 Be precise. Do not jump to "needs new catalog entry" when the real problem is bad embed_text on an existing item."""
 
 
@@ -755,7 +827,33 @@ def _build_judge_prompt(
 
     lines.append("""
 ## Your Task:
-Evaluate each observation against what you actually see in the image. Reference observations by their obs_id.
+For each observation, fill the schema below. Reference observations by their obs_id.
+Use the image ONLY for is_visible_issue and missed_issues. All catalog-match
+fields are TEXT-to-TEXT comparisons against the observation as you paraphrased
+it — NOT against whatever else you happen to notice in the image.
+
+Per-field rules:
+- observation_paraphrase: Restate THIS observation in your own words (≤20 words).
+  Summarize the OBSERVATION TEXT, not the image. This is your anchor; every
+  later field must be evaluated against it.
+- matched_item_intent: One sentence on what the matched catalog item is meant
+  to capture, based on its embed_text shown above. Null if no match.
+- is_matched_catalog_item_correct: Does matched_item_intent reasonably cover
+  observation_paraphrase? TEXT-to-TEXT only. The matched item does not need
+  to be the best item for the photo overall — only a reasonable fit for THIS
+  observation. Null if no match exists.
+- best_existing_catalog_item_id_if_any: If a better item exists IN THE LISTED
+  CATALOG ITEMS for THIS observation, name it. Null otherwise. Do NOT invent ids.
+- suggested_embed_text_fix: Only fill if the matched item's embed_text failed
+  to retrieve for THIS observation. Suggest text that would have helped THIS
+  observation match. Do NOT suggest keywords for a different image element.
+  Null when not applicable.
+- failure_stage_override="retrieval": Use ONLY when is_visible_issue is true
+  AND is_matched_catalog_item_correct is false AND you named a specific
+  best_existing_catalog_item_id_if_any. Drift cases (you preferred a different
+  image element) MUST NOT be coded as retrieval failures.
+- notes: <100 words. MUST reference observation_paraphrase, not a different
+  image element you noticed.
 
 Return JSON:
 {
@@ -765,13 +863,15 @@ Return JSON:
       "is_visible_issue": true/false,
       "is_observation_reasonable": true/false,
       "is_structured_label_reasonable": true/false,
+      "observation_paraphrase": "1 sentence restating what THIS observation claims",
+      "matched_item_intent": "1 sentence on what the matched catalog item captures, or null",
       "is_matched_catalog_item_correct": true/false/null,
       "best_existing_catalog_item_id_if_any": "item_id" or null,
       "needs_new_catalog_entry": true/false,
       "suggested_catalog_improvement_type": "embed_text"/"keywords"/"new_entry"/"none",
       "suggested_embed_text_fix": "..." or null,
       "failure_stage_override": "observation"/"structuring"/"labeling"/"retrieval"/"catalog_gap"/"false_suppression" or null,
-      "notes": "brief reasoning, <100 words"
+      "notes": "brief reasoning grounded in observation_paraphrase, <100 words"
     }
   ],
   "missed_issues": [
@@ -1157,11 +1257,144 @@ def _synthesize_report(
 
 def _slugify(text: str) -> str:
     """Convert text to a slug suitable for a catalog ID."""
-    import re
     text = text.lower().strip()
     text = re.sub(r'[^a-z0-9\s_]', '', text)
     text = re.sub(r'\s+', '_', text)
     return text[:50]
+
+
+# ---------------------------------------------------------------------------
+# Output naming
+# ---------------------------------------------------------------------------
+
+_AUDIT_OUTPUT_PREFIX = "catalog_audit"
+_CHECKPOINT_SUFFIX = ".checkpoint.json"
+
+
+def _sanitize_filename_token(value: str) -> str:
+    """Return a filesystem-safe token derived from a property id."""
+    token = re.sub(r"[^A-Za-z0-9._-]+", "_", str(value or "").strip())
+    token = re.sub(r"_+", "_", token).strip("._-")
+    if not token:
+        raise ValueError("Cannot derive output filename because property_id is empty.")
+    return token
+
+
+def _derive_single_property_id(images: List[Dict[str, Any]]) -> str:
+    """Return the one property_id represented by discovered images."""
+    property_ids = sorted({
+        str(img.get("property_id", "")).strip()
+        for img in images
+        if str(img.get("property_id", "")).strip()
+    })
+
+    if not property_ids:
+        raise ValueError("Cannot derive output filename because no discovered image has property_id.")
+    if len(property_ids) > 1:
+        shown = ", ".join(property_ids[:10])
+        extra = "" if len(property_ids) <= 10 else f", ... ({len(property_ids)} total)"
+        raise ValueError(
+            "Catalog auditor auto-naming requires exactly one property per run. "
+            f"Found: {shown}{extra}. Re-run with --property <property_id>."
+        )
+    return property_ids[0]
+
+
+def _audit_version_from_name(filename: str, property_id: str) -> Optional[int]:
+    safe_property_id = _sanitize_filename_token(property_id)
+    pattern = rf"^{re.escape(_AUDIT_OUTPUT_PREFIX)}_{re.escape(safe_property_id)}_v(?P<version>\d+)(?:_|\.|$)"
+    match = re.match(pattern, filename)
+    if not match:
+        return None
+    try:
+        return int(match.group("version"))
+    except ValueError:
+        return None
+
+
+def _next_audit_output_path(output_dir: Path, property_id: str) -> Tuple[Path, int]:
+    """Create the next versioned output path for a property's audit report."""
+    output_dir = Path(output_dir)
+    safe_property_id = _sanitize_filename_token(property_id)
+    highest_version = 0
+
+    for candidate in output_dir.glob(f"{_AUDIT_OUTPUT_PREFIX}_{safe_property_id}_v*.json"):
+        version = _audit_version_from_name(candidate.name, property_id)
+        if version is not None:
+            highest_version = max(highest_version, version)
+
+    next_version = highest_version + 1
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    filename = f"{_AUDIT_OUTPUT_PREFIX}_{safe_property_id}_v{next_version:03d}_{ts}.json"
+    return output_dir / filename, next_version
+
+
+def _latest_checkpoint_output_path(output_dir: Path, property_id: str) -> Optional[Path]:
+    """Return the report path whose checkpoint is newest for this property."""
+    output_dir = Path(output_dir)
+    safe_property_id = _sanitize_filename_token(property_id)
+    checkpoints = []
+
+    for checkpoint in output_dir.glob(f"{_AUDIT_OUTPUT_PREFIX}_{safe_property_id}_v*{_CHECKPOINT_SUFFIX}"):
+        version = _audit_version_from_name(checkpoint.name, property_id)
+        if version is None:
+            continue
+        try:
+            mtime = checkpoint.stat().st_mtime
+        except OSError:
+            continue
+        checkpoints.append((mtime, version, checkpoint))
+
+    if not checkpoints:
+        return None
+
+    _, _, latest_checkpoint = max(checkpoints, key=lambda item: (item[0], item[1]))
+    report_name = latest_checkpoint.name[:-len(_CHECKPOINT_SUFFIX)] + ".json"
+    return latest_checkpoint.with_name(report_name)
+
+
+def _looks_like_output_file_path(value: str) -> bool:
+    return Path(value).suffix.lower() in {".json", ".jsonl", ".txt", ".csv"}
+
+
+def _resolve_output_dir(args: argparse.Namespace) -> Path:
+    output_alias = getattr(args, "output", None)
+    output_dir = getattr(args, "output_dir", ".") or "."
+    output_dir_is_default = str(output_dir) in ("", ".")
+
+    if output_alias and not output_dir_is_default:
+        raise ValueError("Use either --output-dir or the deprecated --output directory alias, not both.")
+
+    chosen = output_alias or output_dir
+    label = "--output" if output_alias else "--output-dir"
+    if _looks_like_output_file_path(chosen):
+        raise ValueError(
+            f"{label} now expects an output directory, not a report filename: {chosen}. "
+            "The catalog auditor derives report filenames from property_id automatically."
+        )
+
+    path = Path(chosen).expanduser()
+    if path.exists() and not path.is_dir():
+        raise ValueError(f"{label} must point to a directory, but this path is a file: {path}")
+    return path
+
+
+def _resolve_output_path(args: argparse.Namespace, images: List[Dict[str, Any]]) -> Tuple[Path, int]:
+    """Resolve the truthful report path after image discovery."""
+    property_id = _derive_single_property_id(images)
+    output_dir = _resolve_output_dir(args)
+
+    if getattr(args, "resume_latest", False):
+        output_path = _latest_checkpoint_output_path(output_dir, property_id)
+        if output_path is None:
+            raise ValueError(
+                f"--resume-latest was set, but no checkpoint was found for property "
+                f"{property_id!r} in {output_dir}."
+            )
+        version = _audit_version_from_name(output_path.name, property_id) or 0
+        return output_path, version
+
+    return _next_audit_output_path(output_dir, property_id)
 
 
 # ---------------------------------------------------------------------------
@@ -1381,6 +1614,7 @@ async def async_main(args: argparse.Namespace):
         device=cfg.EMBEDDINGS_DEVICE,
         trust_remote_code=getattr(cfg, "EMBEDDINGS_TRUST_REMOTE_CODE", False),
         default_topk=cfg.EMBEDDINGS_TOPK,
+        guardrails=build_guardrails_from_catalog(catalog),
     )
 
     models_info = {
@@ -1404,8 +1638,20 @@ async def async_main(args: argparse.Namespace):
         logger.error("No images found. Check --artifacts-dir and --images-base paths.")
         return
 
+    try:
+        run_property_id = _derive_single_property_id(images)
+        output_path, output_version = _resolve_output_path(args, images)
+    except ValueError as e:
+        logger.error(str(e))
+        raise SystemExit(2) from e
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Output report path: {output_path}")
+    logger.info(f"Checkpoint path: {_checkpoint_path(output_path)}")
+    if args.resume_latest:
+        logger.info(f"Resuming latest checkpoint for property_id={run_property_id}")
+
     # Load checkpoint
-    output_path = Path(args.output)
     checkpoint = _load_checkpoint(output_path)
 
     # ── Phase 1+2: Process images ────────────────────────────────────────
@@ -1586,9 +1832,14 @@ async def async_main(args: argparse.Namespace):
     logger.info(f"{'='*60}")
 
     report = _synthesize_report(successful, catalog, retriever, models_info)
+    report["meta"].update({
+        "property_id": run_property_id,
+        "output_version": f"v{output_version:03d}" if output_version else None,
+        "output_path": str(output_path),
+        "checkpoint_path": str(_checkpoint_path(output_path)),
+    })
 
     # Write report
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as f:
         json.dump(report, f, indent=2, default=str)
 
@@ -1599,6 +1850,8 @@ async def async_main(args: argparse.Namespace):
     print(f"\n{'='*60}")
     print(f"CATALOG AUDIT REPORT")
     print(f"{'='*60}")
+    print(f"Property ID:             {report['meta']['property_id']}")
+    print(f"Output version:          {report['meta']['output_version']}")
     print(f"Images processed:        {report['meta']['images_processed']}")
     print(f"Cloud provider:          {cloud_label}")
     print(f"Structuring model:       {structuring_label}")
@@ -1637,9 +1890,17 @@ def parse_args() -> argparse.Namespace:
         help="Base path for property images (default: %(default)s)",
     )
     parser.add_argument(
+        "--output-dir",
+        default=".",
+        help="Directory for auto-named reports (default: current directory)",
+    )
+    parser.add_argument(
         "--output", "-o",
         default=None,
-        help="Output report path (default: catalog_audit_<timestamp>.json)",
+        help=(
+            "Deprecated alias for --output-dir. Must be a directory; report "
+            "filenames are derived from property_id automatically."
+        ),
     )
     parser.add_argument(
         "--property",
@@ -1707,6 +1968,11 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--resume-latest",
+        action="store_true",
+        help="Resume the newest checkpoint for the discovered property in the output directory.",
+    )
+    parser.add_argument(
         "--verbose", "-v",
         action="store_true",
         help="Enable debug logging",
@@ -1714,9 +1980,15 @@ def parse_args() -> argparse.Namespace:
 
     args = parser.parse_args()
 
-    if args.output is None:
-        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-        args.output = f"catalog_audit_{ts}.json"
+    if args.output and args.output_dir not in (None, "."):
+        parser.error("Use either --output-dir or the deprecated --output directory alias, not both.")
+    for attr, label in (("output", "--output"), ("output_dir", "--output-dir")):
+        value = getattr(args, attr, None)
+        if value and _looks_like_output_file_path(value):
+            parser.error(
+                f"{label} now expects a directory, not a report filename: {value}. "
+                "Report filenames are derived from property_id automatically."
+            )
 
     # Default max_images: no cap for single property, 20 for multi-property scans
     if args.max_images is None:
