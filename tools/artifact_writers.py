@@ -682,6 +682,10 @@ def write_photo_intel(
 
         from tools.renovation_estimate_v4 import compute_renovation_estimate_v4
         photo_intel["renovation_estimate_v4"] = compute_renovation_estimate_v4(
+            issues_flat=renovation_issues_flat,
+            issue_catalog=issue_catalog,
+            photos=photos,
+            v3_reviewed_candidates=reviewed_candidates,
             v3_estimate=quick_est,
         )
 
