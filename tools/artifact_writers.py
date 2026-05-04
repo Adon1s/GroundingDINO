@@ -680,6 +680,11 @@ def write_photo_intel(
             quick_est["meta"]["pass_2f_ran"] = True
         photo_intel["renovation_estimate"] = quick_est
 
+        from tools.renovation_estimate_v4 import compute_renovation_estimate_v4
+        photo_intel["renovation_estimate_v4"] = compute_renovation_estimate_v4(
+            v3_estimate=quick_est,
+        )
+
         # ── Pass 2f trace (top-level, property-scoped) ──
         if reviewed_candidates is not None:
             photo_intel["pass_2f_trace"] = {
@@ -718,6 +723,7 @@ def write_photo_intel(
     except Exception as exc:
         logger.error(f"Failed to compute renovation estimate: {exc}", exc_info=True)
         photo_intel["renovation_estimate"] = None
+        photo_intel["renovation_estimate_v4"] = None
 
     # -- Build defect events, work items, and search index ----------------------
     if DEFECT_EVENTS_AVAILABLE:
@@ -767,6 +773,7 @@ def write_photo_intel(
     slim.pop("pass_2f_trace", None)
 
     _strip_pass_2f_audit_rationale(slim.get("renovation_estimate"))
+    _strip_pass_2f_audit_rationale(slim.get("renovation_estimate_v4"))
 
     # Strip per-photo debug fields (v3 schema)
     for _img_key, _photo in (slim.get("photos") or {}).items():
