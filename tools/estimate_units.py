@@ -73,17 +73,21 @@ def build_estimate_units(
         merge_reason: str,
         decision_reason: Optional[str] = None,
         decision_confidence: str = "medium",
+        multi_kitchen_evidence: bool = False,
     ) -> None:
         source_ids = [s["room_surrogate_id"] for s in sources]
         photo_ids = _unique_sorted(_surrogate_photo_ids(s) for s in sources)
-        estimate_units.append({
+        unit = {
             "estimate_unit_id": estimate_unit_id,
             "unit_type": unit_type,
             "source_room_surrogate_ids": source_ids,
             "photo_ids": photo_ids,
             "confidence": confidence,
             "merge_reason": merge_reason,
-        })
+        }
+        if multi_kitchen_evidence and unit_type == "kitchen":
+            unit["multi_kitchen_evidence"] = True
+        estimate_units.append(unit)
         for sid in source_ids:
             room_to_unit[sid] = estimate_unit_id
         for photo_id in photo_ids:
@@ -101,6 +105,9 @@ def build_estimate_units(
     handled = {s["room_surrogate_id"] for s in kitchens + bathrooms}
 
     if kitchens:
+        multi_kitchen_evidence = _has_multi_kitchen_metadata_evidence(
+            property_metadata or {}
+        )
         if _should_keep_kitchens_distinct(kitchens, photo_lookup, property_metadata or {}):
             for idx, surrogate in enumerate(kitchens, start=1):
                 unit_id = "kitchen_primary" if idx == 1 else f"kitchen_secondary_{idx - 1}"
@@ -110,6 +117,7 @@ def build_estimate_units(
                     [surrogate],
                     confidence="explicit_evidence",
                     merge_reason="multiple_kitchens_allowed_by_metadata_or_evidence",
+                    multi_kitchen_evidence=multi_kitchen_evidence,
                 )
         else:
             add_unit(
@@ -325,15 +333,7 @@ def _should_keep_kitchens_distinct(
 ) -> bool:
     if len(kitchens) <= 1:
         return False
-    if _metadata_truthy(
-        property_metadata,
-        "is_multi_unit", "multi_unit", "has_adu", "adu", "has_second_kitchen",
-        "second_kitchen",
-    ):
-        return True
-    if (_metadata_number(property_metadata, "kitchen_count", "kitchens") or 0) > 1:
-        return True
-    if (_metadata_number(property_metadata, "number_of_units", "unit_count", "units") or 0) > 1:
+    if _has_multi_kitchen_metadata_evidence(property_metadata):
         return True
     metadata_text = _metadata_text(property_metadata)
     explicit_terms = (
@@ -345,6 +345,20 @@ def _should_keep_kitchens_distinct(
     photo_texts = [_photo_text_for_surrogate(s, photo_lookup) for s in kitchens]
     strong_terms = ("second kitchen", "basement kitchen", "kitchenette", "in-law", "adu")
     return sum(any(term in text for term in strong_terms) for text in photo_texts) > 1
+
+
+def _has_multi_kitchen_metadata_evidence(property_metadata: Dict[str, Any]) -> bool:
+    if _metadata_truthy(
+        property_metadata,
+        "is_multi_unit", "multi_unit", "has_adu", "adu", "has_second_kitchen",
+        "second_kitchen",
+    ):
+        return True
+    if (_metadata_number(property_metadata, "kitchen_count", "kitchens") or 0) > 1:
+        return True
+    return (
+        _metadata_number(property_metadata, "number_of_units", "unit_count", "units") or 0
+    ) > 1
 
 
 def _bathroom_metadata_cap(property_metadata: Dict[str, Any]) -> Optional[int]:

@@ -103,6 +103,17 @@ MAX_FREEFORM_CHARS = 3000  # truncation cap for freeform before feeding to 2b
 # Skill keys — stable throughout code + output JSON
 SKILLS = ("2a", "2b", "2c", "2d_isolated", "2c+2d_coupled")
 MODEL_KEYS = ("gemma", "qwen")
+JUDGE_SCHEMA_VERSION = 2
+JUDGE_DEFAULT_REASONING_EFFORT = "low"
+JUDGE_DEFAULT_VERBOSITY = "low"
+JUDGE_MAX_TOKENS_BY_SKILL = {
+    "2a": 3000,
+    "2b": 2200,
+    "2c": 2200,
+    "2d_isolated": 6000,
+    "2c+2d_coupled": 6000,
+    "comprehensive": 6500,
+}
 
 
 # ---------------------------------------------------------------------------
@@ -546,6 +557,17 @@ def _canonicalize_verdict(
                     if model:
                         entry[f"{model}_correct"] = entry.pop(src_key)
 
+    # Map coupled per-model row entries while preserving the A/B row IDs
+    # used in the prompt for audit/debug.
+    per_model_rows = verdict.get("per_model_rows")
+    if isinstance(per_model_rows, list):
+        for entry in per_model_rows:
+            if not isinstance(entry, dict):
+                continue
+            ab = entry.get("model")
+            if ab in ("A", "B"):
+                entry["model_key"] = ab_mapping.get(ab, ab)
+
     verdict["ab_mapping"] = ab_mapping
     return verdict
 
@@ -565,6 +587,153 @@ def _norm_text(s: str) -> str:
     x = re.sub(r"\s+", " ", x)
     x = x.rstrip(".,;:!?'\"` ")
     return x
+
+
+def _json_obj(properties: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "type": "object",
+        "properties": properties,
+        "required": list(properties.keys()),
+        "additionalProperties": False,
+    }
+
+
+def _string_array_schema() -> Dict[str, Any]:
+    return {"type": "array", "items": {"type": "string"}}
+
+
+def _nullable_string_schema() -> Dict[str, Any]:
+    return {"type": ["string", "null"]}
+
+
+def _score_schema(metric_names: List[str]) -> Dict[str, Any]:
+    score = {"type": "integer", "minimum": 0, "maximum": 5}
+    model_scores = _json_obj({metric: score for metric in metric_names})
+    return _json_obj({"A": model_scores, "B": model_scores})
+
+
+def _judge_json_schema_for(skill: str) -> Dict[str, Any]:
+    """Strict JSON Schema used by OpenAI Structured Outputs for judge calls."""
+    winner = {"type": "string", "enum": ["A", "B", "tie"]}
+    rationale = {"type": "string"}
+
+    if skill == "2a":
+        return _json_obj({
+            "skill": {"type": "string", "enum": ["2a"]},
+            "winner": winner,
+            "scores": _score_schema([
+                "accuracy",
+                "completeness",
+                "hallucination_penalty",
+                "specificity",
+            ]),
+            "model_a_unique_good": _string_array_schema(),
+            "model_b_unique_good": _string_array_schema(),
+            "model_a_hallucinations": _string_array_schema(),
+            "model_b_hallucinations": _string_array_schema(),
+            "missed_by_both": _string_array_schema(),
+            "rationale": rationale,
+        })
+
+    if skill == "2b":
+        return _json_obj({
+            "skill": {"type": "string", "enum": ["2b"]},
+            "winner": winner,
+            "scores": _score_schema([
+                "faithfulness_to_input",
+                "schema_adherence",
+                "decomposition_quality",
+                "no_speculation",
+            ]),
+            "rationale": rationale,
+        })
+
+    if skill == "2c":
+        return _json_obj({
+            "skill": {"type": "string", "enum": ["2c"]},
+            "winner": winner,
+            "scores": _score_schema([
+                "label_correctness",
+                "forward_set_purity",
+                "no_dimension_leakage",
+            ]),
+            "rationale": rationale,
+        })
+
+    if skill == "2d_isolated":
+        return _json_obj({
+            "skill": {"type": "string", "enum": ["2d_isolated"]},
+            "winner": winner,
+            "scores": _score_schema([
+                "pick_correctness",
+                "no_hallucinated_ids",
+                "null_when_appropriate",
+            ]),
+            "per_observation": {
+                "type": "array",
+                "items": _json_obj({
+                    "row_id": {"type": "string"},
+                    "judge_correct_id": _nullable_string_schema(),
+                    "model_a_correct": {"type": "boolean"},
+                    "model_b_correct": {"type": "boolean"},
+                }),
+            },
+            "rationale": rationale,
+        })
+
+    if skill == "2c+2d_coupled":
+        return _json_obj({
+            "skill": {"type": "string", "enum": ["2c+2d_coupled"]},
+            "winner": winner,
+            "scores": _score_schema([
+                "end_to_end_resolution_quality",
+                "label_kind_consistency",
+                "final_pick_correctness",
+            ]),
+            "per_model_rows": {
+                "type": "array",
+                "items": _json_obj({
+                    "model": {"type": "string", "enum": ["A", "B"]},
+                    "row_id": {"type": "string"},
+                    "judge_correct_id": _nullable_string_schema(),
+                    "correct": {"type": "boolean"},
+                    "failure_attribution": {
+                        "type": "string",
+                        "enum": ["2c", "2d", "both", "none"],
+                    },
+                }),
+            },
+            "rationale": rationale,
+        })
+
+    if skill == "comprehensive":
+        return _json_obj({
+            "skill": {"type": "string", "enum": ["comprehensive"]},
+            "winner": winner,
+            "scores": _score_schema([
+                "accuracy",
+                "completeness",
+                "hallucination_penalty",
+                "specificity",
+            ]),
+            "model_a_unique_good": _string_array_schema(),
+            "model_b_unique_good": _string_array_schema(),
+            "model_a_hallucinations": _string_array_schema(),
+            "model_b_hallucinations": _string_array_schema(),
+            "missed_by_both": _string_array_schema(),
+            "rationale": rationale,
+        })
+
+    raise ValueError(f"Unknown skill: {skill}")
+
+
+def _judge_schema_name_for(skill: str) -> str:
+    safe_skill = skill.replace("+", "_").replace("-", "_")
+    return f"model_comparison_judge_{safe_skill}_v{JUDGE_SCHEMA_VERSION}"
+
+
+def _row_id(index: int) -> str:
+    return f"row_{index + 1:03d}"
 
 
 # System prompts per skill — all framed as expert real-estate analyst picking a winner.
@@ -803,7 +972,7 @@ def _build_user_prompt_2a(record: ImageRecord, ab_mapping: Dict[str, str]) -> st
         f"## Scene: {record.scene}\n\n"
         f"## Model A freeform observations:\n{a_cells.pass_2a or '(empty)'}\n\n"
         f"## Model B freeform observations:\n{b_cells.pass_2a or '(empty)'}\n\n"
-        f"## Your task:\nScore each model. Return JSON matching:\n{_verdict_schema_for('2a')}"
+        f"## Your task:\nScore each model. Return only the configured JSON schema."
     )
 
 
@@ -815,7 +984,7 @@ def _build_user_prompt_2b(record: ImageRecord, ab_mapping: Dict[str, str]) -> st
         f"{record.fixture.pass_2a or '(empty)'}\n\n"
         f"## Model A structured observations:\n{json.dumps(a_cells.pass_2b, indent=2)}\n\n"
         f"## Model B structured observations:\n{json.dumps(b_cells.pass_2b, indent=2)}\n\n"
-        f"## Your task:\nScore each model. Return JSON matching:\n{_verdict_schema_for('2b')}"
+        f"## Your task:\nScore each model. Return only the configured JSON schema."
     )
 
 
@@ -826,16 +995,28 @@ def _build_user_prompt_2c(record: ImageRecord, ab_mapping: Dict[str, str]) -> st
         f"## Shared input observations:\n{json.dumps(record.fixture.pass_2b, indent=2)}\n\n"
         f"## Model A labeled output:\n{json.dumps(a_cells.pass_2c, indent=2)}\n\n"
         f"## Model B labeled output:\n{json.dumps(b_cells.pass_2c, indent=2)}\n\n"
-        f"## Your task:\nScore each model. Return JSON matching:\n{_verdict_schema_for('2c')}"
+        f"## Your task:\nScore each model. Return only the configured JSON schema."
     )
 
 
-def _twod_row_to_prompt_dict(row: TwoDRow) -> Dict[str, Any]:
-    """Serialize a TwoDRow for inclusion in a judge prompt (strip judge-backfill fields)."""
+def _candidate_to_judge_prompt_dict(candidate: Dict[str, Any]) -> Dict[str, Any]:
+    """Keep 2d judge prompts small and aligned to the fields the judge uses."""
+    return {
+        "item_id": candidate.get("item_id"),
+        "name": candidate.get("name"),
+        "kind": candidate.get("kind"),
+        "trade_bucket": candidate.get("trade_bucket"),
+        "score": candidate.get("score"),
+    }
+
+
+def _twod_row_to_prompt_dict(row: TwoDRow, row_id: str) -> Dict[str, Any]:
+    """Serialize a TwoDRow for judge prompts without bulky catalog metadata."""
     d = {
+        "row_id": row_id,
         "observation": row.observation,
         "kind": row.kind,
-        "candidates": row.candidates,
+        "candidates": [_candidate_to_judge_prompt_dict(c) for c in row.candidates],
         "chosen_id": row.chosen_id,
         "chosen_null": row.chosen_null,
     }
@@ -847,23 +1028,23 @@ def _twod_row_to_prompt_dict(row: TwoDRow) -> Dict[str, Any]:
 def _build_user_prompt_2d_isolated(record: ImageRecord, ab_mapping: Dict[str, str]) -> str:
     a_cells = _cells_for(record, ab_mapping["A"])
     b_cells = _cells_for(record, ab_mapping["B"])
-    a_rows = [_twod_row_to_prompt_dict(r) for r in a_cells.pass_2d_isolated]
-    b_rows = [_twod_row_to_prompt_dict(r) for r in b_cells.pass_2d_isolated]
+    a_rows = [_twod_row_to_prompt_dict(r, _row_id(i)) for i, r in enumerate(a_cells.pass_2d_isolated)]
+    b_rows = [_twod_row_to_prompt_dict(r, _row_id(i)) for i, r in enumerate(b_cells.pass_2d_isolated)]
     return (
         f"## Shared input labels (identical for both models):\n"
         f"{json.dumps(record.fixture.pass_2c, indent=2)}\n\n"
         f"## Model A 2d decisions:\n{json.dumps(a_rows, indent=2)}\n\n"
         f"## Model B 2d decisions:\n{json.dumps(b_rows, indent=2)}\n\n"
         f"## Your task:\nScore each model and, per observation, provide judge_correct_id. "
-        f"Return JSON matching:\n{_verdict_schema_for('2d_isolated')}"
+        f"Use the provided row_id values exactly. Return only the configured JSON schema."
     )
 
 
 def _build_user_prompt_2d_coupled(record: ImageRecord, ab_mapping: Dict[str, str]) -> str:
     a_cells = _cells_for(record, ab_mapping["A"])
     b_cells = _cells_for(record, ab_mapping["B"])
-    a_rows = [_twod_row_to_prompt_dict(r) for r in a_cells.pass_2c_2d_coupled]
-    b_rows = [_twod_row_to_prompt_dict(r) for r in b_cells.pass_2c_2d_coupled]
+    a_rows = [_twod_row_to_prompt_dict(r, _row_id(i)) for i, r in enumerate(a_cells.pass_2c_2d_coupled)]
+    b_rows = [_twod_row_to_prompt_dict(r, _row_id(i)) for i, r in enumerate(b_cells.pass_2c_2d_coupled)]
     return (
         f"## Shared source observations:\n"
         f"{json.dumps(record.fixture.pass_2b, indent=2)}\n\n"
@@ -871,7 +1052,8 @@ def _build_user_prompt_2d_coupled(record: ImageRecord, ab_mapping: Dict[str, str
         f"{json.dumps(a_rows, indent=2)}\n\n"
         f"## Model B coupled 2c+2d rows:\n{json.dumps(b_rows, indent=2)}\n\n"
         f"## Your task:\nScore each model on the coupled chain quality. Attribute each failure "
-        f"to 2c, 2d, both, or none. Return JSON matching:\n{_verdict_schema_for('2c+2d_coupled')}"
+        f"to 2c, 2d, both, or none. Return one per_model_rows entry for each Model A "
+        f"row and each Model B row, using row_id values exactly. Return only the configured JSON schema."
     )
 
 
@@ -897,7 +1079,7 @@ def _build_user_prompt_comprehensive(record: ImageRecord, ab_mapping: Dict[str, 
         f"{json.dumps(b_forward, indent=2)}\n\n"
         f"## Your task:\nUse the PHOTO as ground truth. Score each chain on what it produced. "
         f"Call out uniquely-good items, hallucinations, and anything visible that BOTH missed. "
-        f"Return JSON matching:\n{_verdict_schema_for('comprehensive')}"
+        f"Return only the configured JSON schema."
     )
 
 
@@ -938,7 +1120,23 @@ async def run_judge_for_skill(
     ab_mapping = _ab_mapping_for(ab_order, record.photo_key, skill)
     user_prompt = prompt_builder(record, ab_mapping)
 
-    judge_cfg = {**judge_config, "max_tokens": 4000}
+    structured_outputs = (
+        str(judge_config.get("provider", "")).lower() == "openai"
+        and not bool(judge_config.get("disable_structured_outputs"))
+    )
+    max_tokens = int(
+        judge_config.get("max_tokens")
+        or JUDGE_MAX_TOKENS_BY_SKILL.get(skill, 4000)
+    )
+    judge_cfg = {**judge_config, "max_tokens": max_tokens}
+    if structured_outputs:
+        judge_cfg.setdefault("response_json_schema", _judge_json_schema_for(skill))
+        judge_cfg.setdefault("response_schema_name", _judge_schema_name_for(skill))
+        judge_cfg.setdefault("reasoning_effort", JUDGE_DEFAULT_REASONING_EFFORT)
+        judge_cfg.setdefault("verbosity", JUDGE_DEFAULT_VERBOSITY)
+    else:
+        judge_cfg.pop("reasoning_effort", None)
+        judge_cfg.pop("verbosity", None)
 
     async def _call(prompt: str) -> str:
         if needs_image:
@@ -969,6 +1167,11 @@ async def run_judge_for_skill(
         verdict = extract_json_object(response)
     except (ValueError, json.JSONDecodeError) as e:
         parse_failures += 1
+        if structured_outputs:
+            logger.error(
+                f"Structured judge response was unparseable for {record.photo_key}/{skill}: {e}"
+            )
+            return None, parse_failures
         logger.warning(
             f"Judge unparseable response for {record.photo_key}/{skill} "
             f"(attempt 1): {e}. Retrying once with correction prompt."
@@ -1003,6 +1206,7 @@ async def run_judge_for_skill(
 def backfill_2d_judge_into_rows(
     rows: List[TwoDRow],
     verdict: Optional[Dict[str, Any]],
+    model_key: Optional[str] = None,
 ) -> None:
     """After a 2d judge runs, write judge_correct_id + rank back into each TwoDRow.
 
@@ -1014,24 +1218,46 @@ def backfill_2d_judge_into_rows(
     """
     if not verdict:
         return
-    per_obs = verdict.get("per_observation")
-    if not isinstance(per_obs, list):
-        return
-
+    by_row_id: Dict[str, Dict[str, Any]] = {}
     by_desc: Dict[str, Dict[str, Any]] = {}
     by_desc_norm: Dict[str, Dict[str, Any]] = {}
-    for entry in per_obs:
-        if not isinstance(entry, dict):
-            continue
-        desc = (entry.get("observation") or "").strip()
-        if not desc:
-            continue
-        by_desc[desc] = entry
-        by_desc_norm[_norm_text(desc)] = entry
 
-    for row in rows:
+    per_obs = verdict.get("per_observation")
+    if isinstance(per_obs, list):
+        for entry in per_obs:
+            if not isinstance(entry, dict):
+                continue
+            rid = (entry.get("row_id") or "").strip()
+            if rid:
+                by_row_id[rid] = entry
+            desc = (entry.get("observation") or "").strip()
+            if desc:
+                by_desc[desc] = entry
+                by_desc_norm[_norm_text(desc)] = entry
+
+    per_model_rows = verdict.get("per_model_rows")
+    if isinstance(per_model_rows, list):
+        for entry in per_model_rows:
+            if not isinstance(entry, dict):
+                continue
+            if model_key and entry.get("model_key") != model_key:
+                continue
+            rid = (entry.get("row_id") or "").strip()
+            if rid:
+                by_row_id[rid] = entry
+            desc = (entry.get("observation") or "").strip()
+            if desc:
+                by_desc[desc] = entry
+                by_desc_norm[_norm_text(desc)] = entry
+
+    if not by_row_id and not by_desc:
+        return
+
+    for idx, row in enumerate(rows):
         row_desc = row.observation.strip()
-        entry = by_desc.get(row_desc)
+        entry = by_row_id.get(_row_id(idx))
+        if entry is None:
+            entry = by_desc.get(row_desc)
         if entry is None:
             entry = by_desc_norm.get(_norm_text(row_desc))
         if not entry:
@@ -1750,11 +1976,11 @@ async def _run_phase_judge(
 
                 # Backfill judge ground-truth into 2d rows
                 if skill == "2d_isolated":
-                    backfill_2d_judge_into_rows(rec.gemma.pass_2d_isolated, verdict)
-                    backfill_2d_judge_into_rows(rec.qwen.pass_2d_isolated, verdict)
+                    backfill_2d_judge_into_rows(rec.gemma.pass_2d_isolated, verdict, model_key="gemma")
+                    backfill_2d_judge_into_rows(rec.qwen.pass_2d_isolated, verdict, model_key="qwen")
                 elif skill == "2c+2d_coupled":
-                    backfill_2d_judge_into_rows(rec.gemma.pass_2c_2d_coupled, verdict)
-                    backfill_2d_judge_into_rows(rec.qwen.pass_2c_2d_coupled, verdict)
+                    backfill_2d_judge_into_rows(rec.gemma.pass_2c_2d_coupled, verdict, model_key="gemma")
+                    backfill_2d_judge_into_rows(rec.qwen.pass_2c_2d_coupled, verdict, model_key="qwen")
 
                 if judge_delay > 0:
                     await asyncio.sleep(judge_delay)
@@ -1798,6 +2024,13 @@ async def async_main(args: argparse.Namespace) -> None:
         "model": judge_model,
         "api_key": gpt_cfg.get("api_key", os.environ.get("OPENAI_API_KEY", "")),
         "provider": "openai",
+        "reasoning_effort": args.judge_reasoning_effort,
+        "verbosity": args.judge_verbosity,
+        "disable_structured_outputs": bool(args.disable_judge_structured_outputs),
+    }
+    fixture_config = {
+        k: v for k, v in judge_config.items()
+        if k not in {"reasoning_effort", "verbosity", "disable_structured_outputs"}
     }
 
     logger.info(f"Gemma model:  {gemma_config['model']}")
@@ -1874,7 +2107,7 @@ async def async_main(args: argparse.Namespace) -> None:
             images,
             records,
             fixture_caches,
-            judge_config,
+            fixture_config,
             refresh=args.refresh_fixture_cache,
         )
         if args.refresh_fixture_cache:
@@ -1924,7 +2157,7 @@ async def async_main(args: argparse.Namespace) -> None:
         if cache_payload is None or cache_path is None or cache_lock is None:
             return
         async with cache_lock:
-            if upsert_fixture_cache_entry(cache_payload, image_info, fixture, judge_config):
+            if upsert_fixture_cache_entry(cache_payload, image_info, fixture, fixture_config):
                 save_fixture_cache(cache_path, cache_payload)
 
     if fixture_cache_hits > 0:
@@ -1932,7 +2165,7 @@ async def async_main(args: argparse.Namespace) -> None:
 
     # ── Phase 0: fixture generation (concurrency=args.concurrency) ─────────
     print("\n" + "=" * 60)
-    print(f"Phase 0: {judge_config['model']} fixture generation (concurrency={args.concurrency})")
+    print(f"Phase 0: {fixture_config['model']} fixture generation (concurrency={args.concurrency})")
     if fixture_cache_enabled:
         refresh_label = "refresh; " if args.refresh_fixture_cache else ""
         print(f"  Fixture cache: ENABLED ({refresh_label}{fixture_cache_hits} hits)")
@@ -1945,7 +2178,7 @@ async def async_main(args: argparse.Namespace) -> None:
         images=images,
         records=records,
         vlm_client=vlm_client,
-        judge_config=judge_config,
+        judge_config=fixture_config,
         output_path=output_path,
         save_ckpt=_save_ckpt,
         concurrency=args.concurrency,
@@ -2002,6 +2235,11 @@ async def async_main(args: argparse.Namespace) -> None:
               f"(concurrency={args.concurrency})")
         print(f"  Judge is BLINDED: models shown as 'Model A' / 'Model B' "
               f"(ab_order={args.ab_order})")
+        if judge_config.get("disable_structured_outputs"):
+            print("  GPT judge structured outputs: DISABLED")
+        else:
+            print(f"  GPT judge structured outputs: ENABLED "
+                  f"(reasoning_effort={judge_config.get('reasoning_effort')})")
         if args.comprehensive_judge:
             print("  Comprehensive end-to-end judge: ENABLED (+1 judge call per image)")
         if args.confirm_every > 0:
@@ -2059,6 +2297,9 @@ async def async_main(args: argparse.Namespace) -> None:
             "gemma_model": gemma_config["model"],
             "qwen_model": qwen_config["model"],
             "judge_model": judge_config["model"],
+            "judge_structured_outputs": not bool(judge_config.get("disable_structured_outputs")),
+            "judge_schema_version": JUDGE_SCHEMA_VERSION,
+            "judge_reasoning_effort": judge_config.get("reasoning_effort"),
             "fixture_source": judge_config["model"],
             "skills_tested": [s for s in SKILLS if s not in skip_skills],
             "comprehensive_judge": args.comprehensive_judge,
@@ -2170,6 +2411,23 @@ def parse_args() -> argparse.Namespace:
         "--judge-model",
         default=None,
         help="Judge model (default: cfg.GPT_MODEL).",
+    )
+    parser.add_argument(
+        "--judge-reasoning-effort",
+        choices=("none", "low", "medium", "high", "xhigh"),
+        default=JUDGE_DEFAULT_REASONING_EFFORT,
+        help="Reasoning effort for OpenAI judge calls. Default: %(default)s",
+    )
+    parser.add_argument(
+        "--judge-verbosity",
+        choices=("low", "medium", "high"),
+        default=JUDGE_DEFAULT_VERBOSITY,
+        help="Text verbosity for OpenAI judge calls. Default: %(default)s",
+    )
+    parser.add_argument(
+        "--disable-judge-structured-outputs",
+        action="store_true",
+        help="Use legacy prompt-and-parse judge calls instead of OpenAI strict JSON Schema.",
     )
     parser.add_argument(
         "--judge-delay",

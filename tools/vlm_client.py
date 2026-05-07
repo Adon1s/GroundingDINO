@@ -245,6 +245,70 @@ class VLMClient:
         logger.debug(f"Uploaded file {file_path.name} -> {file_id}")
         return file_id
 
+    def _openai_text_config(
+            self,
+            response_json_schema: Optional[Dict[str, Any]],
+            response_schema_name: Optional[str],
+            verbosity: Optional[str],
+    ) -> Optional[Dict[str, Any]]:
+        """Build Responses API text config for strict structured output."""
+        text_config: Dict[str, Any] = {}
+        if response_json_schema:
+            text_config["format"] = {
+                "type": "json_schema",
+                "name": response_schema_name or "structured_response",
+                "schema": response_json_schema,
+                "strict": True,
+            }
+        if verbosity:
+            text_config["verbosity"] = verbosity
+        return text_config or None
+
+    def _extract_openai_output_text(self, response: Any) -> str:
+        """Return visible output text or raise a useful error for empty/incomplete responses."""
+        status = getattr(response, "status", None)
+        response_id = getattr(response, "id", None)
+        if status == "incomplete":
+            details = getattr(response, "incomplete_details", None)
+            reason = getattr(details, "reason", None) if details is not None else None
+            raise RuntimeError(
+                f"OpenAI response incomplete"
+                f"{f' ({reason})' if reason else ''}"
+                f"{f' [response_id={response_id}]' if response_id else ''}"
+            )
+
+        output_text = (getattr(response, "output_text", None) or "").strip()
+        if output_text:
+            return output_text
+
+        refusal_texts: list[str] = []
+        fallback_texts: list[str] = []
+        for item in getattr(response, "output", None) or []:
+            for content in getattr(item, "content", None) or []:
+                content_type = getattr(content, "type", None)
+                text = getattr(content, "text", None) or getattr(content, "refusal", None)
+                if not text:
+                    continue
+                if content_type == "refusal":
+                    refusal_texts.append(str(text))
+                elif content_type in {"output_text", "text"}:
+                    fallback_texts.append(str(text))
+
+        if refusal_texts:
+            snippet = " ".join(refusal_texts)[:300]
+            raise RuntimeError(
+                f"OpenAI model refusal: {snippet}"
+                f"{f' [response_id={response_id}]' if response_id else ''}"
+            )
+        if fallback_texts:
+            return "\n".join(fallback_texts).strip()
+
+        raise RuntimeError(
+            f"OpenAI response had no output_text"
+            f"{f' (status={status})' if status else ''}"
+            f"{f' [response_id={response_id}]' if response_id else ''}"
+        )
+
 
     async def _analyze_image_openai(
             self,
@@ -254,6 +318,10 @@ class VLMClient:
             model: str,
             api_key: Optional[str],
             max_tokens: int,
+            response_json_schema: Optional[Dict[str, Any]] = None,
+            response_schema_name: Optional[str] = None,
+            reasoning_effort: Optional[str] = None,
+            verbosity: Optional[str] = None,
     ) -> str:
         client = self._get_openai_client(api_key)
 
@@ -271,11 +339,16 @@ class VLMClient:
 
         # Doc-aligned format
         data_url = f"data:{media_type};base64,{image_data}"
+        text_config = self._openai_text_config(
+            response_json_schema,
+            response_schema_name,
+            verbosity if str(model).lower().startswith("gpt-5") else None,
+        )
 
         def _call():
-            return client.responses.create(
-                model=model,
-                input=[
+            request: Dict[str, Any] = {
+                "model": model,
+                "input": [
                     {
                         "role": "system",
                         "content": system_prompt,
@@ -293,8 +366,13 @@ class VLMClient:
                         ],
                     },
                 ],
-                max_output_tokens=max_tokens,
-            )
+                "max_output_tokens": max_tokens,
+            }
+            if text_config:
+                request["text"] = text_config
+            if reasoning_effort and str(model).lower().startswith("gpt-5"):
+                request["reasoning"] = {"effort": reasoning_effort}
+            return client.responses.create(**request)
 
         response = await asyncio.get_event_loop().run_in_executor(None, _call)
         usage = getattr(response, "usage", None)
@@ -304,7 +382,7 @@ class VLMClient:
                 getattr(usage, "output_tokens", None),
                 getattr(usage, "total_tokens", None),
             )
-        return response.output_text
+        return self._extract_openai_output_text(response)
 
     async def _analyze_text_openai(
             self,
@@ -313,6 +391,10 @@ class VLMClient:
             model: str,
             api_key: Optional[str],
             max_tokens: int,
+            response_json_schema: Optional[Dict[str, Any]] = None,
+            response_schema_name: Optional[str] = None,
+            reasoning_effort: Optional[str] = None,
+            verbosity: Optional[str] = None,
     ) -> str:
         """
         Text-only analysis using OpenAI's Responses API via official SDK.
@@ -320,12 +402,16 @@ class VLMClient:
         client = self._get_openai_client(api_key)
 
         logger.debug(f"Calling OpenAI Responses API (text): {model}")
+        text_config = self._openai_text_config(
+            response_json_schema,
+            response_schema_name,
+            verbosity if str(model).lower().startswith("gpt-5") else None,
+        )
 
-        response = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: client.responses.create(
-                model=model,
-                input=[
+        def _call():
+            request: Dict[str, Any] = {
+                "model": model,
+                "input": [
                     {
                         "role": "system",
                         "content": system_prompt,
@@ -335,8 +421,17 @@ class VLMClient:
                         "content": user_prompt,
                     },
                 ],
-                max_output_tokens=max_tokens,
-            )
+                "max_output_tokens": max_tokens,
+            }
+            if text_config:
+                request["text"] = text_config
+            if reasoning_effort and str(model).lower().startswith("gpt-5"):
+                request["reasoning"] = {"effort": reasoning_effort}
+            return client.responses.create(**request)
+
+        response = await asyncio.get_event_loop().run_in_executor(
+            None,
+            _call,
         )
 
         usage = getattr(response, "usage", None)
@@ -346,7 +441,7 @@ class VLMClient:
                 getattr(usage, "output_tokens", None),
                 getattr(usage, "total_tokens", None),
             )
-        return response.output_text
+        return self._extract_openai_output_text(response)
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Google Gemini Methods (using google-genai)
@@ -628,6 +723,10 @@ class VLMClient:
                     max_tokens = int(mo)
                 except Exception:
                     pass
+        response_json_schema = kwargs.get("response_json_schema") or kwargs.get("json_schema")
+        response_schema_name = kwargs.get("response_schema_name") or kwargs.get("json_schema_name")
+        reasoning_effort = kwargs.get("reasoning_effort")
+        verbosity = kwargs.get("verbosity")
 
         timeout = timeout or self.default_timeout
         max_tokens = max_tokens or self.default_max_tokens
@@ -649,6 +748,10 @@ class VLMClient:
                 model=model,
                 api_key=api_key,  # <-- pass through as Optional
                 max_tokens=max_tokens,
+                response_json_schema=response_json_schema,
+                response_schema_name=response_schema_name,
+                reasoning_effort=reasoning_effort,
+                verbosity=verbosity,
             )
 
         elif provider == "gemini":
@@ -715,6 +818,10 @@ class VLMClient:
                     max_tokens = int(mo)
                 except Exception:
                     pass
+        response_json_schema = kwargs.get("response_json_schema") or kwargs.get("json_schema")
+        response_schema_name = kwargs.get("response_schema_name") or kwargs.get("json_schema_name")
+        reasoning_effort = kwargs.get("reasoning_effort")
+        verbosity = kwargs.get("verbosity")
 
         timeout = timeout or self.default_timeout
         max_tokens = max_tokens or self.default_max_tokens
@@ -735,6 +842,10 @@ class VLMClient:
                 model=model,
                 api_key=api_key,  # <-- pass through as Optional
                 max_tokens=max_tokens,
+                response_json_schema=response_json_schema,
+                response_schema_name=response_schema_name,
+                reasoning_effort=reasoning_effort,
+                verbosity=verbosity,
             )
 
         elif provider == "gemini":

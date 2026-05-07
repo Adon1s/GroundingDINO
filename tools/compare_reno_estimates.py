@@ -19,6 +19,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from tools.estimate_sanity import build_estimate_sanity_flags
+
 
 _BORDER = "=" * 78
 _THIN = "-" * 78
@@ -68,6 +70,7 @@ def compare(photo_intel: Dict[str, Any]) -> Dict[str, Any]:
     billable_units = _build_billable_units(v4)
     packages = _build_packages(v4)
     reconciliation = _build_reconciliation(v3, v4, v3_totals, v4_totals)
+    sanity_flags, sanity_flags_source = _build_sanity_flags(photo_intel, v4)
 
     invariant_warning = _check_reconciliation_invariant(v4)
     if invariant_warning is not None:
@@ -86,6 +89,8 @@ def compare(photo_intel: Dict[str, Any]) -> Dict[str, Any]:
         "billable_units": billable_units,
         "packages": packages,
         "reconciliation": reconciliation,
+        "sanity_flags": sanity_flags,
+        "sanity_flags_source": sanity_flags_source,
         "warnings": warnings,
     }
 
@@ -340,6 +345,38 @@ def _check_reconciliation_invariant(
     }
 
 
+def _build_sanity_flags(
+    photo_intel: Dict[str, Any],
+    v4: Optional[Dict[str, Any]],
+) -> tuple[List[Dict[str, Any]], str]:
+    if not v4:
+        return [], "none"
+    if "sanity_flags" in v4:
+        return [dict(flag) for flag in (v4.get("sanity_flags") or [])], "persisted"
+
+    metadata = _extract_property_metadata(photo_intel)
+    flags = build_estimate_sanity_flags(
+        v4,
+        metadata,
+        v4.get("estimate_units") or [],
+    )
+    return flags, "derived"
+
+
+def _extract_property_metadata(photo_intel: Dict[str, Any]) -> Dict[str, Any]:
+    metadata: Dict[str, Any] = {}
+    prop = photo_intel.get("property") or {}
+    if isinstance(prop, dict):
+        metadata.update(prop)
+        nested = prop.get("metadata") or {}
+        if isinstance(nested, dict):
+            metadata.update(nested)
+    top_level = photo_intel.get("property_metadata") or {}
+    if isinstance(top_level, dict):
+        metadata.update(top_level)
+    return metadata
+
+
 def format_report(comparison: Dict[str, Any]) -> str:
     """Format a comparison dict as a human-readable string."""
     lines: List[str] = []
@@ -353,6 +390,10 @@ def format_report(comparison: Dict[str, Any]) -> str:
     lines.extend(_format_billable_units(comparison.get("billable_units") or {}))
     lines.extend(_format_packages(comparison.get("packages") or []))
     lines.extend(_format_reconciliation(comparison.get("reconciliation")))
+    lines.extend(_format_sanity_flags(
+        comparison.get("sanity_flags") or [],
+        comparison.get("sanity_flags_source") or "none",
+    ))
     lines.extend(_format_warnings(comparison.get("warnings") or []))
     return "\n".join(lines) + "\n"
 
@@ -593,6 +634,51 @@ def _format_group_cap_reconciliation(group_audits: List[Dict[str, Any]]) -> List
             f"{cap:>7} {override:>9}"
         )
     return lines
+
+
+def _format_sanity_flags(flags: List[Dict[str, Any]], source: str) -> List[str]:
+    title = "  SANITY FLAGS"
+    if source == "derived":
+        title += " (derived; not persisted)"
+    lines = ["", _BORDER, title, _BORDER]
+    if not flags:
+        lines.append("  None.")
+        return lines
+
+    for flag in flags:
+        severity = flag.get("severity", "warning")
+        message = flag.get("message", "")
+        lines.append(f"  - {flag.get('code', '<unknown>')} [{severity}]: {message}")
+        basis = _format_flag_basis(flag)
+        if basis:
+            lines.append(f"    {basis}")
+
+    if any(flag.get("code") == "worst_case_high_gt_80pct_price" for flag in flags):
+        lines.append(
+            "  This is extreme relative to list price; interpret as "
+            "worst-case/inspection-dependent."
+        )
+    return lines
+
+
+def _format_flag_basis(flag: Dict[str, Any]) -> str:
+    compared_field = flag.get("compared_field")
+    numerator = flag.get("numerator")
+    denominator = flag.get("denominator")
+    threshold = flag.get("threshold")
+    value = flag.get("value")
+    parts = []
+    if compared_field:
+        parts.append(f"field={compared_field}")
+    if numerator is not None:
+        parts.append(f"numerator={numerator}")
+    if denominator is not None:
+        parts.append(f"denominator={denominator}")
+    if value is not None:
+        parts.append(f"value={value}")
+    if threshold is not None:
+        parts.append(f"threshold={threshold}")
+    return ", ".join(parts)
 
 
 def _format_warnings(warnings: List[Dict[str, str]]) -> List[str]:

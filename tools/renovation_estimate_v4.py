@@ -18,6 +18,7 @@ from typing import Any, Dict, List, Optional
 
 from tools.catalog_cost_model import derive_cost_model
 from tools.estimate_scope import apply_estimate_scope
+from tools.estimate_sanity import build_estimate_sanity_flags
 from tools.rehab_packages import (
     infer_packages,
     reconcile_packages_and_estimate_units,
@@ -162,6 +163,11 @@ def compute_renovation_estimate_v4(
         "final_rehab_resale_ready",
     ):
         v4_estimate[bucket_name] = reconciliation[bucket_name]
+    v4_estimate["sanity_flags"] = build_estimate_sanity_flags(
+        v4_estimate,
+        property_metadata,
+        v4_estimate.get("estimate_units", []),
+    )
     v4_estimate["pass_2f_reuse_audit"] = pass_2f_reuse_audit
     v4_estimate["provenance"] = {
         "mode": "room_aware_line_item_estimate",
