@@ -31,6 +31,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Literal, Optional, Tuple
 
+from tools.catalog_cost_model import (
+    COST_MODEL_SOURCE_LEGACY_DEFAULT,
+    LINE_ITEM,
+    derive_cost_model,
+)
+from tools.estimate_scope import REQUIRED_REHAB, apply_estimate_scope
 from tools.project_scopes import get_project_scope, get_project_scope_name
 
 logger = logging.getLogger(__name__)
@@ -141,9 +147,19 @@ class EstimateCandidate:
     photo_keys: List[str] = field(default_factory=list)
     issue_ids: List[str] = field(default_factory=list)
     estimate_unit_id: str = ""
+    billable_estimate_unit_id: str = ""
     estimate_scope_key: str = ""
     resolved_cluster_key: str = ""
     room_surrogate_id: str = ""
+    source_room_surrogate_ids: List[str] = field(default_factory=list)
+    estimate_scope: str = REQUIRED_REHAB
+    estimate_scope_reason: str = "scope_default"
+    baseline_scope_before_posture: str = REQUIRED_REHAB
+    visible_required_with_inspect_posture: bool = False
+    required_baseline_included: bool = True
+    inspection_risk_added: bool = False
+    cost_model: str = LINE_ITEM
+    cost_model_source: str = COST_MODEL_SOURCE_LEGACY_DEFAULT
     supporting_observations: List[str] = field(default_factory=list)
     distinct_photo_count: int = 0
     distinct_scene_group_count: int = 0
@@ -337,13 +353,23 @@ def extract_estimate_candidates(
             issue.get("issue_id", "") for issue in occurrences
             if issue.get("issue_id")
         ]
+        billable_estimate_unit_ids = sorted(set(
+            _meaningful_scope_hint(issue.get("estimate_unit_id"))
+            for issue in occurrences
+            if _meaningful_scope_hint(issue.get("estimate_unit_id"))
+        ))
+        source_room_surrogate_ids = sorted(set(
+            _meaningful_scope_hint(issue.get("room_surrogate_id"))
+            for issue in occurrences
+            if _meaningful_scope_hint(issue.get("room_surrogate_id"))
+        ))
         observations = [
             issue.get("description", "") for issue in occurrences
             if issue.get("description")
         ]
         unit_id = f"{cat_id}:{_clean_scope_component(scope_key)}"
 
-        candidates.append(EstimateCandidate(
+        candidate = EstimateCandidate(
             catalog_item_id=cat_id,
             catalog_item_name=cat.get("name", cat_id),
             estimate_meta=est_meta,
@@ -358,13 +384,25 @@ def extract_estimate_candidates(
             photo_keys=photo_keys,
             issue_ids=issue_ids,
             estimate_unit_id=unit_id,
+            billable_estimate_unit_id=(
+                billable_estimate_unit_ids[0]
+                if len(billable_estimate_unit_ids) == 1
+                else ("multiple_estimate_units" if billable_estimate_unit_ids else "")
+            ),
             estimate_scope_key=scope_key,
             room_surrogate_id=room_surrogate,
+            source_room_surrogate_ids=source_room_surrogate_ids,
             supporting_observations=observations,
             distinct_photo_count=len(photo_keys),
             distinct_scene_group_count=len(scene_groups),
             representative_issue_id=issue_ids[0] if issue_ids else None,
-        ))
+        )
+        apply_estimate_scope(candidate, cat)
+        candidate.cost_model, candidate.cost_model_source = derive_cost_model(
+            cat,
+            candidate,
+        )
+        candidates.append(candidate)
 
     # Sort: high tier first, then medium, then severity desc, evidence desc.
     candidates.sort(key=lambda c: (
@@ -527,6 +565,11 @@ async def run_pass_2f_batch(
         for c in candidates:
             if c.effective_posture is None:
                 c.effective_posture = resolve_effective_posture(c)
+            apply_estimate_scope(c, cat_lookup.get(c.catalog_item_id, {}))
+            c.cost_model, c.cost_model_source = derive_cost_model(
+                cat_lookup.get(c.catalog_item_id, {}),
+                c,
+            )
         return candidates
 
     logger.info("Pass 2f batch: %d eligible candidates", len(eligible))
@@ -599,6 +642,11 @@ async def run_pass_2f_batch(
     for c in candidates:
         if c.effective_posture is None:
             c.effective_posture = resolve_effective_posture(c)
+        apply_estimate_scope(c, cat_lookup.get(c.catalog_item_id, {}))
+        c.cost_model, c.cost_model_source = derive_cost_model(
+            cat_lookup.get(c.catalog_item_id, {}),
+            c,
+        )
 
     return candidates
 
@@ -779,11 +827,22 @@ def compute_group_estimate(
             risk_low, risk_high = 0, 0
         li: Dict[str, Any] = {
             "estimate_unit_id": c.estimate_unit_id,
+            "billable_estimate_unit_id": c.billable_estimate_unit_id,
             "estimate_scope_key": c.estimate_scope_key,
             "resolved_cluster_key": c.resolved_cluster_key,
             "room_surrogate_id": c.room_surrogate_id,
+            "source_room_surrogate_ids": c.source_room_surrogate_ids,
             "catalog_item_id": c.catalog_item_id,
             "name": c.catalog_item_name,
+            "trade_bucket": c.trade_bucket,
+            "estimate_scope": c.estimate_scope,
+            "estimate_scope_reason": c.estimate_scope_reason,
+            "baseline_scope_before_posture": c.baseline_scope_before_posture,
+            "visible_required_with_inspect_posture": c.visible_required_with_inspect_posture,
+            "required_baseline_included": c.required_baseline_included,
+            "inspection_risk_added": c.inspection_risk_added,
+            "cost_model": c.cost_model,
+            "cost_model_source": c.cost_model_source,
             "occurrences": c.occurrences,
             "estimate_unit_count": c.estimate_unit_count,
             "unit_policy": c.estimate_meta.unit_policy,
@@ -810,6 +869,7 @@ def compute_group_estimate(
             "is_valid_detection": c.is_valid_detection,
             "default_posture": c.estimate_meta.strategy,
             "review_posture": c.review_posture,
+            "pricing_posture": c.review_posture,
             "effective_posture": effective,
             "review_source": c.review_source,
             "review_image_path": c.review_image_path,
@@ -918,11 +978,21 @@ def compute_tier_summary(
         li = line_item_lookup.get(c.estimate_unit_id or c.catalog_item_id, {})
         return {
             "estimate_unit_id": c.estimate_unit_id,
+            "billable_estimate_unit_id": c.billable_estimate_unit_id,
             "estimate_scope_key": c.estimate_scope_key,
             "resolved_cluster_key": c.resolved_cluster_key,
             "room_surrogate_id": c.room_surrogate_id,
+            "source_room_surrogate_ids": c.source_room_surrogate_ids,
             "catalog_item_id": c.catalog_item_id,
             "name": c.catalog_item_name,
+            "estimate_scope": c.estimate_scope,
+            "estimate_scope_reason": c.estimate_scope_reason,
+            "baseline_scope_before_posture": c.baseline_scope_before_posture,
+            "visible_required_with_inspect_posture": c.visible_required_with_inspect_posture,
+            "required_baseline_included": c.required_baseline_included,
+            "inspection_risk_added": c.inspection_risk_added,
+            "cost_model": c.cost_model,
+            "cost_model_source": c.cost_model_source,
             "estimate_tier": c.estimate_meta.estimate_tier,
             "group": c.estimate_meta.group,
             "occurrences": c.occurrences,
@@ -942,6 +1012,7 @@ def compute_tier_summary(
             "risk_exposure_high": li.get("risk_exposure_high", 0),
             "effective_posture": c.effective_posture or c.estimate_meta.strategy,
             "review_posture": c.review_posture,
+            "pricing_posture": c.review_posture,
             "review_source": c.review_source,
             "pass_2f_attempted": c.pass_2f_attempted,
             "pass_2f_applied": c.pass_2f_applied,
@@ -1016,6 +1087,20 @@ def compute_renovation_estimate(
         issues_flat, issue_catalog,
     )
     candidates = resolve_estimate_units(candidates, issues_flat, issue_catalog)
+    catalog_lookup = {
+        item["id"]: item
+        for item in (issue_catalog.get("items") or [])
+        if isinstance(item, dict) and item.get("id")
+    }
+    for candidate in candidates:
+        apply_estimate_scope(
+            candidate,
+            catalog_lookup.get(candidate.catalog_item_id, {}),
+        )
+        candidate.cost_model, candidate.cost_model_source = derive_cost_model(
+            catalog_lookup.get(candidate.catalog_item_id, {}),
+            candidate,
+        )
 
     if not candidates:
         return {
@@ -1114,11 +1199,21 @@ def compute_renovation_estimate(
         "items": [
             {
                 "estimate_unit_id": c.estimate_unit_id,
+                "billable_estimate_unit_id": c.billable_estimate_unit_id,
                 "estimate_scope_key": c.estimate_scope_key,
                 "resolved_cluster_key": c.resolved_cluster_key,
                 "room_surrogate_id": c.room_surrogate_id,
+                "source_room_surrogate_ids": c.source_room_surrogate_ids,
                 "catalog_item_id": c.catalog_item_id,
                 "name": c.catalog_item_name,
+                "estimate_scope": c.estimate_scope,
+                "estimate_scope_reason": c.estimate_scope_reason,
+                "baseline_scope_before_posture": c.baseline_scope_before_posture,
+                "visible_required_with_inspect_posture": c.visible_required_with_inspect_posture,
+                "required_baseline_included": c.required_baseline_included,
+                "inspection_risk_added": c.inspection_risk_added,
+                "cost_model": c.cost_model,
+                "cost_model_source": c.cost_model_source,
                 "estimate_tier": c.estimate_meta.estimate_tier,
                 "occurrences": c.occurrences,
                 "estimate_unit_count": c.estimate_unit_count,

@@ -10,13 +10,33 @@ Public API:
         Normalize line items into per-billable-member child unit records,
         absorb children into matching packages all-or-nothing, recompute
         retained group totals using v3's stack-behavior rule, emit audit
-        + final_rehab. Mutates groups_out and packages in place.
+        + explicit estimate buckets. Mutates groups_out and packages in place.
 """
 from __future__ import annotations
 
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 
+from tools.catalog_cost_model import (
+    COST_MODEL_SOURCE_DERIVED_PACKAGE,
+    COST_MODEL_SOURCE_INVALID_CATALOG_FALLBACK,
+    INSPECTION_ALLOWANCE,
+    LINE_ITEM,
+    PACKAGE_ALLOWANCE,
+    ROOM_ALLOWANCE,
+    derive_package_cost_model,
+)
+from tools.estimate_scope import (
+    INSPECTION_RISK,
+    MARKETABILITY_REHAB,
+    VALID_ESTIMATE_SCOPES,
+    add_scope_amount,
+    allocate_capped_scope_totals,
+    build_required_and_resale_ready,
+    classify_package_scope,
+    empty_scope_totals,
+    sum_scope_totals,
+)
 from tools.renovation_estimate import GROUP_BUDGET_CAPS, EstimateCandidate
 
 logger = logging.getLogger(__name__)
@@ -44,6 +64,104 @@ _QUALIFIED_POSTURES = frozenset({
 # Implicitly excludes: "inspect", "inspect_only", "service_only", None.
 
 _OPTIONAL_TIER = "optional"
+
+CAP_BEHAVIOR_RESPECT_GROUP_CAP = "respect_group_cap"
+CAP_BEHAVIOR_ALLOW_ABOVE_GROUP_CAP = "allow_above_group_cap"
+CAP_BEHAVIOR_REPLACE_GROUP_CAP = "replace_group_cap"
+_VALID_CAP_BEHAVIORS = frozenset({
+    CAP_BEHAVIOR_RESPECT_GROUP_CAP,
+    CAP_BEHAVIOR_ALLOW_ABOVE_GROUP_CAP,
+    CAP_BEHAVIOR_REPLACE_GROUP_CAP,
+})
+
+_PACKAGE_ABSORPTION_SCOPES: Dict[str, Dict[str, Any]] = {
+    "kitchen_minor_repair": {
+        "family": "kitchen",
+        "groups": {"kitchen"},
+        "trade_buckets": {"kitchen_cabinets_counters", "paint_drywall"},
+        "components": {"cabinets", "counter", "kitchen_finish", "appliance", "paint"},
+    },
+    "kitchen_refresh": {
+        "family": "kitchen",
+        "groups": {"kitchen", "flooring"},
+        "trade_buckets": {"kitchen_cabinets_counters", "flooring", "paint_drywall"},
+        "components": {"cabinets", "counter", "kitchen_finish", "appliance", "flooring", "paint"},
+    },
+    "kitchen_partial_rehab": {
+        "family": "kitchen",
+        "groups": {"kitchen", "flooring"},
+        "trade_buckets": {"kitchen_cabinets_counters", "flooring", "paint_drywall"},
+        "components": {"cabinets", "counter", "kitchen_finish", "appliance", "flooring", "paint"},
+    },
+    "kitchen_full_rehab": {
+        "family": "kitchen",
+        "groups": {"kitchen", "flooring"},
+        "trade_buckets": {"kitchen_cabinets_counters", "flooring", "paint_drywall"},
+        "components": {"cabinets", "counter", "kitchen_finish", "appliance", "flooring", "paint"},
+    },
+    "bathroom_minor_repair": {
+        "family": "bathroom",
+        "groups": {"bathroom"},
+        "trade_buckets": {"bathroom_fixtures_tile", "paint_drywall"},
+        "components": {"vanity", "tile", "tub_shower", "fixture", "bath_finish", "paint"},
+    },
+    "bathroom_refresh": {
+        "family": "bathroom",
+        "groups": {"bathroom", "flooring"},
+        "trade_buckets": {"bathroom_fixtures_tile", "flooring", "paint_drywall"},
+        "components": {"vanity", "tile", "tub_shower", "fixture", "bath_finish", "flooring", "paint"},
+    },
+    "bathroom_partial_rehab": {
+        "family": "bathroom",
+        "groups": {"bathroom", "flooring"},
+        "trade_buckets": {"bathroom_fixtures_tile", "flooring", "paint_drywall"},
+        "components": {"vanity", "tile", "tub_shower", "fixture", "bath_finish", "flooring", "paint"},
+    },
+    "bathroom_full_rehab": {
+        "family": "bathroom",
+        "groups": {"bathroom", "flooring"},
+        "trade_buckets": {"bathroom_fixtures_tile", "flooring", "paint_drywall"},
+        "components": {"vanity", "tile", "tub_shower", "fixture", "bath_finish", "flooring", "paint"},
+    },
+    "room_refresh": {
+        "family": "room",
+        "groups": {"other", "flooring", "paint_drywall"},
+        "trade_buckets": {"flooring", "paint_drywall", "cleaning_turnover"},
+        "components": {"flooring", "paint"},
+    },
+    "room_repair_heavy": {
+        "family": "room",
+        "groups": {"other", "flooring", "paint_drywall"},
+        "trade_buckets": {"flooring", "paint_drywall", "cleaning_turnover"},
+        "components": {"flooring", "paint"},
+    },
+}
+
+_BROAD_ABSORPTION_BLOCKED_GROUPS = {
+    "roof",
+    "roof_gutters",
+    "structure",
+    "foundation",
+    "foundation_structure",
+    "pool",
+    "hvac",
+    "electrical",
+    "plumbing",
+    "exterior",
+    "exterior_siding_trim",
+    "masonry_exterior_structure",
+}
+
+_BROAD_ABSORPTION_BLOCKED_TRADES = {
+    "roof_gutters",
+    "foundation_structure",
+    "pool",
+    "hvac",
+    "electrical",
+    "plumbing",
+    "exterior_siding_trim",
+    "masonry_exterior_structure",
+}
 
 
 def _effective_posture(candidate: EstimateCandidate) -> Optional[str]:
@@ -82,8 +200,12 @@ def classify_component(candidate: EstimateCandidate) -> Optional[str]:
     tub_shower, fixture, bath_finish, flooring, plumbing, electrical, moisture,
     paint — or None when not relevant for any package rule.
     """
-    cat_id = (candidate.catalog_item_id or "").lower()
-    trade = candidate.trade_bucket or ""
+    if isinstance(candidate, dict):
+        cat_id = str(candidate.get("catalog_item_id") or "").lower()
+        trade = candidate.get("trade_bucket") or ""
+    else:
+        cat_id = (candidate.catalog_item_id or "").lower()
+        trade = candidate.trade_bucket or ""
 
     if trade == "kitchen_cabinets_counters":
         if "appliance" in cat_id:
@@ -116,6 +238,100 @@ def classify_component(candidate: EstimateCandidate) -> Optional[str]:
     if trade == "paint_drywall":
         return "paint"
     return None
+
+
+def _package_absorption_scope(package_type: str) -> Dict[str, Any]:
+    raw = _PACKAGE_ABSORPTION_SCOPES.get(package_type) or {}
+    return {
+        "family": raw.get("family") or "",
+        "groups": sorted(raw.get("groups") or []),
+        "trade_buckets": sorted(raw.get("trade_buckets") or []),
+        "components": sorted(raw.get("components") or []),
+    }
+
+
+def _package_child_absorption_reason(
+    pkg: Dict[str, Any],
+    child: Dict[str, Any],
+    supporting_issue_ids: set,
+    *,
+    allow_broad: bool,
+) -> Optional[str]:
+    if child.get("cost_model") == INSPECTION_ALLOWANCE:
+        return None
+
+    child_issue_ids = set(child.get("issue_ids") or [])
+    if child_issue_ids & supporting_issue_ids:
+        return "supporting_issue"
+
+    if not allow_broad:
+        return None
+
+    if not _package_scope_covers_child(pkg, child):
+        return None
+
+    cost_model = child.get("cost_model") or LINE_ITEM
+    if cost_model == ROOM_ALLOWANCE:
+        return "same_unit_room_allowance_scope"
+    if child.get("estimate_scope") == MARKETABILITY_REHAB:
+        return "same_unit_marketability_family"
+    if cost_model == LINE_ITEM:
+        return "same_unit_line_item_scope"
+    return None
+
+
+def _package_scope_covers_child(pkg: Dict[str, Any], child: Dict[str, Any]) -> bool:
+    if _is_broad_absorption_blocked_child(child):
+        return False
+
+    scope = pkg.get("absorption_scope") or _package_absorption_scope(
+        str(pkg.get("package_type") or "")
+    )
+    groups = set(scope.get("groups") or [])
+    trade_buckets = set(scope.get("trade_buckets") or [])
+    components = set(scope.get("components") or [])
+
+    group = child.get("group") or ""
+    trade_bucket = child.get("trade_bucket") or ""
+    component = classify_component(child)
+
+    return (
+        group in groups
+        or trade_bucket in trade_buckets
+        or (component is not None and component in components)
+    )
+
+
+def _is_broad_absorption_blocked_child(child: Dict[str, Any]) -> bool:
+    group = str(child.get("group") or "")
+    trade_bucket = str(child.get("trade_bucket") or "")
+    return (
+        group in _BROAD_ABSORPTION_BLOCKED_GROUPS
+        or trade_bucket in _BROAD_ABSORPTION_BLOCKED_TRADES
+    )
+
+
+def _append_invalid_cost_model_warnings(
+    children: List[Dict[str, Any]],
+    warnings: List[Dict[str, Any]],
+) -> None:
+    seen = set()
+    for child in children or []:
+        if child.get("cost_model_source") != COST_MODEL_SOURCE_INVALID_CATALOG_FALLBACK:
+            continue
+        key = (
+            child.get("catalog_item_id"),
+            child.get("parent_line_item_id"),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        warnings.append({
+            "code": "invalid_catalog_cost_model",
+            "catalog_item_id": child.get("catalog_item_id"),
+            "estimate_unit_id": child.get("parent_line_item_id"),
+            "defaulted_to": LINE_ITEM,
+        })
 
 
 def is_defect_driver(
@@ -158,6 +374,8 @@ def infer_packages(
     candidates: List[EstimateCandidate],
     room_surrogates: List[Dict[str, Any]],
     issue_catalog: Dict[str, Any],
+    *,
+    estimate_units: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
     """Walk per-room candidates, emit kitchen/bathroom/room packages."""
     catalog_lookup: Dict[str, Dict[str, Any]] = {}
@@ -166,11 +384,50 @@ def infer_packages(
             catalog_lookup[item["id"]] = item
 
     by_surrogate: Dict[str, List[EstimateCandidate]] = {}
+    by_estimate_unit: Dict[str, List[EstimateCandidate]] = {}
     for c in candidates:
         if c.room_surrogate_id:
             by_surrogate.setdefault(c.room_surrogate_id, []).append(c)
+        unit_id = getattr(c, "billable_estimate_unit_id", "") or c.room_surrogate_id
+        if unit_id:
+            by_estimate_unit.setdefault(unit_id, []).append(c)
 
     packages: List[Dict[str, Any]] = []
+
+    if estimate_units is not None:
+        for unit in estimate_units or []:
+            unit_id = unit.get("estimate_unit_id")
+            if not unit_id:
+                continue
+            scene = unit.get("unit_type") or ""
+            room_candidates = by_estimate_unit.get(unit_id, [])
+            if not room_candidates:
+                continue
+            source_room_ids = list(unit.get("source_room_surrogate_ids") or [])
+
+            if scene == "kitchen":
+                pkg = _infer_kitchen_package(
+                    unit_id, room_candidates, catalog_lookup,
+                    estimate_unit_id=unit_id,
+                    source_room_surrogate_ids=source_room_ids,
+                )
+            elif scene == "bathroom":
+                pkg = _infer_bathroom_package(
+                    unit_id, room_candidates, catalog_lookup,
+                    estimate_unit_id=unit_id,
+                    source_room_surrogate_ids=source_room_ids,
+                )
+            else:
+                pkg = _infer_room_refresh(
+                    unit_id, scene, room_candidates, catalog_lookup,
+                    estimate_unit_id=unit_id,
+                    source_room_surrogate_ids=source_room_ids,
+                )
+
+            if pkg is not None:
+                packages.append(pkg)
+        return packages
+
     for surrogate in room_surrogates or []:
         sid = surrogate.get("room_surrogate_id")
         if not sid:
@@ -201,8 +458,17 @@ def _build_package(
     supporting_candidates: List[EstimateCandidate],
     trigger_reason: str,
     decision_notes: List[str],
+    estimate_unit_id: Optional[str] = None,
+    source_room_surrogate_ids: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
     pkg_type, cost_low, cost_high = spec
+    package_unit_id = estimate_unit_id or room_surrogate_id
+    cost_model, cost_model_source = derive_package_cost_model()
+    estimate_scope, estimate_scope_reason = classify_package_scope(
+        pkg_type,
+        supporting_candidates,
+        trigger_reason,
+    )
     issue_ids: List[str] = []
     cat_ids: List[str] = []
     for c in supporting_candidates:
@@ -212,13 +478,21 @@ def _build_package(
         if c.catalog_item_id and c.catalog_item_id not in cat_ids:
             cat_ids.append(c.catalog_item_id)
     return {
-        "package_id": f"{pkg_type}__{room_surrogate_id}",
+        "package_id": f"{pkg_type}__{package_unit_id}",
         "package_type": pkg_type,
         "room_surrogate_id": room_surrogate_id,
+        "estimate_unit_id": package_unit_id,
+        "source_room_surrogate_ids": list(source_room_surrogate_ids or []),
         "estimate_group": estimate_group,
+        "estimate_scope": estimate_scope,
+        "estimate_scope_reason": estimate_scope_reason,
         "cost_low": cost_low,
         "cost_high": cost_high,
         "cost_midpoint": (cost_low + cost_high) // 2,
+        "cost_model": cost_model,
+        "cost_model_source": cost_model_source,
+        "absorption_scope": _package_absorption_scope(pkg_type),
+        "cap_behavior": CAP_BEHAVIOR_RESPECT_GROUP_CAP,
         "absorbed_unit_member_refs": [],
         "absorbed_total_low": 0,
         "absorbed_total_high": 0,
@@ -255,6 +529,9 @@ def _infer_kitchen_package(
     room_surrogate_id: str,
     candidates: List[EstimateCandidate],
     catalog_lookup: Dict[str, Dict[str, Any]],
+    *,
+    estimate_unit_id: Optional[str] = None,
+    source_room_surrogate_ids: Optional[List[str]] = None,
 ) -> Optional[Dict[str, Any]]:
     drivers, dated, all_drivers = _bucket_by_component(candidates, catalog_lookup)
     notes: List[str] = []
@@ -275,6 +552,8 @@ def _infer_kitchen_package(
             supporting_candidates=cabinets_sev3 + counter + flooring + appliance + plumbing + electrical,
             trigger_reason="cabinets_sev3 + counter + flooring + (appliance|plumbing|electrical)",
             decision_notes=["full_rehab matched"],
+            estimate_unit_id=estimate_unit_id,
+            source_room_surrogate_ids=source_room_surrogate_ids,
         )
     notes.append("full_rehab not met")
 
@@ -286,6 +565,8 @@ def _infer_kitchen_package(
             supporting_candidates=cabinets + counter + flooring,
             trigger_reason="cabinets + (counter|flooring)",
             decision_notes=notes + ["partial_rehab matched"],
+            estimate_unit_id=estimate_unit_id,
+            source_room_surrogate_ids=source_room_surrogate_ids,
         )
     notes.append("partial_rehab not met")
 
@@ -297,6 +578,8 @@ def _infer_kitchen_package(
             supporting_candidates=dated + all_drivers,
             trigger_reason="2+ dated_evidence + 1+ defect_driver",
             decision_notes=notes + ["refresh matched"],
+            estimate_unit_id=estimate_unit_id,
+            source_room_surrogate_ids=source_room_surrogate_ids,
         )
     notes.append("refresh not met")
 
@@ -308,6 +591,8 @@ def _infer_kitchen_package(
             supporting_candidates=all_drivers,
             trigger_reason="1-2 isolated defect drivers",
             decision_notes=notes + ["minor_repair matched"],
+            estimate_unit_id=estimate_unit_id,
+            source_room_surrogate_ids=source_room_surrogate_ids,
         )
     return None
 
@@ -316,6 +601,9 @@ def _infer_bathroom_package(
     room_surrogate_id: str,
     candidates: List[EstimateCandidate],
     catalog_lookup: Dict[str, Dict[str, Any]],
+    *,
+    estimate_unit_id: Optional[str] = None,
+    source_room_surrogate_ids: Optional[List[str]] = None,
 ) -> Optional[Dict[str, Any]]:
     drivers, dated, all_drivers = _bucket_by_component(candidates, catalog_lookup)
     notes: List[str] = []
@@ -336,6 +624,8 @@ def _infer_bathroom_package(
             supporting_candidates=vanity + tile + flooring + tub_shower + fixture + moisture + plumbing,
             trigger_reason="vanity + tile + flooring + (tub_shower|fixture|moisture|plumbing)",
             decision_notes=["full_rehab matched"],
+            estimate_unit_id=estimate_unit_id,
+            source_room_surrogate_ids=source_room_surrogate_ids,
         )
     notes.append("full_rehab not met")
 
@@ -347,6 +637,8 @@ def _infer_bathroom_package(
             supporting_candidates=vanity + tile + flooring + tub_shower,
             trigger_reason="(vanity|tile) + (flooring|tub_shower)",
             decision_notes=notes + ["partial_rehab matched"],
+            estimate_unit_id=estimate_unit_id,
+            source_room_surrogate_ids=source_room_surrogate_ids,
         )
     notes.append("partial_rehab not met")
 
@@ -358,6 +650,8 @@ def _infer_bathroom_package(
             supporting_candidates=dated + all_drivers,
             trigger_reason="2+ dated_evidence + 1+ defect_driver",
             decision_notes=notes + ["refresh matched"],
+            estimate_unit_id=estimate_unit_id,
+            source_room_surrogate_ids=source_room_surrogate_ids,
         )
     notes.append("refresh not met")
 
@@ -369,6 +663,8 @@ def _infer_bathroom_package(
             supporting_candidates=all_drivers,
             trigger_reason="1-2 isolated defect drivers",
             decision_notes=notes + ["minor_repair matched"],
+            estimate_unit_id=estimate_unit_id,
+            source_room_surrogate_ids=source_room_surrogate_ids,
         )
     return None
 
@@ -378,6 +674,9 @@ def _infer_room_refresh(
     scene: str,
     candidates: List[EstimateCandidate],
     catalog_lookup: Dict[str, Dict[str, Any]],
+    *,
+    estimate_unit_id: Optional[str] = None,
+    source_room_surrogate_ids: Optional[List[str]] = None,
 ) -> Optional[Dict[str, Any]]:
     """Room refresh / repair-heavy for non-kitchen, non-bathroom surrogates."""
     _drivers, _dated, all_drivers = _bucket_by_component(candidates, catalog_lookup)
@@ -393,6 +692,8 @@ def _infer_room_refresh(
             supporting_candidates=minor_sev + medium_sev,
             trigger_reason="2+ minor_severity + 1+ medium_severity defect drivers",
             decision_notes=["room_repair_heavy matched"],
+            estimate_unit_id=estimate_unit_id,
+            source_room_surrogate_ids=source_room_surrogate_ids,
         )
 
     qualified_for_refresh: List[EstimateCandidate] = []
@@ -408,6 +709,8 @@ def _infer_room_refresh(
             supporting_candidates=qualified_for_refresh,
             trigger_reason="3+ qualified non-optional cosmetic-or-minor-severity defect drivers",
             decision_notes=["room_refresh matched"],
+            estimate_unit_id=estimate_unit_id,
+            source_room_surrogate_ids=source_room_surrogate_ids,
         )
     return None
 
@@ -429,7 +732,7 @@ def reconcile_packages_and_estimate_units(
       - Each package gets `absorbed_unit_member_refs`, `absorbed_total_low/high`,
         `replacement_delta_low/high` populated.
 
-    Returns audit dict with totals, warnings, and `final_rehab`.
+    Returns audit dict with totals, warnings, and explicit estimate buckets.
     """
     # Phase A: normalize line items into child records, indexed by group
     children_by_group: Dict[str, List[Dict[str, Any]]] = {}
@@ -443,28 +746,60 @@ def reconcile_packages_and_estimate_units(
         children_by_group.setdefault(group_name, []).extend(group_children)
 
     all_children = [c for lst in children_by_group.values() for c in lst]
+    warnings: List[Dict[str, Any]] = []
+    _append_invalid_cost_model_warnings(all_children, warnings)
 
     # Phase B: absorb children into packages (first-come-first-absorbed)
     for pkg in packages or []:
+        pkg.setdefault("cost_model", PACKAGE_ALLOWANCE)
+        pkg.setdefault("cost_model_source", COST_MODEL_SOURCE_DERIVED_PACKAGE)
+        pkg.setdefault(
+            "absorption_scope",
+            _package_absorption_scope(str(pkg.get("package_type") or "")),
+        )
+        if pkg.get("estimate_scope") not in VALID_ESTIMATE_SCOPES:
+            scope, reason = classify_package_scope(
+                str(pkg.get("package_type") or ""),
+                [],
+                str(pkg.get("trigger_reason") or ""),
+            )
+            pkg["estimate_scope"] = scope
+            pkg["estimate_scope_reason"] = reason
         pkg.setdefault("absorbed_unit_member_refs", [])
         pkg["absorbed_total_low"] = 0
         pkg["absorbed_total_high"] = 0
         pkg_supporting_issue_ids = set(pkg.get("supporting_issue_ids") or [])
         pkg_room_id = pkg.get("room_surrogate_id")
+        pkg_estimate_unit_id = pkg.get("estimate_unit_id")
         pkg_id = pkg.get("package_id")
 
         for child in all_children:
             if child.get("absorbed_by_package_id") is not None:
                 continue
-            if child.get("room_surrogate_id") != pkg_room_id:
+            if pkg_estimate_unit_id:
+                if child.get("estimate_unit_id") != pkg_estimate_unit_id:
+                    continue
+            elif child.get("room_surrogate_id") != pkg_room_id:
                 continue
-            child_issue_ids = set(child.get("issue_ids") or [])
-            if not (child_issue_ids & pkg_supporting_issue_ids):
+            absorption_reason = _package_child_absorption_reason(
+                pkg,
+                child,
+                pkg_supporting_issue_ids,
+                allow_broad=bool(pkg_estimate_unit_id),
+            )
+            if not absorption_reason:
                 continue
             child["absorbed_by_package_id"] = pkg_id
+            child["absorption_reason"] = absorption_reason
             pkg["absorbed_unit_member_refs"].append({
                 "child_id": child["child_id"],
                 "parent_line_item_id": child["parent_line_item_id"],
+                "catalog_item_id": child.get("catalog_item_id"),
+                "cost_model": child.get("cost_model"),
+                "cost_model_source": child.get("cost_model_source"),
+                "absorption_reason": absorption_reason,
+                "estimate_scope": child.get("estimate_scope"),
+                "estimate_scope_reason": child.get("estimate_scope_reason"),
                 "allocated_low": child["allocated_low"],
                 "allocated_high": child["allocated_high"],
             })
@@ -473,8 +808,17 @@ def reconcile_packages_and_estimate_units(
             _mark_parent_member_absorbed(groups_out, child, pkg_id)
 
     # Phase C: per-package replacement_delta + warnings
-    warnings: List[Dict[str, Any]] = []
     for pkg in packages or []:
+        raw_cap_behavior = pkg.get("cap_behavior") or CAP_BEHAVIOR_RESPECT_GROUP_CAP
+        if raw_cap_behavior not in _VALID_CAP_BEHAVIORS:
+            warnings.append({
+                "code": "invalid_package_cap_behavior",
+                "package_id": pkg.get("package_id"),
+                "cap_behavior": raw_cap_behavior,
+                "defaulted_to": CAP_BEHAVIOR_RESPECT_GROUP_CAP,
+            })
+            raw_cap_behavior = CAP_BEHAVIOR_RESPECT_GROUP_CAP
+        pkg["cap_behavior"] = raw_cap_behavior
         delta_low = pkg["cost_low"] - pkg["absorbed_total_low"]
         delta_high = pkg["cost_high"] - pkg["absorbed_total_high"]
         pkg["replacement_delta_low"] = delta_low
@@ -501,45 +845,598 @@ def reconcile_packages_and_estimate_units(
     for group in groups_out or []:
         group_name = group.get("group", "other")
         group_children = children_by_group.get(group_name, [])
-        retained_children = [c for c in group_children if c.get("absorbed_by_package_id") is None]
+        retained_children = [
+            c for c in group_children
+            if c.get("absorbed_by_package_id") is None and _is_visible_rehab_child(c)
+        ]
         rt_low, rt_high = _recompute_retained_group(group_name, retained_children)
         retained_group_totals.append({"group": group_name, "low": rt_low, "high": rt_high})
         retained_total_low += rt_low
         retained_total_high += rt_high
 
-    # Phase E: assemble totals + final_rehab
+    # Phase E: assemble explicit rehab/exposure buckets
     package_total_low = sum(int(pkg.get("cost_low") or 0) for pkg in packages or [])
     package_total_high = sum(int(pkg.get("cost_high") or 0) for pkg in packages or [])
     absorbed_total_low = sum(int(pkg.get("absorbed_total_low") or 0) for pkg in packages or [])
     absorbed_total_high = sum(int(pkg.get("absorbed_total_high") or 0) for pkg in packages or [])
     absorbed_member_count = sum(len(pkg.get("absorbed_unit_member_refs") or []) for pkg in packages or [])
+    package_group_reconciliation = _build_package_group_reconciliation(
+        groups_out or [],
+        children_by_group,
+        packages or [],
+        warnings,
+    )
+    _populate_package_absorption_audits(packages or [], all_children)
+    estimate_members = _build_estimate_members(groups_out or [], children_by_group)
+    reconciliation_audit = {
+        "groups": _build_reconciliation_audit_groups(
+            package_group_reconciliation,
+            retained_group_totals,
+        )
+    }
+    scope_rollups = _build_scope_rollups(
+        groups_out or [],
+        children_by_group,
+        packages or [],
+        package_group_reconciliation,
+    )
+    totals_by_scope_raw = scope_rollups["totals_by_scope_raw"]
+    totals_by_scope_capped = scope_rollups["totals_by_scope_capped"]
+    final_rehab_required, final_rehab_resale_ready = build_required_and_resale_ready(
+        totals_by_scope_capped,
+    )
+    package_net_delta_low = sum(
+        int(a["package_net_delta"]["low"]) for a in package_group_reconciliation
+    )
+    package_net_delta_high = sum(
+        int(a["package_net_delta"]["high"]) for a in package_group_reconciliation
+    )
 
+    visible_low = sum(
+        int(a["original_group_capped"]["low"]) for a in package_group_reconciliation
+    )
+    visible_high = sum(
+        int(a["original_group_capped"]["high"]) for a in package_group_reconciliation
+    )
     existing_risk_exposure_high = sum(
         int(group.get("risk_exposure_high") or 0) for group in (groups_out or [])
     )
 
-    final_low = retained_total_low + package_total_low
-    final_high = retained_total_high + package_total_high + existing_risk_exposure_high
-    final_mid = (final_low + final_high) // 2
+    package_adjusted_low = sum(
+        int(a["post_cap_package_adjusted"]["low"]) for a in package_group_reconciliation
+    )
+    package_adjusted_high = sum(
+        int(a["post_cap_package_adjusted"]["high"]) for a in package_group_reconciliation
+    )
+
+    visible_rehab = {
+        "low": visible_low,
+        "high": visible_high,
+        "midpoint": (visible_low + visible_high) // 2,
+        "basis": "verified_visible_line_items_before_package_replacement",
+    }
+    package_adjusted_rehab = {
+        "low": package_adjusted_low,
+        "high": package_adjusted_high,
+        "midpoint": (package_adjusted_low + package_adjusted_high) // 2,
+        "basis": "visible_work_after_package_reconciliation",
+    }
+    latent_risk_exposure = {
+        "low": 0,
+        "high": existing_risk_exposure_high,
+        "midpoint": None,
+        "basis": "inspect_posture_items_and_hidden_condition_exposure",
+    }
+    worst_case_exposure = {
+        "low": package_adjusted_low,
+        "high": package_adjusted_high + existing_risk_exposure_high,
+        "midpoint": None,
+        "basis": "package_adjusted_rehab_plus_latent_risk_exposure",
+    }
+    final_rehab = {
+        **package_adjusted_rehab,
+        "basis": "package_adjusted_rehab",
+        "source": "renovation_estimate_v4",
+    }
 
     return {
         "absorbed_total_low": absorbed_total_low,
         "absorbed_total_high": absorbed_total_high,
         "package_total_low": package_total_low,
         "package_total_high": package_total_high,
-        "net_delta_low": package_total_low - absorbed_total_low,
-        "net_delta_high": package_total_high - absorbed_total_high,
+        "net_delta_low": package_net_delta_low,
+        "net_delta_high": package_net_delta_high,
         "absorbed_member_count": absorbed_member_count,
         "package_count": len(packages or []),
         "retained_group_totals": retained_group_totals,
+        "package_group_reconciliation": package_group_reconciliation,
+        "estimate_members": estimate_members,
+        "reconciliation_audit": reconciliation_audit,
         "reconciliation_warnings": warnings,
-        "final_rehab": {
-            "low": final_low,
-            "high": final_high,
-            "midpoint": final_mid,
-            "source": "renovation_estimate_v4",
-        },
+        "warnings": [w["code"] for w in warnings if w.get("code")],
+        "visible_rehab": visible_rehab,
+        "package_adjusted_rehab": package_adjusted_rehab,
+        "latent_risk_exposure": latent_risk_exposure,
+        "worst_case_exposure": worst_case_exposure,
+        "final_rehab": final_rehab,
+        "totals_by_scope_raw": totals_by_scope_raw,
+        "totals_by_scope_capped": totals_by_scope_capped,
+        "final_rehab_required": final_rehab_required,
+        "final_rehab_resale_ready": final_rehab_resale_ready,
     }
+
+
+def _populate_package_absorption_audits(
+    packages: List[Dict[str, Any]],
+    all_children: List[Dict[str, Any]],
+) -> None:
+    children_by_parent: Dict[str, List[Dict[str, Any]]] = {}
+    for child in all_children or []:
+        children_by_parent.setdefault(child.get("parent_line_item_id") or "", []).append(child)
+
+    for pkg in packages or []:
+        pkg_id = pkg.get("package_id")
+        absorbed_children = [
+            child for child in all_children or []
+            if child.get("absorbed_by_package_id") == pkg_id
+        ]
+        absorbed_parent_ids = {
+            child.get("parent_line_item_id") for child in absorbed_children
+        }
+        retained_partial_children: List[Dict[str, Any]] = []
+        for parent_id in absorbed_parent_ids:
+            siblings = children_by_parent.get(parent_id or "", [])
+            if len(siblings) <= 1:
+                continue
+            retained_partial_children.extend(
+                sibling for sibling in siblings
+                if sibling.get("absorbed_by_package_id") is None
+            )
+
+        absorbed = {
+            "line_items": [],
+            "room_allowances": [],
+            "partial_allocations": [],
+            "totals": _sum_children_amount(absorbed_children),
+        }
+        retained = {
+            "partial_allocations": [],
+            "totals": _sum_children_amount(retained_partial_children),
+        }
+
+        for child in absorbed_children:
+            siblings = children_by_parent.get(child.get("parent_line_item_id") or "", [])
+            if len(siblings) > 1:
+                _append_unique(absorbed["partial_allocations"], _child_ref(child, include_unit=True))
+            elif child.get("cost_model") == ROOM_ALLOWANCE:
+                _append_unique(absorbed["room_allowances"], _child_ref(child))
+            else:
+                _append_unique(absorbed["line_items"], _child_ref(child))
+
+        for child in retained_partial_children:
+            _append_unique(retained["partial_allocations"], _child_ref(child, include_unit=True))
+
+        net_low = max(0, int(pkg.get("cost_low") or 0) - int(pkg.get("absorbed_total_low") or 0))
+        net_high = max(0, int(pkg.get("cost_high") or 0) - int(pkg.get("absorbed_total_high") or 0))
+        pkg["absorption_audit"] = {
+            "absorbed": absorbed,
+            "retained": retained,
+            "package_net_delta": _amount(net_low, net_high),
+        }
+
+
+def _build_estimate_members(
+    groups_out: List[Dict[str, Any]],
+    children_by_group: Dict[str, List[Dict[str, Any]]],
+) -> List[Dict[str, Any]]:
+    children_by_parent: Dict[str, List[Dict[str, Any]]] = {}
+    for children in (children_by_group or {}).values():
+        for child in children or []:
+            children_by_parent.setdefault(child.get("parent_line_item_id") or "", []).append(child)
+
+    members: List[Dict[str, Any]] = []
+    for group in groups_out or []:
+        group_name = group.get("group") or "other"
+        for line_item in group.get("line_items", []) or []:
+            parent_id = line_item.get("estimate_unit_id") or ""
+            children = children_by_parent.get(parent_id, [])
+            absorbed_children = [
+                child for child in children
+                if child.get("absorbed_by_package_id") is not None
+            ]
+            retained_children = [
+                child for child in children
+                if child.get("absorbed_by_package_id") is None
+                and _is_visible_rehab_child(child)
+            ]
+            package_ids = sorted({
+                str(child.get("absorbed_by_package_id"))
+                for child in absorbed_children
+                if child.get("absorbed_by_package_id")
+            })
+            status = _estimate_member_status(line_item, children, absorbed_children, retained_children)
+            record = {
+                "estimate_unit_id": parent_id,
+                "catalog_item_id": line_item.get("catalog_item_id"),
+                "name": line_item.get("name"),
+                "group": group_name,
+                "trade_bucket": line_item.get("trade_bucket"),
+                "status": status,
+                "cost_model": line_item.get("cost_model") or LINE_ITEM,
+                "cost_model_source": line_item.get("cost_model_source"),
+                "original_amount": _sum_children_amount(children),
+                "absorbed_amount": _sum_children_amount(absorbed_children),
+                "retained_amount": _sum_children_amount(retained_children),
+                "unit_allocations": [
+                    _unit_allocation_record(child, status)
+                    for child in children
+                ],
+            }
+            if len(package_ids) == 1 and status == "absorbed":
+                record["absorbed_by_package_id"] = package_ids[0]
+            if package_ids:
+                record["absorbed_by_package_ids"] = package_ids
+            members.append(record)
+    return members
+
+
+def _estimate_member_status(
+    line_item: Dict[str, Any],
+    children: List[Dict[str, Any]],
+    absorbed_children: List[Dict[str, Any]],
+    retained_children: List[Dict[str, Any]],
+) -> str:
+    if line_item.get("is_valid_detection") is False:
+        return "suppressed"
+    if line_item.get("cost_model") == INSPECTION_ALLOWANCE or any(
+        child.get("cost_model") == INSPECTION_ALLOWANCE for child in children
+    ):
+        return "risk_only"
+    if absorbed_children and not retained_children:
+        return "absorbed"
+    if absorbed_children:
+        return "partially_absorbed"
+    return "retained"
+
+
+def _unit_allocation_record(child: Dict[str, Any], parent_status: str) -> Dict[str, Any]:
+    absorbed_by = child.get("absorbed_by_package_id")
+    is_visible_retained = absorbed_by is None and _is_visible_rehab_child(child)
+    status = parent_status
+    if parent_status not in {"risk_only", "suppressed"}:
+        status = "absorbed" if absorbed_by else "retained"
+    return {
+        "child_id": child.get("child_id"),
+        "catalog_item_id": child.get("catalog_item_id"),
+        "estimate_unit_id": child.get("estimate_unit_id"),
+        "room_surrogate_id": child.get("room_surrogate_id"),
+        "status": status,
+        "cost_model": child.get("cost_model") or LINE_ITEM,
+        "cost_model_source": child.get("cost_model_source"),
+        "original_amount": _amount(
+            int(child.get("allocated_low") or 0),
+            int(child.get("allocated_high") or 0),
+        ),
+        "absorbed_amount": _amount(
+            int(child.get("allocated_low") or 0) if absorbed_by else 0,
+            int(child.get("allocated_high") or 0) if absorbed_by else 0,
+        ),
+        "retained_amount": _amount(
+            int(child.get("allocated_low") or 0) if is_visible_retained else 0,
+            int(child.get("allocated_high") or 0) if is_visible_retained else 0,
+        ),
+        "absorbed_by_package_id": absorbed_by,
+    }
+
+
+def _build_reconciliation_audit_groups(
+    package_group_reconciliation: List[Dict[str, Any]],
+    retained_group_totals: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    retained_by_group = {
+        item.get("group"): {
+            "low": int(item.get("low") or 0),
+            "high": int(item.get("high") or 0),
+            "midpoint": (int(item.get("low") or 0) + int(item.get("high") or 0)) // 2,
+        }
+        for item in retained_group_totals or []
+    }
+    out: List[Dict[str, Any]] = []
+    for audit in package_group_reconciliation or []:
+        group_name = audit.get("group") or "other"
+        out.append({
+            "group": group_name,
+            "original_group_raw": audit.get("original_group_raw") or {"low": 0, "high": 0},
+            "original_group_capped": audit.get("original_group_capped") or {"low": 0, "high": 0},
+            "retained_group": retained_by_group.get(group_name, _amount(0, 0)),
+            "absorbed_total": audit.get("absorbed_total") or {"low": 0, "high": 0},
+            "package_total": audit.get("package_total") or {"low": 0, "high": 0},
+            "package_net_delta": audit.get("package_net_delta") or {"low": 0, "high": 0},
+            "pre_cap_package_adjusted": audit.get("pre_cap_package_adjusted") or {"low": 0, "high": 0},
+            "post_cap_package_adjusted": audit.get("post_cap_package_adjusted") or {"low": 0, "high": 0},
+            "cap_applied_after_packages": bool(audit.get("cap_applied_after_packages")),
+            "cap_override": bool(audit.get("cap_override")),
+        })
+    return out
+
+
+def _sum_children_amount(children: List[Dict[str, Any]]) -> Dict[str, int]:
+    low = sum(int(child.get("allocated_low") or 0) for child in children or [])
+    high = sum(int(child.get("allocated_high") or 0) for child in children or [])
+    return _amount(low, high)
+
+
+def _amount(low: int, high: int) -> Dict[str, int]:
+    return {
+        "low": int(low),
+        "high": int(high),
+        "midpoint": (int(low) + int(high)) // 2,
+    }
+
+
+def _child_ref(child: Dict[str, Any], *, include_unit: bool = False) -> str:
+    catalog_id = str(child.get("catalog_item_id") or child.get("parent_line_item_id") or "")
+    if include_unit:
+        unit_id = child.get("estimate_unit_id") or child.get("room_surrogate_id") or ""
+        return f"{catalog_id}:{unit_id}" if unit_id else catalog_id
+    return catalog_id
+
+
+def _append_unique(items: List[str], value: str) -> None:
+    if value and value not in items:
+        items.append(value)
+
+
+def _build_scope_rollups(
+    groups_out: List[Dict[str, Any]],
+    children_by_group: Dict[str, List[Dict[str, Any]]],
+    packages: List[Dict[str, Any]],
+    package_group_reconciliation: List[Dict[str, Any]],
+) -> Dict[str, Dict[str, Dict[str, int]]]:
+    raw_by_group: Dict[str, Dict[str, Dict[str, int]]] = {}
+
+    for audit in package_group_reconciliation or []:
+        group_name = audit.get("group") or "other"
+        raw_by_group.setdefault(group_name, empty_scope_totals())
+
+    for group_name, children in (children_by_group or {}).items():
+        group_totals = raw_by_group.setdefault(group_name, empty_scope_totals())
+        for child in children or []:
+            scope = child.get("estimate_scope")
+            if scope == INSPECTION_RISK or child.get("cost_model") == INSPECTION_ALLOWANCE:
+                continue
+            add_scope_amount(
+                group_totals,
+                scope,
+                child.get("allocated_low", 0),
+                child.get("allocated_high", 0),
+            )
+
+    for pkg in packages or []:
+        scope = pkg.get("estimate_scope")
+        if scope == INSPECTION_RISK:
+            continue
+        group_name = pkg.get("estimate_group") or "other"
+        group_totals = raw_by_group.setdefault(group_name, empty_scope_totals())
+        net_low = max(
+            0,
+            int(pkg.get("cost_low") or 0) - int(pkg.get("absorbed_total_low") or 0),
+        )
+        net_high = max(
+            0,
+            int(pkg.get("cost_high") or 0) - int(pkg.get("absorbed_total_high") or 0),
+        )
+        add_scope_amount(group_totals, scope, net_low, net_high)
+
+    totals_by_scope_raw = sum_scope_totals(raw_by_group)
+    inspection_risk = {
+        "low": 0,
+        "high": sum(int(group.get("risk_exposure_high") or 0) for group in groups_out),
+    }
+    totals_by_scope_raw[INSPECTION_RISK] = dict(inspection_risk)
+
+    caps_by_group = {
+        (audit.get("group") or "other"): {
+            "low": int((audit.get("post_cap_package_adjusted") or {}).get("low") or 0),
+            "high": int((audit.get("post_cap_package_adjusted") or {}).get("high") or 0),
+        }
+        for audit in package_group_reconciliation or []
+    }
+    totals_by_scope_capped = allocate_capped_scope_totals(
+        raw_by_group,
+        caps_by_group,
+        inspection_risk=inspection_risk,
+    )
+    return {
+        "totals_by_scope_raw": totals_by_scope_raw,
+        "totals_by_scope_capped": totals_by_scope_capped,
+    }
+
+
+def _build_package_group_reconciliation(
+    groups_out: List[Dict[str, Any]],
+    children_by_group: Dict[str, List[Dict[str, Any]]],
+    packages: List[Dict[str, Any]],
+    warnings: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    group_records: Dict[str, Dict[str, Any]] = {}
+    group_names: List[str] = []
+    for group in groups_out or []:
+        group_name = group.get("group", "other")
+        if group_name not in group_records:
+            group_records[group_name] = group
+        if group_name not in group_names:
+            group_names.append(group_name)
+    packages_by_group: Dict[str, List[Dict[str, Any]]] = {}
+    for pkg in packages or []:
+        group_name = pkg.get("estimate_group") or "other"
+        packages_by_group.setdefault(group_name, []).append(pkg)
+        if group_name not in group_names:
+            group_names.append(group_name)
+
+    out: List[Dict[str, Any]] = []
+    for group_name in group_names:
+        group = group_records.get(group_name)
+        group_children = children_by_group.get(group_name, [])
+        original_raw_low, original_raw_high = _original_group_raw(group, group_children)
+        original_capped_low, original_capped_high = _original_group_capped(
+            group_name,
+            group,
+            group_children,
+        )
+        group_packages = packages_by_group.get(group_name, [])
+        package_low = sum(int(pkg.get("cost_low") or 0) for pkg in group_packages)
+        package_high = sum(int(pkg.get("cost_high") or 0) for pkg in group_packages)
+        absorbed_low = sum(int(pkg.get("absorbed_total_low") or 0) for pkg in group_packages)
+        absorbed_high = sum(int(pkg.get("absorbed_total_high") or 0) for pkg in group_packages)
+        net_low = max(0, package_low - absorbed_low)
+        net_high = max(0, package_high - absorbed_high)
+        pre_low = original_capped_low + net_low
+        pre_high = original_capped_high + net_high
+
+        cap_behavior = _dominant_cap_behavior(group_packages)
+        cap_override = cap_behavior != CAP_BEHAVIOR_RESPECT_GROUP_CAP
+        has_group_cap = _has_group_cap(group_name, group, group_children, group_packages)
+        post_low, post_high, cap_applied = _apply_post_package_group_cap(
+            group_name=group_name,
+            pre_low=pre_low,
+            pre_high=pre_high,
+            original_capped_high=original_capped_high,
+            package_high=package_high,
+            cap_behavior=cap_behavior,
+            has_group_cap=has_group_cap,
+        )
+
+        if cap_behavior == CAP_BEHAVIOR_ALLOW_ABOVE_GROUP_CAP and group_packages:
+            warnings.append({
+                "code": "cap_override_used",
+                "group": group_name,
+                "cap_behavior": cap_behavior,
+                "package_ids": [
+                    pkg.get("package_id") for pkg in group_packages if pkg.get("package_id")
+                ],
+                "pre_cap_high": pre_high,
+                "group_cap_high": _group_cap_high(group_name),
+            })
+
+        out.append({
+            "group": group_name,
+            "original_group_raw": {"low": original_raw_low, "high": original_raw_high},
+            "original_group_capped": {
+                "low": original_capped_low,
+                "high": original_capped_high,
+            },
+            "absorbed_total": {"low": absorbed_low, "high": absorbed_high},
+            "package_total": {"low": package_low, "high": package_high},
+            "package_net_delta": {"low": net_low, "high": net_high},
+            "pre_cap_package_adjusted": {"low": pre_low, "high": pre_high},
+            "post_cap_package_adjusted": {"low": post_low, "high": post_high},
+            "cap_applied_after_packages": cap_applied,
+            "cap_override": cap_override,
+        })
+    return out
+
+
+def _original_group_raw(
+    group: Optional[Dict[str, Any]],
+    group_children: List[Dict[str, Any]],
+) -> Tuple[int, int]:
+    visible_children = _visible_rehab_children(group_children)
+    if len(visible_children) != len(group_children):
+        return (
+            sum(int(c.get("allocated_low") or 0) for c in visible_children),
+            sum(int(c.get("allocated_high") or 0) for c in visible_children),
+        )
+    if group and "raw_sum_low" in group and "raw_sum_high" in group:
+        return (int(group.get("raw_sum_low") or 0), int(group.get("raw_sum_high") or 0))
+    return (
+        sum(int(c.get("allocated_low") or 0) for c in group_children),
+        sum(int(c.get("allocated_high") or 0) for c in group_children),
+    )
+
+
+def _original_group_capped(
+    group_name: str,
+    group: Optional[Dict[str, Any]],
+    group_children: List[Dict[str, Any]],
+) -> Tuple[int, int]:
+    visible_children = _visible_rehab_children(group_children)
+    if len(visible_children) != len(group_children):
+        return _recompute_retained_group(group_name, visible_children)
+    if group and "low" in group and "high" in group:
+        return (int(group.get("low") or 0), int(group.get("high") or 0))
+    return _recompute_retained_group(group_name, group_children)
+
+
+def _visible_rehab_children(children: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [child for child in children or [] if _is_visible_rehab_child(child)]
+
+
+def _is_visible_rehab_child(child: Dict[str, Any]) -> bool:
+    return (
+        child.get("estimate_scope") != INSPECTION_RISK
+        and child.get("cost_model") != INSPECTION_ALLOWANCE
+    )
+
+
+def _dominant_cap_behavior(group_packages: List[Dict[str, Any]]) -> str:
+    behaviors = {
+        pkg.get("cap_behavior") or CAP_BEHAVIOR_RESPECT_GROUP_CAP
+        for pkg in group_packages
+    }
+    if CAP_BEHAVIOR_ALLOW_ABOVE_GROUP_CAP in behaviors:
+        return CAP_BEHAVIOR_ALLOW_ABOVE_GROUP_CAP
+    if CAP_BEHAVIOR_REPLACE_GROUP_CAP in behaviors:
+        return CAP_BEHAVIOR_REPLACE_GROUP_CAP
+    return CAP_BEHAVIOR_RESPECT_GROUP_CAP
+
+
+def _has_group_cap(
+    group_name: str,
+    group: Optional[Dict[str, Any]],
+    group_children: List[Dict[str, Any]],
+    group_packages: List[Dict[str, Any]],
+) -> bool:
+    if group and group.get("stack_behavior") == "group_cap":
+        return True
+    if any((c.get("stack_behavior") or "sum") == "group_cap" for c in group_children):
+        return True
+    if group_packages and group_name in GROUP_BUDGET_CAPS:
+        return True
+    return False
+
+
+def _group_cap_high(group_name: str) -> Optional[int]:
+    cap = GROUP_BUDGET_CAPS.get(group_name)
+    if not cap:
+        return None
+    return int(cap[1])
+
+
+def _apply_post_package_group_cap(
+    *,
+    group_name: str,
+    pre_low: int,
+    pre_high: int,
+    original_capped_high: int,
+    package_high: int,
+    cap_behavior: str,
+    has_group_cap: bool,
+) -> Tuple[int, int, bool]:
+    if not has_group_cap or cap_behavior == CAP_BEHAVIOR_ALLOW_ABOVE_GROUP_CAP:
+        return (min(pre_low, pre_high), pre_high, False)
+
+    group_cap_high = _group_cap_high(group_name)
+    if group_cap_high is None:
+        return (min(pre_low, pre_high), pre_high, False)
+
+    cap_high = max(group_cap_high, original_capped_high)
+    if cap_behavior == CAP_BEHAVIOR_REPLACE_GROUP_CAP:
+        cap_high = max(cap_high, package_high)
+
+    post_high = min(pre_high, cap_high)
+    post_low = min(pre_low, post_high)
+    return (post_low, post_high, post_high < pre_high)
 
 
 def _normalize_line_item(line_item: Dict[str, Any], group_name: str) -> List[Dict[str, Any]]:
@@ -561,12 +1458,31 @@ def _normalize_line_item(line_item: Dict[str, Any], group_name: str) -> List[Dic
             "child_id": f"{parent_id}::__synthetic__",
             "parent_line_item_id": parent_id,
             "group": group_name,
+            "catalog_item_id": line_item.get("catalog_item_id"),
+            "name": line_item.get("name"),
+            "trade_bucket": line_item.get("trade_bucket"),
+            "cost_model": line_item.get("cost_model") or LINE_ITEM,
+            "cost_model_source": line_item.get("cost_model_source"),
+            "estimate_unit_id": line_item.get("billable_estimate_unit_id") or line_item.get("estimate_unit_id") or "",
             "room_surrogate_id": line_item.get("room_surrogate_id") or "",
+            "source_room_surrogate_ids": list(line_item.get("source_room_surrogate_ids") or []),
             "issue_ids": list(line_item.get("source_issue_ids") or []),
             "scope_keys": [],
+            "estimate_scope": line_item.get("estimate_scope"),
+            "estimate_scope_reason": line_item.get("estimate_scope_reason"),
+            "baseline_scope_before_posture": line_item.get("baseline_scope_before_posture"),
+            "visible_required_with_inspect_posture": line_item.get(
+                "visible_required_with_inspect_posture", False,
+            ),
+            "required_baseline_included": line_item.get(
+                "required_baseline_included", False,
+            ),
+            "inspection_risk_added": line_item.get("inspection_risk_added", False),
             "stack_behavior": stack_behavior,
             "allocated_low": cost_low,
             "allocated_high": cost_high,
+            "original_low": cost_low,
+            "original_high": cost_high,
             "absorbed_by_package_id": None,
         }]
 
@@ -580,12 +1496,55 @@ def _normalize_line_item(line_item: Dict[str, Any], group_name: str) -> List[Dic
             "child_id": f"{parent_id}::{unit_key}",
             "parent_line_item_id": parent_id,
             "group": group_name,
+            "catalog_item_id": line_item.get("catalog_item_id"),
+            "name": line_item.get("name"),
+            "trade_bucket": line_item.get("trade_bucket"),
+            "cost_model": (
+                member.get("cost_model")
+                or line_item.get("cost_model")
+                or LINE_ITEM
+            ),
+            "cost_model_source": (
+                member.get("cost_model_source")
+                or line_item.get("cost_model_source")
+            ),
+            "estimate_unit_id": member.get("estimate_unit_id") or unit_key,
             "room_surrogate_id": member.get("room_surrogate_id") or "",
+            "source_room_surrogate_ids": list(
+                member.get("source_room_surrogate_ids")
+                or member.get("room_surrogate_ids")
+                or []
+            ),
             "issue_ids": list(member.get("issue_ids") or []),
             "scope_keys": list(member.get("estimate_scope_keys") or []),
+            "estimate_scope": (
+                member.get("estimate_scope") or line_item.get("estimate_scope")
+            ),
+            "estimate_scope_reason": (
+                member.get("estimate_scope_reason")
+                or line_item.get("estimate_scope_reason")
+            ),
+            "baseline_scope_before_posture": (
+                member.get("baseline_scope_before_posture")
+                or line_item.get("baseline_scope_before_posture")
+            ),
+            "visible_required_with_inspect_posture": (
+                member.get("visible_required_with_inspect_posture")
+                or line_item.get("visible_required_with_inspect_posture", False)
+            ),
+            "required_baseline_included": (
+                member.get("required_baseline_included")
+                or line_item.get("required_baseline_included", False)
+            ),
+            "inspection_risk_added": (
+                member.get("inspection_risk_added")
+                or line_item.get("inspection_risk_added", False)
+            ),
             "stack_behavior": stack_behavior,
             "allocated_low": alloc_low[i],
             "allocated_high": alloc_high[i],
+            "original_low": alloc_low[i],
+            "original_high": alloc_high[i],
             "absorbed_by_package_id": None,
         })
     return children
@@ -609,6 +1568,13 @@ def _mark_parent_member_absorbed(
             for m in li.get("unit_members", []) or []:
                 if m.get("unit_key") == member_unit_key:
                     m["absorbed_by_package_id"] = package_id
+                    m["cost_model"] = child.get("cost_model")
+                    m["cost_model_source"] = child.get("cost_model_source")
+                    m.setdefault("estimate_scope", child.get("estimate_scope"))
+                    m.setdefault(
+                        "estimate_scope_reason",
+                        child.get("estimate_scope_reason"),
+                    )
             return
 
 

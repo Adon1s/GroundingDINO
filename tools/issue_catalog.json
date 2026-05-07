@@ -1432,6 +1432,9 @@
       "embed_text": "Outdated kitchen finishes. Dated cabinetry, countertops, appliances, hardware, and mixed or mismatched kitchen finishes. Absent or minimal backsplash, bare painted wall above counters. Short upper cabinets, soffit or dead space above cabinetry. Laminate countertop, speckled or postform laminate counter. Honey oak cabinets, arched oak cabinet doors, dated oak cabinetry. Kitchen update and modernization.",
       "kind": "upgrade",
       "id": "outdated_kitchen_finishes",
+      "cost_model": "room_allowance",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_dated_finishes",
       "scope": "replace",
       "defaultHidden": false,
       "scene_groups": [
@@ -1476,6 +1479,9 @@
       "embed_text": "Outdated bathroom finishes. Dated tile, vanity, fixtures. Worn laminate vanity top, aged sink cabinet, deteriorated vanity edges, dated bath cabinet surfaces. Worn countertop edges in bathroom, dated faucet or hardware. Bathroom update.",
       "kind": "upgrade",
       "id": "outdated_bathroom_finishes",
+      "cost_model": "room_allowance",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_dated_finishes",
       "scope": "replace",
       "defaultHidden": false,
       "scene_groups": [

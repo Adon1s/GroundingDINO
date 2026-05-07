@@ -931,9 +931,22 @@ class TestRevisitPassReadiness:
         assert li["estimate_tier"] == "high"
         assert li["default_posture"] == "replace_only"
         assert li["review_posture"] is None
+        assert li["pricing_posture"] is None
         assert li["effective_posture"] == "replace_only"
         assert li["review_source"] is None
+        assert li["baseline_scope_before_posture"] == li["estimate_scope"]
+        assert li["visible_required_with_inspect_posture"] is False
+        assert li["required_baseline_included"] is True
+        assert li["inspection_risk_added"] is False
         assert "review_rationale" not in li
+        summary_item = result["tier_summary"]["unreviewed_items"][0]
+        audit_item = result["pass_2f_review_audit"]["items"][0]
+        for record in (summary_item, audit_item):
+            assert "baseline_scope_before_posture" in record
+            assert "visible_required_with_inspect_posture" in record
+            assert "required_baseline_included" in record
+            assert "inspection_risk_added" in record
+            assert "pricing_posture" in record
 
     def test_review_override_flows_to_output(self):
         """Review posture flows to output while rationale stays debug-only."""
@@ -954,6 +967,7 @@ class TestRevisitPassReadiness:
         result = compute_group_estimate("kitchen", candidates)
         li = result["line_items"][0]
         assert li["review_posture"] == "repair"
+        assert li["pricing_posture"] == "repair"
         assert "review_rationale" not in li
         assert li["review_source"] == "pass_2f"
         assert li["effective_posture"] == "repair"
@@ -1211,7 +1225,7 @@ class TestRunPass2fBatch:
         mock_vlm.analyze_image = AsyncMock(return_value=vlm_response)
 
         with patch("pathlib.Path.exists", return_value=True):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = _run_async(
                 run_pass_2f_batch(
                     candidates=candidates,
                     issues_flat=issues,
@@ -1285,7 +1299,7 @@ class TestRunPass2fBatch:
         mock_vlm.analyze_image = AsyncMock(side_effect=RuntimeError("API down"))
 
         with patch("pathlib.Path.exists", return_value=True):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = _run_async(
                 run_pass_2f_batch(
                     candidates=candidates,
                     issues_flat=issues,
@@ -1544,7 +1558,7 @@ class TestImageSelection:
         mock_vlm.analyze_image = AsyncMock(return_value=vlm_response)
 
         with patch("pathlib.Path.exists", return_value=True):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = _run_async(
                 run_pass_2f_batch(
                     candidates=candidates,
                     issues_flat=issues,
@@ -1907,7 +1921,7 @@ class TestFallbackBehavior:
         mock_vlm.analyze_image = AsyncMock(return_value=vlm_response)
 
         with patch("pathlib.Path.exists", return_value=True):
-            result = asyncio.get_event_loop().run_until_complete(
+            result = _run_async(
                 run_pass_2f_batch(
                     candidates=candidates,
                     issues_flat=issues,
@@ -1928,6 +1942,17 @@ class TestFallbackBehavior:
         estimate = compute_renovation_estimate(issues, catalog, prebuilt_candidates=result)
         li = estimate["groups"][0]["line_items"][0]
         assert (li["cost_low"], li["cost_high"]) == INSPECT_ALLOWANCE
+        assert li["pricing_posture"] == "inspect"
+        assert li["effective_posture"] == "inspect"
+        assert li["inspection_risk_added"] is True
+        assert "baseline_scope_before_posture" in li
+        assert "visible_required_with_inspect_posture" in li
+        audit_item = estimate["pass_2f_review_audit"]["items"][0]
+        assert audit_item["pricing_posture"] == "inspect"
+        assert audit_item["inspection_risk_added"] is True
+        summary_item = estimate["tier_summary"]["validated_items"][0]
+        assert summary_item["pricing_posture"] == "inspect"
+        assert summary_item["inspection_risk_added"] is True
         assert estimate["totals"]["inspection_allowance_total"] == {
             "low": INSPECT_ALLOWANCE[0],
             "high": INSPECT_ALLOWANCE[1],

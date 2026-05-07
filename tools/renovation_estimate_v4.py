@@ -16,6 +16,8 @@ import copy
 import logging
 from typing import Any, Dict, List, Optional
 
+from tools.catalog_cost_model import derive_cost_model
+from tools.estimate_scope import apply_estimate_scope
 from tools.rehab_packages import (
     infer_packages,
     reconcile_packages_and_estimate_units,
@@ -25,6 +27,7 @@ from tools.renovation_estimate import (
     compute_renovation_estimate,
     extract_estimate_candidates,
 )
+from tools.estimate_units import build_estimate_units
 from tools.room_surrogates import build_room_surrogates
 
 logger = logging.getLogger(__name__)
@@ -72,7 +75,16 @@ def compute_renovation_estimate_v4(
         return None
 
     surrogates = build_room_surrogates(photos or {})
+    surrogate_records = surrogates.get("room_surrogates", [])
+    estimate_unit_resolution = build_estimate_units(
+        photos or {},
+        surrogate_records,
+        property_metadata=property_metadata,
+    )
     photo_to_surrogate = surrogates.get("photo_key_to_room_surrogate_id", {}) or {}
+    photo_to_estimate_unit = (
+        estimate_unit_resolution.get("photo_to_estimate_unit_id", {}) or {}
+    )
 
     v4_issues: List[Dict[str, Any]] = []
     for issue in issues_flat or []:
@@ -80,6 +92,8 @@ def compute_renovation_estimate_v4(
         photo_key = v4_issue.get("photo_key")
         if photo_key and photo_key in photo_to_surrogate:
             v4_issue["room_surrogate_id"] = photo_to_surrogate[photo_key]
+        if photo_key and photo_key in photo_to_estimate_unit:
+            v4_issue["estimate_unit_id"] = photo_to_estimate_unit[photo_key]
         v4_issues.append(v4_issue)
 
     v4_candidates = extract_estimate_candidates(v4_issues, issue_catalog)
@@ -88,6 +102,20 @@ def compute_renovation_estimate_v4(
         v4_candidates,
         v3_reviewed_candidates or [],
     )
+    catalog_lookup = {
+        item["id"]: item
+        for item in (issue_catalog.get("items") or [])
+        if isinstance(item, dict) and item.get("id")
+    }
+    for candidate in v4_candidates:
+        apply_estimate_scope(
+            candidate,
+            catalog_lookup.get(candidate.catalog_item_id, {}),
+        )
+        candidate.cost_model, candidate.cost_model_source = derive_cost_model(
+            catalog_lookup.get(candidate.catalog_item_id, {}),
+            candidate,
+        )
 
     v4_estimate = compute_renovation_estimate(
         issues_flat=v4_issues,
@@ -95,8 +123,12 @@ def compute_renovation_estimate_v4(
         prebuilt_candidates=v4_candidates,
     )
 
-    surrogate_records = surrogates.get("room_surrogates", [])
-    packages = infer_packages(v4_candidates, surrogate_records, issue_catalog)
+    packages = infer_packages(
+        v4_candidates,
+        surrogate_records,
+        issue_catalog,
+        estimate_units=estimate_unit_resolution.get("estimate_units", []),
+    )
     reconciliation = reconcile_packages_and_estimate_units(
         v4_estimate.get("groups", []),
         packages,
@@ -104,15 +136,38 @@ def compute_renovation_estimate_v4(
 
     v4_estimate["version"] = "renovation_estimate_v4"
     v4_estimate["room_surrogates"] = surrogate_records
+    v4_estimate["estimate_units"] = estimate_unit_resolution.get("estimate_units", [])
+    v4_estimate["photo_to_estimate_unit_id"] = photo_to_estimate_unit
+    v4_estimate["room_surrogate_to_estimate_unit_id"] = (
+        estimate_unit_resolution.get("room_surrogate_to_estimate_unit_id", {}) or {}
+    )
+    v4_estimate["estimate_unit_merge_decisions"] = (
+        estimate_unit_resolution.get("merge_decisions", []) or []
+    )
+    v4_estimate["estimate_unit_warnings"] = (
+        estimate_unit_resolution.get("warnings", []) or []
+    )
     v4_estimate["packages"] = packages
     v4_estimate["reconciliation"] = reconciliation
-    v4_estimate["final_rehab"] = reconciliation["final_rehab"]
+    v4_estimate["warnings"] = list(reconciliation.get("warnings") or [])
+    for bucket_name in (
+        "visible_rehab",
+        "package_adjusted_rehab",
+        "latent_risk_exposure",
+        "worst_case_exposure",
+        "final_rehab",
+        "totals_by_scope_raw",
+        "totals_by_scope_capped",
+        "final_rehab_required",
+        "final_rehab_resale_ready",
+    ):
+        v4_estimate[bucket_name] = reconciliation[bucket_name]
     v4_estimate["pass_2f_reuse_audit"] = pass_2f_reuse_audit
     v4_estimate["provenance"] = {
         "mode": "room_aware_line_item_estimate",
         "derived_from": "renovation_estimate_v3",
         "v3_pass_2f_reused": bool(v3_reviewed_candidates),
-        "v4_phases_applied": ["surrogates", "packages", "reconciliation"],
+        "v4_phases_applied": ["surrogates", "estimate_units", "packages", "reconciliation"],
         "packages_enabled": True,
         "reconciliation_enabled": True,
     }

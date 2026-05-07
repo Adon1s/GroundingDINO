@@ -56,6 +56,7 @@ def compare(photo_intel: Dict[str, Any]) -> Dict[str, Any]:
 
     v3_totals = _build_v3_totals(v3)
     v4_totals = _build_v4_totals(v4)
+    v4_buckets = _build_v4_buckets(v4)
 
     if v4 is not None and v4_totals is None:
         warnings.append({
@@ -64,6 +65,7 @@ def compare(photo_intel: Dict[str, Any]) -> Dict[str, Any]:
         })
 
     delta = _build_delta(v3_totals, v4_totals)
+    billable_units = _build_billable_units(v4)
     packages = _build_packages(v4)
     reconciliation = _build_reconciliation(v3, v4, v3_totals, v4_totals)
 
@@ -79,7 +81,9 @@ def compare(photo_intel: Dict[str, Any]) -> Dict[str, Any]:
         },
         "v3_totals": v3_totals,
         "v4_totals": v4_totals,
+        "v4_buckets": v4_buckets,
         "delta": delta,
+        "billable_units": billable_units,
         "packages": packages,
         "reconciliation": reconciliation,
         "warnings": warnings,
@@ -104,7 +108,7 @@ def _build_v3_totals(v3: Optional[Dict[str, Any]]) -> Optional[Dict[str, int]]:
     }
 
 
-def _build_v4_totals(v4: Optional[Dict[str, Any]]) -> Optional[Dict[str, int]]:
+def _build_v4_totals(v4: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if not v4:
         return None
     final_rehab = v4.get("final_rehab") or {}
@@ -113,9 +117,16 @@ def _build_v4_totals(v4: Optional[Dict[str, Any]]) -> Optional[Dict[str, int]]:
     low = int(final_rehab["low"])
     high = int(final_rehab["high"])
     midpoint = int(final_rehab.get("midpoint", (low + high) // 2))
-    applied_high = sum(
-        int(g.get("risk_exposure_high") or 0) for g in (v4.get("groups") or [])
+    latent = _coerce_bucket(
+        v4.get("latent_risk_exposure")
+        or (v4.get("reconciliation") or {}).get("latent_risk_exposure")
     )
+    if latent is not None:
+        applied_high = int(latent["high"])
+    else:
+        applied_high = sum(
+            int(g.get("risk_exposure_high") or 0) for g in (v4.get("groups") or [])
+        )
     return {
         "low": low,
         "high": high,
@@ -124,10 +135,46 @@ def _build_v4_totals(v4: Optional[Dict[str, Any]]) -> Optional[Dict[str, int]]:
     }
 
 
+def _coerce_bucket(bucket: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not bucket:
+        return None
+    if "low" not in bucket or "high" not in bucket:
+        return None
+    midpoint = bucket.get("midpoint")
+    out: Dict[str, Any] = {
+        "low": int(bucket["low"]),
+        "high": int(bucket["high"]),
+        "midpoint": None if midpoint is None else int(midpoint),
+    }
+    if "basis" in bucket:
+        out["basis"] = bucket.get("basis")
+    if "source" in bucket:
+        out["source"] = bucket.get("source")
+    return out
+
+
+def _build_v4_buckets(v4: Optional[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    if not v4:
+        return {}
+    rec = v4.get("reconciliation") or {}
+    buckets: Dict[str, Dict[str, Any]] = {}
+    for name in (
+        "visible_rehab",
+        "package_adjusted_rehab",
+        "latent_risk_exposure",
+        "worst_case_exposure",
+        "final_rehab",
+    ):
+        bucket = _coerce_bucket(v4.get(name) or rec.get(name))
+        if bucket is not None:
+            buckets[name] = bucket
+    return buckets
+
+
 def _build_delta(
-    v3_totals: Optional[Dict[str, int]],
-    v4_totals: Optional[Dict[str, int]],
-) -> Optional[Dict[str, int]]:
+    v3_totals: Optional[Dict[str, Any]],
+    v4_totals: Optional[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
     if v3_totals is None or v4_totals is None:
         return None
     return {
@@ -149,14 +196,29 @@ def _build_packages(v4: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
             "package_id": pkg.get("package_id", "<unknown>"),
             "package_type": pkg.get("package_type", "<unknown>"),
             "room_surrogate_id": pkg.get("room_surrogate_id", "<unknown>"),
+            "estimate_unit_id": pkg.get("estimate_unit_id", ""),
+            "source_room_surrogate_ids": list(pkg.get("source_room_surrogate_ids") or []),
             "estimate_group": pkg.get("estimate_group", "<unknown>"),
             "cost_low": cost_low,
             "cost_high": cost_high,
             "cost_midpoint": cost_mid,
+            "cap_behavior": pkg.get("cap_behavior", "respect_group_cap"),
             "supporting_issue_ids": list(pkg.get("supporting_issue_ids") or []),
             "absorbed_member_count": len(pkg.get("absorbed_unit_member_refs") or []),
         })
     return out
+
+
+def _build_billable_units(v4: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    units = list((v4 or {}).get("estimate_units") or [])
+    kitchens = [u for u in units if u.get("unit_type") == "kitchen"]
+    bathrooms = [u for u in units if u.get("unit_type") == "bathroom"]
+    return {
+        "billable_kitchens": len(kitchens),
+        "billable_bathrooms": len(bathrooms),
+        "kitchens": kitchens,
+        "bathrooms": bathrooms,
+    }
 
 
 def _build_reconciliation(
@@ -191,6 +253,10 @@ def _build_reconciliation(
         "absorbed_member_count": int(rec.get("absorbed_member_count") or 0),
         "v3_inspection_exposure_high": v3_insp_high,
         "v4_inspection_exposure_high_applied": v4_insp_high,
+        "package_group_reconciliation": list(
+            rec.get("package_group_reconciliation") or []
+        ),
+        "buckets": _build_v4_buckets(v4),
         "v4_internal_warnings": list(rec.get("reconciliation_warnings") or []),
     }
 
@@ -205,6 +271,47 @@ def _check_reconciliation_invariant(
     if not final_rehab or not rec:
         return None
     if "low" not in final_rehab or "high" not in final_rehab:
+        return None
+
+    buckets = _build_v4_buckets(v4)
+    package_adjusted = buckets.get("package_adjusted_rehab")
+    latent = buckets.get("latent_risk_exposure")
+    worst_case = buckets.get("worst_case_exposure")
+    if package_adjusted is not None:
+        observed_low = int(final_rehab["low"])
+        observed_high = int(final_rehab["high"])
+        expected_low = int(package_adjusted["low"])
+        expected_high = int(package_adjusted["high"])
+        if expected_low != observed_low or expected_high != observed_high:
+            return {
+                "code": "reconciliation_invariant_failed",
+                "detail": (
+                    f"final_rehab should equal package_adjusted_rehab; "
+                    f"expected low={expected_low}, observed low={observed_low}; "
+                    f"expected high={expected_high}, observed high={observed_high}"
+                ),
+            }
+
+        if latent is not None and worst_case is not None:
+            observed_worst_low = int(worst_case["low"])
+            observed_worst_high = int(worst_case["high"])
+            expected_worst_low = expected_low
+            expected_worst_high = expected_high + int(latent["high"])
+            if (
+                expected_worst_low != observed_worst_low
+                or expected_worst_high != observed_worst_high
+            ):
+                return {
+                    "code": "reconciliation_invariant_failed",
+                    "detail": (
+                        "worst_case_exposure should equal "
+                        "package_adjusted_rehab plus latent_risk_exposure; "
+                        f"expected low={expected_worst_low}, "
+                        f"observed low={observed_worst_low}; "
+                        f"expected high={expected_worst_high}, "
+                        f"observed high={observed_worst_high}"
+                    ),
+                }
         return None
 
     retained = rec.get("retained_group_totals") or []
@@ -242,6 +349,8 @@ def format_report(comparison: Dict[str, Any]) -> str:
         comparison.get("v4_totals"),
         comparison.get("delta"),
     ))
+    lines.extend(_format_v4_buckets(comparison.get("v4_buckets") or {}))
+    lines.extend(_format_billable_units(comparison.get("billable_units") or {}))
     lines.extend(_format_packages(comparison.get("packages") or []))
     lines.extend(_format_reconciliation(comparison.get("reconciliation")))
     lines.extend(_format_warnings(comparison.get("warnings") or []))
@@ -312,9 +421,56 @@ def _format_totals(
         )
     if v4 is not None:
         lines.append(
-            f"  v4 inspection exposure (high, applied):  "
+            f"  v4 latent risk exposure (high):          "
             f"{_money(v4['inspection_exposure_high_applied'])}"
         )
+    return lines
+
+
+def _format_v4_buckets(buckets: Dict[str, Dict[str, Any]]) -> List[str]:
+    if not buckets:
+        return []
+
+    sections = [
+        ("visible_rehab", "VISIBLE REHAB"),
+        ("package_adjusted_rehab", "PACKAGE-ADJUSTED REHAB"),
+        ("latent_risk_exposure", "LATENT RISK EXPOSURE"),
+        ("worst_case_exposure", "WORST-CASE EXPOSURE"),
+        ("final_rehab", "FINAL REHAB"),
+    ]
+    lines: List[str] = []
+    for key, title in sections:
+        bucket = buckets.get(key)
+        if bucket is None:
+            continue
+        lines.extend(["", _BORDER, f"  {title}", _BORDER])
+        lines.append(f"  {'low':>11} {'high':>11} {'midpoint':>11}")
+        lines.append(f"  {'-' * 11} {'-' * 11} {'-' * 11}")
+        lines.append(
+            f"  {_money(bucket['low'])} "
+            f"{_money(bucket['high'])} "
+            f"{_money(bucket.get('midpoint'))}"
+        )
+        basis = bucket.get("basis")
+        if key == "final_rehab":
+            lines.append(f"  FINAL REHAB BASIS: {basis or '<unknown>'}")
+        elif basis:
+            lines.append(f"  basis: {basis}")
+    return lines
+
+
+def _format_billable_units(summary: Dict[str, Any]) -> List[str]:
+    lines = ["", _BORDER, "  BILLABLE UNITS", _BORDER]
+    lines.append(f"  billable kitchens: {summary.get('billable_kitchens', 0)}")
+    for unit in summary.get("kitchens") or []:
+        source_rooms = ", ".join(unit.get("source_room_surrogate_ids") or [])
+        lines.append(f"    {unit.get('estimate_unit_id', '<unknown>')}")
+        lines.append(f"      source room surrogates: {source_rooms or 'none'}")
+    lines.append(f"  billable bathrooms: {summary.get('billable_bathrooms', 0)}")
+    for unit in summary.get("bathrooms") or []:
+        source_rooms = ", ".join(unit.get("source_room_surrogate_ids") or [])
+        lines.append(f"    {unit.get('estimate_unit_id', '<unknown>')}")
+        lines.append(f"      source room surrogates: {source_rooms or 'none'}")
     return lines
 
 
@@ -328,7 +484,15 @@ def _format_packages(packages: List[Dict[str, Any]]) -> List[str]:
         lines.append(f"  {pkg['package_id']}")
         lines.append(f"    type:   {pkg['package_type']}")
         lines.append(f"    room:   {pkg['room_surrogate_id']}")
+        if pkg.get("estimate_unit_id"):
+            lines.append(f"    unit:   {pkg['estimate_unit_id']}")
+        if pkg.get("source_room_surrogate_ids"):
+            lines.append(
+                "    source room surrogates: "
+                f"{', '.join(pkg['source_room_surrogate_ids'])}"
+            )
         lines.append(f"    group:  {pkg['estimate_group']}")
+        lines.append(f"    cap:    {pkg['cap_behavior']}")
         lines.append(
             f"    cost:   ${pkg['cost_low']:,} – ${pkg['cost_high']:,} "
             f"(mid ${pkg['cost_midpoint']:,})"
@@ -382,10 +546,15 @@ def _format_reconciliation(rec: Optional[Dict[str, Any]]) -> List[str]:
         f"{_money(rec['v3_inspection_exposure_high'])}"
     )
     lines.append(
-        f"  v4 inspection exposure (high, applied):     "
+        f"  v4 latent risk exposure (high):             "
         f"{_money(rec['v4_inspection_exposure_high_applied'])}"
     )
     lines.append("")
+    lines.extend(_format_group_cap_reconciliation(
+        rec.get("package_group_reconciliation") or []
+    ))
+    if rec.get("package_group_reconciliation"):
+        lines.append("")
     internal = rec.get("v4_internal_warnings") or []
     if not internal:
         lines.append("  v4 internal warnings: None.")
@@ -397,6 +566,32 @@ def _format_reconciliation(rec: Optional[Dict[str, Any]]) -> List[str]:
                 f"{k}={v}" for k, v in w.items() if k != "code"
             )
             lines.append(f"    - {code}: {details}" if details else f"    - {code}")
+    return lines
+
+
+def _format_group_cap_reconciliation(group_audits: List[Dict[str, Any]]) -> List[str]:
+    if not group_audits:
+        return []
+    lines: List[str] = ["  group cap reconciliation:"]
+    lines.append(
+        f"    {'group':<16} {'orig high':>11} {'net high':>11} "
+        f"{'pre high':>11} {'post high':>11} {'cap':>7} {'override':>9}"
+    )
+    for audit in group_audits:
+        original = audit.get("original_group_capped") or {}
+        net = audit.get("package_net_delta") or {}
+        pre = audit.get("pre_cap_package_adjusted") or {}
+        post = audit.get("post_cap_package_adjusted") or {}
+        cap = "yes" if audit.get("cap_applied_after_packages") else "no"
+        override = "yes" if audit.get("cap_override") else "no"
+        lines.append(
+            f"    {str(audit.get('group', '<unknown>')):<16} "
+            f"{_money(int(original.get('high') or 0))} "
+            f"{_signed_money(int(net.get('high') or 0)):>11} "
+            f"{_money(int(pre.get('high') or 0))} "
+            f"{_money(int(post.get('high') or 0))} "
+            f"{cap:>7} {override:>9}"
+        )
     return lines
 
 

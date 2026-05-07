@@ -2,7 +2,7 @@
 Model Comparison — head-to-head Gemma 4 vs Qwen 3.6 across pipeline passes.
 
 Reframes "Gemma or Qwen?" as four separate skill questions (2a, 2b, 2c, 2d)
-plus a coupled 2c+2d real-world-unit question. GPT-5.4 judges each skill
+plus a coupled 2c+2d real-world-unit question. The configured GPT judge scores each skill
 independently, so a model that's best at seeing can still lose at structuring.
 
 The judge is BLINDED: it sees "Model A" / "Model B" only, never "Gemma" /
@@ -11,7 +11,7 @@ A/B is assigned; 'random' (default) is deterministic per (photo, skill) for
 reproducibility.
 
 Sequential hosting: load one model in LM Studio at a time. The script runs
-Phase A with Gemma, prompts to swap, then Phase B with Qwen. GPT-5.4 fixtures
+Phase A with Gemma, prompts to swap, then Phase B with Qwen. GPT fixtures
 (Phase 0) and judges (Phase D) run without any local model loaded.
 
 Usage:
@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -77,6 +78,10 @@ logger = logging.getLogger("model_comparison")
 
 DEFAULT_ARTIFACTS_DIR = Path("C:/Users/Steven/IntelliJProjects/realtorvision/artifacts")
 DEFAULT_IMAGES_BASE = Path("C:/Users/Steven/IntelliJProjects/realtorvision/public/images/properties")
+DEFAULT_FIXTURE_CACHE_DIR = Path("outputs/model_comparison_cache")
+
+FIXTURE_CACHE_SCHEMA_VERSION = 1
+FIXTURE_PIPELINE_VERSION = "phase0_pass2a_2b_2c_v1"
 
 SCENE_TO_GROUP: Dict[str, str] = {
     "kitchen": "kitchen", "pantry": "kitchen",
@@ -132,7 +137,7 @@ class ModelCells:
 
 @dataclass
 class FixtureCells:
-    """GPT-5.4 fixture outputs used to isolate downstream passes."""
+    """GPT fixture outputs used to isolate downstream passes."""
     pass_2a: Optional[str] = None
     pass_2b: List[Dict[str, str]] = field(default_factory=list)
     pass_2c: List[Dict[str, str]] = field(default_factory=list)
@@ -282,7 +287,7 @@ def _retrieve_candidates_for_obs(
 
 
 # ---------------------------------------------------------------------------
-# Phase 0: GPT-5.4 fixture generation
+# Phase 0: GPT fixture generation
 # ---------------------------------------------------------------------------
 
 async def build_fixture_for_image(
@@ -290,7 +295,7 @@ async def build_fixture_for_image(
     vlm_client: VLMClient,
     gpt_config: Dict[str, Any],
 ) -> FixtureCells:
-    """Run Pass 2a → 2b → 2c on one image with GPT-5.4 to produce fixtures."""
+    """Run Pass 2a → 2b → 2c on one image with the configured GPT fixture model."""
     image_path = Path(image_info["image_path"])
     scene = image_info.get("scene", "other")
 
@@ -1291,6 +1296,222 @@ def save_checkpoint(output_path: Path, records: Dict[str, ImageRecord]) -> None:
         json.dump(payload, f, indent=2, default=str)
 
 
+# ---------------------------------------------------------------------------
+# Persistent Phase 0 fixture cache
+# ---------------------------------------------------------------------------
+
+def _safe_cache_component(value: str) -> str:
+    raw = str(value or "").strip()
+    safe = "".join(ch if ch.isalnum() or ch in ("-", "_", ".") else "_" for ch in raw)
+    return safe or "unknown"
+
+
+def fixture_cache_path(cache_dir: Path, property_id: str) -> Path:
+    return Path(cache_dir) / f"{_safe_cache_component(property_id)}__fixtures.json"
+
+
+def _file_sha256(path: Path) -> Optional[str]:
+    h = hashlib.sha256()
+    try:
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                h.update(chunk)
+    except OSError as e:
+        logger.warning(f"Failed to hash fixture cache image {path}: {e}")
+        return None
+    return h.hexdigest()
+
+
+def _json_safe(value: Any) -> Any:
+    if isinstance(value, dict):
+        return {str(k): _json_safe(v) for k, v in sorted(value.items(), key=lambda kv: str(kv[0]))}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(v) for v in value]
+    if isinstance(value, set):
+        return [_json_safe(v) for v in sorted(value, key=str)]
+    if value is None or isinstance(value, (str, int, float, bool)):
+        return value
+    return str(value)
+
+
+def _cacheable_model_config(model_config: Dict[str, Any]) -> Dict[str, Any]:
+    secret_markers = ("api_key", "apikey", "authorization", "secret", "token")
+    out: Dict[str, Any] = {}
+    for key, value in (model_config or {}).items():
+        key_text = str(key)
+        if any(marker in key_text.lower() for marker in secret_markers):
+            continue
+        out[key_text] = _json_safe(value)
+    return out
+
+
+def fixture_model_config_digest(model_config: Dict[str, Any]) -> str:
+    payload = json.dumps(
+        _cacheable_model_config(model_config),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        default=str,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _empty_fixture_cache_payload(property_id: str) -> Dict[str, Any]:
+    return {
+        "schema_version": FIXTURE_CACHE_SCHEMA_VERSION,
+        "fixture_pipeline_version": FIXTURE_PIPELINE_VERSION,
+        "property_id": property_id,
+        "entries": {},
+    }
+
+
+def _normalize_fixture_cache_payload(raw: Any, property_id: str) -> Dict[str, Any]:
+    if not isinstance(raw, dict):
+        return _empty_fixture_cache_payload(property_id)
+    if raw.get("schema_version") != FIXTURE_CACHE_SCHEMA_VERSION:
+        return _empty_fixture_cache_payload(property_id)
+    if raw.get("fixture_pipeline_version") != FIXTURE_PIPELINE_VERSION:
+        return _empty_fixture_cache_payload(property_id)
+    if raw.get("property_id") not in (None, property_id):
+        return _empty_fixture_cache_payload(property_id)
+
+    payload = _empty_fixture_cache_payload(property_id)
+    entries = raw.get("entries")
+    if isinstance(entries, dict):
+        payload["entries"] = {
+            str(k): v for k, v in entries.items()
+            if isinstance(v, dict)
+        }
+    return payload
+
+
+def load_fixture_cache(cache_path: Path) -> Dict[str, Any]:
+    if not cache_path.exists():
+        return {}
+    try:
+        with open(cache_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except Exception as e:
+        logger.warning(f"Failed to load fixture cache {cache_path}: {e}")
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_fixture_cache(cache_path: Path, payload: Dict[str, Any]) -> None:
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = cache_path.with_name(cache_path.name + ".tmp")
+    with open(tmp_path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, default=str)
+    os.replace(tmp_path, cache_path)
+
+
+def upsert_fixture_cache_entry(
+    cache_payload: Dict[str, Any],
+    image_info: Dict[str, Any],
+    fixture: FixtureCells,
+    model_config: Dict[str, Any],
+) -> bool:
+    image_hash = _file_sha256(Path(image_info["image_path"]))
+    if not image_hash:
+        return False
+
+    property_id = str(image_info.get("property_id") or "")
+    photo_key = str(image_info.get("photo_key") or "")
+    cache_payload.setdefault("schema_version", FIXTURE_CACHE_SCHEMA_VERSION)
+    cache_payload.setdefault("fixture_pipeline_version", FIXTURE_PIPELINE_VERSION)
+    cache_payload.setdefault("property_id", property_id)
+    entries = cache_payload.setdefault("entries", {})
+    if not isinstance(entries, dict):
+        cache_payload["entries"] = entries = {}
+
+    entries[photo_key] = {
+        "schema_version": FIXTURE_CACHE_SCHEMA_VERSION,
+        "fixture_pipeline_version": FIXTURE_PIPELINE_VERSION,
+        "property_id": property_id,
+        "photo_key": photo_key,
+        "image_sha256": image_hash,
+        "scene": image_info.get("scene", "other"),
+        "fixture_model_config_digest": fixture_model_config_digest(model_config),
+        "fixture_model": model_config.get("model"),
+        "timestamp": datetime.now().isoformat(),
+        "fixture": asdict(fixture),
+    }
+    return True
+
+
+def _fixture_from_cache_entry(
+    entry: Any,
+    image_info: Dict[str, Any],
+    model_config: Dict[str, Any],
+) -> Optional[FixtureCells]:
+    if not isinstance(entry, dict):
+        return None
+
+    expected_property_id = str(image_info.get("property_id") or "")
+    expected_photo_key = str(image_info.get("photo_key") or "")
+    if entry.get("schema_version") != FIXTURE_CACHE_SCHEMA_VERSION:
+        return None
+    if entry.get("fixture_pipeline_version") != FIXTURE_PIPELINE_VERSION:
+        return None
+    if entry.get("property_id") != expected_property_id:
+        return None
+    if entry.get("photo_key") != expected_photo_key:
+        return None
+    if entry.get("scene") != image_info.get("scene", "other"):
+        return None
+    if entry.get("fixture_model_config_digest") != fixture_model_config_digest(model_config):
+        return None
+
+    image_hash = _file_sha256(Path(image_info["image_path"]))
+    if not image_hash or entry.get("image_sha256") != image_hash:
+        return None
+
+    fixture_raw = entry.get("fixture")
+    if not isinstance(fixture_raw, dict):
+        return None
+    return FixtureCells(
+        pass_2a=fixture_raw.get("pass_2a"),
+        pass_2b=fixture_raw.get("pass_2b") or [],
+        pass_2c=fixture_raw.get("pass_2c") or [],
+    )
+
+
+def hydrate_records_from_fixture_caches(
+    images: List[Dict[str, Any]],
+    records: Dict[str, ImageRecord],
+    fixture_caches: Dict[str, Dict[str, Any]],
+    model_config: Dict[str, Any],
+    *,
+    refresh: bool = False,
+) -> int:
+    if refresh:
+        return 0
+
+    hits = 0
+    for image_info in images:
+        key = f"{image_info['property_id']}/{image_info['photo_key']}"
+        rec = records.get(key)
+        if rec is None or _phase_complete(rec, "fixture"):
+            continue
+
+        cache_payload = fixture_caches.get(str(image_info.get("property_id") or ""))
+        entries = (cache_payload or {}).get("entries")
+        if not isinstance(entries, dict):
+            continue
+
+        fixture = _fixture_from_cache_entry(
+            entries.get(str(image_info.get("photo_key") or "")),
+            image_info,
+            model_config,
+        )
+        if fixture is None:
+            continue
+        rec.fixture = fixture
+        hits += 1
+
+    return hits
+
+
 def _phase_complete(record: ImageRecord, phase: str, skip_skills: Optional[set] = None) -> bool:
     """Check whether a given phase has data for this record (used by --resume).
 
@@ -1380,11 +1601,13 @@ async def _run_phase_0(
     save_ckpt,
     concurrency: int,
     confirm_every: int = 0,
+    save_fixture_cache_entry=None,
 ) -> None:
-    """Phase 0 worker pool. Each image runs Pass 2a→2b→2c with GPT-5.4 for fixtures.
+    """Phase 0 worker pool. Each image runs Pass 2a->2b->2c with the fixture model.
     If `confirm_every > 0`, pauses for user confirmation after each batch of that many images."""
     sem = asyncio.Semaphore(max(1, concurrency))
     n = len(images)
+    fixture_model_name = str(judge_config.get("model") or "GPT")
 
     async def _worker(i: int, img: Dict[str, Any]) -> None:
         async with sem:
@@ -1395,11 +1618,17 @@ async def _run_phase_0(
                 return
             logger.info(f"  [{i}/{n}] fixture {key}")
             try:
-                rec.fixture = await build_fixture_for_image(img, vlm_client, judge_config)
+                fixture = await build_fixture_for_image(img, vlm_client, judge_config)
+                rec.fixture = fixture
+                if save_fixture_cache_entry is not None:
+                    try:
+                        await save_fixture_cache_entry(img, fixture)
+                    except Exception as cache_e:
+                        logger.warning(f"Fixture cache write failed for {key}: {cache_e}")
             except Exception as e:
                 err_str = str(e)
                 if any(kw in err_str.lower() for kw in ("quota", "billing", "resourceexhausted")):
-                    logger.error(f"GPT-5.4 quota exceeded — aborting phase. ({e})")
+                    logger.error(f"{fixture_model_name} quota exceeded - aborting phase. ({e})")
                     raise _AbortPhase(str(e))
                 logger.error(f"Fixture error for {key}: {e}")
                 rec.error = f"fixture: {e}"
@@ -1414,7 +1643,7 @@ async def _run_phase_0(
             await asyncio.gather(*tasks)
             completed += len(batch)
             if completed < n and confirm_every > 0:
-                await _confirm_continue_or_exit(completed, n, "Phase 0 (GPT-5.4 fixtures)")
+                await _confirm_continue_or_exit(completed, n, f"Phase 0 ({fixture_model_name} fixtures)")
     except _AbortPhase as e:
         logger.error(f"Phase 0 aborted: {e}")
         await save_ckpt()
@@ -1623,6 +1852,36 @@ async def async_main(args: argparse.Namespace) -> None:
                 scene_group=img["scene_group"],
             )
 
+    # Persistent fixture cache: reusable Phase 0 GPT fixture cells keyed by
+    # property/photo plus conservative input fingerprints.
+    fixture_cache_enabled = not args.disable_fixture_cache
+    fixture_cache_hits = 0
+    fixture_cache_dir = Path(args.fixture_cache_dir)
+    fixture_caches: Dict[str, Dict[str, Any]] = {}
+    fixture_cache_paths: Dict[str, Path] = {}
+    fixture_cache_locks: Dict[str, asyncio.Lock] = {}
+
+    if fixture_cache_enabled:
+        property_ids = sorted({str(img["property_id"]) for img in images})
+        for property_id in property_ids:
+            cache_path = fixture_cache_path(fixture_cache_dir, property_id)
+            raw_cache = load_fixture_cache(cache_path)
+            fixture_caches[property_id] = _normalize_fixture_cache_payload(raw_cache, property_id)
+            fixture_cache_paths[property_id] = cache_path
+            fixture_cache_locks[property_id] = asyncio.Lock()
+
+        fixture_cache_hits = hydrate_records_from_fixture_caches(
+            images,
+            records,
+            fixture_caches,
+            judge_config,
+            refresh=args.refresh_fixture_cache,
+        )
+        if args.refresh_fixture_cache:
+            logger.info("Fixture cache refresh requested; existing cache hits will be ignored.")
+        else:
+            logger.info(f"Hydrated {fixture_cache_hits} Phase 0 fixtures from persistent cache.")
+
     # --force-rejudge: wipe saved verdicts from checkpoint so Phase D re-runs.
     # This is the core of the bias-check workflow: rerun only Phase D with a
     # different --ab-order (e.g. --ab-order qwen_first) against the same cells.
@@ -1655,9 +1914,30 @@ async def async_main(args: argparse.Namespace) -> None:
         async with ckpt_lock:
             save_checkpoint(output_path, records)
 
-    # ── Phase 0: GPT-5.4 fixtures (concurrency=args.concurrency) ─────────
+    async def _save_fixture_cache_entry(image_info: Dict[str, Any], fixture: FixtureCells) -> None:
+        if not fixture_cache_enabled:
+            return
+        property_id = str(image_info.get("property_id") or "")
+        cache_payload = fixture_caches.get(property_id)
+        cache_path = fixture_cache_paths.get(property_id)
+        cache_lock = fixture_cache_locks.get(property_id)
+        if cache_payload is None or cache_path is None or cache_lock is None:
+            return
+        async with cache_lock:
+            if upsert_fixture_cache_entry(cache_payload, image_info, fixture, judge_config):
+                save_fixture_cache(cache_path, cache_payload)
+
+    if fixture_cache_hits > 0:
+        await _save_ckpt()
+
+    # ── Phase 0: fixture generation (concurrency=args.concurrency) ─────────
     print("\n" + "=" * 60)
-    print(f"Phase 0: GPT-5.4 fixture generation (concurrency={args.concurrency})")
+    print(f"Phase 0: {judge_config['model']} fixture generation (concurrency={args.concurrency})")
+    if fixture_cache_enabled:
+        refresh_label = "refresh; " if args.refresh_fixture_cache else ""
+        print(f"  Fixture cache: ENABLED ({refresh_label}{fixture_cache_hits} hits)")
+    else:
+        print("  Fixture cache: DISABLED")
     if args.confirm_every > 0:
         print(f"  SAFEGUARD: will pause for confirmation every {args.confirm_every} images.")
     print("=" * 60)
@@ -1670,6 +1950,7 @@ async def async_main(args: argparse.Namespace) -> None:
         save_ckpt=_save_ckpt,
         concurrency=args.concurrency,
         confirm_every=args.confirm_every,
+        save_fixture_cache_entry=_save_fixture_cache_entry if fixture_cache_enabled else None,
     )
 
     # ── Phase A: Gemma (concurrency=args.local_concurrency) ──────────────
@@ -1783,6 +2064,10 @@ async def async_main(args: argparse.Namespace) -> None:
             "comprehensive_judge": args.comprehensive_judge,
             "ab_order": args.ab_order,
             "force_rejudge": bool(args.force_rejudge),
+            "fixture_cache_enabled": fixture_cache_enabled,
+            "fixture_cache_dir": str(fixture_cache_dir),
+            "fixture_cache_hits": fixture_cache_hits,
+            "refresh_fixture_cache": bool(args.refresh_fixture_cache),
             "judge_parse_failures_total": parse_failures_total,
             "judge_parse_failures_by_skill": parse_failures_by_skill,
             "missing_verdicts_by_skill": missing_verdicts_by_skill,
@@ -1868,7 +2153,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--gemma-model",
-        default=os.environ.get("GEMMA_MODEL", "unsloth/gemma-4-26b-a4b-it"),
+        default=os.environ.get("GEMMA_MODEL", "nvidia/nemotron-3-nano-omni"),
         help="Gemma model id in LM Studio (env: GEMMA_MODEL).",
     )
     parser.add_argument(
@@ -1918,6 +2203,21 @@ def parse_args() -> argparse.Namespace:
              "an API phase (Phase 0 and Phase D), pause and require Enter to continue. "
              "Ctrl-C cleanly stops (checkpoint preserved; --resume picks up). "
              "Default 0 = no pause. Typical value: 20.",
+    )
+    parser.add_argument(
+        "--fixture-cache-dir",
+        default=str(DEFAULT_FIXTURE_CACHE_DIR),
+        help="Persistent Phase 0 fixture cache directory (default: %(default)s).",
+    )
+    parser.add_argument(
+        "--disable-fixture-cache",
+        action="store_true",
+        help="Disable the persistent Phase 0 fixture cache for this run.",
+    )
+    parser.add_argument(
+        "--refresh-fixture-cache",
+        action="store_true",
+        help="Ignore existing persistent fixture cache hits and write fresh Phase 0 fixtures.",
     )
     parser.add_argument("--resume", action="store_true", help="Resume from checkpoint if present.")
     parser.add_argument(
