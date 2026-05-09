@@ -19,6 +19,10 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
 from tools.estimate_sanity import build_estimate_sanity_flags
 
 
@@ -43,6 +47,7 @@ def compare(photo_intel: Dict[str, Any]) -> Dict[str, Any]:
     v4 = photo_intel.get("renovation_estimate_v4")
 
     warnings: List[Dict[str, str]] = []
+    diagnostics: List[Dict[str, str]] = []
 
     if v3 is None:
         warnings.append({
@@ -67,14 +72,14 @@ def compare(photo_intel: Dict[str, Any]) -> Dict[str, Any]:
         })
 
     delta = _build_delta(v3_totals, v4_totals)
-    billable_units = _build_billable_units(v4)
-    packages = _build_packages(v4)
-    reconciliation = _build_reconciliation(v3, v4, v3_totals, v4_totals)
+    estimate_units = _build_estimate_units(v4, diagnostics)
+    billable_units = estimate_units
+    packages = _build_packages(v4, diagnostics)
+    reconciliation = _build_reconciliation(v3, v4, v3_totals, v4_totals, diagnostics)
     sanity_flags, sanity_flags_source = _build_sanity_flags(photo_intel, v4)
 
-    invariant_warning = _check_reconciliation_invariant(v4)
-    if invariant_warning is not None:
-        warnings.append(invariant_warning)
+    warnings.extend(diagnostics)
+    warnings.extend(_check_reconciliation_invariants(v4))
 
     return {
         "header": {
@@ -86,11 +91,13 @@ def compare(photo_intel: Dict[str, Any]) -> Dict[str, Any]:
         "v4_totals": v4_totals,
         "v4_buckets": v4_buckets,
         "delta": delta,
+        "estimate_units": estimate_units,
         "billable_units": billable_units,
         "packages": packages,
         "reconciliation": reconciliation,
         "sanity_flags": sanity_flags,
         "sanity_flags_source": sanity_flags_source,
+        "diagnostics": diagnostics,
         "warnings": warnings,
     }
 
@@ -189,21 +196,38 @@ def _build_delta(
     }
 
 
-def _build_packages(v4: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def _build_packages(
+    v4: Optional[Dict[str, Any]],
+    diagnostics: List[Dict[str, str]],
+) -> List[Dict[str, Any]]:
     if not v4:
         return []
     out: List[Dict[str, Any]] = []
     for pkg in v4.get("packages") or []:
+        package_id = pkg.get("package_id", "<unknown>")
         cost_low = int(pkg.get("cost_low") or 0)
         cost_high = int(pkg.get("cost_high") or 0)
         cost_mid = int(pkg.get("cost_midpoint", (cost_low + cost_high) // 2))
+        if "estimate_scope" not in pkg:
+            diagnostics.append({
+                "code": "package_estimate_scope_missing",
+                "detail": f"package {package_id} has no 'estimate_scope' field",
+            })
+        if "absorption_audit" not in pkg:
+            diagnostics.append({
+                "code": "package_absorption_audit_missing",
+                "detail": f"package {package_id} has no 'absorption_audit' field",
+            })
         out.append({
-            "package_id": pkg.get("package_id", "<unknown>"),
+            "package_id": package_id,
             "package_type": pkg.get("package_type", "<unknown>"),
             "room_surrogate_id": pkg.get("room_surrogate_id", "<unknown>"),
             "estimate_unit_id": pkg.get("estimate_unit_id", ""),
             "source_room_surrogate_ids": list(pkg.get("source_room_surrogate_ids") or []),
             "estimate_group": pkg.get("estimate_group", "<unknown>"),
+            "estimate_scope": pkg.get("estimate_scope", ""),
+            "absorption_scope": _copy_jsonish_dict(pkg.get("absorption_scope")),
+            "absorption_audit": _build_absorption_audit(pkg),
             "cost_low": cost_low,
             "cost_high": cost_high,
             "cost_midpoint": cost_mid,
@@ -214,13 +238,77 @@ def _build_packages(v4: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
     return out
 
 
-def _build_billable_units(v4: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    units = list((v4 or {}).get("estimate_units") or [])
+def _build_absorption_audit(pkg: Dict[str, Any]) -> Dict[str, Any]:
+    audit = pkg.get("absorption_audit") or {}
+    absorbed = audit.get("absorbed") or {}
+    retained = audit.get("retained") or {}
+    package_net_delta = audit.get("package_net_delta") or {}
+    return {
+        "absorbed": {
+            "line_items": _copy_string_list(absorbed.get("line_items")),
+            "room_allowances": _copy_string_list(absorbed.get("room_allowances")),
+            "partial_allocations": _copy_string_list(
+                absorbed.get("partial_allocations")
+            ),
+            "totals": _copy_jsonish_dict(absorbed.get("totals")),
+        },
+        "retained": {
+            "partial_allocations": _copy_string_list(
+                retained.get("partial_allocations")
+            ),
+            "totals": _copy_jsonish_dict(retained.get("totals")),
+        },
+        "package_net_delta": _copy_jsonish_dict(package_net_delta),
+    }
+
+
+def _copy_string_list(value: Any) -> List[str]:
+    if not isinstance(value, list):
+        return []
+    return [str(item) for item in value]
+
+
+def _copy_jsonish_dict(value: Any) -> Dict[str, Any]:
+    if not isinstance(value, dict):
+        return {}
+    return json.loads(json.dumps(value))
+
+
+def _build_estimate_units(
+    v4: Optional[Dict[str, Any]],
+    diagnostics: List[Dict[str, str]],
+) -> Dict[str, Any]:
+    raw_units = None if not v4 else v4.get("estimate_units")
+    if v4 is not None and "estimate_units" not in v4:
+        diagnostics.append({
+            "code": "estimate_units_missing",
+            "detail": "renovation_estimate_v4 has no 'estimate_units' field",
+        })
+    units = [dict(u) for u in (raw_units or []) if isinstance(u, dict)]
+    for unit in units:
+        unit_id = unit.get("estimate_unit_id") or "<unknown>"
+        if "source_room_surrogate_ids" not in unit:
+            diagnostics.append({
+                "code": "estimate_unit_source_room_surrogate_ids_missing",
+                "detail": (
+                    f"estimate unit {unit_id} has no "
+                    "'source_room_surrogate_ids' field"
+                ),
+            })
+        elif not unit.get("source_room_surrogate_ids"):
+            diagnostics.append({
+                "code": "estimate_unit_source_room_surrogate_ids_empty",
+                "detail": (
+                    f"estimate unit {unit_id} has an empty "
+                    "'source_room_surrogate_ids' field"
+                ),
+            })
     kitchens = [u for u in units if u.get("unit_type") == "kitchen"]
     bathrooms = [u for u in units if u.get("unit_type") == "bathroom"]
     return {
         "billable_kitchens": len(kitchens),
         "billable_bathrooms": len(bathrooms),
+        "units": units,
         "kitchens": kitchens,
         "bathrooms": bathrooms,
     }
@@ -231,6 +319,7 @@ def _build_reconciliation(
     v4: Optional[Dict[str, Any]],
     v3_totals: Optional[Dict[str, int]],
     v4_totals: Optional[Dict[str, int]],
+    diagnostics: List[Dict[str, str]],
 ) -> Optional[Dict[str, Any]]:
     if not v4:
         return None
@@ -245,6 +334,22 @@ def _build_reconciliation(
     v3_insp_high = v3_totals["inspection_exposure_high"] if v3_totals else None
     v4_insp_high = v4_totals["inspection_exposure_high_applied"] if v4_totals else 0
 
+    group_reconciliation = list(rec.get("package_group_reconciliation") or [])
+    for audit in group_reconciliation:
+        group = str(audit.get("group", "<unknown>"))
+        for field in (
+            "original_group_capped",
+            "absorbed_total",
+            "package_total",
+            "package_net_delta",
+            "post_cap_package_adjusted",
+        ):
+            if field not in audit:
+                diagnostics.append({
+                    "code": "reconciliation_group_field_missing",
+                    "detail": f"group {group} has no '{field}' field",
+                })
+
     return {
         "absorbed_total_low": int(rec.get("absorbed_total_low") or 0),
         "absorbed_total_high": int(rec.get("absorbed_total_high") or 0),
@@ -258,91 +363,87 @@ def _build_reconciliation(
         "absorbed_member_count": int(rec.get("absorbed_member_count") or 0),
         "v3_inspection_exposure_high": v3_insp_high,
         "v4_inspection_exposure_high_applied": v4_insp_high,
-        "package_group_reconciliation": list(
-            rec.get("package_group_reconciliation") or []
-        ),
+        "package_group_reconciliation": group_reconciliation,
         "buckets": _build_v4_buckets(v4),
         "v4_internal_warnings": list(rec.get("reconciliation_warnings") or []),
     }
 
 
-def _check_reconciliation_invariant(
+def _check_reconciliation_invariants(
     v4: Optional[Dict[str, Any]],
-) -> Optional[Dict[str, str]]:
+) -> List[Dict[str, str]]:
     if not v4:
-        return None
-    final_rehab = v4.get("final_rehab") or {}
+        return []
+    warnings: List[Dict[str, str]] = []
     rec = v4.get("reconciliation") or {}
-    if not final_rehab or not rec:
-        return None
-    if "low" not in final_rehab or "high" not in final_rehab:
-        return None
+    final_rehab = _coerce_bucket(v4.get("final_rehab") or rec.get("final_rehab"))
+    if final_rehab is None:
+        return []
 
     buckets = _build_v4_buckets(v4)
     package_adjusted = buckets.get("package_adjusted_rehab")
     latent = buckets.get("latent_risk_exposure")
     worst_case = buckets.get("worst_case_exposure")
-    if package_adjusted is not None:
-        observed_low = int(final_rehab["low"])
-        observed_high = int(final_rehab["high"])
-        expected_low = int(package_adjusted["low"])
-        expected_high = int(package_adjusted["high"])
-        if expected_low != observed_low or expected_high != observed_high:
-            return {
-                "code": "reconciliation_invariant_failed",
-                "detail": (
-                    f"final_rehab should equal package_adjusted_rehab; "
-                    f"expected low={expected_low}, observed low={observed_low}; "
-                    f"expected high={expected_high}, observed high={observed_high}"
-                ),
-            }
 
-        if latent is not None and worst_case is not None:
-            observed_worst_low = int(worst_case["low"])
-            observed_worst_high = int(worst_case["high"])
-            expected_worst_low = expected_low
-            expected_worst_high = expected_high + int(latent["high"])
-            if (
-                expected_worst_low != observed_worst_low
-                or expected_worst_high != observed_worst_high
-            ):
-                return {
-                    "code": "reconciliation_invariant_failed",
-                    "detail": (
-                        "worst_case_exposure should equal "
-                        "package_adjusted_rehab plus latent_risk_exposure; "
-                        f"expected low={expected_worst_low}, "
-                        f"observed low={observed_worst_low}; "
-                        f"expected high={expected_worst_high}, "
-                        f"observed high={observed_worst_high}"
-                    ),
-                }
-        return None
+    if package_adjusted is None:
+        warnings.append({
+            "code": "package_adjusted_rehab_missing",
+            "detail": (
+                "cannot check final_rehab invariant because "
+                "'package_adjusted_rehab' is missing"
+            ),
+        })
+        return warnings
 
-    retained = rec.get("retained_group_totals") or []
-    retained_low = sum(int(g.get("low") or 0) for g in retained)
-    retained_high = sum(int(g.get("high") or 0) for g in retained)
-    pkg_low = int(rec.get("package_total_low") or 0)
-    pkg_high = int(rec.get("package_total_high") or 0)
-    risk_high = sum(
-        int(g.get("risk_exposure_high") or 0) for g in (v4.get("groups") or [])
-    )
-
-    expected_low = retained_low + pkg_low
-    expected_high = retained_high + pkg_high + risk_high
     observed_low = int(final_rehab["low"])
     observed_high = int(final_rehab["high"])
+    expected_low = int(package_adjusted["low"])
+    expected_high = int(package_adjusted["high"])
+    if expected_low != observed_low or expected_high != observed_high:
+        warnings.append({
+            "code": "reconciliation_invariant_failed",
+            "detail": (
+                f"final_rehab should equal package_adjusted_rehab; "
+                f"expected low={expected_low}, observed low={observed_low}; "
+                f"expected high={expected_high}, observed high={observed_high}"
+            ),
+        })
 
-    if expected_low == observed_low and expected_high == observed_high:
-        return None
+    missing_worst_case_inputs = []
+    if latent is None:
+        missing_worst_case_inputs.append("latent_risk_exposure")
+    if worst_case is None:
+        missing_worst_case_inputs.append("worst_case_exposure")
+    if missing_worst_case_inputs:
+        warnings.append({
+            "code": "worst_case_exposure_inputs_missing",
+            "detail": (
+                "cannot check worst_case_exposure invariant because "
+                f"{', '.join(missing_worst_case_inputs)} is missing"
+            ),
+        })
+        return warnings
 
-    return {
-        "code": "reconciliation_invariant_failed",
-        "detail": (
-            f"expected low={expected_low}, observed low={observed_low}; "
-            f"expected high={expected_high}, observed high={observed_high}"
-        ),
-    }
+    observed_worst_low = int(worst_case["low"])
+    observed_worst_high = int(worst_case["high"])
+    expected_worst_low = expected_low + int(latent["low"])
+    expected_worst_high = expected_high + int(latent["high"])
+    if (
+        expected_worst_low != observed_worst_low
+        or expected_worst_high != observed_worst_high
+    ):
+        warnings.append({
+            "code": "reconciliation_invariant_failed",
+            "detail": (
+                "worst_case_exposure should equal package_adjusted_rehab "
+                "plus latent_risk_exposure; "
+                f"expected low={expected_worst_low}, "
+                f"observed low={observed_worst_low}; "
+                f"expected high={expected_worst_high}, "
+                f"observed high={observed_worst_high}"
+            ),
+        })
+    return warnings
 
 
 def _build_sanity_flags(
@@ -384,10 +485,12 @@ def format_report(comparison: Dict[str, Any]) -> str:
     lines.extend(_format_totals(
         comparison.get("v3_totals"),
         comparison.get("v4_totals"),
+        comparison.get("v4_buckets") or {},
         comparison.get("delta"),
     ))
-    lines.extend(_format_v4_buckets(comparison.get("v4_buckets") or {}))
-    lines.extend(_format_billable_units(comparison.get("billable_units") or {}))
+    lines.extend(_format_estimate_units(
+        comparison.get("estimate_units") or comparison.get("billable_units") or {}
+    ))
     lines.extend(_format_packages(comparison.get("packages") or []))
     lines.extend(_format_reconciliation(comparison.get("reconciliation")))
     lines.extend(_format_sanity_flags(
@@ -415,7 +518,7 @@ def _format_header(header: Dict[str, Any]) -> List[str]:
 
 def _money(amount: Optional[int]) -> str:
     if amount is None:
-        return "      —"
+        return "        --"
     return f"${amount:>10,}"
 
 
@@ -427,33 +530,44 @@ def _signed_money(amount: int) -> str:
 def _format_totals(
     v3: Optional[Dict[str, int]],
     v4: Optional[Dict[str, int]],
+    buckets: Dict[str, Dict[str, Any]],
     delta: Optional[Dict[str, int]],
 ) -> List[str]:
     lines = ["", _BORDER, "  TOTALS", _BORDER]
-    header = f"  {'':<18} {'low':>11} {'high':>11} {'midpoint':>11}"
+    header = f"  {'':<30} {'low':>11} {'high':>11} {'midpoint':>11}"
     lines.append(header)
-    lines.append(f"  {'-' * 18} {'-' * 11} {'-' * 11} {'-' * 11}")
+    lines.append(f"  {'-' * 30} {'-' * 11} {'-' * 11} {'-' * 11}")
     if v3 is not None:
-        lines.append(
-            f"  {'v3 probable':<18} "
-            f"{_money(v3['low'])} {_money(v3['high'])} {_money(v3['midpoint'])}"
-        )
+        lines.append(_format_bucket_row("v3 probable", v3))
     else:
-        lines.append(f"  {'v3 probable':<18} {'(missing)':>11}")
-    if v4 is not None:
-        lines.append(
-            f"  {'v4 final_rehab':<18} "
-            f"{_money(v4['low'])} {_money(v4['high'])} {_money(v4['midpoint'])}"
-        )
-    else:
-        lines.append(f"  {'v4 final_rehab':<18} {'(missing)':>11}")
+        lines.append(_format_missing_bucket_row("v3 probable"))
+
+    for key in (
+        "visible_rehab",
+        "package_adjusted_rehab",
+        "latent_risk_exposure",
+        "worst_case_exposure",
+        "final_rehab",
+    ):
+        label = f"v4 {key}"
+        bucket = buckets.get(key)
+        if bucket is not None:
+            lines.append(_format_bucket_row(label, bucket))
+        elif key == "final_rehab" and v4 is not None:
+            lines.append(_format_bucket_row(label, v4))
+        else:
+            lines.append(_format_missing_bucket_row(label))
+
     if delta is not None:
         lines.append(
-            f"  {'delta (v4 - v3)':<18} "
+            f"  {'delta final_rehab - v3':<30} "
             f"{_signed_money(delta['low']):>11} "
             f"{_signed_money(delta['high']):>11} "
             f"{_signed_money(delta['midpoint']):>11}"
         )
+    final_bucket = buckets.get("final_rehab") or {}
+    lines.append("")
+    lines.append(f"  final_rehab basis: {final_bucket.get('basis') or '<unknown>'}")
     lines.append("")
     if v3 is not None:
         lines.append(
@@ -466,6 +580,19 @@ def _format_totals(
             f"{_money(v4['inspection_exposure_high_applied'])}"
         )
     return lines
+
+
+def _format_bucket_row(label: str, bucket: Dict[str, Any]) -> str:
+    return (
+        f"  {label:<30} "
+        f"{_money(int(bucket['low']))} "
+        f"{_money(int(bucket['high']))} "
+        f"{_money(bucket.get('midpoint'))}"
+    )
+
+
+def _format_missing_bucket_row(label: str) -> str:
+    return f"  {label:<30} {'(missing)':>11}"
 
 
 def _format_v4_buckets(buckets: Dict[str, Dict[str, Any]]) -> List[str]:
@@ -500,22 +627,45 @@ def _format_v4_buckets(buckets: Dict[str, Dict[str, Any]]) -> List[str]:
     return lines
 
 
-def _format_billable_units(summary: Dict[str, Any]) -> List[str]:
-    lines = ["", _BORDER, "  BILLABLE UNITS", _BORDER]
+def _format_estimate_units(summary: Dict[str, Any]) -> List[str]:
+    lines = ["", _BORDER, "  ESTIMATE UNITS", _BORDER]
     lines.append(f"  billable kitchens: {summary.get('billable_kitchens', 0)}")
-    for unit in summary.get("kitchens") or []:
-        source_rooms = ", ".join(unit.get("source_room_surrogate_ids") or [])
-        lines.append(f"    {unit.get('estimate_unit_id', '<unknown>')}")
-        lines.append(f"      source room surrogates: {source_rooms or 'none'}")
     lines.append(f"  billable bathrooms: {summary.get('billable_bathrooms', 0)}")
-    for unit in summary.get("bathrooms") or []:
-        source_rooms = ", ".join(unit.get("source_room_surrogate_ids") or [])
-        lines.append(f"    {unit.get('estimate_unit_id', '<unknown>')}")
-        lines.append(f"      source room surrogates: {source_rooms or 'none'}")
+    units = summary.get("units") or []
+    if not units:
+        lines.append("  No estimate units present.")
+        return lines
+
+    for unit in units:
+        unit_id = unit.get("estimate_unit_id") or "<unknown>"
+        if "source_room_surrogate_ids" not in unit:
+            source_rooms = "<missing source_room_surrogate_ids>"
+        else:
+            source_ids = [
+                str(source_id)
+                for source_id in (unit.get("source_room_surrogate_ids") or [])
+            ]
+            source_rooms = ", ".join(source_ids) if source_ids else "(none)"
+        unit_type = unit.get("unit_type") or "<unknown>"
+        confidence = unit.get("confidence")
+        merge_reason = unit.get("merge_reason")
+        suffix = f" [{unit_type}]"
+        details = []
+        if confidence:
+            details.append(f"confidence={confidence}")
+        if merge_reason:
+            details.append(f"merge_reason={merge_reason}")
+        if details:
+            suffix += f" ({', '.join(details)})"
+        lines.append(f"  {unit_id} <- {source_rooms}{suffix}")
     return lines
 
 
-def _format_packages(packages: List[Dict[str, Any]]) -> List[str]:
+def _format_billable_units(summary: Dict[str, Any]) -> List[str]:
+    return _format_estimate_units(summary)
+
+
+def _format_packages_legacy(packages: List[Dict[str, Any]]) -> List[str]:
     lines = ["", _BORDER, f"  PACKAGES ({len(packages)})", _BORDER]
     if not packages:
         lines.append("  No packages inferred.")
@@ -552,6 +702,103 @@ def _format_issue_ids(issue_ids: List[str], cap: int = 6) -> str:
     shown = issue_ids[:cap]
     suffix = f" ... +{n - cap} more" if n > cap else ""
     return f"{n} ({', '.join(shown)}{suffix})"
+
+
+def _format_packages(packages: List[Dict[str, Any]]) -> List[str]:
+    lines = ["", _BORDER, f"  PACKAGES ({len(packages)})", _BORDER]
+    if not packages:
+        lines.append("  No packages inferred.")
+        return lines
+    for pkg in packages:
+        lines.append("")
+        lines.append(f"  {pkg['package_id']}")
+        lines.append(f"    package_type:      {pkg['package_type']}")
+        lines.append(f"    room_surrogate_id: {pkg['room_surrogate_id']}")
+        lines.append(f"    estimate_unit_id:  {pkg.get('estimate_unit_id') or '<missing>'}")
+        if pkg.get("source_room_surrogate_ids"):
+            lines.append(
+                "    source room surrogates: "
+                f"{', '.join(pkg['source_room_surrogate_ids'])}"
+            )
+        lines.append(f"    estimate_group:    {pkg['estimate_group']}")
+        lines.append(f"    estimate_scope:    {pkg.get('estimate_scope') or '<missing>'}")
+        lines.append(
+            f"    absorption_scope:  "
+            f"{_format_absorption_scope(pkg.get('absorption_scope') or {})}"
+        )
+        lines.append(f"    cap_behavior:      {pkg['cap_behavior']}")
+        lines.append(
+            f"    cost:              ${pkg['cost_low']:,} - ${pkg['cost_high']:,} "
+            f"(mid ${pkg['cost_midpoint']:,})"
+        )
+        lines.append(
+            f"    supporting issues: {_format_issue_ids(pkg['supporting_issue_ids'])}"
+        )
+        lines.append(f"    absorbed members:  {pkg['absorbed_member_count']}")
+        lines.extend(_format_absorption_audit(pkg.get("absorption_audit") or {}))
+    return lines
+
+
+def _format_absorption_scope(scope: Dict[str, Any]) -> str:
+    if not scope:
+        return "(none)"
+    parts = []
+    for key in ("family", "groups", "trade_buckets", "components"):
+        value = scope.get(key)
+        if isinstance(value, list):
+            formatted = ", ".join(str(item) for item in value) or "(none)"
+        else:
+            formatted = str(value) if value else "(none)"
+        parts.append(f"{key}={formatted}")
+    return "; ".join(parts)
+
+
+def _format_absorption_audit(audit: Dict[str, Any]) -> List[str]:
+    absorbed = audit.get("absorbed") or {}
+    retained = audit.get("retained") or {}
+    lines = [
+        f"    absorbed line items: {_format_string_list(absorbed.get('line_items') or [])}",
+        (
+            "    absorbed room allowances: "
+            f"{_format_string_list(absorbed.get('room_allowances') or [])}"
+        ),
+        (
+            "    absorbed partial allocations: "
+            f"{_format_string_list(absorbed.get('partial_allocations') or [])}"
+        ),
+        (
+            "    retained partial allocations: "
+            f"{_format_string_list(retained.get('partial_allocations') or [])}"
+        ),
+    ]
+    net_delta = audit.get("package_net_delta") or {}
+    if net_delta:
+        lines.append(f"    package net delta: {_format_amount_pair(net_delta)}")
+    return lines
+
+
+def _format_string_list(items: List[str]) -> str:
+    if not items:
+        return "(none)"
+    return ", ".join(str(item) for item in items)
+
+
+def _format_amount_pair(amount: Dict[str, Any]) -> str:
+    if not amount:
+        return "(missing)"
+    return (
+        f"low={_money(int(amount.get('low') or 0))}, "
+        f"high={_money(int(amount.get('high') or 0))}"
+    )
+
+
+def _format_signed_amount_pair(amount: Dict[str, Any]) -> str:
+    if not amount:
+        return "(missing)"
+    return (
+        f"low={_signed_money(int(amount.get('low') or 0))}, "
+        f"high={_signed_money(int(amount.get('high') or 0))}"
+    )
 
 
 def _format_reconciliation(rec: Optional[Dict[str, Any]]) -> List[str]:
@@ -613,25 +860,30 @@ def _format_reconciliation(rec: Optional[Dict[str, Any]]) -> List[str]:
 def _format_group_cap_reconciliation(group_audits: List[Dict[str, Any]]) -> List[str]:
     if not group_audits:
         return []
-    lines: List[str] = ["  group cap reconciliation:"]
-    lines.append(
-        f"    {'group':<16} {'orig high':>11} {'net high':>11} "
-        f"{'pre high':>11} {'post high':>11} {'cap':>7} {'override':>9}"
-    )
+    lines: List[str] = ["  group reconciliation:"]
     for audit in group_audits:
         original = audit.get("original_group_capped") or {}
+        absorbed = audit.get("absorbed_total") or {}
+        package_total = audit.get("package_total") or {}
         net = audit.get("package_net_delta") or {}
-        pre = audit.get("pre_cap_package_adjusted") or {}
         post = audit.get("post_cap_package_adjusted") or {}
         cap = "yes" if audit.get("cap_applied_after_packages") else "no"
-        override = "yes" if audit.get("cap_override") else "no"
+        final_group_total = post or audit.get("pre_cap_package_adjusted") or {}
+        lines.append(f"    group: {audit.get('group', '<unknown>')}")
         lines.append(
-            f"    {str(audit.get('group', '<unknown>')):<16} "
-            f"{_money(int(original.get('high') or 0))} "
-            f"{_signed_money(int(net.get('high') or 0)):>11} "
-            f"{_money(int(pre.get('high') or 0))} "
-            f"{_money(int(post.get('high') or 0))} "
-            f"{cap:>7} {override:>9}"
+            f"      original_group_capped:     {_format_amount_pair(original)}"
+        )
+        lines.append(f"      absorbed_total:            {_format_amount_pair(absorbed)}")
+        lines.append(f"      package_total:             {_format_amount_pair(package_total)}")
+        lines.append(
+            f"      package_net_delta:         {_format_signed_amount_pair(net)}"
+        )
+        lines.append(
+            f"      post_cap_package_adjusted: {_format_amount_pair(post)}"
+        )
+        lines.append(f"      cap_applied_after_packages: {cap}")
+        lines.append(
+            f"      final group total:         {_format_amount_pair(final_group_total)}"
         )
     return lines
 
@@ -687,7 +939,11 @@ def _format_warnings(warnings: List[Dict[str, str]]) -> List[str]:
         lines.append("  None.")
         return lines
     for w in warnings:
-        lines.append(f"  - {w['code']}: {w['detail']}")
+        code = w.get("code", "<unknown>")
+        detail = w.get("detail")
+        if detail is None:
+            detail = ", ".join(f"{k}={v}" for k, v in w.items() if k != "code")
+        lines.append(f"  - {code}: {detail}" if detail else f"  - {code}")
     return lines
 
 

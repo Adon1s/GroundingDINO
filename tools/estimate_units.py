@@ -11,6 +11,7 @@ vision pipeline has not actually measured.
 from __future__ import annotations
 
 import re
+import math
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from tools.estimate_scope import choose_scope
@@ -102,7 +103,8 @@ def build_estimate_units(
 
     kitchens = [s for s in surrogates if _surrogate_unit_type(s) == "kitchen"]
     bathrooms = [s for s in surrogates if _surrogate_unit_type(s) == "bathroom"]
-    handled = {s["room_surrogate_id"] for s in kitchens + bathrooms}
+    bedrooms = [s for s in surrogates if _surrogate_unit_type(s) == "bedroom"]
+    handled = {s["room_surrogate_id"] for s in kitchens + bathrooms + bedrooms}
 
     if kitchens:
         multi_kitchen_evidence = _has_multi_kitchen_metadata_evidence(
@@ -182,6 +184,51 @@ def build_estimate_units(
                 merge_reason=reason,
                 decision_reason="repeated_bathroom_surrogates_merged_conservatively",
             )
+
+    if bedrooms:
+        bed_cap = _bedroom_metadata_cap(property_metadata or {})
+        if not bed_cap or bed_cap >= len(bedrooms):
+            for surrogate in bedrooms:
+                add_unit(
+                    surrogate["room_surrogate_id"],
+                    "bedroom",
+                    [surrogate],
+                    confidence="surrogate_identity",
+                    merge_reason="room_surrogate_identity_default",
+                )
+        elif bed_cap == 1:
+            add_unit(
+                "bedroom_primary",
+                "bedroom",
+                bedrooms,
+                confidence="metadata_cap",
+                merge_reason="metadata_single_bedroom_cap",
+                decision_reason="single_bed_metadata_caps_repeated_bedroom_surrogates",
+                decision_confidence="high",
+            )
+        else:
+            distinct_count = max(1, bed_cap - 1)
+            for idx, surrogate in enumerate(bedrooms[:distinct_count], start=1):
+                unit_id = "bedroom_primary" if idx == 1 else f"bedroom_{idx}"
+                add_unit(
+                    unit_id,
+                    "bedroom",
+                    [surrogate],
+                    confidence="surrogate_identity",
+                    merge_reason="bedroom_surrogate_identity_default",
+                )
+            if distinct_count < len(bedrooms):
+                overflow = bedrooms[distinct_count:]
+                capped_unit_id = f"bedroom_{distinct_count + 1}"
+                add_unit(
+                    capped_unit_id,
+                    "bedroom",
+                    overflow,
+                    confidence="metadata_cap",
+                    merge_reason="bedroom_metadata_cap_applied",
+                    decision_reason="bedroom_surrogates_capped_by_metadata",
+                    decision_confidence="high",
+                )
 
     for surrogate in surrogates:
         sid = surrogate["room_surrogate_id"]
@@ -277,12 +324,23 @@ def _metadata_text(property_metadata: Dict[str, Any]) -> str:
 def _metadata_number(property_metadata: Dict[str, Any], *keys: str) -> Optional[float]:
     for key in keys:
         value = (property_metadata or {}).get(key)
-        if value is None:
+        if value is None or isinstance(value, bool):
             continue
-        try:
-            return float(value)
-        except (TypeError, ValueError):
+        if isinstance(value, (int, float)):
+            parsed = float(value)
+            if math.isfinite(parsed):
+                return parsed
             continue
+        if isinstance(value, str):
+            cleaned = value.strip().replace("$", "").replace(",", "")
+            if not cleaned:
+                continue
+            try:
+                parsed = float(cleaned)
+            except ValueError:
+                continue
+            if math.isfinite(parsed):
+                return parsed
     return None
 
 
@@ -365,14 +423,27 @@ def _bathroom_metadata_cap(property_metadata: Dict[str, Any]) -> Optional[int]:
     full = _metadata_number(property_metadata, "full_baths", "full_bathrooms")
     half = _metadata_number(property_metadata, "half_baths", "half_bathrooms")
     if full is not None or half is not None:
-        return int((full or 0) + (half or 0))
+        total = math.ceil((full or 0) + (half or 0))
+        return total if total > 0 else None
     baths = _metadata_number(
         property_metadata,
         "bath_count", "bathrooms", "baths", "bathroom_count",
     )
     if baths is None:
         return None
-    return int(baths)
+    total = math.ceil(baths)
+    return total if total > 0 else None
+
+
+def _bedroom_metadata_cap(property_metadata: Dict[str, Any]) -> Optional[int]:
+    beds = _metadata_number(
+        property_metadata,
+        "bed_count", "bedrooms", "beds", "bedroom_count",
+    )
+    if beds is None:
+        return None
+    total = math.ceil(beds)
+    return total if total > 0 else None
 
 
 def _should_keep_bathrooms_distinct(
@@ -503,6 +574,7 @@ def _resolve_per_room(
         unit_name="room",
         matcher=_is_meaningful_room,
         confidence="medium",
+        identity_getter=_billable_or_room_hint,
     )]
 
 

@@ -3,12 +3,24 @@ tools/renovation_estimate_v4.py
 
 Room-aware renovation estimate orchestrator.
 
-PR 3A: stamps room_surrogate_id from build_room_surrogates onto deep-copied
-v4 issues, re-extracts candidates so the same catalog item splits per room,
-reuses Pass 2f review fields from v3's reviewed candidates (no VLM re-run),
-and runs the existing v3 group-estimate machinery on the result. Emits
-empty placeholders for packages/reconciliation -- those land in later PRs.
-v3 output is left untouched.
+Pipeline:
+  1. Cluster photos into room surrogates (kitchen_1, kitchen_2, ...).
+  2. Resolve billable estimate units (kitchen_primary, bathroom_primary, ...)
+     using property_metadata caps for kitchen, bathroom, and bedroom counts.
+  3. Deep-copy issues_flat and stamp both `room_surrogate_id` and
+     `estimate_unit_id` so the same catalog item can split or merge per
+     billable unit without mutating v3 inputs.
+  4. Re-extract candidates, reuse Pass 2f review fields from v3 reviewed
+     candidates (no VLM re-run), apply scope and cost-model classification.
+  5. Run the v3 group-estimate machinery on the room-aware candidates.
+  6. Infer kitchen / bathroom / room packages keyed by estimate_unit_id and
+     reconcile them against group line items (absorption, net delta,
+     group-cap-aware totals).
+  7. Assemble explicit estimate buckets (visible_rehab,
+     package_adjusted_rehab, latent_risk_exposure, worst_case_exposure,
+     final_rehab) and append non-mutating sanity flags.
+
+v3 output is left untouched throughout.
 """
 from __future__ import annotations
 
@@ -66,11 +78,14 @@ def compute_renovation_estimate_v4(
 ) -> Optional[Dict[str, Any]]:
     """Compute the v4 (room-aware) renovation estimate.
 
-    PR 3A: room-surrogate stamping + Pass 2f reuse only. No allocation,
-    no package inference, no reconciliation, no property bounds.
+    Runs the full pipeline: surrogate clustering, estimate-unit resolution,
+    Pass 2f reuse, candidate scope and cost-model classification, group
+    aggregation, package inference, reconciliation, and sanity flags.
 
-    `property_metadata` is accepted for forward-compat with PR 3B+ and is
-    intentionally unused in PR 3A.
+    `property_metadata` carries scraped listing facts (beds, baths, price,
+    sqft, property_type, multi-kitchen evidence) used by estimate-unit caps
+    and sanity flags. None disables those features but the rest of the
+    pipeline still runs.
     """
     if v3_estimate is None:
         return None
@@ -203,7 +218,7 @@ def _reuse_pass_2f_fields(
         "matched_count": 0,
         "unmatched_v4_count": 0,
         "ambiguous_count": 0,
-        # Retained for shape stability; stays 0 in PR 3A.
+        # Reserved for dominance-ordering collapse; currently always 0.
         "dominant_posture_collapses": 0,
     }
 

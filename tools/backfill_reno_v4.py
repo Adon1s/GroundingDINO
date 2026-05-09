@@ -23,14 +23,59 @@ import argparse
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Dict, List, Optional
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from tools.artifact_writers import load_issue_catalog
+from tools.artifact_writers import (
+    _load_scrape_metadata_for_job,
+    load_issue_catalog,
+)
 from tools.renovation_estimate_v4 import compute_renovation_estimate_v4
+
+
+def _resolve_property_metadata_from_artifact(
+    artifact: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Recover property_metadata for a saved artifact.
+
+    Preference order:
+      1. ``artifact["property_metadata"]`` (persisted by the live writer).
+      2. Re-discover scrape.json by synthesizing a job-shaped object from the
+         artifact's photo paths and calling ``_load_scrape_metadata_for_job``.
+    Returns an empty dict if neither source yields anything.
+    """
+    persisted = artifact.get("property_metadata")
+    if isinstance(persisted, dict) and persisted:
+        result = dict(persisted)
+        result.setdefault("metadata_source", "persisted_artifact")
+        return result
+
+    property_key = (
+        (artifact.get("property") or {}).get("property_key")
+        or artifact.get("property_key")
+        or ""
+    )
+    photos = artifact.get("photos") or {}
+    photo_records = photos.values() if isinstance(photos, dict) else photos
+    fake_results = []
+    for record in photo_records or []:
+        if not isinstance(record, dict):
+            continue
+        image_path = (record.get("photo") or {}).get("image_path")
+        if image_path:
+            fake_results.append(SimpleNamespace(image_path=image_path))
+    if not property_key or not fake_results:
+        return {}
+
+    synthetic_job = SimpleNamespace(
+        property_key=property_key,
+        results=fake_results,
+    )
+    return _load_scrape_metadata_for_job(synthetic_job) or {}
 
 
 def _resolve_artifact_path(run_path: Path) -> Path:
@@ -76,6 +121,8 @@ def backfill(
     if was_present and not force:
         return {"status": "skip_already_present"}
 
+    property_metadata = _resolve_property_metadata_from_artifact(artifact)
+
     try:
         v4 = compute_renovation_estimate_v4(
             issues_flat=artifact.get("estimate_issues_flat") or [],
@@ -83,6 +130,7 @@ def backfill(
             photos=artifact.get("photos") or {},
             v3_reviewed_candidates=None,
             v3_estimate=artifact.get("renovation_estimate"),
+            property_metadata=property_metadata or None,
         )
     except Exception as e:
         return {"status": "error", "reason": f"v4 computation failed: {e}"}
@@ -96,6 +144,7 @@ def backfill(
         "v4_high": int(final_rehab.get("high") or 0),
         "package_count": len(v4.get("packages") or []),
         "was_present": was_present,
+        "metadata_source": (property_metadata or {}).get("metadata_source") or "none",
     }
 
     if dry_run:
@@ -136,7 +185,8 @@ def _format_result(artifact_path: Path, result: Dict[str, Any]) -> str:
         return (
             f"{verb}: {artifact_path} — "
             f"v4 final_rehab ${result['v4_low']:,}–${result['v4_high']:,}, "
-            f"{result['package_count']} packages"
+            f"{result['package_count']} packages, "
+            f"metadata_source={result.get('metadata_source', 'none')}"
         )
     return f"error: {artifact_path} — {result.get('reason', 'unknown error')}"
 

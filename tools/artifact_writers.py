@@ -135,6 +135,126 @@ def log_catalog_load(path: Path, cat: dict):
         logger.info("Catalog sample: items is EMPTY")
 
 
+_PROPERTY_METADATA_KEYS = (
+    "price", "list_price", "listing_price",
+    "beds", "bedrooms", "bed_count", "bedroom_count",
+    "baths", "bathrooms", "bath_count", "bathroom_count",
+    "full_baths", "full_bathrooms", "half_baths", "half_bathrooms",
+    "sqft", "square_feet", "living_area_sqft",
+    "year_built", "lot_size", "property_type", "property_type_detail",
+    "status", "description", "hoa", "garage", "parking", "price_per_sqft",
+    "days_on_market",
+    # Multi-kitchen / multi-unit evidence consumed by
+    # tools.estimate_units._has_multi_kitchen_metadata_evidence.
+    "kitchen_count", "kitchens",
+    "is_multi_unit", "multi_unit",
+    "has_adu", "adu",
+    "has_second_kitchen", "second_kitchen",
+    "number_of_units", "unit_count", "units",
+)
+
+
+def _extract_property_metadata_from_mapping(source: Any) -> Dict[str, Any]:
+    if not isinstance(source, dict):
+        return {}
+
+    metadata: Dict[str, Any] = {}
+    nested = source.get("metadata")
+    if isinstance(nested, dict):
+        metadata.update(_extract_property_metadata_from_mapping(nested))
+
+    for key in _PROPERTY_METADATA_KEYS:
+        value = source.get(key)
+        if value is not None:
+            metadata[key] = value
+
+    # Keep common aliases available to downstream caps/sanity checks even when
+    # the scraper only wrote the Redfin-style short names.
+    if "price" in metadata:
+        metadata.setdefault("list_price", metadata["price"])
+    if "beds" in metadata:
+        metadata.setdefault("bedrooms", metadata["beds"])
+    if "baths" in metadata:
+        metadata.setdefault("bath_count", metadata["baths"])
+    if "sqft" in metadata:
+        metadata.setdefault("square_feet", metadata["sqft"])
+
+    return metadata
+
+
+def _discover_realtorvision_root_from_images(job: Any) -> Optional[Path]:
+    for res in getattr(job, "results", []) or []:
+        image_path = getattr(res, "image_path", None)
+        if not image_path:
+            continue
+        try:
+            parts = Path(image_path).resolve().parts
+        except Exception:
+            continue
+        lowered = [part.lower() for part in parts]
+        for idx in range(0, max(0, len(parts) - 2)):
+            if lowered[idx:idx + 3] == ["public", "images", "properties"]:
+                if idx == 0:
+                    return None
+                return Path(*parts[:idx])
+    return None
+
+
+def _load_scrape_metadata_for_job(job: Any) -> Dict[str, Any]:
+    property_key = str(getattr(job, "property_key", "") or "").strip()
+    if not property_key:
+        return {}
+
+    root = _discover_realtorvision_root_from_images(job)
+    if root is None:
+        return {}
+
+    batches_dir = root / "data" / "scraped" / "batches"
+    if not batches_dir.exists():
+        return {}
+
+    scrape_paths = []
+    try:
+        scrape_paths = list(batches_dir.glob(f"*/properties/{property_key}/scrape.json"))
+    except Exception:
+        return {}
+    if not scrape_paths:
+        return {}
+
+    def _mtime(path: Path) -> float:
+        try:
+            return path.stat().st_mtime
+        except OSError:
+            return 0.0
+
+    for scrape_path in sorted(scrape_paths, key=_mtime, reverse=True):
+        try:
+            with open(scrape_path, "r", encoding="utf-8") as f:
+                payload = json.load(f)
+        except Exception as exc:
+            logger.debug("Failed reading scrape metadata %s: %s", scrape_path, exc)
+            continue
+        if isinstance(payload, list):
+            payload = payload[0] if payload else {}
+        metadata = _extract_property_metadata_from_mapping(payload)
+        if metadata:
+            metadata.setdefault("metadata_source", "scrape_json")
+            metadata.setdefault("metadata_path", str(scrape_path))
+            return metadata
+    return {}
+
+
+def _resolve_property_metadata(job: Any) -> Dict[str, Any]:
+    metadata = _extract_property_metadata_from_mapping(
+        getattr(job, "property_metadata", None)
+    )
+    scrape_metadata = _load_scrape_metadata_for_job(job)
+    if scrape_metadata:
+        scrape_metadata.update(metadata)
+        metadata = scrape_metadata
+    return metadata
+
+
 def write_photo_intel(
     *,
     cfg: Any,
@@ -428,6 +548,14 @@ def write_photo_intel(
                     "location_hint": it.get("location_hint", ""),
                 })
 
+    property_metadata = _resolve_property_metadata(job)
+    property_block = {
+        "property_key": job.property_key,
+        "artifacts_dir": job.artifacts_dir,
+    }
+    if property_metadata:
+        property_block.update(property_metadata)
+
     photo_intel = {
         "schema_version":               PHOTO_INTEL_SCHEMA_VERSION,
         "normalization_policy_version": NORMALIZATION_POLICY_VERSION,
@@ -451,10 +579,8 @@ def write_photo_intel(
             "model":               getattr(cfg, "LM_STUDIO_MODEL", ""),
             "gpt_model":           gpt_config.get('model') if gpt_config else None,
         },
-        "property": {
-            "property_key": job.property_key,
-            "artifacts_dir": job.artifacts_dir,
-        },
+        "property": property_block,
+        "property_metadata": property_metadata,
         "photos":      photos,
         "room_groups": room_groups,
         "issues_flat": issues_flat,
@@ -687,6 +813,7 @@ def write_photo_intel(
             photos=photos,
             v3_reviewed_candidates=reviewed_candidates,
             v3_estimate=quick_est,
+            property_metadata=property_metadata,
         )
 
         # ── Pass 2f trace (top-level, property-scoped) ──
