@@ -25,15 +25,21 @@ v3 output is left untouched throughout.
 from __future__ import annotations
 
 import copy
+import asyncio
+import concurrent.futures
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from tools.catalog_cost_model import derive_cost_model
 from tools.estimate_scope import apply_estimate_scope
 from tools.estimate_sanity import build_estimate_sanity_flags
 from tools.rehab_packages import (
-    infer_packages,
+    apply_package_verifications_to_candidates,
+    finalize_package_candidates,
+    infer_package_candidates,
     reconcile_packages_and_estimate_units,
+    run_pass_2f_batch,
 )
 from tools.renovation_estimate import (
     EstimateCandidate,
@@ -57,15 +63,16 @@ _PASS_2F_REUSE_FIELDS = (
     "pass_2f_attempted",
     "pass_2f_applied",
     "pass_2f_fallback_reason",
+    "package_id",
+    "package_type",
+    "package_role",
+    "visual_verification_status",
+    "package_verification_source",
 )
 
 _REUSE_METHOD_EXACT = "exact"
 _REUSE_METHOD_SUBSET = "subset"
 _REUSE_METHOD_COLLAPSE_AGREEING = "collapse_agreeing_postures"
-
-_REUSE_CONFIDENCE_HIGH = "high"
-_REUSE_CONFIDENCE_MEDIUM = "medium"
-
 
 def compute_renovation_estimate_v4(
     issues_flat: List[Dict[str, Any]],
@@ -75,6 +82,11 @@ def compute_renovation_estimate_v4(
     v3_reviewed_candidates: Optional[List[EstimateCandidate]] = None,
     v3_estimate: Optional[Dict[str, Any]] = None,
     property_metadata: Optional[Dict[str, Any]] = None,
+    package_verifications: Optional[Dict[str, Dict[str, Any]]] = None,
+    pass_2f_vlm_client: Any = None,
+    pass_2f_model_config: Optional[Dict[str, Any]] = None,
+    photo_key_to_path: Optional[Dict[str, Path]] = None,
+    pass_2f_provider: str = "premium",
 ) -> Optional[Dict[str, Any]]:
     """Compute the v4 (room-aware) renovation estimate.
 
@@ -133,18 +145,61 @@ def compute_renovation_estimate_v4(
             candidate,
         )
 
+    package_candidates = infer_package_candidates(
+        v4_candidates,
+        surrogate_records,
+        issue_catalog,
+        estimate_units=estimate_unit_resolution.get("estimate_units", []),
+    )
+    pass_2f_trace = {
+        "ran": False,
+        "reason": "no_package_candidates" if not package_candidates else "not_requested",
+        "candidate_count": len(package_candidates),
+        "attempted_count": 0,
+        "confirmed_count": 0,
+        "rejected_count": 0,
+        "uncertain_count": 0,
+        "no_image_count": 0,
+    }
+    if (
+        package_candidates
+        and package_verifications is None
+        and pass_2f_vlm_client is not None
+        and pass_2f_model_config
+    ):
+        package_verifications, pass_2f_trace = _run_pass_2f_sync(
+            package_candidates,
+            vlm_client=pass_2f_vlm_client,
+            model_config=pass_2f_model_config,
+            photo_key_to_path=photo_key_to_path or {},
+            provider=pass_2f_provider,
+        )
+    elif package_verifications is not None:
+        pass_2f_trace = {
+            **pass_2f_trace,
+            "ran": False,
+            "reason": "provided_verifications",
+            "verification_count": len(package_verifications or {}),
+        }
+
+    apply_package_verifications_to_candidates(
+        v4_candidates,
+        package_candidates,
+        package_verifications,
+        provider=pass_2f_provider,
+    )
+    packages, package_candidates_audit = finalize_package_candidates(
+        package_candidates,
+        package_verifications,
+        require_confirmation=True,
+    )
+
     v4_estimate = compute_renovation_estimate(
         issues_flat=v4_issues,
         issue_catalog=issue_catalog,
         prebuilt_candidates=v4_candidates,
     )
 
-    packages = infer_packages(
-        v4_candidates,
-        surrogate_records,
-        issue_catalog,
-        estimate_units=estimate_unit_resolution.get("estimate_units", []),
-    )
     reconciliation = reconcile_packages_and_estimate_units(
         v4_estimate.get("groups", []),
         packages,
@@ -164,6 +219,8 @@ def compute_renovation_estimate_v4(
         estimate_unit_resolution.get("warnings", []) or []
     )
     v4_estimate["packages"] = packages
+    v4_estimate["package_candidates"] = package_candidates_audit
+    v4_estimate["pass_2f_trace"] = pass_2f_trace
     v4_estimate["reconciliation"] = reconciliation
     v4_estimate["warnings"] = list(reconciliation.get("warnings") or [])
     for bucket_name in (
@@ -188,12 +245,45 @@ def compute_renovation_estimate_v4(
         "mode": "room_aware_line_item_estimate",
         "derived_from": "renovation_estimate_v3",
         "v3_pass_2f_reused": bool(v3_reviewed_candidates),
-        "v4_phases_applied": ["surrogates", "estimate_units", "packages", "reconciliation"],
+        "v4_phases_applied": [
+            "surrogates",
+            "estimate_units",
+            "package_candidates",
+            "pass_2f",
+            "package_finalization",
+            "reconciliation",
+        ],
         "packages_enabled": True,
         "reconciliation_enabled": True,
+        "package_confirmation_required": True,
     }
 
     return v4_estimate
+
+
+def _run_pass_2f_sync(
+    package_candidates: List[Dict[str, Any]],
+    *,
+    vlm_client: Any,
+    model_config: Dict[str, Any],
+    photo_key_to_path: Dict[str, Path],
+    provider: str,
+) -> tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
+    coro = run_pass_2f_batch(
+        package_candidates,
+        vlm_client=vlm_client,
+        model_config=model_config,
+        photo_key_to_path=photo_key_to_path,
+        provider=provider,
+    )
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+                return pool.submit(asyncio.run, coro).result()
+        return loop.run_until_complete(coro)
+    except RuntimeError:
+        return asyncio.run(coro)
 
 
 def _reuse_pass_2f_fields(
@@ -239,7 +329,6 @@ def _reuse_pass_2f_fields(
             _copy_pass_2f_fields(
                 v4_c, exact[0],
                 method=_REUSE_METHOD_EXACT,
-                confidence=_REUSE_CONFIDENCE_HIGH,
             )
             audit["matched_count"] += 1
             continue
@@ -252,7 +341,6 @@ def _reuse_pass_2f_fields(
             _copy_pass_2f_fields(
                 v4_c, supersets[0],
                 method=_REUSE_METHOD_SUBSET,
-                confidence=_REUSE_CONFIDENCE_MEDIUM,
             )
             audit["matched_count"] += 1
             continue
@@ -270,7 +358,6 @@ def _reuse_pass_2f_fields(
                 _copy_pass_2f_fields(
                     v4_c, subsets[0],
                     method=_REUSE_METHOD_COLLAPSE_AGREEING,
-                    confidence=_REUSE_CONFIDENCE_MEDIUM,
                 )
                 audit["matched_count"] += 1
             else:
@@ -287,7 +374,6 @@ def _copy_pass_2f_fields(
     source: EstimateCandidate,
     *,
     method: str,
-    confidence: str,
 ) -> None:
     for field in _PASS_2F_REUSE_FIELDS:
         value = getattr(source, field, None)
@@ -295,4 +381,3 @@ def _copy_pass_2f_fields(
             value = list(value)
         setattr(target, field, value)
     setattr(target, "pass_2f_reuse_method", method)
-    setattr(target, "pass_2f_reuse_confidence", confidence)

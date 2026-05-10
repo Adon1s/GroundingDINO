@@ -124,7 +124,9 @@
       },
       "require_any": [
         "ceiling"
-      ]
+      ],
+      "display_class": "high_concern",
+      "package_role": "standalone"
     },
     {
       "name": "Peeling or Discolored Paint",
@@ -164,7 +166,10 @@
         "cap_low": 2500,
         "cap_high": 6000,
         "cost_source": "manual"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Visible Mold or Mildew",
@@ -214,7 +219,9 @@
         "group": "remediation",
         "stack_behavior": "group_cap",
         "unit_policy": "per_room"
-      }
+      },
+      "display_class": "high_concern",
+      "package_role": "standalone"
     },
     {
       "name": "Drywall Damage or Cracks",
@@ -255,7 +262,10 @@
         "cap_low": 2000,
         "cap_high": 6000,
         "cost_source": "manual"
-      }
+      },
+      "display_class": "estimate_driver",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Ceiling Cracks or Sagging",
@@ -302,7 +312,9 @@
         "group": "structure",
         "stack_behavior": "max_only",
         "unit_policy": "per_room"
-      }
+      },
+      "display_class": "high_concern",
+      "package_role": "standalone"
     },
     {
       "id": "damaged_soffit_or_porch_ceiling",
@@ -374,7 +386,10 @@
         "carpet",
         "carpeting",
         "rug"
-      ]
+      ],
+      "display_class": "estimate_driver",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Worn or Stained Vinyl / Linoleum Flooring",
@@ -410,7 +425,10 @@
         "living_areas",
         "utility"
       ],
-      "tier": "work"
+      "tier": "work",
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Scratched or Damaged Hard Flooring",
@@ -459,7 +477,10 @@
         "group": "flooring",
         "stack_behavior": "group_cap",
         "unit_policy": "per_room"
-      }
+      },
+      "display_class": "estimate_driver",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Trip Hazard or Unlevel Floor",
@@ -509,7 +530,9 @@
         "cap_low": 8000,
         "cap_high": 25000,
         "cost_source": "manual"
-      }
+      },
+      "display_class": "high_concern",
+      "package_role": "standalone"
     },
     {
       "name": "Damaged or Rotted Exterior Siding/Trim",
@@ -713,7 +736,9 @@
         "cracked glass",
         "pane crack",
         "smashed"
-      ]
+      ],
+      "display_class": "estimate_driver",
+      "package_role": "standalone"
     },
     {
       "id": "dirty_or_grimy_window_screens",
@@ -794,7 +819,10 @@
         "group": "kitchen",
         "stack_behavior": "group_cap",
         "unit_policy": "per_kitchen"
-      }
+      },
+      "display_class": "estimate_driver",
+      "package_role": "package_driver",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Damaged Countertops",
@@ -838,7 +866,10 @@
         "group": "kitchen",
         "stack_behavior": "group_cap",
         "unit_policy": "per_kitchen"
-      }
+      },
+      "display_class": "estimate_driver",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Damaged Tile or Grout",
@@ -927,7 +958,10 @@
         "group": "kitchen",
         "stack_behavior": "group_cap",
         "unit_policy": "per_kitchen"
-      }
+      },
+      "display_class": "estimate_driver",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Leaking or Stained Plumbing Fixtures",
@@ -969,7 +1003,9 @@
         "cap_low": 4000,
         "cap_high": 12000,
         "cost_source": "manual"
-      }
+      },
+      "display_class": "high_concern",
+      "package_role": "standalone"
     },
     {
       "name": "Stained or Damaged Bath Fixtures",
@@ -1058,7 +1094,9 @@
         "cap_low": 6000,
         "cap_high": 20000,
         "cost_source": "manual"
-      }
+      },
+      "display_class": "high_concern",
+      "package_role": "standalone"
     },
     {
       "name": "Missing or Damaged Handrails/Guardrails",
@@ -1109,7 +1147,9 @@
         "rail",
         "banister",
         "baluster"
-      ]
+      ],
+      "display_class": "high_concern",
+      "package_role": "standalone"
     },
     {
       "name": "Basement or Garage Damage",
@@ -1249,7 +1289,9 @@
         "nest",
         "termite",
         "infestation"
-      ]
+      ],
+      "display_class": "high_concern",
+      "package_role": "standalone"
     },
     {
       "name": "Standing Water or Poor Grading",
@@ -1458,7 +1500,10 @@
         "group": "kitchen",
         "stack_behavior": "group_cap",
         "unit_policy": "per_kitchen"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "package_driver",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Outdated Bathroom Finishes",
@@ -1551,7 +1596,10 @@
         "group": "flooring",
         "stack_behavior": "group_cap",
         "unit_policy": "per_room"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Outdated Lighting Fixtures",
@@ -1592,7 +1640,10 @@
         "cap_low": 5000,
         "cap_high": 12000,
         "cost_source": "manual"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Dated Bathroom Vanity Light",
@@ -1667,7 +1718,10 @@
         "cap_low": 7000,
         "cap_high": 15000,
         "cost_source": "manual"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Landscape Improvement",
@@ -1819,7 +1873,9 @@
         "cap_low": 2500,
         "cap_high": 6000,
         "cost_source": "manual"
-      }
+      },
+      "display_class": "clutter",
+      "package_role": "ignore"
     },
     {
       "name": "Baseboard Wear or Scuffs",
@@ -1858,7 +1914,10 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Wall Scuffs, Marks, or Dents",
@@ -1900,7 +1959,10 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Ceiling Fan with Mismatched Blades",
@@ -2010,7 +2072,10 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Unfinished Interior Wall (OSB Exposed)",
@@ -2047,7 +2112,10 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "estimate_driver",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Dirty or Heavily Soiled Floor",
@@ -2085,7 +2153,9 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "clutter",
+      "package_role": "ignore"
     },
     {
       "name": "Vintage Tile Pattern/Style",
@@ -2200,7 +2270,10 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Dated Window Treatment/Valance",
@@ -2238,7 +2311,9 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "ignore"
     },
     {
       "name": "Dated Wallpaper",
@@ -2274,7 +2349,10 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Dated Wood Paneling",
@@ -2310,7 +2388,10 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Mismatched Furniture/Staging Opportunity",
@@ -2344,7 +2425,9 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "clutter",
+      "package_role": "ignore"
     },
     {
       "name": "Overall Decor Style Appears Dated",
@@ -2380,7 +2463,9 @@
       "drop_if_generic": true,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "ignore"
     },
     {
       "name": "Yard Debris / Overgrown with Leaves",
@@ -2588,7 +2673,9 @@
       "drop_if_generic": true,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "clutter",
+      "package_role": "ignore"
     },
     {
       "name": "Metal Carport Rust or Corrosion",
@@ -2806,7 +2893,10 @@
         "closed floor plan",
         "choppy layout",
         "cramped layout"
-      ]
+      ],
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Exposed Sheathing or Missing Exterior Siding",
@@ -3059,7 +3149,10 @@
         "group": "kitchen",
         "stack_behavior": "group_cap",
         "unit_policy": "per_kitchen"
-      }
+      },
+      "display_class": "estimate_driver",
+      "package_role": "package_driver",
+      "package_type": "kitchen_modernization"
     },
     {
       "name": "Rotted Subfloor or Structural Framing",
@@ -3101,7 +3194,9 @@
         "group": "structure",
         "stack_behavior": "max_only",
         "unit_policy": "per_room"
-      }
+      },
+      "display_class": "high_concern",
+      "package_role": "standalone"
     },
     {
       "name": "Interior Wall Stripped to Studs / Exposed Insulation",
@@ -3141,7 +3236,9 @@
         "group": "structure",
         "stack_behavior": "max_only",
         "unit_policy": "per_room"
-      }
+      },
+      "display_class": "estimate_driver",
+      "package_role": "standalone"
     },
     {
       "name": "Boarded-Up Entry or Window",
@@ -3183,7 +3280,9 @@
         "group": "windows_doors",
         "stack_behavior": "sum",
         "unit_policy": "per_opening"
-      }
+      },
+      "display_class": "high_concern",
+      "package_role": "standalone"
     },
     {
       "name": "Retaining Wall Failure or Missing Section",
@@ -3324,7 +3423,10 @@
         "utility",
         "other"
       ],
-      "tier": "work"
+      "tier": "work",
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "id": "bare_or_missing_finish_flooring",
@@ -3399,7 +3501,10 @@
       "drop_if_generic": true,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "id": "dated_interior_trim",
@@ -3434,7 +3539,10 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "id": "dated_interior_doors",
@@ -3475,7 +3583,10 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "kitchen_modernization"
     },
     {
       "id": "dated_entry_or_patio_door",
@@ -3515,7 +3626,9 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "ignore"
     }
   ]
 }

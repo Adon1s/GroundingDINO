@@ -49,6 +49,99 @@ def _strip_pass_2f_audit_rationale(renovation_estimate: Any) -> None:
             item.pop("consistency_flags", None)
 
 
+def _build_ui_priorities_v1(
+    *,
+    issues_flat: List[Dict[str, Any]],
+    issue_catalog: Dict[str, Any],
+    renovation_estimate_v4: Any,
+) -> Dict[str, Any]:
+    """Build frontend priority lanes from verified/package-first v4 output."""
+    try:
+        from tools.rehab_packages import (
+            DISPLAY_CLASS_ESTIMATE_DRIVER,
+            DISPLAY_CLASS_HIGH_CONCERN,
+            DISPLAY_CLASS_MARKETABILITY,
+            catalog_display_class,
+        )
+    except Exception:
+        return {"version": "ui_priorities_v1", "error": "catalog_priority_helpers_unavailable"}
+
+    catalog_lookup = {
+        item["id"]: item
+        for item in (issue_catalog.get("items") or [])
+        if isinstance(item, dict) and item.get("id")
+    }
+
+    def _issue_record(issue: Dict[str, Any]) -> Dict[str, Any]:
+        item_id = issue.get("catalog_item_id") or issue.get("defect_id") or issue.get("upgrade_id")
+        cat = catalog_lookup.get(item_id or "", {})
+        return {
+            "issue_id": issue.get("issue_id"),
+            "catalog_item_id": item_id,
+            "display_class": catalog_display_class(cat),
+            "photo_key": issue.get("photo_key"),
+            "scene": issue.get("scene") or issue.get("scene_group"),
+            "description": issue.get("description"),
+        }
+
+    v4 = renovation_estimate_v4 if isinstance(renovation_estimate_v4, dict) else {}
+    line_items: List[Dict[str, Any]] = []
+    for group in v4.get("groups") or []:
+        if isinstance(group, dict):
+            line_items.extend(group.get("line_items") or [])
+
+    verified_estimate_drivers = []
+    high_concern_issues = []
+    marketability_signals = []
+    for item in line_items:
+        cat = catalog_lookup.get(item.get("catalog_item_id") or "", {})
+        display_class = catalog_display_class(cat)
+        if item.get("is_valid_detection") is False:
+            continue
+        record = {
+            "estimate_unit_id": item.get("estimate_unit_id"),
+            "catalog_item_id": item.get("catalog_item_id"),
+            "name": item.get("name"),
+            "display_class": display_class,
+            "cost_low": item.get("cost_low"),
+            "cost_high": item.get("cost_high"),
+            "visual_verification_status": item.get("visual_verification_status"),
+            "review_source": item.get("review_source"),
+        }
+        if display_class == DISPLAY_CLASS_ESTIMATE_DRIVER:
+            verified_estimate_drivers.append(record)
+        elif display_class == DISPLAY_CLASS_HIGH_CONCERN:
+            high_concern_issues.append(record)
+        elif display_class == DISPLAY_CLASS_MARKETABILITY:
+            marketability_signals.append(record)
+
+    confirmed_packages = [
+        package for package in (v4.get("packages") or [])
+        if isinstance(package, dict) and package.get("verification_status") == "confirmed"
+    ]
+    audit_only = [
+        package for package in (v4.get("package_candidates") or [])
+        if isinstance(package, dict) and package.get("verification_status") != "confirmed"
+    ]
+    raw_high_concern = [
+        _issue_record(issue)
+        for issue in (issues_flat or [])
+        if catalog_display_class(catalog_lookup.get(
+            issue.get("catalog_item_id") or issue.get("defect_id") or issue.get("upgrade_id") or "",
+            {},
+        )) == DISPLAY_CLASS_HIGH_CONCERN
+    ]
+
+    return {
+        "version": "ui_priorities_v1",
+        "verified_estimate_drivers": verified_estimate_drivers,
+        "high_concern_issues": high_concern_issues or raw_high_concern,
+        "confirmed_modernization_packages": confirmed_packages,
+        "marketability_signals": marketability_signals,
+        "audit_only_suppressed_or_unverified": audit_only,
+    }
+
+
 # Import defect events layer
 try:
     from tools.defect_events import build_defect_events, generate_work_items, build_search_index
@@ -653,149 +746,46 @@ def write_photo_intel(
         from tools.renovation_estimate import compute_renovation_estimate
         renovation_issues_flat = estimate_issues_flat or issues_flat
 
-        # Run Pass 2f revisit on eligible candidates if vlm_client available
-        import time as _time
+        # Pass 2f is now package-level visual verification in v4.
         reviewed_candidates = None
-        pass_2f_elapsed = 0.0
         pass_2f_model_config = None
-        n_attempted = 0
-        n_applied = 0
-        posture_counts: Dict[str, int] = {}
-        fallback_counts: Dict[str, int] = {}
-        consistency_flag_counts: Dict[str, int] = {}
-        eligible: list = []
+        photo_key_to_path: Dict[str, Path] = {}
         pass_2f_enabled = pass_toggles.get("2f", True) if pass_toggles else True
         if vlm_client and gpt_config and pass_2f_enabled:
             try:
-                import asyncio
-                from tools.renovation_estimate import (
-                    extract_estimate_candidates,
-                    resolve_estimate_units,
-                    resolve_pass_2f_model_config,
-                    run_pass_2f_batch,
+                from tools.renovation_estimate import resolve_pass_2f_model_config
+
+                for res in job.results:
+                    pk = Path(res.image_path).name
+                    photo_key_to_path[pk] = Path(res.image_path)
+                pass_2f_model_config = resolve_pass_2f_model_config(
+                    provider=pass_2f_provider,
+                    local_config=local_vlm_config,
+                    premium_config=gpt_config,
                 )
 
-                candidates = extract_estimate_candidates(
-                    renovation_issues_flat, issue_catalog,
-                )
-                candidates = resolve_estimate_units(
-                    candidates, renovation_issues_flat, issue_catalog,
-                )
-                eligible = [
-                    c for c in candidates
-                    if c.estimate_meta.estimate_tier in ("high", "medium")
-                    and c.estimate_meta.requires_2f_for_estimate
-                ]
-                if eligible:
-                    # Build photo_key → image_path mapping from job results
-                    photo_key_to_path: Dict[str, Path] = {}
-                    for res in job.results:
-                        pk = Path(res.image_path).name
-                        photo_key_to_path[pk] = Path(res.image_path)
-
-                    # Resolve model config for 2f based on provider setting
-                    pass_2f_model_config = resolve_pass_2f_model_config(
-                        provider=pass_2f_provider,
-                        local_config=local_vlm_config,
-                        premium_config=gpt_config,
-                    )
-
-                    # Record 2f routing on the property-level model_routing list
-                    # (the orchestrator only records per-image passes; 2f runs once
-                    # per property here, so we add its entry separately).
-                    if pass_2f_model_config and "2f" not in {
-                        e.get("pass") for e in photo_intel.get("model_routing", [])
-                    }:
-                        _2f_provider = pass_2f_model_config.get("provider")
-                        if _2f_provider is None and pass_2f_model_config.get("api_key"):
-                            _2f_provider = "openai"
-                        _2f_family = "gpt5" if _2f_provider == "openai" else "qwen"
-                        _2f_env_set = bool(os.environ.get("OPENAI_PASS_2F_MODEL"))
-                        if _2f_env_set and _2f_provider == "openai":
-                            _2f_source = "env_override"
-                        elif pass_2f_provider == "premium":
-                            _2f_source = "premium_default"
-                        else:
-                            _2f_source = "standard_default"
-                        photo_intel.setdefault("model_routing", []).append({
-                            "pass": "2f",
-                            "model_family": _2f_family,
-                            "model": str(pass_2f_model_config.get("model") or ""),
-                            "source": _2f_source,
-                        })
-
-                    pass_2f_start = _time.time()
-                    try:
-                        loop = asyncio.get_event_loop()
-                        if loop.is_running():
-                            import concurrent.futures
-                            with concurrent.futures.ThreadPoolExecutor() as pool:
-                                loop2 = asyncio.new_event_loop()
-                                candidates = pool.submit(
-                                    loop2.run_until_complete,
-                                    run_pass_2f_batch(
-                                        candidates=candidates,
-                                        issues_flat=renovation_issues_flat,
-                                        issue_catalog=issue_catalog,
-                                        vlm_client=vlm_client,
-                                        model_config=pass_2f_model_config,
-                                        photo_key_to_path=photo_key_to_path,
-                                        provider=pass_2f_provider,
-                                    ),
-                                ).result()
-                                loop2.close()
-                        else:
-                            candidates = loop.run_until_complete(
-                                run_pass_2f_batch(
-                                    candidates=candidates,
-                                    issues_flat=renovation_issues_flat,
-                                    issue_catalog=issue_catalog,
-                                    vlm_client=vlm_client,
-                                    model_config=pass_2f_model_config,
-                                    photo_key_to_path=photo_key_to_path,
-                                    provider=pass_2f_provider,
-                                ),
-                            )
-                    except RuntimeError:
-                        # No event loop exists
-                        candidates = asyncio.run(
-                            run_pass_2f_batch(
-                                candidates=candidates,
-                                issues_flat=renovation_issues_flat,
-                                issue_catalog=issue_catalog,
-                                vlm_client=vlm_client,
-                                model_config=pass_2f_model_config,
-                                photo_key_to_path=photo_key_to_path,
-                                provider=pass_2f_provider,
-                            ),
-                        )
-                    pass_2f_elapsed = _time.time() - pass_2f_start
-                    reviewed_candidates = candidates
-                    # ── Pass 2f summary (matches 2d/2e style) ──
-                    n_attempted = sum(1 for c in candidates if c.pass_2f_attempted)
-                    n_applied = sum(1 for c in candidates if c.pass_2f_applied)
-                    n_invalidated = sum(1 for c in candidates if c.is_valid_detection is False)
-                    for c in candidates:
-                        if c.pass_2f_applied and c.review_posture:
-                            posture_counts[c.review_posture] = posture_counts.get(c.review_posture, 0) + 1
-                    for c in candidates:
-                        if c.pass_2f_fallback_reason:
-                            fallback_counts[c.pass_2f_fallback_reason] = fallback_counts.get(c.pass_2f_fallback_reason, 0) + 1
-                    for c in candidates:
-                        for flag in c.review_consistency_flags or []:
-                            consistency_flag_counts[flag] = consistency_flag_counts.get(flag, 0) + 1
-                    logger.info(
-                        "Pass 2f: eligible=%d attempted=%d applied=%d postures=%s fallbacks=%s consistency_flags=%s (%.1fs)",
-                        len(eligible),
-                        n_attempted,
-                        n_applied,
-                        posture_counts or {},
-                        fallback_counts or {},
-                        consistency_flag_counts or {},
-                        pass_2f_elapsed,
-                    )
+                if pass_2f_model_config and "2f" not in {
+                    e.get("pass") for e in photo_intel.get("model_routing", [])
+                }:
+                    _2f_provider = pass_2f_model_config.get("provider")
+                    if _2f_provider is None and pass_2f_model_config.get("api_key"):
+                        _2f_provider = "openai"
+                    _2f_family = "gpt5" if _2f_provider == "openai" else "qwen"
+                    _2f_env_set = bool(os.environ.get("OPENAI_PASS_2F_MODEL"))
+                    if _2f_env_set and _2f_provider == "openai":
+                        _2f_source = "env_override"
+                    elif pass_2f_provider == "premium":
+                        _2f_source = "premium_default"
+                    else:
+                        _2f_source = "standard_default"
+                    photo_intel.setdefault("model_routing", []).append({
+                        "pass": "2f",
+                        "model_family": _2f_family,
+                        "model": str(pass_2f_model_config.get("model") or ""),
+                        "source": _2f_source,
+                    })
             except Exception as exc_2f:
-                logger.error(f"Pass 2f batch failed (non-fatal): {exc_2f}", exc_info=True)
+                logger.error(f"Pass 2f setup failed (non-fatal): {exc_2f}", exc_info=True)
 
         quick_est = compute_renovation_estimate(
             issues_flat=renovation_issues_flat,
@@ -814,33 +804,36 @@ def write_photo_intel(
             v3_reviewed_candidates=reviewed_candidates,
             v3_estimate=quick_est,
             property_metadata=property_metadata,
+            pass_2f_vlm_client=vlm_client if pass_2f_enabled else None,
+            pass_2f_model_config=pass_2f_model_config,
+            photo_key_to_path=photo_key_to_path,
+            pass_2f_provider=pass_2f_provider,
+        )
+        photo_intel["ui_priorities_v1"] = _build_ui_priorities_v1(
+            issues_flat=renovation_issues_flat,
+            issue_catalog=issue_catalog,
+            renovation_estimate_v4=photo_intel["renovation_estimate_v4"],
         )
 
-        # ── Pass 2f trace (top-level, property-scoped) ──
-        if reviewed_candidates is not None:
+        v4_pass_2f_trace = (
+            photo_intel.get("renovation_estimate_v4", {}) or {}
+        ).get("pass_2f_trace")
+        if isinstance(v4_pass_2f_trace, dict):
             photo_intel["pass_2f_trace"] = {
-                "ran": True,
-                "provider": pass_2f_provider,
-                "model": (pass_2f_model_config or {}).get("model", "unknown"),
-                "elapsed_sec": round(pass_2f_elapsed, 3),
-                "eligible_count": len(eligible),
-                "attempted_count": n_attempted,
-                "applied_count": n_applied,
-                "invalidated_count": n_invalidated,
-                "posture_counts": posture_counts,
-                "fallback_counts": fallback_counts,
-                "consistency_flag_counts": consistency_flag_counts,
+                **v4_pass_2f_trace,
+                "mode": "package_visual_verification",
             }
         elif pass_2f_enabled:
-            # Toggle was on but no candidates were reviewed (no eligible or no VLM)
             photo_intel["pass_2f_trace"] = {
                 "ran": False,
-                "reason": "no_vlm_client" if not vlm_client else "no_eligible_candidates",
+                "reason": "no_vlm_client" if not vlm_client else "no_package_candidates",
+                "mode": "package_visual_verification",
             }
         else:
             photo_intel["pass_2f_trace"] = {
                 "ran": False,
                 "reason": "disabled_by_toggle",
+                "mode": "package_visual_verification",
             }
         logger.info(
             "Renovation estimate: $%s-$%s (%d candidates, %d groups, %d high-tier, %d medium-tier)",

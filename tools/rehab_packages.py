@@ -15,6 +15,7 @@ Public API:
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from tools.catalog_cost_model import (
@@ -72,6 +73,44 @@ _VALID_CAP_BEHAVIORS = frozenset({
     CAP_BEHAVIOR_RESPECT_GROUP_CAP,
     CAP_BEHAVIOR_ALLOW_ABOVE_GROUP_CAP,
     CAP_BEHAVIOR_REPLACE_GROUP_CAP,
+})
+
+DISPLAY_CLASS_ESTIMATE_DRIVER = "estimate_driver"
+DISPLAY_CLASS_HIGH_CONCERN = "high_concern"
+DISPLAY_CLASS_MARKETABILITY = "marketability"
+DISPLAY_CLASS_CLUTTER = "clutter"
+DISPLAY_CLASS_HIDDEN = "hidden"
+VALID_DISPLAY_CLASSES = frozenset({
+    DISPLAY_CLASS_ESTIMATE_DRIVER,
+    DISPLAY_CLASS_HIGH_CONCERN,
+    DISPLAY_CLASS_MARKETABILITY,
+    DISPLAY_CLASS_CLUTTER,
+    DISPLAY_CLASS_HIDDEN,
+})
+
+PACKAGE_ROLE_STANDALONE = "standalone"
+PACKAGE_ROLE_DRIVER = "package_driver"
+PACKAGE_ROLE_SUPPORT = "package_support"
+PACKAGE_ROLE_IGNORE = "ignore"
+VALID_PACKAGE_ROLES = frozenset({
+    PACKAGE_ROLE_STANDALONE,
+    PACKAGE_ROLE_DRIVER,
+    PACKAGE_ROLE_SUPPORT,
+    PACKAGE_ROLE_IGNORE,
+})
+
+PACKAGE_TYPE_KITCHEN_MODERNIZATION = "kitchen_modernization"
+VALID_PACKAGE_TYPES = frozenset({PACKAGE_TYPE_KITCHEN_MODERNIZATION})
+
+PACKAGE_VERIFICATION_CONFIRMED = "confirmed"
+PACKAGE_VERIFICATION_REJECTED = "rejected"
+PACKAGE_VERIFICATION_UNCERTAIN = "uncertain"
+PACKAGE_VERIFICATION_NOT_RUN = "not_run"
+VALID_PACKAGE_VERIFICATION_STATUSES = frozenset({
+    PACKAGE_VERIFICATION_CONFIRMED,
+    PACKAGE_VERIFICATION_REJECTED,
+    PACKAGE_VERIFICATION_UNCERTAIN,
+    PACKAGE_VERIFICATION_NOT_RUN,
 })
 
 _PACKAGE_ABSORPTION_SCOPES: Dict[str, Dict[str, Any]] = {
@@ -175,6 +214,67 @@ def _effective_posture(candidate: EstimateCandidate) -> Optional[str]:
     if candidate.effective_posture:
         return candidate.effective_posture
     return candidate.estimate_meta.strategy
+
+
+def catalog_display_class(catalog_item: Dict[str, Any]) -> str:
+    """Return the UI display class for a catalog item."""
+    raw = str(catalog_item.get("display_class") or "").strip().lower()
+    if raw in VALID_DISPLAY_CLASSES:
+        return raw
+    if catalog_item.get("defaultHidden") or catalog_item.get("drop_if_generic"):
+        return DISPLAY_CLASS_HIDDEN
+    name_id = " ".join([
+        str(catalog_item.get("id") or ""),
+        str(catalog_item.get("name") or ""),
+        str(catalog_item.get("category") or ""),
+    ]).lower()
+    if any(token in name_id for token in ("clutter", "staging", "furniture")):
+        return DISPLAY_CLASS_CLUTTER
+    if str(catalog_item.get("kind") or "").lower() == "upgrade":
+        return DISPLAY_CLASS_MARKETABILITY
+    trade = str(catalog_item.get("trade_bucket") or "")
+    category = str(catalog_item.get("category") or "")
+    if trade in {
+        "foundation_structure",
+        "electrical",
+        "plumbing",
+        "moisture_mold",
+        "hvac",
+    } or category in {"safety", "structure", "health_safety", "moisture"}:
+        return DISPLAY_CLASS_HIGH_CONCERN
+    estimate = catalog_item.get("estimate") or {}
+    if isinstance(estimate, dict) and estimate.get("estimate_tier") in {"high", "medium"}:
+        return DISPLAY_CLASS_ESTIMATE_DRIVER
+    return DISPLAY_CLASS_MARKETABILITY
+
+
+def catalog_package_role(catalog_item: Dict[str, Any]) -> str:
+    raw = str(catalog_item.get("package_role") or "").strip().lower()
+    if raw in VALID_PACKAGE_ROLES:
+        return raw
+    return PACKAGE_ROLE_IGNORE
+
+
+def catalog_package_type(catalog_item: Dict[str, Any]) -> Optional[str]:
+    raw = str(catalog_item.get("package_type") or "").strip().lower()
+    if raw in VALID_PACKAGE_TYPES:
+        return raw
+    return None
+
+
+def is_package_eligible_catalog_item(catalog_item: Dict[str, Any]) -> bool:
+    """True when a catalog item should use package-level verification."""
+    return (
+        catalog_package_role(catalog_item) in {PACKAGE_ROLE_DRIVER, PACKAGE_ROLE_SUPPORT}
+        and catalog_package_type(catalog_item) in VALID_PACKAGE_TYPES
+    )
+
+
+def is_candidate_package_eligible(
+    candidate: EstimateCandidate,
+    catalog_lookup: Dict[str, Dict[str, Any]],
+) -> bool:
+    return is_package_eligible_catalog_item(catalog_lookup.get(candidate.catalog_item_id or "", {}))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -369,6 +469,458 @@ def is_dated_cosmetic_evidence(
 # ═══════════════════════════════════════════════════════════════════════════
 # Package inference
 # ═══════════════════════════════════════════════════════════════════════════
+
+def _catalog_lookup(issue_catalog: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    return {
+        item["id"]: item
+        for item in (issue_catalog.get("items") or [])
+        if isinstance(item, dict) and item.get("id")
+    }
+
+
+def _candidate_unit_id(candidate: EstimateCandidate) -> str:
+    return (
+        getattr(candidate, "billable_estimate_unit_id", "") or
+        getattr(candidate, "estimate_unit_id", "") or
+        getattr(candidate, "room_surrogate_id", "") or
+        "property"
+    )
+
+
+def _source_room_ids_for_unit(
+    unit_id: str,
+    estimate_units: Optional[List[Dict[str, Any]]],
+) -> List[str]:
+    for unit in estimate_units or []:
+        if unit.get("estimate_unit_id") == unit_id:
+            return list(unit.get("source_room_surrogate_ids") or [])
+    return []
+
+
+def _candidate_evidence_item(
+    candidate: EstimateCandidate,
+    catalog_item: Dict[str, Any],
+) -> Dict[str, Any]:
+    return {
+        "catalog_item_id": candidate.catalog_item_id,
+        "name": candidate.catalog_item_name,
+        "issue_ids": list(candidate.issue_ids or []),
+        "observations": list(candidate.supporting_observations or []),
+        "photo_keys": list(candidate.photo_keys or []),
+        "scene_groups_seen": list(candidate.scene_groups_seen or []),
+        "estimate_unit_id": _candidate_unit_id(candidate),
+        "room_surrogate_id": candidate.room_surrogate_id,
+        "display_class": catalog_display_class(catalog_item),
+        "package_role": catalog_package_role(catalog_item),
+        "package_type": catalog_package_type(catalog_item),
+        "trade_bucket": candidate.trade_bucket,
+        "estimate_tier": candidate.estimate_meta.estimate_tier,
+    }
+
+
+def _unique_in_order(values: List[Any]) -> List[Any]:
+    seen = set()
+    out: List[Any] = []
+    for value in values:
+        key = str(value)
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(value)
+    return out
+
+
+def _resolve_kitchen_modernization_profile(
+    evidence: List[EstimateCandidate],
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+) -> Tuple[Tuple[str, int, int], str, List[str]]:
+    ids = {c.catalog_item_id for c in evidence}
+    components = {classify_component(c) for c in evidence}
+    components.discard(None)
+    notes: List[str] = []
+
+    has_missing_cabinets = "missing_base_cabinets_exposed_subfloor" in ids
+    severe_cabinet = any(
+        c.catalog_item_id == "outdated_or_damaged_cabinets" and (c.severity or 0) >= 3
+        for c in evidence
+    )
+    if has_missing_cabinets or (
+        severe_cabinet
+        and {"counter", "flooring"} <= components
+        and components.intersection({"appliance", "plumbing", "electrical"})
+    ):
+        notes.append("partial_or_full_driver_pattern")
+        if len(components.intersection({"cabinets", "counter", "flooring", "appliance", "plumbing", "electrical"})) >= 4:
+            return KITCHEN_FULL_REHAB, "full_rehab", notes + ["full_rehab matched"]
+        return KITCHEN_PARTIAL_REHAB, "partial_rehab", notes + ["partial_rehab matched"]
+
+    if drivers and (supports or len(components.intersection({"cabinets", "counter", "flooring"})) >= 2):
+        return KITCHEN_PARTIAL_REHAB, "partial_rehab", notes + ["driver_plus_support matched"]
+
+    if drivers:
+        return KITCHEN_REFRESH, "refresh", notes + ["single package_driver refresh"]
+
+    return KITCHEN_REFRESH, "refresh", notes + ["multiple package_support refresh"]
+
+
+def _build_package_candidate(
+    *,
+    package_type: str,
+    unit_id: str,
+    room_surrogate_id: str,
+    source_room_surrogate_ids: List[str],
+    supporting_candidates: List[EstimateCandidate],
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+    catalog_lookup: Dict[str, Dict[str, Any]],
+    trigger_reason: str,
+) -> Dict[str, Any]:
+    spec, package_level, decision_notes = _resolve_kitchen_modernization_profile(
+        supporting_candidates,
+        drivers,
+        supports,
+    )
+    pricing_profile, cost_low, cost_high = spec
+    cost_model, cost_model_source = derive_package_cost_model()
+    estimate_scope, estimate_scope_reason = classify_package_scope(
+        pricing_profile,
+        supporting_candidates,
+        trigger_reason,
+    )
+    issue_ids: List[str] = []
+    cat_ids: List[str] = []
+    photo_keys: List[str] = []
+    evidence_items: List[Dict[str, Any]] = []
+    for candidate in supporting_candidates:
+        cat_item = catalog_lookup.get(candidate.catalog_item_id or "", {})
+        evidence_items.append(_candidate_evidence_item(candidate, cat_item))
+        issue_ids.extend(candidate.issue_ids or [])
+        photo_keys.extend(candidate.photo_keys or [])
+        if candidate.catalog_item_id:
+            cat_ids.append(candidate.catalog_item_id)
+    issue_ids = _unique_in_order(issue_ids)
+    cat_ids = _unique_in_order(cat_ids)
+    photo_keys = _unique_in_order(photo_keys)
+    return {
+        "package_id": f"{package_type}__{unit_id}",
+        "package_type": package_type,
+        "package_level": package_level,
+        "pricing_profile": pricing_profile,
+        "room_surrogate_id": room_surrogate_id,
+        "estimate_unit_id": unit_id,
+        "source_room_surrogate_ids": list(source_room_surrogate_ids or []),
+        "estimate_group": "kitchen",
+        "estimate_scope": estimate_scope,
+        "estimate_scope_reason": estimate_scope_reason,
+        "candidate_cost_low": cost_low,
+        "candidate_cost_high": cost_high,
+        "cost_low": cost_low,
+        "cost_high": cost_high,
+        "cost_midpoint": (cost_low + cost_high) // 2,
+        "cost_model": cost_model,
+        "cost_model_source": cost_model_source,
+        "absorption_scope": _package_absorption_scope(pricing_profile),
+        "cap_behavior": CAP_BEHAVIOR_RESPECT_GROUP_CAP,
+        "absorbed_unit_member_refs": [],
+        "absorbed_total_low": 0,
+        "absorbed_total_high": 0,
+        "replacement_delta_low": 0,
+        "replacement_delta_high": 0,
+        "supporting_issue_ids": issue_ids,
+        "supporting_catalog_item_ids": cat_ids,
+        "driver_issue_ids": _unique_in_order([iid for c in drivers for iid in (c.issue_ids or [])]),
+        "support_issue_ids": _unique_in_order([iid for c in supports for iid in (c.issue_ids or [])]),
+        "review_photo_keys": photo_keys[:3],
+        "evidence_items": evidence_items,
+        "trigger_reason": trigger_reason,
+        "level_decision_notes": decision_notes,
+        "verification_status": PACKAGE_VERIFICATION_NOT_RUN,
+        "confirmed_issue_ids": [],
+        "rejected_issue_ids": [],
+        "evidence_summary": "",
+        "estimate_eligible": False,
+        "ui_eligible": False,
+        "audit_only": True,
+    }
+
+
+def infer_package_candidates(
+    candidates: List[EstimateCandidate],
+    room_surrogates: List[Dict[str, Any]],
+    issue_catalog: Dict[str, Any],
+    *,
+    estimate_units: Optional[List[Dict[str, Any]]] = None,
+) -> List[Dict[str, Any]]:
+    """Build package candidates from catalog package metadata."""
+    catalog_lookup = _catalog_lookup(issue_catalog)
+    scene_by_room = {
+        str(r.get("room_surrogate_id") or ""): str(r.get("scene") or "")
+        for r in (room_surrogates or [])
+        if isinstance(r, dict)
+    }
+
+    by_unit: Dict[str, List[EstimateCandidate]] = {}
+    for candidate in candidates or []:
+        cat_item = catalog_lookup.get(candidate.catalog_item_id or "", {})
+        if not is_package_eligible_catalog_item(cat_item):
+            continue
+        package_type = catalog_package_type(cat_item)
+        if package_type != PACKAGE_TYPE_KITCHEN_MODERNIZATION:
+            continue
+        if scene_by_room and candidate.room_surrogate_id:
+            scene = scene_by_room.get(candidate.room_surrogate_id)
+            if scene and scene != "kitchen":
+                continue
+        unit_id = _candidate_unit_id(candidate)
+        by_unit.setdefault(unit_id, []).append(candidate)
+
+    out: List[Dict[str, Any]] = []
+    for unit_id, unit_candidates in sorted(by_unit.items()):
+        drivers: List[EstimateCandidate] = []
+        supports: List[EstimateCandidate] = []
+        for candidate in unit_candidates:
+            role = catalog_package_role(catalog_lookup.get(candidate.catalog_item_id or "", {}))
+            if role == PACKAGE_ROLE_DRIVER:
+                drivers.append(candidate)
+            elif role == PACKAGE_ROLE_SUPPORT:
+                supports.append(candidate)
+
+        if drivers:
+            supporting = drivers + supports
+            trigger_reason = "package_driver"
+        elif len(supports) >= 2:
+            supporting = supports
+            trigger_reason = "multiple_package_support_same_estimate_unit"
+        else:
+            continue
+
+        first = supporting[0]
+        source_room_ids = _source_room_ids_for_unit(unit_id, estimate_units)
+        if not source_room_ids and first.room_surrogate_id:
+            source_room_ids = [first.room_surrogate_id]
+        out.append(_build_package_candidate(
+            package_type=PACKAGE_TYPE_KITCHEN_MODERNIZATION,
+            unit_id=unit_id,
+            room_surrogate_id=first.room_surrogate_id or (source_room_ids[0] if source_room_ids else ""),
+            source_room_surrogate_ids=source_room_ids,
+            supporting_candidates=supporting,
+            drivers=drivers,
+            supports=supports,
+            catalog_lookup=catalog_lookup,
+            trigger_reason=trigger_reason,
+        ))
+    return out
+
+
+def _verification_lookup(package_verifications: Any) -> Dict[str, Dict[str, Any]]:
+    if not package_verifications:
+        return {}
+    if isinstance(package_verifications, dict):
+        if all(isinstance(v, dict) for v in package_verifications.values()):
+            return {str(k): dict(v) for k, v in package_verifications.items()}
+        package_id = str(package_verifications.get("package_id") or "")
+        return {package_id: dict(package_verifications)} if package_id else {}
+    if isinstance(package_verifications, list):
+        out: Dict[str, Dict[str, Any]] = {}
+        for record in package_verifications:
+            if not isinstance(record, dict):
+                continue
+            package_id = str(record.get("package_id") or "")
+            if package_id:
+                out[package_id] = dict(record)
+        return out
+    return {}
+
+
+def _apply_verification_to_package(
+    package: Dict[str, Any],
+    verification: Optional[Dict[str, Any]],
+) -> Dict[str, Any]:
+    pkg = dict(package)
+    verification = verification or {}
+    status = str(verification.get("verification_status") or pkg.get("verification_status") or PACKAGE_VERIFICATION_NOT_RUN).strip().lower()
+    if status not in VALID_PACKAGE_VERIFICATION_STATUSES:
+        status = PACKAGE_VERIFICATION_UNCERTAIN
+    pkg["verification_status"] = status
+    pkg["confirmed_issue_ids"] = list(verification.get("confirmed_issue_ids") or pkg.get("confirmed_issue_ids") or [])
+    pkg["rejected_issue_ids"] = list(verification.get("rejected_issue_ids") or pkg.get("rejected_issue_ids") or [])
+    pkg["evidence_summary"] = str(verification.get("evidence_summary") or pkg.get("evidence_summary") or "")
+    pkg["raw_pass_2f_response"] = verification.get("raw_response") or pkg.get("raw_pass_2f_response")
+    pkg["review_photo_keys"] = list(verification.get("review_photo_keys") or pkg.get("review_photo_keys") or [])
+    pkg["review_image_paths"] = list(verification.get("review_image_paths") or pkg.get("review_image_paths") or [])
+    pkg["estimate_eligible"] = status == PACKAGE_VERIFICATION_CONFIRMED
+    pkg["ui_eligible"] = status == PACKAGE_VERIFICATION_CONFIRMED
+    pkg["audit_only"] = status != PACKAGE_VERIFICATION_CONFIRMED
+    return pkg
+
+
+def finalize_package_candidates(
+    package_candidates: List[Dict[str, Any]],
+    package_verifications: Any = None,
+    *,
+    require_confirmation: bool = True,
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Apply package verification and return (estimate_packages, audit_packages)."""
+    verification_by_id = _verification_lookup(package_verifications)
+    audit_packages: List[Dict[str, Any]] = []
+    estimate_packages: List[Dict[str, Any]] = []
+    for package in package_candidates or []:
+        package_id = str(package.get("package_id") or "")
+        finalized = _apply_verification_to_package(
+            package,
+            verification_by_id.get(package_id),
+        )
+        audit_packages.append(finalized)
+        if require_confirmation and finalized.get("verification_status") != PACKAGE_VERIFICATION_CONFIRMED:
+            continue
+        if finalized.get("verification_status") == PACKAGE_VERIFICATION_CONFIRMED:
+            estimate_packages.append(finalized)
+    return estimate_packages, audit_packages
+
+
+def apply_package_verifications_to_candidates(
+    candidates: List[EstimateCandidate],
+    package_candidates: List[Dict[str, Any]],
+    package_verifications: Any = None,
+    *,
+    provider: str = "premium",
+) -> None:
+    """Gate package-eligible line items based on package verification status."""
+    _estimate_packages, audit_packages = finalize_package_candidates(
+        package_candidates,
+        package_verifications,
+        require_confirmation=False,
+    )
+    by_issue_id: Dict[str, Dict[str, Any]] = {}
+    for package in audit_packages:
+        for issue_id in package.get("supporting_issue_ids") or []:
+            by_issue_id[str(issue_id)] = package
+
+    for candidate in candidates or []:
+        package = None
+        for issue_id in candidate.issue_ids or []:
+            package = by_issue_id.get(str(issue_id))
+            if package:
+                break
+        if not package:
+            continue
+        status = str(package.get("verification_status") or PACKAGE_VERIFICATION_NOT_RUN)
+        candidate.package_id = package.get("package_id")
+        candidate.package_type = package.get("package_type")
+        candidate.package_role = ""
+        candidate.visual_verification_status = status
+        candidate.package_verification_source = f"pass_2f:{provider}" if status != PACKAGE_VERIFICATION_NOT_RUN else "pass_2f:not_run"
+        candidate.review_source = candidate.package_verification_source
+        if status == PACKAGE_VERIFICATION_CONFIRMED:
+            candidate.is_valid_detection = True
+            candidate.pass_2f_attempted = True
+            candidate.pass_2f_applied = True
+            candidate.pass_2f_fallback_reason = None
+        else:
+            candidate.is_valid_detection = False
+            candidate.pass_2f_attempted = status != PACKAGE_VERIFICATION_NOT_RUN
+            candidate.pass_2f_applied = False
+            candidate.pass_2f_fallback_reason = f"package_{status}"
+
+
+def select_package_review_image_paths(
+    package: Dict[str, Any],
+    photo_key_to_path: Dict[str, Path],
+    *,
+    max_images: int = 3,
+) -> Tuple[List[str], List[Path]]:
+    keys = list(package.get("review_photo_keys") or [])
+    for evidence in package.get("evidence_items") or []:
+        keys.extend(evidence.get("photo_keys") or [])
+    selected_keys: List[str] = []
+    selected_paths: List[Path] = []
+    for key in _unique_in_order([str(k) for k in keys if str(k or "").strip()]):
+        path = photo_key_to_path.get(key)
+        if path is None:
+            continue
+        path = Path(path)
+        if not path.is_file():
+            continue
+        selected_keys.append(key)
+        selected_paths.append(path)
+        if len(selected_paths) >= max_images:
+            break
+    return selected_keys, selected_paths
+
+
+async def run_pass_2f_batch(
+    package_candidates: List[Dict[str, Any]],
+    *,
+    vlm_client: Any,
+    model_config: Dict[str, Any],
+    photo_key_to_path: Dict[str, Path],
+    provider: str = "premium",
+    max_images: int = 3,
+) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
+    """Run Pass 2f once per package candidate."""
+    from tools.scene_classifier_passes import run_pass_2f
+
+    verifications: Dict[str, Dict[str, Any]] = {}
+    trace = {
+        "ran": False,
+        "provider": provider,
+        "model": str((model_config or {}).get("model") or "unknown"),
+        "candidate_count": len(package_candidates or []),
+        "attempted_count": 0,
+        "confirmed_count": 0,
+        "rejected_count": 0,
+        "uncertain_count": 0,
+        "no_image_count": 0,
+    }
+    for package in package_candidates or []:
+        package_id = str(package.get("package_id") or "")
+        image_keys, image_paths = select_package_review_image_paths(
+            package,
+            photo_key_to_path,
+            max_images=max_images,
+        )
+        if not image_paths:
+            trace["no_image_count"] += 1
+            verifications[package_id] = {
+                "package_id": package_id,
+                "package_type": package.get("package_type"),
+                "verification_status": PACKAGE_VERIFICATION_UNCERTAIN,
+                "confirmed_issue_ids": [],
+                "rejected_issue_ids": [],
+                "evidence_summary": "No representative kitchen images were available for package verification.",
+                "review_photo_keys": [],
+                "review_image_paths": [],
+            }
+            continue
+        trace["ran"] = True
+        trace["attempted_count"] += 1
+        result = await run_pass_2f(
+            image_paths=image_paths,
+            vlm_client=vlm_client,
+            model_config=model_config,
+            package_id=package_id,
+            package_type=str(package.get("package_type") or ""),
+            evidence_items=list(package.get("evidence_items") or []),
+            package_label="Kitchen modernization",
+        )
+        record = {
+            "package_id": result.package_id,
+            "package_type": result.package_type,
+            "verification_status": result.verification_status,
+            "confirmed_issue_ids": list(result.confirmed_issue_ids or []),
+            "rejected_issue_ids": list(result.rejected_issue_ids or []),
+            "evidence_summary": result.evidence_summary,
+            "raw_response": result.raw_response,
+            "review_photo_keys": image_keys,
+            "review_image_paths": [str(path) for path in image_paths],
+        }
+        verifications[package_id] = record
+        key = f"{result.verification_status}_count"
+        if key in trace:
+            trace[key] += 1
+    return verifications, trace
+
 
 def infer_packages(
     candidates: List[EstimateCandidate],

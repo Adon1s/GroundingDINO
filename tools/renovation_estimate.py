@@ -9,22 +9,19 @@ Powers the renovation estimate pipeline that answers:
   - Which are likely repair vs replace?
   - What are the likely budget buckets?
   - Which items are too uncertain and should be inspection flags?
-  - Which high/medium tier items have been validated by Pass 2f?
+  - Which package-eligible items must wait for v4 Pass 2f confirmation?
 
 Items are classified into three tiers:
   - high:   major cost drivers (roof, cabinets, foundation, etc.)
   - medium: commonly renovated items (scratched flooring, countertop damage, etc.)
   - minor:  cosmetic/noise items — excluded from quick estimate entirely
 
-Core functions are pure (no LLM, no I/O).
-Also contains run_pass_2f_batch() which optionally invokes the LLM-based
-Pass 2f revisit pass on eligible candidates before final estimate assembly.
-Called from artifact_writers.write_photo_intel() after issues_flat is assembled.
+Core functions are pure (no LLM, no I/O). The old per-item Pass 2f runner is
+retired; v4 owns the package-level Pass 2f visual verification flow.
 """
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import re
 from dataclasses import dataclass, field
@@ -185,6 +182,12 @@ class EstimateCandidate:
     pass_2f_attempted: bool = False          # True if VLM call was made
     pass_2f_applied: bool = False            # True if authoritative posture was set
     pass_2f_fallback_reason: Optional[str] = None  # None when applied, else reason
+    # Package-level visual verification fields (v4 package-first path)
+    package_id: Optional[str] = None
+    package_type: Optional[str] = None
+    package_role: Optional[str] = None
+    visual_verification_status: Optional[str] = None
+    package_verification_source: Optional[str] = None
 
 
 # Valid postures that 2f can authoritatively set
@@ -196,6 +199,8 @@ PASS_2F_FALLBACK_NO_IMAGE     = "no_valid_image"
 PASS_2F_FALLBACK_VLM_ERROR    = "vlm_error"
 PASS_2F_FALLBACK_INVALID_RESPONSE = "invalid_response"
 PASS_2F_FALLBACK_KEEP_DEFAULT = "keep_default"
+PASS_2F_FALLBACK_PACKAGE_VERIFICATION = "package_verification_required"
+PASS_2F_FALLBACK_RETIRED = "legacy_pass_2f_retired"
 
 
 def resolve_effective_posture(candidate: EstimateCandidate) -> str:
@@ -518,128 +523,23 @@ async def run_pass_2f_batch(
     pass_2f_tiers: Optional[frozenset] = None,
 ) -> List[EstimateCandidate]:
     """
-    Run Pass 2f on eligible candidates and populate their review override fields.
+    Deprecated per-item Pass 2f runner.
 
-    Only candidates whose estimate_tier is in pass_2f_tiers are sent to the VLM.
-    Defaults to {"high", "medium"}. Pass frozenset({"high"}) to restrict to
-    high-tier only.
-
-    For each candidate, picks a representative image (first photo_key with a
-    valid path) and the first issue description as context.
-
-    Mutates candidates in-place and also returns the list for convenience.
+    Pass 2f is now package-level visual verification in v4. This function is
+    retained as a no-op compatibility shim so older call sites cannot trigger
+    the retired per-item pricing/posture API calls.
     """
-    from tools.scene_classifier_passes import Pass2fInvalidResponseError, run_pass_2f
+    del issues_flat, vlm_client, model_config, photo_key_to_path, provider, pass_2f_tiers
 
-    # Build catalog description lookup
     cat_lookup: Dict[str, Dict[str, Any]] = {}
     for item in issue_catalog.get("items", []):
         if isinstance(item, dict) and item.get("id"):
             cat_lookup[item["id"]] = item
 
-    # Build issue description lookup: catalog_item_id → first description
-    desc_lookup: Dict[str, str] = {}
-    for issue in (issues_flat or []):
-        iid = issue.get("issue_id")
-        if iid and iid not in desc_lookup and issue.get("description"):
-            desc_lookup[iid] = issue["description"]
-
-    _tiers = pass_2f_tiers if pass_2f_tiers is not None else _DEFAULT_PASS_2F_TIERS
-    eligible = [
-        c for c in candidates
-        if c.estimate_meta.estimate_tier in _tiers
-        and c.estimate_meta.requires_2f_for_estimate
-    ]
-
-    # Tag non-eligible candidates with fallback reason
-    for c in candidates:
-        if (
-            c.estimate_meta.estimate_tier not in _tiers
-            or not c.estimate_meta.requires_2f_for_estimate
-        ):
-            c.pass_2f_fallback_reason = PASS_2F_FALLBACK_NOT_ELIGIBLE
-
-    if not eligible:
-        logger.debug("Pass 2f batch: no eligible candidates")
-        # Backfill effective_posture for all candidates
-        for c in candidates:
-            if c.effective_posture is None:
-                c.effective_posture = resolve_effective_posture(c)
-            apply_estimate_scope(c, cat_lookup.get(c.catalog_item_id, {}))
-            c.cost_model, c.cost_model_source = derive_cost_model(
-                cat_lookup.get(c.catalog_item_id, {}),
-                c,
-            )
-        return candidates
-
-    logger.info("Pass 2f batch: %d eligible candidates", len(eligible))
-
-    for candidate in eligible:
-        # Pick representative image (ranked selection)
-        image_path = _select_representative_image(
-            candidate, issues_flat, photo_key_to_path,
-        )
-        if image_path is None:
-            logger.debug("Pass 2f: skipping %s — no valid image", candidate.catalog_item_id)
-            candidate.pass_2f_fallback_reason = PASS_2F_FALLBACK_NO_IMAGE
-            continue
-
-        cat_item = cat_lookup.get(candidate.catalog_item_id, {})
-        item_description = cat_item.get("description", "")
-        issue_description = ""
-        if candidate.representative_issue_id:
-            issue_description = desc_lookup.get(candidate.representative_issue_id, "")
-        if not issue_description and candidate.supporting_observations:
-            issue_description = candidate.supporting_observations[0]
-        scene = candidate.scene_groups_seen[0] if candidate.scene_groups_seen else "other"
-
-        candidate.pass_2f_attempted = True
-
-        try:
-            result = await run_pass_2f(
-                image_path=image_path,
-                vlm_client=vlm_client,
-                model_config=model_config,
-                catalog_item_id=candidate.catalog_item_id,
-                item_name=candidate.catalog_item_name,
-                item_description=item_description,
-                issue_description=issue_description,
-                scene=scene,
-            )
-
-            candidate.is_valid_detection = result.is_valid_detection
-            candidate.review_posture = result.pricing_posture
-            candidate.review_visible_scope = result.visible_scope
-            candidate.review_rationale = result.rationale
-            candidate.review_consistency_flags = _resolve_pass_2f_consistency_flags(
-                candidate, result,
-            )
-            candidate.review_source = f"pass_2f:{provider}"
-            candidate.review_image_path = str(image_path)
-            candidate.effective_posture = resolve_effective_posture(candidate)
-
-            # Tag applied vs keep_default
-            if result.is_valid_detection is True and result.pricing_posture in _AUTHORITATIVE_POSTURES:
-                candidate.pass_2f_applied = True
-            elif result.pricing_posture == "keep_default":
-                candidate.pass_2f_fallback_reason = PASS_2F_FALLBACK_KEEP_DEFAULT
-
-            logger.info(
-                "Pass 2f: %s → %s",
-                candidate.catalog_item_id,
-                result.pricing_posture,
-            )
-        except Pass2fInvalidResponseError as e:
-            logger.error("Pass 2f: invalid response on %s: %s", candidate.catalog_item_id, e)
-            candidate.pass_2f_fallback_reason = PASS_2F_FALLBACK_INVALID_RESPONSE
-            # Leave review fields as None; probable totals use the catalog default.
-        except Exception as e:
-            logger.error("Pass 2f: error on %s: %s", candidate.catalog_item_id, e)
-            candidate.pass_2f_fallback_reason = PASS_2F_FALLBACK_VLM_ERROR
-            # Leave review fields as None — safe defaults
-
-    # Backfill effective_posture for non-eligible or failed candidates
-    for c in candidates:
+    for c in candidates or []:
+        c.pass_2f_attempted = False
+        c.pass_2f_applied = False
+        c.pass_2f_fallback_reason = PASS_2F_FALLBACK_RETIRED
         if c.effective_posture is None:
             c.effective_posture = resolve_effective_posture(c)
         apply_estimate_scope(c, cat_lookup.get(c.catalog_item_id, {}))
@@ -648,12 +548,13 @@ async def run_pass_2f_batch(
             c,
         )
 
+    logger.info("Legacy per-item Pass 2f is retired; skipped %d candidates", len(candidates or []))
     return candidates
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 # Group-based estimate engine
-# ═══════════════════════════════════════════════════════════════════════════════
+# =============================================================================
 
 # Group-level budget caps — plausible total for the ENTIRE group regardless of
 # how many individual items fire.  Prevents naive overcounting.
@@ -877,6 +778,11 @@ def compute_group_estimate(
             "pass_2f_attempted": c.pass_2f_attempted,
             "pass_2f_applied": c.pass_2f_applied,
             "pass_2f_fallback_reason": c.pass_2f_fallback_reason,
+            "package_id": c.package_id,
+            "package_type": c.package_type,
+            "package_role": c.package_role,
+            "visual_verification_status": c.visual_verification_status,
+            "package_verification_source": c.package_verification_source,
         }
         line_items.append(li)
 

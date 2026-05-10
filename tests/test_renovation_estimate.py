@@ -26,11 +26,7 @@ def _run_async(coro):
 from tools.renovation_estimate import (
     ESTIMATE_DEFAULTS,
     INSPECT_ALLOWANCE,
-    PASS_2F_FALLBACK_INVALID_RESPONSE,
-    PASS_2F_FALLBACK_KEEP_DEFAULT,
-    PASS_2F_FALLBACK_NOT_ELIGIBLE,
-    PASS_2F_FALLBACK_NO_IMAGE,
-    PASS_2F_FALLBACK_VLM_ERROR,
+    PASS_2F_FALLBACK_RETIRED,
     CatalogEstimateMeta,
     EstimateCandidate,
     _select_representative_image,
@@ -47,7 +43,6 @@ from tools.renovation_estimate import (
 from tools.scene_classifier_passes import (
     PASS_2F_SYSTEM_PROMPT,
     PASS_2F_USER_PROMPT,
-    Pass2fInvalidResponseError,
     _coerce_pass_2f,
     run_pass_2e,
 )
@@ -986,176 +981,218 @@ class TestRevisitPassReadiness:
 
 class TestCoercePass2f:
 
-    def test_valid_response(self):
+    def test_valid_package_response(self):
         raw = {
-            "is_valid_detection": True,
-            "visible_scope": "room_wide",
-            "pricing_posture": "replace",
-            "rationale": "Cabinets are severely warped.",
+            "verification_status": "confirmed",
+            "confirmed_issue_ids": ["issue_1"],
+            "rejected_issue_ids": [],
+            "evidence_summary": "Dated cabinets and counters are visible.",
         }
-        result = _coerce_pass_2f(raw, "outdated_or_damaged_cabinets")
-        assert result.catalog_item_id == "outdated_or_damaged_cabinets"
-        assert result.visible_scope == "room_wide"
-        assert result.is_valid_detection is True
-        assert result.pricing_posture == "replace"
-        assert result.rationale == "Cabinets are severely warped."
-        assert result.consistency_flags == []
+        result = _coerce_pass_2f(
+            raw,
+            package_id="kitchen_modernization__kitchen_1",
+            package_type="kitchen_modernization",
+            valid_issue_ids={"issue_1", "issue_2"},
+        )
+        assert result.package_id == "kitchen_modernization__kitchen_1"
+        assert result.package_type == "kitchen_modernization"
+        assert result.verification_status == "confirmed"
+        assert result.confirmed_issue_ids == ["issue_1"]
+        assert result.rejected_issue_ids == []
+        assert result.evidence_summary == "Dated cabinets and counters are visible."
 
-    def test_invalid_enums_fallback_to_defaults(self):
+    def test_invalid_status_fallback_to_uncertain(self):
         raw = {
-            "visible_scope": "galaxy_wide",
-            "pricing_posture": "nuke_it",
+            "verification_status": "galaxy_wide",
         }
-        result = _coerce_pass_2f(raw, "test_item")
-        assert result.visible_scope == "unknown"
-        assert result.pricing_posture == "keep_default"
+        result = _coerce_pass_2f(
+            raw,
+            package_id="pkg",
+            package_type="kitchen_modernization",
+            valid_issue_ids={"issue_1"},
+        )
+        assert result.verification_status == "uncertain"
 
     def test_empty_dict(self):
-        result = _coerce_pass_2f({}, "test_item")
-        assert result.visible_scope == "unknown"
-        assert result.pricing_posture == "keep_default"
+        result = _coerce_pass_2f(
+            {},
+            package_id="pkg",
+            package_type="kitchen_modernization",
+            valid_issue_ids={"issue_1"},
+        )
+        assert result.verification_status == "uncertain"
 
-    def test_rationale_truncated_at_300(self):
-        raw = {"rationale": "x" * 500}
-        result = _coerce_pass_2f(raw, "test_item")
-        assert len(result.rationale) == 300
+    def test_evidence_summary_truncated_at_400(self):
+        raw = {"evidence_summary": "x" * 500}
+        result = _coerce_pass_2f(
+            raw,
+            package_id="pkg",
+            package_type="kitchen_modernization",
+            valid_issue_ids={"issue_1"},
+        )
+        assert len(result.evidence_summary) == 400
 
     def test_case_insensitive(self):
         raw = {
-            "is_valid_detection": "TRUE",
-            "pricing_posture": "Replace",
-            "visible_scope": "PARTIAL",
+            "verification_status": "Confirmed",
         }
-        result = _coerce_pass_2f(raw, "test_item")
-        assert result.is_valid_detection is True
-        assert result.pricing_posture == "replace"
-        assert result.visible_scope == "partial"
+        result = _coerce_pass_2f(
+            raw,
+            package_id="pkg",
+            package_type="kitchen_modernization",
+            valid_issue_ids={"issue_1"},
+        )
+        assert result.verification_status == "confirmed"
 
-    def test_unknown_visible_scope_accepted(self):
+    def test_rejected_defaults_to_all_issue_ids_when_model_omits_rejections(self):
         raw = {
-            "is_valid_detection": True,
-            "visible_scope": "unknown",
-            "pricing_posture": "inspect",
+            "verification_status": "rejected",
         }
-        result = _coerce_pass_2f(raw, "test_item")
-        assert result.visible_scope == "unknown"
-        assert result.pricing_posture == "inspect"
+        result = _coerce_pass_2f(
+            raw,
+            package_id="pkg",
+            package_type="kitchen_modernization",
+            valid_issue_ids={"issue_b", "issue_a"},
+        )
+        assert result.rejected_issue_ids == ["issue_a", "issue_b"]
 
-    def test_keep_default_posture_accepted(self):
-        raw = {"pricing_posture": "keep_default"}
-        result = _coerce_pass_2f(raw, "test_item")
-        assert result.pricing_posture == "keep_default"
-
-    def test_legacy_review_outcome_ignored(self):
+    def test_issue_id_lists_filter_unknowns_and_duplicates(self):
         raw = {
-            "review_outcome": "confirmed",
-            "visible_scope": "localized",
-            "pricing_posture": "repair",
+            "verification_status": "confirmed",
+            "confirmed_issue_ids": ["issue_1", "unknown", "issue_1", "issue_2"],
+            "rejected_issue_ids": ["unknown", "issue_2"],
         }
-        result = _coerce_pass_2f(raw, "test_item")
-        assert not hasattr(result, "review_outcome")
-        assert result.pricing_posture == "repair"
+        result = _coerce_pass_2f(
+            raw,
+            package_id="pkg",
+            package_type="kitchen_modernization",
+            valid_issue_ids={"issue_1", "issue_2"},
+        )
+        assert result.confirmed_issue_ids == ["issue_1", "issue_2"]
+        assert result.rejected_issue_ids == ["issue_2"]
 
-    def test_defer_posture_rejected(self):
-        raw = {"pricing_posture": "defer"}
-        result = _coerce_pass_2f(raw, "test_item")
-        assert result.pricing_posture == "keep_default"
-
-    def test_invalid_detection_forces_keep_default(self):
-        raw = {
-            "is_valid_detection": False,
-            "visible_scope": "localized",
-            "pricing_posture": "replace",
-        }
-        result = _coerce_pass_2f(raw, "test_item")
-        assert result.is_valid_detection is False
-        assert result.pricing_posture == "keep_default"
-        assert result.consistency_flags == ["invalid_detection_forced_keep_default"]
-
-    def test_prompt_shape_excludes_review_outcome(self):
+    def test_prompt_shape_is_visual_truth_only(self):
         assert "review_outcome" not in PASS_2F_SYSTEM_PROMPT
         assert "review_outcome" not in PASS_2F_USER_PROMPT
-        assert '"is_valid_detection"' in PASS_2F_USER_PROMPT
-        assert '"visible_scope"' in PASS_2F_USER_PROMPT
-        assert '"pricing_posture"' in PASS_2F_USER_PROMPT
+        assert '"verification_status"' in PASS_2F_USER_PROMPT
+        assert '"confirmed_issue_ids"' in PASS_2F_USER_PROMPT
+        assert '"rejected_issue_ids"' in PASS_2F_USER_PROMPT
+        assert "pricing_posture" not in PASS_2F_USER_PROMPT
+        assert "visible_scope" not in PASS_2F_USER_PROMPT
+        assert "do not estimate prices" in PASS_2F_SYSTEM_PROMPT.lower()
 
-
-# ─── Phase C: run_pass_2f (mocked VLM) ──────────────────────────────────────
 
 class TestRunPass2f:
 
-    def test_successful_call(self):
+    def test_successful_multi_image_call(self):
         from tools.scene_classifier_passes import run_pass_2f
 
         vlm_response = json.dumps({
-            "is_valid_detection": True,
-            "visible_scope": "partial",
-            "pricing_posture": "replace",
-            "rationale": "All cabinets are visibly damaged.",
+            "verification_status": "confirmed",
+            "confirmed_issue_ids": ["issue_1"],
+            "rejected_issue_ids": [],
+            "evidence_summary": "Dated cabinets and counters visible.",
         })
 
         mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(return_value=vlm_response)
+        mock_vlm.analyze_images = AsyncMock(return_value=vlm_response)
 
         result = asyncio.get_event_loop().run_until_complete(
             run_pass_2f(
-                image_path=Path("/fake/img.jpg"),
+                image_paths=[Path("/fake/kitchen_1.jpg"), Path("/fake/kitchen_2.jpg")],
                 vlm_client=mock_vlm,
                 model_config={"model": "test"},
-                catalog_item_id="damaged_cabinets",
-                item_name="Damaged Cabinets",
-                item_description="Cabinets with visible damage",
-                issue_description="Kitchen cabinets are warped and peeling",
-                scene="kitchen",
+                package_id="kitchen_modernization__kitchen_1",
+                package_type="kitchen_modernization",
+                evidence_items=[{
+                    "catalog_item_id": "outdated_kitchen_finishes",
+                    "issue_ids": ["issue_1"],
+                    "observations": ["dated cabinets"],
+                }],
             )
         )
 
-        assert result.catalog_item_id == "damaged_cabinets"
-        assert result.pricing_posture == "replace"
-        assert result.visible_scope == "partial"
+        assert result.package_id == "kitchen_modernization__kitchen_1"
+        assert result.verification_status == "confirmed"
+        assert result.confirmed_issue_ids == ["issue_1"]
         assert result.raw_response == vlm_response
+        mock_vlm.analyze_images.assert_called_once()
+        call = mock_vlm.analyze_images.call_args.kwargs
+        assert call["system_prompt"] == PASS_2F_SYSTEM_PROMPT
+        assert "pricing_posture" not in call["user_prompt"]
+        assert len(call["image_paths"]) == 2
+
+    def test_single_image_client_fallback_for_compatibility(self):
+        from tools.scene_classifier_passes import run_pass_2f
+
+        vlm_response = json.dumps({
+            "verification_status": "rejected",
+            "confirmed_issue_ids": [],
+            "rejected_issue_ids": ["issue_1"],
+            "evidence_summary": "The proposed package is not visible.",
+        })
+        class SingleImageVLM:
+            def __init__(self):
+                self.analyze_image = AsyncMock(return_value=vlm_response)
+
+        mock_vlm = SingleImageVLM()
+
+        result = asyncio.get_event_loop().run_until_complete(
+            run_pass_2f(
+                image_paths=[Path("/fake/kitchen_1.jpg")],
+                vlm_client=mock_vlm,
+                model_config={"model": "test"},
+                package_id="pkg",
+                package_type="kitchen_modernization",
+                evidence_items=[{"issue_ids": ["issue_1"]}],
+            )
+        )
+
+        assert result.verification_status == "rejected"
+        assert result.rejected_issue_ids == ["issue_1"]
         mock_vlm.analyze_image.assert_called_once()
 
-    def test_vlm_error_raises_for_batch_fallback(self):
+    def test_vlm_error_returns_uncertain_without_raising(self):
         from tools.scene_classifier_passes import run_pass_2f
 
         mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(side_effect=RuntimeError("API down"))
+        mock_vlm.analyze_images = AsyncMock(side_effect=RuntimeError("API down"))
 
-        with pytest.raises(RuntimeError):
-            asyncio.get_event_loop().run_until_complete(
-                run_pass_2f(
-                    image_path=Path("/fake/img.jpg"),
-                    vlm_client=mock_vlm,
-                    model_config={"model": "test"},
-                    catalog_item_id="broken_item",
-                    item_name="Broken Item",
-                    item_description="Something broken",
-                    issue_description="It is broken",
-                )
+        result = asyncio.get_event_loop().run_until_complete(
+            run_pass_2f(
+                image_paths=[Path("/fake/kitchen_1.jpg")],
+                vlm_client=mock_vlm,
+                model_config={"model": "test"},
+                package_id="pkg",
+                package_type="kitchen_modernization",
+                evidence_items=[{"issue_ids": ["issue_1"]}],
             )
+        )
 
-    def test_missing_json_raises_invalid_response(self):
+        assert result.verification_status == "uncertain"
+        assert "verification failed" in result.evidence_summary.lower()
+
+    def test_missing_json_returns_uncertain_without_raising(self):
         from tools.scene_classifier_passes import run_pass_2f
 
         mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(return_value="not json")
+        mock_vlm.analyze_images = AsyncMock(return_value="not json")
 
-        with pytest.raises(Pass2fInvalidResponseError):
-            asyncio.get_event_loop().run_until_complete(
-                run_pass_2f(
-                    image_path=Path("/fake/img.jpg"),
-                    vlm_client=mock_vlm,
-                    model_config={"model": "test"},
-                    catalog_item_id="broken_item",
-                    item_name="Broken Item",
-                    item_description="Something broken",
-                    issue_description="It is broken",
-                )
+        result = asyncio.get_event_loop().run_until_complete(
+            run_pass_2f(
+                image_paths=[Path("/fake/kitchen_1.jpg")],
+                vlm_client=mock_vlm,
+                model_config={"model": "test"},
+                package_id="pkg",
+                package_type="kitchen_modernization",
+                evidence_items=[{"issue_ids": ["issue_1"]}],
             )
+        )
+
+        assert result.verification_status == "uncertain"
 
 
-# ─── Phase C: run_pass_2f_batch ──────────────────────────────────────────────
+# Phase C: retired legacy run_pass_2f_batch compatibility shim
 
 REVISIT_ESTIMATE = {
     **HIGH_ESTIMATE,
@@ -1185,76 +1222,14 @@ class TestRunPass2fBatch:
         photo_map = {"kitchen_1.jpg": Path("/fake/kitchen_1.jpg")}
         return candidates, issues, catalog, photo_map
 
-    def _review_with_response(self, *, visible_scope, pricing_posture, strategy="replace_only"):
-        candidates, issues, catalog, photo_map = self._make_candidates_and_context(
-            strategy=strategy,
-        )
-        vlm_response = json.dumps({
-            "is_valid_detection": True,
-            "visible_scope": visible_scope,
-            "pricing_posture": pricing_posture,
-            "rationale": "Consistency check case.",
-        })
-        mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(return_value=vlm_response)
-
-        with patch("pathlib.Path.exists", return_value=True):
-            reviewed = asyncio.get_event_loop().run_until_complete(
-                run_pass_2f_batch(
-                    candidates=candidates,
-                    issues_flat=issues,
-                    issue_catalog=catalog,
-                    vlm_client=mock_vlm,
-                    model_config={"model": "test"},
-                    photo_key_to_path=photo_map,
-                )
-            )
-
-        return reviewed, issues, catalog
-
-    def test_batch_populates_review_fields(self):
+    def test_legacy_batch_is_noop_and_marks_retired(self):
         candidates, issues, catalog, photo_map = self._make_candidates_and_context()
-
-        vlm_response = json.dumps({
-            "is_valid_detection": True,
-            "visible_scope": "room_wide",
-            "pricing_posture": "replace",
-            "rationale": "Full kitchen remodel needed.",
-        })
-        mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(return_value=vlm_response)
-
-        with patch("pathlib.Path.exists", return_value=True):
-            result = _run_async(
-                run_pass_2f_batch(
-                    candidates=candidates,
-                    issues_flat=issues,
-                    issue_catalog=catalog,
-                    vlm_client=mock_vlm,
-                    model_config={"model": "test"},
-                    photo_key_to_path=photo_map,
-                )
-            )
-
-        assert len(result) == 1
-        c = result[0]
-        assert c.review_posture == "replace"
-        assert c.review_visible_scope == "room_wide"
-        assert c.review_rationale == "Full kitchen remodel needed."
-        assert c.review_consistency_flags == []
-        assert c.review_source == "pass_2f:premium"
-        assert c.effective_posture == "replace"
-
-    def test_batch_skips_non_eligible_tier(self):
-        """Medium-tier candidate excluded when pass_2f_tiers=high only."""
-        candidates, issues, catalog, photo_map = self._make_candidates_and_context(
-            estimate_tier="medium",
-        )
 
         mock_vlm = MagicMock()
         mock_vlm.analyze_image = AsyncMock()
+        mock_vlm.analyze_images = AsyncMock()
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = _run_async(
             run_pass_2f_batch(
                 candidates=candidates,
                 issues_flat=issues,
@@ -1262,148 +1237,85 @@ class TestRunPass2fBatch:
                 vlm_client=mock_vlm,
                 model_config={"model": "test"},
                 photo_key_to_path=photo_map,
-                pass_2f_tiers=frozenset({"high"}),
             )
         )
 
-        # VLM should never be called for medium when restricted to high
+        assert len(result) == 1
+        c = result[0]
+        assert c.pass_2f_attempted is False
+        assert c.pass_2f_applied is False
+        assert c.pass_2f_fallback_reason == PASS_2F_FALLBACK_RETIRED
+        assert c.review_posture is None
+        assert c.review_source is None
+        assert c.effective_posture == "replace_only"
         mock_vlm.analyze_image.assert_not_called()
-        assert result[0].review_posture is None
+        mock_vlm.analyze_images.assert_not_called()
 
-    def test_batch_skips_missing_image(self):
-        candidates, issues, catalog, _ = self._make_candidates_and_context()
-        # Empty photo map — no images available
-        empty_map: dict = {}
+    def test_legacy_batch_ignores_tier_provider_and_image_availability(self):
+        candidates, issues, catalog, _ = self._make_candidates_and_context(
+            estimate_tier="medium",
+            strategy="repair_only",
+        )
 
         mock_vlm = MagicMock()
         mock_vlm.analyze_image = AsyncMock()
+        mock_vlm.analyze_images = AsyncMock()
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = _run_async(
             run_pass_2f_batch(
                 candidates=candidates,
                 issues_flat=issues,
                 issue_catalog=catalog,
                 vlm_client=mock_vlm,
                 model_config={"model": "test"},
-                photo_key_to_path=empty_map,
+                photo_key_to_path={},
+                provider="local",
+                pass_2f_tiers=frozenset({"high"}),
             )
         )
 
-        mock_vlm.analyze_image.assert_not_called()
-        assert result[0].review_posture is None
-
-    def test_batch_error_leaves_fields_none(self):
-        candidates, issues, catalog, photo_map = self._make_candidates_and_context()
-
-        mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(side_effect=RuntimeError("API down"))
-
-        with patch("pathlib.Path.exists", return_value=True):
-            result = _run_async(
-                run_pass_2f_batch(
-                    candidates=candidates,
-                    issues_flat=issues,
-                    issue_catalog=catalog,
-                    vlm_client=mock_vlm,
-                    model_config={"model": "test"},
-                    photo_key_to_path=photo_map,
-                )
-            )
-
         c = result[0]
-        assert c.review_posture is None
-        assert c.review_source is None
-        assert c.pass_2f_attempted is True
-        assert c.pass_2f_applied is False
-        assert c.pass_2f_fallback_reason == PASS_2F_FALLBACK_VLM_ERROR
+        assert c.pass_2f_fallback_reason == PASS_2F_FALLBACK_RETIRED
+        assert c.effective_posture == "repair_only"
+        mock_vlm.analyze_image.assert_not_called()
+        mock_vlm.analyze_images.assert_not_called()
 
-    def test_batch_results_flow_to_renovation_estimate(self):
-        """End-to-end: 2f results should appear in renovation_estimate output."""
+    def test_retired_batch_results_flow_to_renovation_estimate_without_review_override(self):
         candidates, issues, catalog, photo_map = self._make_candidates_and_context()
 
-        vlm_response = json.dumps({
-            "is_valid_detection": True,
-            "visible_scope": "room_wide",
-            "pricing_posture": "repair",
-            "rationale": "Only surface damage visible.",
-        })
         mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(return_value=vlm_response)
+        mock_vlm.analyze_image = AsyncMock()
+        mock_vlm.analyze_images = AsyncMock()
 
-        with patch("pathlib.Path.exists", return_value=True):
-            reviewed = asyncio.get_event_loop().run_until_complete(
-                run_pass_2f_batch(
-                    candidates=candidates,
-                    issues_flat=issues,
-                    issue_catalog=catalog,
-                    vlm_client=mock_vlm,
-                    model_config={"model": "test"},
-                    photo_key_to_path=photo_map,
-                )
+        reviewed = _run_async(
+            run_pass_2f_batch(
+                candidates=candidates,
+                issues_flat=issues,
+                issue_catalog=catalog,
+                vlm_client=mock_vlm,
+                model_config={"model": "test"},
+                photo_key_to_path=photo_map,
             )
+        )
 
         result = compute_renovation_estimate(
-            issues, catalog, prebuilt_candidates=reviewed,
+            issues,
+            catalog,
+            prebuilt_candidates=reviewed,
         )
 
         assert result["meta"]["candidate_count"] == 1
         li = result["groups"][0]["line_items"][0]
-        assert li["review_posture"] == "repair"
-        assert "review_rationale" not in li
-        assert li["review_source"] == "pass_2f:premium"
-        assert li["effective_posture"] == "repair"
-        audit_item = result["pass_2f_review_audit"]["items"][0]
-        assert audit_item["visible_scope"] == "room_wide"
-        assert audit_item["pricing_posture"] == "repair"
-        assert audit_item["consistency_flags"] == ["room_wide_repair"]
-        assert result["pass_2f_review_audit"]["consistency_flag_counts"] == {
-            "room_wide_repair": 1,
-        }
-        assert audit_item["rationale"] == "Only surface damage visible."
-        assert "review_rationale" not in result["tier_summary"]["validated_items"][0]
-
-    def test_localized_replace_warns_unless_replacement_only(self):
-        reviewed, issues, catalog = self._review_with_response(
-            visible_scope="localized",
-            pricing_posture="replace",
-            strategy="repair_or_replace",
-        )
-        c = reviewed[0]
-        assert c.review_consistency_flags == ["localized_replace_non_replacement_only"]
-        assert c.effective_posture == "replace"
-
-        estimate = compute_renovation_estimate(issues, catalog, prebuilt_candidates=reviewed)
-        li = estimate["groups"][0]["line_items"][0]
-        assert li["effective_posture"] == "replace"
-        assert estimate["pass_2f_review_audit"]["consistency_flag_counts"] == {
-            "localized_replace_non_replacement_only": 1,
-        }
-
-        replacement_only, _, _ = self._review_with_response(
-            visible_scope="localized",
-            pricing_posture="replace",
-            strategy="replace_only",
-        )
-        assert replacement_only[0].review_consistency_flags == []
-        assert replacement_only[0].effective_posture == "replace"
-
-    def test_unknown_replace_records_consistency_flag(self):
-        reviewed, issues, catalog = self._review_with_response(
-            visible_scope="unknown",
-            pricing_posture="replace",
-            strategy="replace_only",
-        )
-        c = reviewed[0]
-        assert c.review_consistency_flags == ["unknown_replace"]
-        assert c.effective_posture == "replace"
-
-        estimate = compute_renovation_estimate(issues, catalog, prebuilt_candidates=reviewed)
-        assert estimate["pass_2f_review_audit"]["items"][0]["consistency_flags"] == [
-            "unknown_replace",
-        ]
+        assert li["review_posture"] is None
+        assert li["review_source"] is None
+        assert li["effective_posture"] == "replace_only"
+        assert li["pass_2f_attempted"] is False
+        assert li["pass_2f_applied"] is False
+        assert li["pass_2f_fallback_reason"] == PASS_2F_FALLBACK_RETIRED
+        assert result["pass_2f_review_audit"]["ran"] is False
 
 
-# ─── Phase D: effective_posture resolution ────────────────────────────────
+# Phase D: effective_posture resolution
 
 class TestEffectivePosture:
 
@@ -1537,8 +1449,8 @@ class TestImageSelection:
         result = _select_representative_image(c, [], {})
         assert result is None
 
-    def test_review_image_path_recorded_after_batch(self):
-        """Batch run should record review_image_path on candidate."""
+    def test_retired_batch_does_not_select_review_image(self):
+        """The retired per-item batch shim should not prepare a VLM review image."""
         est = {**REVISIT_ESTIMATE}
         catalog = _make_catalog(
             _make_item("cab", estimate=est,
@@ -1548,29 +1460,25 @@ class TestImageSelection:
         candidates = extract_estimate_candidates(issues, catalog)
         photo_map = {"k1.jpg": Path("/fake/k1.jpg")}
 
-        vlm_response = json.dumps({
-            "is_valid_detection": True,
-            "visible_scope": "room_wide",
-            "pricing_posture": "repair",
-            "rationale": "Surface damage only.",
-        })
         mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(return_value=vlm_response)
+        mock_vlm.analyze_image = AsyncMock()
+        mock_vlm.analyze_images = AsyncMock()
 
-        with patch("pathlib.Path.exists", return_value=True):
-            result = _run_async(
-                run_pass_2f_batch(
-                    candidates=candidates,
-                    issues_flat=issues,
-                    issue_catalog=catalog,
-                    vlm_client=mock_vlm,
-                    model_config={"model": "test"},
-                    photo_key_to_path=photo_map,
-                )
+        result = _run_async(
+            run_pass_2f_batch(
+                candidates=candidates,
+                issues_flat=issues,
+                issue_catalog=catalog,
+                vlm_client=mock_vlm,
+                model_config={"model": "test"},
+                photo_key_to_path=photo_map,
             )
+        )
 
-        assert result[0].review_image_path is not None
-        assert "k1.jpg" in result[0].review_image_path
+        assert result[0].review_image_path is None
+        assert result[0].pass_2f_fallback_reason == PASS_2F_FALLBACK_RETIRED
+        mock_vlm.analyze_image.assert_not_called()
+        mock_vlm.analyze_images.assert_not_called()
 
 
 # ─── Phase I: posture-to-pricing mapping ──────────────────────────────────
@@ -1708,14 +1616,14 @@ class TestFallbackBehavior:
         photo_map = {"kitchen_1.jpg": Path("/fake/kitchen_1.jpg")}
         return candidates, issues, catalog, photo_map
 
-    def test_not_eligible_gets_fallback_reason(self):
-        """Medium candidate excluded when pass_2f_tiers=high → reason='not_eligible'."""
-        candidates, issues, catalog, photo_map = self._make_batch_context(estimate_tier="medium")
+    def test_retired_batch_uses_single_fallback_reason(self):
+        candidates, issues, catalog, photo_map = self._make_batch_context(estimate_tier="high")
 
         mock_vlm = MagicMock()
         mock_vlm.analyze_image = AsyncMock()
+        mock_vlm.analyze_images = AsyncMock()
 
-        result = asyncio.get_event_loop().run_until_complete(
+        result = _run_async(
             run_pass_2f_batch(
                 candidates=candidates,
                 issues_flat=issues,
@@ -1723,202 +1631,24 @@ class TestFallbackBehavior:
                 vlm_client=mock_vlm,
                 model_config={"model": "test"},
                 photo_key_to_path=photo_map,
-                pass_2f_tiers=frozenset({"high"}),
             )
         )
 
         c = result[0]
         assert c.pass_2f_attempted is False
         assert c.pass_2f_applied is False
-        assert c.pass_2f_fallback_reason == PASS_2F_FALLBACK_NOT_ELIGIBLE
-
-    def test_no_image_gets_fallback_reason(self):
-        """Eligible candidate with no valid image → reason='no_valid_image'."""
-        candidates, issues, catalog, _ = self._make_batch_context(estimate_tier="high")
-        empty_map: dict = {}
-
-        mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock()
-
-        result = asyncio.get_event_loop().run_until_complete(
-            run_pass_2f_batch(
-                candidates=candidates,
-                issues_flat=issues,
-                issue_catalog=catalog,
-                vlm_client=mock_vlm,
-                model_config={"model": "test"},
-                photo_key_to_path=empty_map,
-            )
-        )
-
-        c = result[0]
-        assert c.pass_2f_attempted is False
-        assert c.pass_2f_applied is False
-        assert c.pass_2f_fallback_reason == PASS_2F_FALLBACK_NO_IMAGE
-        mock_vlm.analyze_image.assert_not_called()
-
-    def test_vlm_error_gets_fallback_reason(self):
-        """VLM raises exception → reason='vlm_error', attempted=True, applied=False."""
-        candidates, issues, catalog, photo_map = self._make_batch_context(estimate_tier="high")
-
-        mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(side_effect=RuntimeError("API down"))
-
-        with patch("pathlib.Path.exists", return_value=True), \
-             patch("tools.scene_classifier_passes.run_pass_2f",
-                   side_effect=RuntimeError("API down")):
-            result = asyncio.get_event_loop().run_until_complete(
-                run_pass_2f_batch(
-                    candidates=candidates,
-                    issues_flat=issues,
-                    issue_catalog=catalog,
-                    vlm_client=mock_vlm,
-                    model_config={"model": "test"},
-                    photo_key_to_path=photo_map,
-                )
-            )
-
-        c = result[0]
-        assert c.pass_2f_attempted is True
-        assert c.pass_2f_applied is False
-        assert c.pass_2f_fallback_reason == PASS_2F_FALLBACK_VLM_ERROR
-
-    def test_invalid_response_gets_fallback_reason(self):
-        """Malformed Pass 2f response is fallback, not an applied inspect review."""
-        candidates, issues, catalog, photo_map = self._make_batch_context(estimate_tier="high")
-
-        mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(return_value="not json")
-
-        with patch("pathlib.Path.exists", return_value=True):
-            result = asyncio.get_event_loop().run_until_complete(
-                run_pass_2f_batch(
-                    candidates=candidates,
-                    issues_flat=issues,
-                    issue_catalog=catalog,
-                    vlm_client=mock_vlm,
-                    model_config={"model": "test"},
-                    photo_key_to_path=photo_map,
-                )
-            )
-
-        c = result[0]
-        assert c.pass_2f_attempted is True
-        assert c.pass_2f_applied is False
+        assert c.pass_2f_fallback_reason == PASS_2F_FALLBACK_RETIRED
         assert c.review_posture is None
-        assert c.pass_2f_fallback_reason == PASS_2F_FALLBACK_INVALID_RESPONSE
+        assert c.effective_posture == "replace_only"
+        mock_vlm.analyze_image.assert_not_called()
+        mock_vlm.analyze_images.assert_not_called()
 
-        estimate = compute_renovation_estimate(issues, catalog, prebuilt_candidates=result)
-        li = estimate["groups"][0]["line_items"][0]
-        assert li["effective_posture"] == "replace_only"
-        assert li["cost_high"] > INSPECT_ALLOWANCE[1]
-        assert estimate["totals"]["validated_total"] == {"low": 0, "high": 0}
-
-    def test_keep_default_gets_fallback_reason(self):
-        """VLM returns keep_default → reason='keep_default', attempted=True, applied=False."""
+    def test_retired_batch_does_not_call_vlm_when_image_exists(self):
         candidates, issues, catalog, photo_map = self._make_batch_context(estimate_tier="high")
 
-        vlm_response = json.dumps({
-            "is_valid_detection": True,
-            "visible_scope": "localized",
-            "pricing_posture": "keep_default",
-            "rationale": "Looks consistent with catalog description.",
-        })
         mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(return_value=vlm_response)
-
-        with patch("pathlib.Path.exists", return_value=True):
-            result = asyncio.get_event_loop().run_until_complete(
-                run_pass_2f_batch(
-                    candidates=candidates,
-                    issues_flat=issues,
-                    issue_catalog=catalog,
-                    vlm_client=mock_vlm,
-                    model_config={"model": "test"},
-                    photo_key_to_path=photo_map,
-                )
-            )
-
-        c = result[0]
-        assert c.pass_2f_attempted is True
-        assert c.pass_2f_applied is False
-        assert c.pass_2f_fallback_reason == PASS_2F_FALLBACK_KEEP_DEFAULT
-        assert c.review_posture == "keep_default"
-
-    def test_valid_repair_sets_applied(self):
-        """VLM returns repair → applied=True, reason=None, attempted=True."""
-        candidates, issues, catalog, photo_map = self._make_batch_context(estimate_tier="high")
-
-        vlm_response = json.dumps({
-            "is_valid_detection": True,
-            "visible_scope": "localized",
-            "pricing_posture": "repair",
-            "rationale": "Minor surface damage only.",
-        })
-        mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(return_value=vlm_response)
-
-        with patch("pathlib.Path.exists", return_value=True):
-            result = asyncio.get_event_loop().run_until_complete(
-                run_pass_2f_batch(
-                    candidates=candidates,
-                    issues_flat=issues,
-                    issue_catalog=catalog,
-                    vlm_client=mock_vlm,
-                    model_config={"model": "test"},
-                    photo_key_to_path=photo_map,
-                )
-            )
-
-        c = result[0]
-        assert c.pass_2f_attempted is True
-        assert c.pass_2f_applied is True
-        assert c.pass_2f_fallback_reason is None
-        assert c.effective_posture == "repair"
-
-    def test_valid_replace_sets_applied(self):
-        """VLM returns replace → applied=True, reason=None."""
-        candidates, issues, catalog, photo_map = self._make_batch_context(estimate_tier="high")
-
-        vlm_response = json.dumps({
-            "is_valid_detection": True,
-            "visible_scope": "room_wide",
-            "pricing_posture": "replace",
-            "rationale": "Full replacement needed.",
-        })
-        mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(return_value=vlm_response)
-
-        with patch("pathlib.Path.exists", return_value=True):
-            result = asyncio.get_event_loop().run_until_complete(
-                run_pass_2f_batch(
-                    candidates=candidates,
-                    issues_flat=issues,
-                    issue_catalog=catalog,
-                    vlm_client=mock_vlm,
-                    model_config={"model": "test"},
-                    photo_key_to_path=photo_map,
-                )
-            )
-
-        c = result[0]
-        assert c.pass_2f_attempted is True
-        assert c.pass_2f_applied is True
-        assert c.pass_2f_fallback_reason is None
-        assert c.effective_posture == "replace"
-
-    def test_explicit_inspect_sets_applied(self):
-        """A model-returned inspect posture is authoritative and applied."""
-        candidates, issues, catalog, photo_map = self._make_batch_context(estimate_tier="high")
-
-        vlm_response = json.dumps({
-            "is_valid_detection": True,
-            "visible_scope": "localized",
-            "pricing_posture": "inspect",
-            "rationale": "Needs in-person inspection.",
-        })
-        mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(return_value=vlm_response)
+        mock_vlm.analyze_image = AsyncMock(side_effect=AssertionError("legacy call should not run"))
+        mock_vlm.analyze_images = AsyncMock(side_effect=AssertionError("legacy call should not run"))
 
         with patch("pathlib.Path.exists", return_value=True):
             result = _run_async(
@@ -1932,31 +1662,9 @@ class TestFallbackBehavior:
                 )
             )
 
-        c = result[0]
-        assert c.pass_2f_attempted is True
-        assert c.pass_2f_applied is True
-        assert c.pass_2f_fallback_reason is None
-        assert c.review_posture == "inspect"
-        assert c.effective_posture == "inspect"
-
-        estimate = compute_renovation_estimate(issues, catalog, prebuilt_candidates=result)
-        li = estimate["groups"][0]["line_items"][0]
-        assert (li["cost_low"], li["cost_high"]) == INSPECT_ALLOWANCE
-        assert li["pricing_posture"] == "inspect"
-        assert li["effective_posture"] == "inspect"
-        assert li["inspection_risk_added"] is True
-        assert "baseline_scope_before_posture" in li
-        assert "visible_required_with_inspect_posture" in li
-        audit_item = estimate["pass_2f_review_audit"]["items"][0]
-        assert audit_item["pricing_posture"] == "inspect"
-        assert audit_item["inspection_risk_added"] is True
-        summary_item = estimate["tier_summary"]["validated_items"][0]
-        assert summary_item["pricing_posture"] == "inspect"
-        assert summary_item["inspection_risk_added"] is True
-        assert estimate["totals"]["inspection_allowance_total"] == {
-            "low": INSPECT_ALLOWANCE[0],
-            "high": INSPECT_ALLOWANCE[1],
-        }
+        assert result[0].pass_2f_fallback_reason == PASS_2F_FALLBACK_RETIRED
+        mock_vlm.analyze_image.assert_not_called()
+        mock_vlm.analyze_images.assert_not_called()
 
     def test_fallback_fields_in_line_items(self):
         """Verify all 3 fallback fields appear in compute_group_estimate output."""
@@ -1967,25 +1675,22 @@ class TestFallbackBehavior:
         )
         issues = [_make_issue("cab")]
         candidates = extract_estimate_candidates(issues, catalog)
-        # Simulate a successful 2f review
-        candidates[0].pass_2f_attempted = True
-        candidates[0].pass_2f_applied = True
-        candidates[0].pass_2f_fallback_reason = None
-        candidates[0].review_posture = "repair"
-        candidates[0].review_source = "pass_2f"
-        candidates[0].effective_posture = "repair"
+        candidates[0].pass_2f_attempted = False
+        candidates[0].pass_2f_applied = False
+        candidates[0].pass_2f_fallback_reason = PASS_2F_FALLBACK_RETIRED
+        candidates[0].effective_posture = "replace_only"
 
         result = compute_group_estimate("kitchen", candidates)
         li = result["line_items"][0]
         assert "pass_2f_attempted" in li
         assert "pass_2f_applied" in li
         assert "pass_2f_fallback_reason" in li
-        assert li["pass_2f_attempted"] is True
-        assert li["pass_2f_applied"] is True
-        assert li["pass_2f_fallback_reason"] is None
+        assert li["pass_2f_attempted"] is False
+        assert li["pass_2f_applied"] is False
+        assert li["pass_2f_fallback_reason"] == PASS_2F_FALLBACK_RETIRED
 
 
-# ─── Phase L: audit block ──────────────────────────────────────────────────
+# Phase L: audit block
 
 class TestAuditBlock:
 
@@ -2188,7 +1893,7 @@ class TestAuditBlock:
         assert audit_item["visible_scope"] == "localized"
         assert audit_item["pricing_posture"] == "repair"
 
-    def test_write_photo_intel_keeps_consistency_flags_debug_only(self):
+    def test_write_photo_intel_keeps_package_pass_2f_trace_debug_only(self):
         from tools.artifact_writers import write_photo_intel
 
         tmp_path = Path.cwd() / ".pytest_cache" / f"photo_intel_debug_{uuid.uuid4().hex}"
@@ -2196,18 +1901,25 @@ class TestAuditBlock:
         image_path = tmp_path / "kitchen_1.jpg"
         try:
             image_path.write_bytes(b"fake image")
+            kitchen_item = _make_item(
+                "outdated_kitchen_finishes",
+                estimate={
+                    "estimate_tier": "medium",
+                    "strategy": "replace_only",
+                    "group": "kitchen",
+                    "stack_behavior": "group_cap",
+                    "unit_policy": "per_kitchen",
+                },
+                trade_bucket="kitchen_cabinets_counters",
+                scope="replace",
+            )
+            kitchen_item.update({
+                "display_class": "marketability",
+                "package_role": "package_driver",
+                "package_type": "kitchen_modernization",
+            })
             issue_catalog = _make_catalog(
-                _make_item(
-                    "cab",
-                    estimate={
-                        "estimate_tier": "high",
-                        "strategy": "replace_only",
-                        "group": "kitchen",
-                        "stack_behavior": "group_cap",
-                    },
-                    trade_bucket="kitchen_cabinets_counters",
-                    scope="replace",
-                ),
+                kitchen_item,
             )
             result = SimpleNamespace(
                 image_path=str(image_path),
@@ -2216,9 +1928,9 @@ class TestAuditBlock:
                     "scene": "kitchen",
                     "canonical_issues": [
                         {
-                            "description": "Cabinet faces show visible damage.",
-                            "catalogItemId": "cab",
-                            "label": "defect_or_damage",
+                            "description": "Kitchen finishes are visibly dated.",
+                            "catalogItemId": "outdated_kitchen_finishes",
+                            "label": "marketability",
                         }
                     ],
                     "verified_issues": [],
@@ -2241,12 +1953,13 @@ class TestAuditBlock:
                 results=[result],
             )
             mock_vlm = MagicMock()
-            mock_vlm.analyze_image = AsyncMock(return_value=json.dumps({
-                "is_valid_detection": True,
-                "visible_scope": "room_wide",
-                "pricing_posture": "repair",
-                "rationale": "Room-wide but repair posture.",
+            mock_vlm.analyze_images = AsyncMock(return_value=json.dumps({
+                "verification_status": "confirmed",
+                "confirmed_issue_ids": [],
+                "rejected_issue_ids": [],
+                "evidence_summary": "Dated kitchen finishes are visible.",
             }))
+            mock_vlm.analyze_image = AsyncMock()
 
             output_path = write_photo_intel(
                 cfg=SimpleNamespace(LM_STUDIO_MODEL="test-model"),
@@ -2264,14 +1977,15 @@ class TestAuditBlock:
 
             slim = json.loads(output_path.read_text(encoding="utf-8"))
             debug = json.loads((tmp_path / "photo_intel_debug.json").read_text(encoding="utf-8"))
-            debug_audit = debug["renovation_estimate"]["pass_2f_review_audit"]
             slim_audit = slim["renovation_estimate"]["pass_2f_review_audit"]
 
-            assert debug_audit["consistency_flag_counts"] == {"room_wide_repair": 1}
-            assert debug_audit["items"][0]["consistency_flags"] == ["room_wide_repair"]
-            assert debug["pass_2f_trace"]["consistency_flag_counts"] == {"room_wide_repair": 1}
+            assert debug["pass_2f_trace"]["mode"] == "package_visual_verification"
+            assert debug["pass_2f_trace"]["attempted_count"] == 1
+            assert debug["pass_2f_trace"]["confirmed_count"] == 1
+            assert debug["renovation_estimate_v4"]["pass_2f_trace"]["attempted_count"] == 1
+            assert mock_vlm.analyze_images.await_count == 1
+            mock_vlm.analyze_image.assert_not_called()
             assert "consistency_flag_counts" not in slim_audit
-            assert "consistency_flags" not in slim_audit["items"][0]
             assert "pass_2f_trace" not in slim
         finally:
             shutil.rmtree(tmp_path, ignore_errors=True)
@@ -2308,8 +2022,8 @@ class TestProviderSelection:
         )
         assert result == premium
 
-    def test_review_source_includes_provider_premium(self):
-        """After batch with provider='premium', review_source == 'pass_2f:premium'."""
+    def test_retired_batch_ignores_provider_premium_without_vlm_call(self):
+        """The old per-item batch shim should not call VLM for provider='premium'."""
         est = {**REVISIT_ESTIMATE}
         catalog = _make_catalog(
             _make_item("cab", estimate=est,
@@ -2319,32 +2033,29 @@ class TestProviderSelection:
         candidates = extract_estimate_candidates(issues, catalog)
         photo_map = {"kitchen_1.jpg": Path("/fake/kitchen_1.jpg")}
 
-        vlm_response = json.dumps({
-            "is_valid_detection": True,
-            "visible_scope": "localized",
-            "pricing_posture": "repair",
-            "rationale": "Minor damage.",
-        })
         mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(return_value=vlm_response)
+        mock_vlm.analyze_image = AsyncMock()
+        mock_vlm.analyze_images = AsyncMock()
 
-        with patch("pathlib.Path.exists", return_value=True):
-            result = asyncio.get_event_loop().run_until_complete(
-                run_pass_2f_batch(
-                    candidates=candidates,
-                    issues_flat=issues,
-                    issue_catalog=catalog,
-                    vlm_client=mock_vlm,
-                    model_config={"model": "test"},
-                    photo_key_to_path=photo_map,
-                    provider="premium",
-                )
+        result = asyncio.get_event_loop().run_until_complete(
+            run_pass_2f_batch(
+                candidates=candidates,
+                issues_flat=issues,
+                issue_catalog=catalog,
+                vlm_client=mock_vlm,
+                model_config={"model": "test"},
+                photo_key_to_path=photo_map,
+                provider="premium",
             )
+        )
 
-        assert result[0].review_source == "pass_2f:premium"
+        assert result[0].review_source is None
+        assert result[0].pass_2f_fallback_reason == PASS_2F_FALLBACK_RETIRED
+        mock_vlm.analyze_image.assert_not_called()
+        mock_vlm.analyze_images.assert_not_called()
 
-    def test_review_source_local_provider(self):
-        """After batch with provider='local', review_source == 'pass_2f:local'."""
+    def test_retired_batch_ignores_provider_local_without_vlm_call(self):
+        """The old per-item batch shim should not call VLM for provider='local'."""
         est = {**REVISIT_ESTIMATE}
         catalog = _make_catalog(
             _make_item("cab", estimate=est,
@@ -2354,26 +2065,23 @@ class TestProviderSelection:
         candidates = extract_estimate_candidates(issues, catalog)
         photo_map = {"kitchen_1.jpg": Path("/fake/kitchen_1.jpg")}
 
-        vlm_response = json.dumps({
-            "is_valid_detection": True,
-            "visible_scope": "localized",
-            "pricing_posture": "replace",
-            "rationale": "Needs full replacement.",
-        })
         mock_vlm = MagicMock()
-        mock_vlm.analyze_image = AsyncMock(return_value=vlm_response)
+        mock_vlm.analyze_image = AsyncMock()
+        mock_vlm.analyze_images = AsyncMock()
 
-        with patch("pathlib.Path.exists", return_value=True):
-            result = asyncio.get_event_loop().run_until_complete(
-                run_pass_2f_batch(
-                    candidates=candidates,
-                    issues_flat=issues,
-                    issue_catalog=catalog,
-                    vlm_client=mock_vlm,
-                    model_config={"model": "test"},
-                    photo_key_to_path=photo_map,
-                    provider="local",
-                )
+        result = asyncio.get_event_loop().run_until_complete(
+            run_pass_2f_batch(
+                candidates=candidates,
+                issues_flat=issues,
+                issue_catalog=catalog,
+                vlm_client=mock_vlm,
+                model_config={"model": "test"},
+                photo_key_to_path=photo_map,
+                provider="local",
             )
+        )
 
-        assert result[0].review_source == "pass_2f:local"
+        assert result[0].review_source is None
+        assert result[0].pass_2f_fallback_reason == PASS_2F_FALLBACK_RETIRED
+        mock_vlm.analyze_image.assert_not_called()
+        mock_vlm.analyze_images.assert_not_called()

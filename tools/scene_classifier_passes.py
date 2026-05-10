@@ -383,13 +383,13 @@ class Pass2fInvalidResponseError(ValueError):
 
 @dataclass
 class Pass2fResult:
-    """Result from Pass 2f: Big-ticket estimate review for a single item."""
-    catalog_item_id: str
-    visible_scope: str = "unknown"          # localized | partial | room_wide | unknown
-    is_valid_detection: bool = True          # False if the model deems the detection invalid
-    pricing_posture: str = "keep_default"   # repair | replace | inspect | keep_default
-    rationale: str = ""
-    consistency_flags: List[str] = field(default_factory=list)
+    """Result from Pass 2f visual package verification."""
+    package_id: str
+    package_type: str
+    verification_status: str = "uncertain"  # confirmed | rejected | uncertain
+    confirmed_issue_ids: List[str] = field(default_factory=list)
+    rejected_issue_ids: List[str] = field(default_factory=list)
+    evidence_summary: str = ""
     raw_response: Optional[str] = None
 
 
@@ -1725,159 +1725,152 @@ async def run_pass_2e(
         suppressed_reason_counts=suppressed_reason_counts,
         suppressed_samples=suppressed_samples,
     )
-# ═══════════════════════════════════════════════════════════════════════════════
-# Pass 2f: Big-Ticket Estimate Review (vision, per-candidate)
-# ═══════════════════════════════════════════════════════════════════════════════
+# -----------------------------------------------------------------------------
+# Pass 2f: Visual package verification (multi-image, visual truth only)
+# -----------------------------------------------------------------------------
 
 PASS_2F_SYSTEM_PROMPT = (
-    "You are reviewing one already-detected renovation issue in a real-estate photo. "
-    "Your primary job is to determine whether the detected issue is actually visible. "
-    "Your secondary job is to describe visible extent and decide whether the default pricing posture should be overridden.\n\n"
+    "You are verifying a proposed real-estate renovation package from kitchen photos. "
+    "Use only visible evidence in the supplied images. Your job is visual truth only: "
+    "confirm, reject, or mark uncertain whether the proposed package is supported by the photos.\n\n"
     "Rules:\n"
-    "- Use only what is visible in the image.\n"
-    "- If the detected issue is not actually visible, set is_valid_detection to false and pricing_posture to keep_default.\n"
-    "- Prefer keep_default unless the visible evidence clearly supports repair, replace, or inspect.\n"
-    "- Use repair only when the issue is clearly localized and visually minor.\n"
-    "- Use replace only when the issue is clearly broad, repeated, or room-wide.\n"
-    "- Use inspect only when the issue is visible but the likely repair scope cannot be responsibly determined from the photo.\n"
-    "- Do not infer hidden damage or estimate dollar amounts.\n"
+    "- Do not estimate prices, costs, repair scope, replacement scope, or rehab budgets.\n"
+    "- Do not infer hidden damage or unseen rooms.\n"
+    "- Confirm only when the package-level pattern is visibly supported.\n"
+    "- Reject when the proposed evidence is not visible or clearly contradicted.\n"
+    "- Use uncertain when the images are insufficient, ambiguous, cropped, too distant, or mixed.\n"
+    "- Return only the requested JSON object.\n"
 )
 
 PASS_2F_USER_PROMPT = (
-    "Detected issue:\n"
-    "- Item: {item_name}\n"
-    "- Catalog description: {item_description}\n"
-    "- Matched observation: {issue_description}\n"
-    "- Scene: {scene}\n\n"
+    "Analyze these kitchen photos together.\n\n"
+    "Proposed package:\n"
+    "- package_id: {package_id}\n"
+    "- package_type: {package_type}\n"
+    "- package_label: {package_label}\n\n"
+    "Candidate evidence items:\n"
+    "{evidence_json}\n\n"
+    "Return exactly this JSON shape:\n"
     "{{\n"
-    '  "is_valid_detection": true or false,\n'
-    '  "visible_scope": "localized" or "partial" or "room_wide" or "unknown",\n'
-    '  "pricing_posture": "repair" or "replace" or "inspect" or "keep_default",\n'
-    '  "rationale": "Brief debug explanation. Mention only visible evidence."\n'
+    '  "verification_status": "confirmed" or "rejected" or "uncertain",\n'
+    '  "confirmed_issue_ids": [],\n'
+    '  "rejected_issue_ids": [],\n'
+    '  "evidence_summary": "Brief visible-only explanation"\n'
     "}}\n"
 )
 
-PASS_2F_VALID_POSTURES = {"repair", "replace", "inspect", "keep_default"}
+PASS_2F_VALID_STATUSES = {"confirmed", "rejected", "uncertain"}
 
 
-def _coerce_pass_2f(raw: dict, catalog_item_id: str) -> Pass2fResult:
-    """Normalize parsed JSON into a Pass2fResult with guardrails."""
-    VALID_SCOPES = {"localized", "partial", "room_wide", "unknown"}
+def _normalize_issue_id_list(value: Any, valid_issue_ids: set) -> List[str]:
+    if not isinstance(value, list):
+        return []
+    out: List[str] = []
+    for raw in value:
+        item = str(raw or "").strip()
+        if not item or item not in valid_issue_ids or item in out:
+            continue
+        out.append(item)
+    return out
 
-    # Coerce is_valid_detection: accept bool, string "false"/"true", default True
-    raw_valid = raw.get("is_valid_detection", True)
-    if isinstance(raw_valid, str):
-        is_valid = raw_valid.strip().lower() not in ("false", "0", "no")
-    else:
-        is_valid = bool(raw_valid)
 
-    scope = str(raw.get("visible_scope", "unknown")).strip().lower()
-    raw_posture = str(raw.get("pricing_posture", "keep_default")).strip().lower()
-    posture = raw_posture
-    if posture not in PASS_2F_VALID_POSTURES:
-        posture = "keep_default"
-    consistency_flags: List[str] = []
-    if is_valid is False:
-        if raw_posture in {"repair", "replace", "inspect"}:
-            consistency_flags.append("invalid_detection_forced_keep_default")
-        posture = "keep_default"
-
+def _coerce_pass_2f(
+    raw: Dict[str, Any],
+    *,
+    package_id: str,
+    package_type: str,
+    valid_issue_ids: set,
+) -> Pass2fResult:
+    status = str(raw.get("verification_status") or "uncertain").strip().lower()
+    if status not in PASS_2F_VALID_STATUSES:
+        status = "uncertain"
+    confirmed_issue_ids = _normalize_issue_id_list(
+        raw.get("confirmed_issue_ids"),
+        valid_issue_ids,
+    )
+    rejected_issue_ids = _normalize_issue_id_list(
+        raw.get("rejected_issue_ids"),
+        valid_issue_ids,
+    )
+    if status == "rejected" and not rejected_issue_ids:
+        rejected_issue_ids = sorted(valid_issue_ids)
     return Pass2fResult(
-        catalog_item_id=catalog_item_id,
-        visible_scope=scope if scope in VALID_SCOPES else "unknown",
-        is_valid_detection=is_valid,
-        pricing_posture=posture,
-        rationale=str(raw.get("rationale", "")).strip()[:300],
-        consistency_flags=consistency_flags,
+        package_id=package_id,
+        package_type=package_type,
+        verification_status=status,
+        confirmed_issue_ids=confirmed_issue_ids,
+        rejected_issue_ids=rejected_issue_ids,
+        evidence_summary=str(raw.get("evidence_summary") or "").strip()[:400],
     )
 
 
 async def run_pass_2f(
-    image_path: Path,
+    image_paths: List[Path],
     vlm_client: Any,
     model_config: dict,
     *,
-    catalog_item_id: str,
-    item_name: str,
-    item_description: str,
-    issue_description: str,
-    scene: str = "other",
+    package_id: str,
+    package_type: str,
+    evidence_items: List[Dict[str, Any]],
+    package_label: str = "Kitchen modernization",
 ) -> Pass2fResult:
     """
-    Pass 2f: Big-ticket estimate review for a single candidate.
+    Pass 2f visual package verification.
 
-    Revisits one detected issue with a focused vision prompt to determine
-    the authoritative pricing posture: repair, replace, inspect, or keep_default.
-
-    This pass does NOT:
-      - detect new issues
-      - change catalog IDs
-      - estimate dollar amounts
-      - infer hidden damage
-
-    Args:
-        image_path:       Path to a representative image for this issue
-        vlm_client:       VLM client instance
-        model_config:     Model configuration dict
-        catalog_item_id:  The catalog item being reviewed
-        item_name:        Human-readable catalog item name
-        item_description: Catalog description of the issue
-        issue_description: The matched observation text from detection
-        scene:            Scene type (kitchen, bathroom, etc.)
-
-    Returns:
-        Pass2fResult with authoritative posture decision
+    This pass confirms/rejects the visual truth of a package candidate across
+    multiple representative images. It intentionally does not ask the model for
+    pricing posture, repair/replace scope, or dollar estimates.
     """
-    logger.debug(f"Pass 2f: Reviewing {catalog_item_id} in {image_path.name}")
-
+    valid_issue_ids = {
+        str(issue_id)
+        for item in (evidence_items or [])
+        for issue_id in (item.get("issue_ids") or [])
+        if str(issue_id or "").strip()
+    }
+    evidence_json = json.dumps(evidence_items or [], ensure_ascii=False, indent=2)
     user_prompt = safe_format_prompt(
         PASS_2F_USER_PROMPT,
-        item_name=item_name,
-        item_description=item_description,
-        issue_description=issue_description,
-        scene=scene,
+        package_id=package_id,
+        package_type=package_type,
+        package_label=package_label,
+        evidence_json=evidence_json,
     )
 
+    logger.debug("Pass 2f: reviewing %s with %d images", package_id, len(image_paths or []))
+
     try:
-        response = await vlm_client.analyze_image(
-            image_path=image_path,
-            system_prompt=PASS_2F_SYSTEM_PROMPT,
-            user_prompt=user_prompt,
-            **model_config,
-        )
-
-        try:
-            parsed = extract_json_object(response)
-        except ValueError as e:
-            raise Pass2fInvalidResponseError(str(e)) from e
+        if hasattr(vlm_client, "analyze_images"):
+            response = await vlm_client.analyze_images(
+                image_paths=image_paths,
+                system_prompt=PASS_2F_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                **model_config,
+            )
+        else:
+            if not image_paths:
+                raise ValueError("no review images supplied")
+            response = await vlm_client.analyze_image(
+                image_path=image_paths[0],
+                system_prompt=PASS_2F_SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                **model_config,
+            )
+        parsed = extract_json_object(response)
         if not isinstance(parsed, dict) or not parsed:
-            raise Pass2fInvalidResponseError("missing JSON object")
-        if "pricing_posture" not in parsed or "is_valid_detection" not in parsed:
-            raise Pass2fInvalidResponseError("missing required Pass 2f fields")
-        raw_posture = str(parsed.get("pricing_posture", "")).strip().lower()
-        if raw_posture not in PASS_2F_VALID_POSTURES:
-            raise Pass2fInvalidResponseError(f"invalid pricing_posture: {raw_posture!r}")
-
-        result = _coerce_pass_2f(parsed, catalog_item_id)
-        result = Pass2fResult(
-            catalog_item_id=result.catalog_item_id,
-            visible_scope=result.visible_scope,
-            is_valid_detection=result.is_valid_detection,
-            pricing_posture=result.pricing_posture,
-            rationale=result.rationale,
-            consistency_flags=result.consistency_flags,
-            raw_response=response,
+            raise ValueError("missing JSON object")
+        result = _coerce_pass_2f(
+            parsed,
+            package_id=package_id,
+            package_type=package_type,
+            valid_issue_ids=valid_issue_ids,
         )
-
-        logger.debug(
-            f"Pass 2f: {catalog_item_id} → {result.pricing_posture} "
-            f"(valid={result.is_valid_detection})"
-        )
+        result.raw_response = response
         return result
-
-    except Pass2fInvalidResponseError as e:
-        logger.error(f"Pass 2f: Invalid response for {catalog_item_id}: {e}")
-        raise
     except Exception as e:
-        logger.error(f"Pass 2f: Error reviewing {catalog_item_id}: {e}")
-        raise
+        logger.error("Pass 2f: error reviewing %s: %s", package_id, e)
+        return Pass2fResult(
+            package_id=package_id,
+            package_type=package_type,
+            verification_status="uncertain",
+            evidence_summary=f"Pass 2f verification failed: {e}",
+        )

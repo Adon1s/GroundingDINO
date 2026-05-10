@@ -42,7 +42,7 @@ import logging
 import os
 import threading
 from pathlib import Path
-from typing import Any, Dict, Optional, Tuple, Literal
+from typing import Any, Dict, List, Optional, Tuple, Literal
 
 import requests
 
@@ -364,6 +364,77 @@ class VLMClient:
                                 # "detail": "low",
                             },
                         ],
+                    },
+                ],
+                "max_output_tokens": max_tokens,
+            }
+            if text_config:
+                request["text"] = text_config
+            if reasoning_effort and str(model).lower().startswith("gpt-5"):
+                request["reasoning"] = {"effort": reasoning_effort}
+            return client.responses.create(**request)
+
+        response = await asyncio.get_event_loop().run_in_executor(None, _call)
+        usage = getattr(response, "usage", None)
+        if usage is not None:
+            self._record_usage(
+                getattr(usage, "input_tokens", None),
+                getattr(usage, "output_tokens", None),
+                getattr(usage, "total_tokens", None),
+            )
+        return self._extract_openai_output_text(response)
+
+    async def _analyze_images_openai(
+            self,
+            image_paths: List[Path],
+            system_prompt: str,
+            user_prompt: str,
+            model: str,
+            api_key: Optional[str],
+            max_tokens: int,
+            response_json_schema: Optional[Dict[str, Any]] = None,
+            response_schema_name: Optional[str] = None,
+            reasoning_effort: Optional[str] = None,
+            verbosity: Optional[str] = None,
+    ) -> str:
+        client = self._get_openai_client(api_key)
+
+        if not image_paths:
+            raise ValueError("At least one image path is required")
+
+        content: List[Dict[str, Any]] = [
+            {"type": "input_text", "text": user_prompt},
+        ]
+        for image_path in image_paths:
+            image_path = Path(image_path)
+            if not image_path.exists():
+                raise FileNotFoundError(f"Image not found: {image_path}")
+            if not image_path.is_file():
+                raise ValueError(f"Not a file: {image_path}")
+            logger.debug(f"OpenAI multi-image path OK: {image_path.resolve()}")
+            image_data, media_type = self._encode_image_base64(image_path)
+            content.append({
+                "type": "input_image",
+                "image_url": f"data:{media_type};base64,{image_data}",
+            })
+
+        text_config = self._openai_text_config(
+            response_json_schema,
+            response_schema_name,
+            verbosity if str(model).lower().startswith("gpt-5") else None,
+        )
+
+        def _call():
+            request: Dict[str, Any] = {
+                "model": model,
+                "input": [
+                    {
+                        "role": "system",
+                        "content": system_prompt,
+                    },
+                    {
+                        "role": "user",
+                        "content": content,
                     },
                 ],
                 "max_output_tokens": max_tokens,
@@ -779,6 +850,91 @@ class VLMClient:
                 temperature=temperature,
             )
 
+    async def analyze_images(
+            self,
+            image_paths: List[Path],
+            system_prompt: str,
+            user_prompt: str,
+            model: str,
+            url: Optional[str] = None,
+            api_key: Optional[str] = None,
+            provider: ProviderType = "auto",
+            timeout: Optional[int] = None,
+            max_tokens: Optional[int] = None,
+            temperature: Optional[float] = None,
+            **kwargs,
+    ) -> str:
+        """
+        Analyze multiple images together with a VLM.
+
+        OpenAI uses the Responses multi-image structure: one user content array
+        containing a single input_text block followed by one input_image block
+        per image. Other providers fall back to the first image so existing
+        local workflows keep running, but package verification should use
+        OpenAI/premium for true multi-image review.
+        """
+        if max_tokens is None:
+            mo = kwargs.get("max_output_tokens")
+            if mo is not None:
+                try:
+                    max_tokens = int(mo)
+                except Exception:
+                    pass
+        response_json_schema = kwargs.get("response_json_schema") or kwargs.get("json_schema")
+        response_schema_name = kwargs.get("response_schema_name") or kwargs.get("json_schema_name")
+        reasoning_effort = kwargs.get("reasoning_effort")
+        verbosity = kwargs.get("verbosity")
+
+        image_paths = [Path(p) for p in (image_paths or [])]
+        if not image_paths:
+            raise ValueError("At least one image path is required")
+
+        timeout = timeout or self.default_timeout
+        max_tokens = max_tokens or self.default_max_tokens
+        temperature = temperature if temperature is not None else self.default_temperature
+
+        if provider == "auto":
+            provider = self._detect_provider(url, api_key)
+
+        logger.info("Analyzing %d images with %s/%s", len(image_paths), provider, model)
+
+        if provider == "openai":
+            return await self._analyze_images_openai(
+                image_paths=image_paths,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                model=model,
+                api_key=api_key,
+                max_tokens=max_tokens,
+                response_json_schema=response_json_schema,
+                response_schema_name=response_schema_name,
+                reasoning_effort=reasoning_effort,
+                verbosity=verbosity,
+            )
+
+        # Backward-compatible fallback for providers that do not currently have
+        # a native multi-image helper in this client.
+        fallback_prompt = user_prompt
+        if len(image_paths) > 1:
+            fallback_prompt = (
+                user_prompt
+                + "\n\nNote: this provider path can only review one image; "
+                "review the supplied representative image only."
+            )
+        return await self.analyze_image(
+            image_path=image_paths[0],
+            system_prompt=system_prompt,
+            user_prompt=fallback_prompt,
+            model=model,
+            url=url,
+            api_key=api_key,
+            provider=provider,
+            timeout=timeout,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            **kwargs,
+        )
+
     async def analyze_text(
             self,
             system_prompt: str,
@@ -878,6 +1034,15 @@ class VLMClient:
         asyncio.set_event_loop(loop)
         try:
             return loop.run_until_complete(self.analyze_image(**kwargs))
+        finally:
+            loop.close()
+
+    def analyze_images_sync(self, **kwargs) -> str:
+        """Synchronous wrapper for analyze_images."""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(self.analyze_images(**kwargs))
         finally:
             loop.close()
 

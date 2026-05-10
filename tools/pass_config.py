@@ -12,7 +12,7 @@ Pass Overview:
 - 2c: Label observations + debug/forward split (always Qwen - text-only)
 - 2d: Resolve defect_id from candidates (GPT-5 when premium, optional)
 - 2e: Normalize / filter / deduplicate issues (rule-based, no LLM)
-- 2f: Big-ticket estimate review (GPT-5 when premium, post-processing)
+- 2f: Package visual verification (GPT-5 when premium, post-processing)
 Legacy passes (not currently executed by orchestrator but still supported):
 - 4:  Property summary (legacy)
 - 4a: Room summaries
@@ -43,7 +43,7 @@ class PassToggles:
     pass_2c: bool = True   # Label observations + debug/forward split
     pass_2d: bool = True   # Resolve defect_id from candidates (requires candidate_provider)
     pass_2e: bool = True   # Normalize / filter / dedupe verified issues (rule-based, no LLM)
-    pass_2f: bool = True   # Big-ticket estimate review (post-processing, requires eligible candidates + VLM)
+    pass_2f: bool = True   # Package visual verification (post-processing, requires package candidates + VLM)
     pass_4: bool = False   # Property summary (legacy, not executed by current orchestrator)
     pass_4a: bool = False  # Room summaries (legacy, not executed by current orchestrator)
     pass_4b: bool = False  # Renovation intel (legacy, not executed by current orchestrator)
@@ -347,7 +347,7 @@ PASS_DESCRIPTIONS: Dict[PassKey, str] = {
     '2c': 'Label Observations (debug/forward)',
     '2d': 'Resolve defect_id from candidates',
     '2e': 'Normalize / Filter / Deduplicate Issues',
-    '2f': 'Big-ticket Estimate Review (Pass 2f)',
+    '2f': 'Package Visual Verification (Pass 2f)',
     '4': 'Property Summary (legacy)',
     '4a': 'Room Summaries (legacy)',
     '4b': 'Renovation Intel (legacy)',

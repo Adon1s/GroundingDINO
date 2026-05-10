@@ -866,6 +866,8 @@ def _copy_common_review_fields(
         "is_valid_detection", "review_posture", "review_visible_scope", "review_rationale",
         "review_source", "effective_posture", "review_image_path",
         "pass_2f_attempted", "pass_2f_applied", "pass_2f_fallback_reason",
+        "package_id", "package_type", "package_role",
+        "visual_verification_status", "package_verification_source",
         "estimate_scope", "estimate_scope_reason",
         "baseline_scope_before_posture", "visible_required_with_inspect_posture",
         "required_baseline_included", "inspection_risk_added",
