@@ -1072,7 +1072,7 @@
       "kind": "defect",
       "id": "visible_electrical_risks",
       "scope": "repair",
-      "defaultHidden": false,
+      "defaultHidden": true,
       "scene_groups": [
         "kitchen",
         "bathroom",

@@ -67,7 +67,7 @@ ISSUE_CATALOG_PATH = TOOLS_DIR / "issue_catalog.json"
 # LM STUDIO / VLM SETTINGS (Qwen - local)
 # =============================================================================
 LM_STUDIO_URL = os.environ.get("LM_STUDIO_URL", "http://169.254.83.107:1234")
-LM_STUDIO_MODEL = os.environ.get("LM_STUDIO_MODEL", "unsloth/qwen3.6-27b")
+LM_STUDIO_MODEL = os.environ.get("LM_STUDIO_MODEL", "qwen/qwen3.6-27b")
 
 # =============================================================================
 # OPENAI / GPT SETTINGS (Premium - cloud)
