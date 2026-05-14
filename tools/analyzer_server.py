@@ -8,8 +8,11 @@ overhead between listings.
 
 Protocol:
   Startup:  {"type": "ready"}
-  Request:  {"type": "job", "jobId": "...", "propertyKey": "...", "images": [...], ...}
+  Request:  {"type": "job", "jobId": "...", "runId": "...", "propertyKey": "...", "images": [...], ...}
+            (runId is the stable checkpoint key across retries; jobId is ephemeral.
+            If runId is missing, jobId is used as a fallback with a warning.)
   Response: {"type": "progress", "jobId": "...", ...}
+            {"type": "resumed", "jobId": "...", "completed": N, "total": M}
             {"type": "result", "jobId": "...", ...}
             {"type": "job_done", "jobId": "..."}
             {"type": "error", "jobId": "...", "error": "..."}
@@ -19,11 +22,13 @@ import asyncio
 import json
 import logging
 import os
+import shutil
 import sys
 import signal
 import time
 import traceback
 import uuid
+from dataclasses import asdict, fields
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -230,6 +235,43 @@ def main() -> int:
     return 0
 
 
+def _save_image_checkpoint(ckpt_dir: Path, idx: int, image_result: ImageResult) -> None:
+    """Atomically persist one image's result. Best-effort; raises only on programmer error."""
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    target = ckpt_dir / f"image_{idx:04d}.json"
+    tmp = target.with_suffix(".json.tmp")
+    tmp.write_text(
+        json.dumps(asdict(image_result), default=str, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    os.replace(tmp, target)
+
+
+def _load_checkpoint(ckpt_dir: Path, n_images: int) -> Dict[int, ImageResult]:
+    """Load any prior per-image checkpoints. Tolerant of corrupt files and schema drift."""
+    if not ckpt_dir.is_dir():
+        return {}
+    out: Dict[int, ImageResult] = {}
+    known_fields = {f.name for f in fields(ImageResult)}
+    for f in sorted(ckpt_dir.glob("image_*.json")):
+        try:
+            idx = int(f.stem.split("_")[1])
+            if idx >= n_images:
+                continue
+            raw = json.loads(f.read_text(encoding="utf-8"))
+            raw = {k: v for k, v in raw.items() if k in known_fields}
+            out[idx] = ImageResult(**raw)
+        except (ValueError, json.JSONDecodeError, TypeError, OSError) as exc:
+            logger.warning(f"Skipping unreadable checkpoint {f}: {exc}")
+    return out
+
+
+def _clear_checkpoint(ckpt_dir: Path) -> None:
+    """Remove the checkpoint dir on successful job completion."""
+    if ckpt_dir.is_dir():
+        shutil.rmtree(ckpt_dir, ignore_errors=True)
+
+
 def _process_job(
     request: dict,
     orchestrator: Any,
@@ -240,6 +282,13 @@ def _process_job(
 ) -> None:
     """Process a single analysis job."""
     ts_job_id = request.get("jobId", "unknown")
+    run_id = request.get("runId")
+    if not run_id:
+        logger.warning(
+            f"[Job {ts_job_id}] No runId in request — falling back to jobId as checkpoint key. "
+            "Upgrade the TS client to send runId for stable resume across retries."
+        )
+        run_id = ts_job_id
     property_key = request["propertyKey"]
     image_paths = [Path(p).resolve() for p in request["images"]]
     artifacts_root = Path(request["artifactsRoot"]).resolve()
@@ -311,6 +360,23 @@ def _process_job(
     job_dir = artifacts_root / property_key / internal_job_id
     job_dir.mkdir(parents=True, exist_ok=True)
 
+    # Per-run checkpoint dir, parallel to internal_job_id job dirs. The runId is
+    # stable across retries so re-attempts of the same AnalysisRun resume from
+    # disk; a fresh "Re-analyze" generates a new runId and starts clean.
+    ckpt_dir = artifacts_root / property_key / ".checkpoints" / run_id
+    cached_results: Dict[int, ImageResult] = _load_checkpoint(ckpt_dir, len(image_paths))
+    if cached_results:
+        logger.info(
+            f"[Job {ts_job_id}] Resuming from checkpoint: "
+            f"{len(cached_results)}/{len(image_paths)} images already complete"
+        )
+        _emit({
+            "type": "resumed",
+            "jobId": ts_job_id,
+            "completed": len(cached_results),
+            "total": len(image_paths),
+        })
+
     # Wrap the entire job body in try/finally so cfg.GPT_PASS_*_MODEL is always
     # restored — critical because cfg is module-global and the persistent server
     # processes many jobs back-to-back. Without this, an exception mid-job would
@@ -329,6 +395,20 @@ def _process_job(
 
             async def _analyze_one(idx, image_path):
                 nonlocal completed
+                # Skip if a prior attempt already completed this image successfully.
+                # Still emit progress so the frontend % advances during resume.
+                if idx in cached_results and not cached_results[idx].error:
+                    logger.info(f"  [cached] image {idx}: {image_path.name}")
+                    completed += 1
+                    _emit({
+                        "type": "progress",
+                        "jobId": ts_job_id,
+                        "itemsDone": completed,
+                        "itemsTotal": total_images,
+                        "progress": round((completed / total_images) * 100),
+                    })
+                    return cached_results[idx]
+
                 async with sem:
                     img_start = time.time()
                     logger.info(f"  [start] Analyzing: {image_path.name}")
@@ -374,6 +454,14 @@ def _process_job(
                             processing_time=elapsed,
                             error=str(exc),
                         )
+
+                    # Persist successful images so a crash doesn't lose work.
+                    # Failed images are intentionally not cached — a retry should re-attempt them.
+                    if not img_result.error:
+                        try:
+                            _save_image_checkpoint(ckpt_dir, idx, img_result)
+                        except OSError as exc:
+                            logger.warning(f"  Checkpoint save failed for image {idx}: {exc}")
 
                     completed += 1
                     _emit({
@@ -445,6 +533,11 @@ def _process_job(
         # Emit result and job_done marker
         _emit({"type": "result", "jobId": ts_job_id, **summary})
         _emit({"type": "job_done", "jobId": ts_job_id})
+
+        # Only clear checkpoints on full success — leaves them intact on exception
+        # or SIGKILL so the next attempt with the same runId can resume. Must stay
+        # outside the finally block.
+        _clear_checkpoint(ckpt_dir)
     finally:
         # Restore cfg.GPT_PASS_*_MODEL to its pre-job state. Always runs, even
         # on exceptions — guarantees subsequent jobs in the persistent worker

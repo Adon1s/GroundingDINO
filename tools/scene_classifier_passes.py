@@ -1738,6 +1738,7 @@ PASS_2F_SYSTEM_PROMPT = (
     "- Do not infer hidden damage or unseen rooms.\n"
     "- Confirm only when the package-level pattern is visibly supported.\n"
     "- Reject when the proposed evidence is not visible or clearly contradicted.\n"
+    "- A modernization or \"outdated finishes\" package is clearly contradicted when the room shows predominantly updated finishes (e.g., shaker or slab cabinetry in current colors, stainless appliances, modern countertops, recent backsplash and flooring). A single isolated dated detail is not sufficient to confirm a modernization package against an otherwise updated room.\n"
     "- Use uncertain when the images are insufficient, ambiguous, cropped, too distant, or mixed.\n"
     "- Return only the requested JSON object.\n"
 )

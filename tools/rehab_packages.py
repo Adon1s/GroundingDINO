@@ -466,6 +466,36 @@ def is_dated_cosmetic_evidence(
     return catalog_item.get("category") in ("cosmetic", "opportunity")
 
 
+def _is_defect_driver_role(catalog_item: Dict[str, Any]) -> bool:
+    """A package_driver whose evidence is a concrete observable defect."""
+    return (
+        catalog_package_role(catalog_item) == PACKAGE_ROLE_DRIVER
+        and catalog_item.get("kind") == "defect"
+    )
+
+
+def _is_opportunity_driver(catalog_item: Dict[str, Any]) -> bool:
+    """A package_driver whose evidence is a subjective marketability judgment."""
+    return (
+        catalog_package_role(catalog_item) == PACKAGE_ROLE_DRIVER
+        and catalog_item.get("kind") == "upgrade"
+    )
+
+
+def _suppress_blocked_opportunity_drivers(
+    opportunity_drivers: List[EstimateCandidate],
+) -> None:
+    """Mark uncorroborated opportunity-driver candidates as invalid so they do
+    not flow through as standalone cost lines. Mirrors the Pass 2f rejection
+    pattern in apply_package_verifications_to_candidates."""
+    for candidate in opportunity_drivers:
+        candidate.is_valid_detection = False
+        candidate.pass_2f_attempted = False
+        candidate.pass_2f_applied = False
+        candidate.pass_2f_fallback_reason = "insufficient_corroboration_for_opportunity_driver"
+        candidate.review_source = "package_gate:opportunity_driver_uncorroborated"
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # Package inference
 # ═══════════════════════════════════════════════════════════════════════════
@@ -677,22 +707,36 @@ def infer_package_candidates(
 
     out: List[Dict[str, Any]] = []
     for unit_id, unit_candidates in sorted(by_unit.items()):
-        drivers: List[EstimateCandidate] = []
+        defect_drivers: List[EstimateCandidate] = []
+        opportunity_drivers: List[EstimateCandidate] = []
         supports: List[EstimateCandidate] = []
         for candidate in unit_candidates:
-            role = catalog_package_role(catalog_lookup.get(candidate.catalog_item_id or "", {}))
-            if role == PACKAGE_ROLE_DRIVER:
-                drivers.append(candidate)
-            elif role == PACKAGE_ROLE_SUPPORT:
+            cat_item = catalog_lookup.get(candidate.catalog_item_id or "", {})
+            if _is_defect_driver_role(cat_item):
+                defect_drivers.append(candidate)
+            elif _is_opportunity_driver(cat_item):
+                opportunity_drivers.append(candidate)
+            elif catalog_package_role(cat_item) == PACKAGE_ROLE_SUPPORT:
                 supports.append(candidate)
 
-        if drivers:
+        distinct_opportunity_ids = {
+            c.catalog_item_id for c in opportunity_drivers if c.catalog_item_id
+        }
+
+        if defect_drivers:
+            drivers = defect_drivers + opportunity_drivers
             supporting = drivers + supports
             trigger_reason = "package_driver"
+        elif opportunity_drivers and (supports or len(distinct_opportunity_ids) >= 2):
+            drivers = list(opportunity_drivers)
+            supporting = drivers + supports
+            trigger_reason = "opportunity_driver_with_corroboration"
         elif len(supports) >= 2:
+            drivers = []
             supporting = supports
             trigger_reason = "multiple_package_support_same_estimate_unit"
         else:
+            _suppress_blocked_opportunity_drivers(opportunity_drivers)
             continue
 
         first = supporting[0]
