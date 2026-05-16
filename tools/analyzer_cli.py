@@ -759,7 +759,7 @@ def main() -> int:
             nonlocal completed
             async with sem:
                 img_start = time.time()
-                logger.info(f"[start] Analyzing: {image_path.name}")
+                logger.info(f"[start] Analyzing: {image_path.name} ({idx + 1}/{len(images)})")
 
                 try:
                     img_options = options.with_meta(

@@ -247,8 +247,30 @@ def _save_image_checkpoint(ckpt_dir: Path, idx: int, image_result: ImageResult) 
     os.replace(tmp, target)
 
 
-def _load_checkpoint(ckpt_dir: Path, n_images: int) -> Dict[int, ImageResult]:
-    """Load any prior per-image checkpoints. Tolerant of corrupt files and schema drift."""
+def _ckpt_key(p: Path) -> tuple:
+    """Identity tuple for matching a checkpoint entry to a current input path.
+
+    Compares (parent_dir_name, filename). Basename alone is insufficient when
+    multiple property folders use the same naming convention (e.g. photo_001.jpg
+    appears in many redfin_<id> folders) — including the parent dir name catches
+    cross-property contamination like the 337 → 386 Jackson Point Cir bug.
+    """
+    return (p.parent.name, p.name)
+
+
+def _load_checkpoint(
+    ckpt_dir: Path,
+    n_images: int,
+    image_paths: List[Path],
+) -> Dict[int, ImageResult]:
+    """Load any prior per-image checkpoints. Tolerant of corrupt files and schema drift.
+
+    Each loaded entry is validated against `image_paths[idx]` — if the stored
+    image_path's (parent, filename) doesn't match the current input, the
+    checkpoint is discarded (kept on disk for forensics). This prevents stale
+    checkpoints from a prior aborted run (which may have been bound to the
+    wrong property's photos) from contaminating a fresh resume.
+    """
     if not ckpt_dir.is_dir():
         return {}
     out: Dict[int, ImageResult] = {}
@@ -260,7 +282,17 @@ def _load_checkpoint(ckpt_dir: Path, n_images: int) -> Dict[int, ImageResult]:
                 continue
             raw = json.loads(f.read_text(encoding="utf-8"))
             raw = {k: v for k, v in raw.items() if k in known_fields}
-            out[idx] = ImageResult(**raw)
+            result = ImageResult(**raw)
+            expected = image_paths[idx]
+            actual = Path(result.image_path)
+            if _ckpt_key(actual) != _ckpt_key(expected):
+                logger.warning(
+                    f"Discarding checkpoint {f.name}: image_path mismatch "
+                    f"(expected {_ckpt_key(expected)}, got {_ckpt_key(actual)}). "
+                    f"Likely contamination from a prior aborted run."
+                )
+                continue
+            out[idx] = result
         except (ValueError, json.JSONDecodeError, TypeError, OSError) as exc:
             logger.warning(f"Skipping unreadable checkpoint {f}: {exc}")
     return out
@@ -364,7 +396,9 @@ def _process_job(
     # stable across retries so re-attempts of the same AnalysisRun resume from
     # disk; a fresh "Re-analyze" generates a new runId and starts clean.
     ckpt_dir = artifacts_root / property_key / ".checkpoints" / run_id
-    cached_results: Dict[int, ImageResult] = _load_checkpoint(ckpt_dir, len(image_paths))
+    cached_results: Dict[int, ImageResult] = _load_checkpoint(
+        ckpt_dir, len(image_paths), image_paths
+    )
     if cached_results:
         logger.info(
             f"[Job {ts_job_id}] Resuming from checkpoint: "
@@ -398,7 +432,7 @@ def _process_job(
                 # Skip if a prior attempt already completed this image successfully.
                 # Still emit progress so the frontend % advances during resume.
                 if idx in cached_results and not cached_results[idx].error:
-                    logger.info(f"  [cached] image {idx}: {image_path.name}")
+                    logger.info(f"  [cached] image {image_path.name} ({idx + 1}/{total_images})")
                     completed += 1
                     _emit({
                         "type": "progress",
@@ -411,7 +445,7 @@ def _process_job(
 
                 async with sem:
                     img_start = time.time()
-                    logger.info(f"  [start] Analyzing: {image_path.name}")
+                    logger.info(f"  [start] Analyzing: {image_path.name} ({idx + 1}/{total_images})")
 
                     try:
                         img_options = options.with_meta(
