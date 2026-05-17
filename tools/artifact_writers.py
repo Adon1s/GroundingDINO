@@ -58,9 +58,13 @@ def _build_ui_priorities_v1(
     """Build frontend priority lanes from verified/package-first v4 output."""
     try:
         from tools.rehab_packages import (
+            ACTIVE_PACKAGE_STATUSES,
             DISPLAY_CLASS_ESTIMATE_DRIVER,
             DISPLAY_CLASS_HIGH_CONCERN,
             DISPLAY_CLASS_MARKETABILITY,
+            PACKAGE_CATEGORY_MODERNIZATION,
+            PACKAGE_CATEGORY_REPAIR,
+            PACKAGE_CATEGORY_TURNOVER,
             catalog_display_class,
         )
     except Exception:
@@ -115,14 +119,25 @@ def _build_ui_priorities_v1(
         elif display_class == DISPLAY_CLASS_MARKETABILITY:
             marketability_signals.append(record)
 
-    confirmed_packages = [
+    active_packages = [
         package for package in (v4.get("packages") or [])
-        if isinstance(package, dict) and package.get("verification_status") == "confirmed"
+        if isinstance(package, dict) and package.get("verification_status") in ACTIVE_PACKAGE_STATUSES
     ]
     audit_only = [
         package for package in (v4.get("package_candidates") or [])
-        if isinstance(package, dict) and package.get("verification_status") != "confirmed"
+        if isinstance(package, dict) and package.get("verification_status") not in ACTIVE_PACKAGE_STATUSES
     ]
+    confirmed_packages_by_category = {
+        PACKAGE_CATEGORY_MODERNIZATION: [
+            p for p in active_packages if p.get("package_category") == PACKAGE_CATEGORY_MODERNIZATION
+        ],
+        PACKAGE_CATEGORY_REPAIR: [
+            p for p in active_packages if p.get("package_category") == PACKAGE_CATEGORY_REPAIR
+        ],
+        PACKAGE_CATEGORY_TURNOVER: [
+            p for p in active_packages if p.get("package_category") == PACKAGE_CATEGORY_TURNOVER
+        ],
+    }
     raw_high_concern = [
         _issue_record(issue)
         for issue in (issues_flat or [])
@@ -136,9 +151,13 @@ def _build_ui_priorities_v1(
         "version": "ui_priorities_v1",
         "verified_estimate_drivers": verified_estimate_drivers,
         "high_concern_issues": high_concern_issues or raw_high_concern,
-        "confirmed_modernization_packages": confirmed_packages,
+        # Legacy lane: sourced from the categorized map so the name stays accurate
+        # as repair/turnover categories land alongside modernization.
+        "confirmed_modernization_packages": confirmed_packages_by_category[PACKAGE_CATEGORY_MODERNIZATION],
         "marketability_signals": marketability_signals,
         "audit_only_suppressed_or_unverified": audit_only,
+        # NEW additive map keyed by package_category.
+        "confirmed_packages_by_category": confirmed_packages_by_category,
     }
 
 

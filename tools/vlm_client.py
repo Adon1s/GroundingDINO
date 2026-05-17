@@ -1074,7 +1074,7 @@ def get_model_configs_from_pipeline_config(cfg: Any) -> Tuple[Dict[str, Any], Di
     """
     qwen_config = {
         'url': getattr(cfg, 'LM_STUDIO_URL', 'http://localhost:1234'),
-        'model': getattr(cfg, 'LM_STUDIO_MODEL', 'qwen/gemma-4-31B-it'),
+        'model': getattr(cfg, 'LM_STUDIO_MODEL', os.environ.get('LM_STUDIO_MODEL', '')),
         'provider': 'lmstudio',
     }
 

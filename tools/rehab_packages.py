@@ -43,11 +43,15 @@ from tools.renovation_estimate import GROUP_BUDGET_CAPS, EstimateCandidate
 logger = logging.getLogger(__name__)
 
 
-# ── Package level cost ranges (name, low, high) ─────────────────────────────
+# ── Package level cost ranges (pricing_tier, low, high) ──────────────────────
 KITCHEN_MINOR_REPAIR    = ("kitchen_minor_repair",    1_000,  5_000)
 KITCHEN_REFRESH         = ("kitchen_refresh",         6_000, 18_000)
 KITCHEN_PARTIAL_REHAB   = ("kitchen_partial_rehab",  15_000, 35_000)
 KITCHEN_FULL_REHAB      = ("kitchen_full_rehab",     30_000, 70_000)
+KITCHEN_REPAIR_LIGHT    = ("kitchen_repair_light",      750,  3_500)
+KITCHEN_REPAIR_HEAVY    = ("kitchen_repair_heavy",    3_500, 12_000)
+KITCHEN_TURNOVER_LIGHT  = ("kitchen_turnover_light",    600,  2_500)
+KITCHEN_TURNOVER_STD    = ("kitchen_turnover_std",    2_500,  6_500)
 
 BATHROOM_MINOR_REPAIR   = ("bathroom_minor_repair",     500,  3_000)
 BATHROOM_REFRESH        = ("bathroom_refresh",        3_000, 10_000)
@@ -100,17 +104,81 @@ VALID_PACKAGE_ROLES = frozenset({
 })
 
 PACKAGE_TYPE_KITCHEN_MODERNIZATION = "kitchen_modernization"
-VALID_PACKAGE_TYPES = frozenset({PACKAGE_TYPE_KITCHEN_MODERNIZATION})
+PACKAGE_TYPE_KITCHEN_REPAIR = "kitchen_repair"
+PACKAGE_TYPE_KITCHEN_TURNOVER = "kitchen_turnover"
+PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH = "interior_paint_flooring_refresh"
+VALID_PACKAGE_TYPES = frozenset({
+    PACKAGE_TYPE_KITCHEN_MODERNIZATION,
+    PACKAGE_TYPE_KITCHEN_REPAIR,
+    PACKAGE_TYPE_KITCHEN_TURNOVER,
+    PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH,
+})
+
+PACKAGE_CATEGORY_MODERNIZATION = "modernization"
+PACKAGE_CATEGORY_REPAIR = "repair"
+PACKAGE_CATEGORY_TURNOVER = "turnover"
+PACKAGE_CATEGORY_INSPECTION_RISK = "inspection_risk"
+VALID_PACKAGE_CATEGORIES = frozenset({
+    PACKAGE_CATEGORY_MODERNIZATION,
+    PACKAGE_CATEGORY_REPAIR,
+    PACKAGE_CATEGORY_TURNOVER,
+    PACKAGE_CATEGORY_INSPECTION_RISK,
+})
+
+ROOM_KITCHEN = "kitchen"
+ROOM_BATHROOM = "bathroom"
+ROOM_BEDROOM = "bedroom"
+ROOM_LIVING = "living"
+ROOM_EXTERIOR = "exterior"
+ROOM_WHOLE_HOME = "whole_home"
+VALID_ROOMS = frozenset({
+    ROOM_KITCHEN,
+    ROOM_BATHROOM,
+    ROOM_BEDROOM,
+    ROOM_LIVING,
+    ROOM_EXTERIOR,
+    ROOM_WHOLE_HOME,
+})
+
+PACKAGE_LEVEL_PROPERTY = "property"
+PACKAGE_LEVEL_ROOM = "room"
+PACKAGE_LEVEL_COMPONENT = "component"
+PACKAGE_LEVEL_SYSTEM = "system"
+VALID_PACKAGE_LEVELS = frozenset({
+    PACKAGE_LEVEL_PROPERTY,
+    PACKAGE_LEVEL_ROOM,
+    PACKAGE_LEVEL_COMPONENT,
+    PACKAGE_LEVEL_SYSTEM,
+})
+
+PACKAGE_STRENGTH_STRONG = "strong"
+PACKAGE_STRENGTH_MODERATE = "moderate"
+PACKAGE_STRENGTH_WEAK = "weak"
+VALID_PACKAGE_STRENGTHS = frozenset({
+    PACKAGE_STRENGTH_STRONG,
+    PACKAGE_STRENGTH_MODERATE,
+    PACKAGE_STRENGTH_WEAK,
+})
+VALID_EMITTED_PACKAGE_STRENGTHS = frozenset({
+    PACKAGE_STRENGTH_STRONG,
+    PACKAGE_STRENGTH_MODERATE,
+})
 
 PACKAGE_VERIFICATION_CONFIRMED = "confirmed"
+PACKAGE_VERIFICATION_CONFIRMED_BY_RULE = "confirmed_by_rule"
 PACKAGE_VERIFICATION_REJECTED = "rejected"
 PACKAGE_VERIFICATION_UNCERTAIN = "uncertain"
 PACKAGE_VERIFICATION_NOT_RUN = "not_run"
 VALID_PACKAGE_VERIFICATION_STATUSES = frozenset({
     PACKAGE_VERIFICATION_CONFIRMED,
+    PACKAGE_VERIFICATION_CONFIRMED_BY_RULE,
     PACKAGE_VERIFICATION_REJECTED,
     PACKAGE_VERIFICATION_UNCERTAIN,
     PACKAGE_VERIFICATION_NOT_RUN,
+})
+ACTIVE_PACKAGE_STATUSES = frozenset({
+    PACKAGE_VERIFICATION_CONFIRMED,
+    PACKAGE_VERIFICATION_CONFIRMED_BY_RULE,
 })
 
 _PACKAGE_ABSORPTION_SCOPES: Dict[str, Dict[str, Any]] = {
@@ -137,6 +205,30 @@ _PACKAGE_ABSORPTION_SCOPES: Dict[str, Dict[str, Any]] = {
         "groups": {"kitchen", "flooring"},
         "trade_buckets": {"kitchen_cabinets_counters", "flooring", "paint_drywall"},
         "components": {"cabinets", "counter", "kitchen_finish", "appliance", "flooring", "paint"},
+    },
+    "kitchen_repair_light": {
+        "family": "kitchen",
+        "groups": {"kitchen"},
+        "trade_buckets": {"kitchen_cabinets_counters", "plumbing", "electrical", "moisture_mold"},
+        "components": {"cabinets", "appliance", "plumbing", "electrical", "moisture"},
+    },
+    "kitchen_repair_heavy": {
+        "family": "kitchen",
+        "groups": {"kitchen", "flooring"},
+        "trade_buckets": {"kitchen_cabinets_counters", "plumbing", "electrical", "moisture_mold", "flooring"},
+        "components": {"cabinets", "appliance", "plumbing", "electrical", "moisture", "flooring"},
+    },
+    "kitchen_turnover_light": {
+        "family": "kitchen",
+        "groups": {"kitchen"},
+        "trade_buckets": {"paint_drywall", "cleaning_turnover"},
+        "components": {"paint", "kitchen_finish"},
+    },
+    "kitchen_turnover_std": {
+        "family": "kitchen",
+        "groups": {"kitchen", "flooring"},
+        "trade_buckets": {"paint_drywall", "flooring", "cleaning_turnover"},
+        "components": {"paint", "kitchen_finish", "flooring"},
     },
     "bathroom_minor_repair": {
         "family": "bathroom",
@@ -262,6 +354,52 @@ def catalog_package_type(catalog_item: Dict[str, Any]) -> Optional[str]:
     return None
 
 
+# Package-type → default category fallback (used until every kitchen entry is
+# explicitly re-tagged with `package_category`). Modernization is the legacy
+# default for kitchen_modernization data already on disk.
+_PACKAGE_TYPE_TO_CATEGORY = {
+    PACKAGE_TYPE_KITCHEN_MODERNIZATION: PACKAGE_CATEGORY_MODERNIZATION,
+    PACKAGE_TYPE_KITCHEN_REPAIR: PACKAGE_CATEGORY_REPAIR,
+    PACKAGE_TYPE_KITCHEN_TURNOVER: PACKAGE_CATEGORY_TURNOVER,
+    PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH: PACKAGE_CATEGORY_TURNOVER,
+}
+
+_PACKAGE_TYPE_TO_ROOM = {
+    PACKAGE_TYPE_KITCHEN_MODERNIZATION: ROOM_KITCHEN,
+    PACKAGE_TYPE_KITCHEN_REPAIR: ROOM_KITCHEN,
+    PACKAGE_TYPE_KITCHEN_TURNOVER: ROOM_KITCHEN,
+    PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH: ROOM_WHOLE_HOME,
+}
+
+
+def catalog_package_category(catalog_item: Dict[str, Any]) -> Optional[str]:
+    raw = str(catalog_item.get("package_category") or "").strip().lower()
+    if raw in VALID_PACKAGE_CATEGORIES:
+        return raw
+    package_type = catalog_package_type(catalog_item)
+    if package_type:
+        return _PACKAGE_TYPE_TO_CATEGORY.get(package_type)
+    return None
+
+
+def catalog_room(catalog_item: Dict[str, Any]) -> Optional[str]:
+    raw = str(catalog_item.get("room") or "").strip().lower()
+    if raw in VALID_ROOMS:
+        return raw
+    package_type = catalog_package_type(catalog_item)
+    if package_type:
+        room = _PACKAGE_TYPE_TO_ROOM.get(package_type)
+        if room:
+            return room
+    scene_groups = catalog_item.get("scene_groups") or ()
+    if isinstance(scene_groups, (list, tuple)):
+        for scene in scene_groups:
+            scene_norm = str(scene or "").strip().lower()
+            if scene_norm in VALID_ROOMS:
+                return scene_norm
+    return None
+
+
 def is_package_eligible_catalog_item(catalog_item: Dict[str, Any]) -> bool:
     """True when a catalog item should use package-level verification."""
     return (
@@ -348,6 +486,78 @@ def _package_absorption_scope(package_type: str) -> Dict[str, Any]:
         "trade_buckets": sorted(raw.get("trade_buckets") or []),
         "components": sorted(raw.get("components") or []),
     }
+
+
+# Strong-signal sentinels: a single occurrence of these catalog IDs is enough
+# to elevate a package to strong strength regardless of corroboration count.
+# Extended as the kitchen catalog is re-tagged; bathroom/etc. added in later passes.
+_STRONG_SIGNAL_CATALOG_IDS = frozenset({
+    "missing_base_cabinets_exposed_subfloor",
+})
+
+
+def _has_strong_signal(candidates: List[EstimateCandidate]) -> bool:
+    for candidate in candidates or []:
+        cat_id = candidate.catalog_item_id or ""
+        if cat_id in _STRONG_SIGNAL_CATALOG_IDS:
+            return True
+        if (candidate.severity or 0) >= 3 and cat_id == "outdated_kitchen_finishes":
+            return True
+    return False
+
+
+def compute_package_strength(
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+) -> str:
+    """Classify package strength per the user's threshold rules.
+
+    Strong:   >=2 distinct driver catalog IDs, OR 1 driver + >=2 supports,
+              OR any candidate matches a strong-signal sentinel.
+    Moderate: any single driver (with or without one support), OR
+              >=2 supports same estimate_unit.
+    Weak:    a single orphan support (or empty). Caller should suppress.
+    """
+    if _has_strong_signal(drivers) or _has_strong_signal(supports):
+        return PACKAGE_STRENGTH_STRONG
+
+    distinct_driver_ids = {c.catalog_item_id for c in drivers if c.catalog_item_id}
+    if len(distinct_driver_ids) >= 2:
+        return PACKAGE_STRENGTH_STRONG
+    if drivers and len(supports) >= 2:
+        return PACKAGE_STRENGTH_STRONG
+
+    if drivers:
+        # Any catalog-tagged driver — even alone — meets the moderate bar.
+        # Isolated supports do not, to honor the user's "weak signal" rule.
+        return PACKAGE_STRENGTH_MODERATE
+    if len(supports) >= 2:
+        return PACKAGE_STRENGTH_MODERATE
+
+    return PACKAGE_STRENGTH_WEAK
+
+
+def compute_initial_confidence_score(strength: str) -> float:
+    """Prior confidence score before Pass 2f verification."""
+    if strength == PACKAGE_STRENGTH_STRONG:
+        return 0.30
+    if strength == PACKAGE_STRENGTH_MODERATE:
+        return 0.15
+    return 0.0
+
+
+def compute_post_verification_score(
+    initial_score: float,
+    confirmed_count: int,
+    rejected_count: int,
+    supporting_count: int,
+) -> float:
+    """Update confidence after Pass 2f returns confirmed/rejected counts."""
+    denom = max(int(supporting_count or 0), 1)
+    bonus = 0.5 * (int(confirmed_count or 0) / denom)
+    penalty = 0.2 * (int(rejected_count or 0) / denom)
+    score = float(initial_score) + bonus - penalty
+    return max(0.0, min(1.0, score))
 
 
 def _package_child_absorption_reason(
@@ -594,6 +804,60 @@ def _resolve_kitchen_modernization_profile(
     return KITCHEN_REFRESH, "refresh", notes + ["multiple package_support refresh"]
 
 
+def _resolve_kitchen_repair_profile(
+    evidence: List[EstimateCandidate],
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+) -> Tuple[Tuple[str, int, int], str, List[str]]:
+    """Kitchen repair pricing: light vs heavy based on component breadth."""
+    components = {classify_component(c) for c in evidence}
+    components.discard(None)
+    notes: List[str] = []
+    heavy_components = components.intersection({"plumbing", "electrical", "moisture", "flooring"})
+    if drivers and heavy_components:
+        notes.append("driver_with_heavy_component")
+        return KITCHEN_REPAIR_HEAVY, "repair_heavy", notes
+    if len(components) >= 3:
+        notes.append("multi_component_repair")
+        return KITCHEN_REPAIR_HEAVY, "repair_heavy", notes
+    notes.append("light_repair_default")
+    return KITCHEN_REPAIR_LIGHT, "repair_light", notes
+
+
+def _resolve_kitchen_turnover_profile(
+    evidence: List[EstimateCandidate],
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+) -> Tuple[Tuple[str, int, int], str, List[str]]:
+    """Kitchen turnover pricing: light (paint-only) vs std (paint + flooring)."""
+    components = {classify_component(c) for c in evidence}
+    components.discard(None)
+    notes: List[str] = []
+    if "flooring" in components and "paint" in components:
+        notes.append("paint_plus_flooring")
+        return KITCHEN_TURNOVER_STD, "turnover_std", notes
+    if len(evidence) >= 3:
+        notes.append("multi_signal_turnover")
+        return KITCHEN_TURNOVER_STD, "turnover_std", notes
+    notes.append("light_turnover_default")
+    return KITCHEN_TURNOVER_LIGHT, "turnover_light", notes
+
+
+def _resolve_pricing_profile(
+    package_type: str,
+    evidence: List[EstimateCandidate],
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+) -> Tuple[Tuple[str, int, int], str, List[str]]:
+    """Dispatch to the right kitchen profile resolver for the package_type."""
+    if package_type == PACKAGE_TYPE_KITCHEN_REPAIR:
+        return _resolve_kitchen_repair_profile(evidence, drivers, supports)
+    if package_type == PACKAGE_TYPE_KITCHEN_TURNOVER:
+        return _resolve_kitchen_turnover_profile(evidence, drivers, supports)
+    # Default — kitchen_modernization and any future modernization-family types.
+    return _resolve_kitchen_modernization_profile(evidence, drivers, supports)
+
+
 def _build_package_candidate(
     *,
     package_type: str,
@@ -606,17 +870,25 @@ def _build_package_candidate(
     catalog_lookup: Dict[str, Dict[str, Any]],
     trigger_reason: str,
 ) -> Dict[str, Any]:
-    spec, package_level, decision_notes = _resolve_kitchen_modernization_profile(
+    spec, pricing_tier, decision_notes = _resolve_pricing_profile(
+        package_type,
         supporting_candidates,
         drivers,
         supports,
     )
     pricing_profile, cost_low, cost_high = spec
     cost_model, cost_model_source = derive_package_cost_model()
+    package_strength = compute_package_strength(drivers, supports)
+    confidence_score = compute_initial_confidence_score(package_strength)
+    package_category, room = _resolve_package_category_and_room(
+        package_type, drivers, supports, catalog_lookup,
+    )
     estimate_scope, estimate_scope_reason = classify_package_scope(
         pricing_profile,
         supporting_candidates,
         trigger_reason,
+        package_category=package_category,
+        package_strength=package_strength,
     )
     issue_ids: List[str] = []
     cat_ids: List[str] = []
@@ -635,12 +907,17 @@ def _build_package_candidate(
     return {
         "package_id": f"{package_type}__{unit_id}",
         "package_type": package_type,
-        "package_level": package_level,
+        "package_category": package_category,
+        "room": room,
+        "package_level": PACKAGE_LEVEL_ROOM,
+        "package_strength": package_strength,
+        "confidence_score": confidence_score,
+        "pricing_tier": pricing_tier,
         "pricing_profile": pricing_profile,
         "room_surrogate_id": room_surrogate_id,
         "estimate_unit_id": unit_id,
         "source_room_surrogate_ids": list(source_room_surrogate_ids or []),
-        "estimate_group": "kitchen",
+        "estimate_group": room or "kitchen",
         "estimate_scope": estimate_scope,
         "estimate_scope_reason": estimate_scope_reason,
         "candidate_cost_low": cost_low,
@@ -675,14 +952,46 @@ def _build_package_candidate(
     }
 
 
+def _resolve_package_category_and_room(
+    package_type: str,
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+    catalog_lookup: Dict[str, Dict[str, Any]],
+) -> Tuple[str, Optional[str]]:
+    """Pick category and room from the first driver (or first support fallback).
+
+    Falls back to the package_type → category/room map when catalog metadata
+    is missing on the candidate's catalog entry.
+    """
+    for candidate in list(drivers or []) + list(supports or []):
+        cat_item = catalog_lookup.get(candidate.catalog_item_id or "", {})
+        category = catalog_package_category(cat_item)
+        room = catalog_room(cat_item)
+        if category or room:
+            return (
+                category or _PACKAGE_TYPE_TO_CATEGORY.get(package_type) or PACKAGE_CATEGORY_MODERNIZATION,
+                room or _PACKAGE_TYPE_TO_ROOM.get(package_type),
+            )
+    return (
+        _PACKAGE_TYPE_TO_CATEGORY.get(package_type) or PACKAGE_CATEGORY_MODERNIZATION,
+        _PACKAGE_TYPE_TO_ROOM.get(package_type),
+    )
+
+
 def infer_package_candidates(
     candidates: List[EstimateCandidate],
     room_surrogates: List[Dict[str, Any]],
     issue_catalog: Dict[str, Any],
     *,
     estimate_units: Optional[List[Dict[str, Any]]] = None,
+    suppressed_out: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
-    """Build package candidates from catalog package metadata."""
+    """Build package candidates from catalog package metadata.
+
+    Candidates are grouped by (estimate_unit_id, package_type) and dispatched
+    to the matching pricing profile resolver. Weak-strength buckets are
+    suppressed and (optionally) reported through ``suppressed_out`` for audit.
+    """
     catalog_lookup = _catalog_lookup(issue_catalog)
     scene_by_room = {
         str(r.get("room_surrogate_id") or ""): str(r.get("scene") or "")
@@ -690,23 +999,29 @@ def infer_package_candidates(
         if isinstance(r, dict)
     }
 
-    by_unit: Dict[str, List[EstimateCandidate]] = {}
+    by_unit_type: Dict[Tuple[str, str], List[EstimateCandidate]] = {}
     for candidate in candidates or []:
         cat_item = catalog_lookup.get(candidate.catalog_item_id or "", {})
         if not is_package_eligible_catalog_item(cat_item):
             continue
         package_type = catalog_package_type(cat_item)
-        if package_type != PACKAGE_TYPE_KITCHEN_MODERNIZATION:
+        if package_type not in VALID_PACKAGE_TYPES:
             continue
-        if scene_by_room and candidate.room_surrogate_id:
+        # Kitchen package types are kitchen-scoped; the property-wide
+        # turnover aggregate (interior_paint_flooring_refresh) is derived
+        # downstream from per-room turnover packages, not inferred here.
+        if package_type == PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH:
+            continue
+        expected_room = _PACKAGE_TYPE_TO_ROOM.get(package_type)
+        if expected_room == ROOM_KITCHEN and scene_by_room and candidate.room_surrogate_id:
             scene = scene_by_room.get(candidate.room_surrogate_id)
             if scene and scene != "kitchen":
                 continue
         unit_id = _candidate_unit_id(candidate)
-        by_unit.setdefault(unit_id, []).append(candidate)
+        by_unit_type.setdefault((unit_id, package_type), []).append(candidate)
 
     out: List[Dict[str, Any]] = []
-    for unit_id, unit_candidates in sorted(by_unit.items()):
+    for (unit_id, package_type), unit_candidates in sorted(by_unit_type.items()):
         defect_drivers: List[EstimateCandidate] = []
         opportunity_drivers: List[EstimateCandidate] = []
         supports: List[EstimateCandidate] = []
@@ -737,6 +1052,26 @@ def infer_package_candidates(
             trigger_reason = "multiple_package_support_same_estimate_unit"
         else:
             _suppress_blocked_opportunity_drivers(opportunity_drivers)
+            if suppressed_out is not None:
+                suppressed_out.append(_build_suppressed_candidate_record(
+                    unit_id=unit_id,
+                    package_type=package_type,
+                    drivers=opportunity_drivers,
+                    supports=supports,
+                    reason="weak_no_qualifying_pattern",
+                ))
+            continue
+
+        strength = compute_package_strength(drivers, supports)
+        if strength not in VALID_EMITTED_PACKAGE_STRENGTHS:
+            if suppressed_out is not None:
+                suppressed_out.append(_build_suppressed_candidate_record(
+                    unit_id=unit_id,
+                    package_type=package_type,
+                    drivers=drivers,
+                    supports=supports,
+                    reason="weak_strength_below_emit_threshold",
+                ))
             continue
 
         first = supporting[0]
@@ -744,7 +1079,7 @@ def infer_package_candidates(
         if not source_room_ids and first.room_surrogate_id:
             source_room_ids = [first.room_surrogate_id]
         out.append(_build_package_candidate(
-            package_type=PACKAGE_TYPE_KITCHEN_MODERNIZATION,
+            package_type=package_type,
             unit_id=unit_id,
             room_surrogate_id=first.room_surrogate_id or (source_room_ids[0] if source_room_ids else ""),
             source_room_surrogate_ids=source_room_ids,
@@ -755,6 +1090,29 @@ def infer_package_candidates(
             trigger_reason=trigger_reason,
         ))
     return out
+
+
+def _build_suppressed_candidate_record(
+    *,
+    unit_id: str,
+    package_type: str,
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+    reason: str,
+) -> Dict[str, Any]:
+    """Lightweight debug record for weak-strength inference attempts."""
+    return {
+        "estimate_unit_id": unit_id,
+        "package_type": package_type,
+        "package_strength": PACKAGE_STRENGTH_WEAK,
+        "suppression_reason": reason,
+        "driver_catalog_item_ids": _unique_in_order(
+            [c.catalog_item_id for c in drivers if c.catalog_item_id]
+        ),
+        "support_catalog_item_ids": _unique_in_order(
+            [c.catalog_item_id for c in supports if c.catalog_item_id]
+        ),
+    }
 
 
 def _verification_lookup(package_verifications: Any) -> Dict[str, Dict[str, Any]]:
@@ -793,9 +1151,16 @@ def _apply_verification_to_package(
     pkg["raw_pass_2f_response"] = verification.get("raw_response") or pkg.get("raw_pass_2f_response")
     pkg["review_photo_keys"] = list(verification.get("review_photo_keys") or pkg.get("review_photo_keys") or [])
     pkg["review_image_paths"] = list(verification.get("review_image_paths") or pkg.get("review_image_paths") or [])
-    pkg["estimate_eligible"] = status == PACKAGE_VERIFICATION_CONFIRMED
-    pkg["ui_eligible"] = status == PACKAGE_VERIFICATION_CONFIRMED
-    pkg["audit_only"] = status != PACKAGE_VERIFICATION_CONFIRMED
+    is_active = status in ACTIVE_PACKAGE_STATUSES
+    pkg["estimate_eligible"] = is_active
+    pkg["ui_eligible"] = is_active
+    pkg["audit_only"] = not is_active
+    pkg["confidence_score"] = compute_post_verification_score(
+        initial_score=float(pkg.get("confidence_score") or 0.0),
+        confirmed_count=len(pkg["confirmed_issue_ids"]),
+        rejected_count=len(pkg["rejected_issue_ids"]),
+        supporting_count=len(pkg.get("supporting_issue_ids") or []),
+    )
     return pkg
 
 
@@ -816,11 +1181,113 @@ def finalize_package_candidates(
             verification_by_id.get(package_id),
         )
         audit_packages.append(finalized)
-        if require_confirmation and finalized.get("verification_status") != PACKAGE_VERIFICATION_CONFIRMED:
+        final_status = finalized.get("verification_status")
+        if require_confirmation and final_status not in ACTIVE_PACKAGE_STATUSES:
             continue
-        if finalized.get("verification_status") == PACKAGE_VERIFICATION_CONFIRMED:
+        if final_status in ACTIVE_PACKAGE_STATUSES:
             estimate_packages.append(finalized)
     return estimate_packages, audit_packages
+
+
+_STRENGTH_RANK = {
+    PACKAGE_STRENGTH_STRONG: 2,
+    PACKAGE_STRENGTH_MODERATE: 1,
+    PACKAGE_STRENGTH_WEAK: 0,
+}
+
+
+def aggregate_whole_home_turnover(
+    active_packages: List[Dict[str, Any]],
+) -> Optional[Dict[str, Any]]:
+    """Roll per-room turnover packages into a single property-wide bundle.
+
+    Returns None when fewer than two distinct rooms contributed (avoids a
+    noisy "whole-home turnover" derived from a single room's signals).
+    """
+    turnover = [
+        p for p in (active_packages or [])
+        if isinstance(p, dict) and p.get("package_category") == PACKAGE_CATEGORY_TURNOVER
+        and p.get("package_level") != PACKAGE_LEVEL_PROPERTY
+    ]
+    distinct_rooms = {p.get("room") for p in turnover if p.get("room")}
+    if len(distinct_rooms) < 2:
+        return None
+
+    cost_low = sum(int(p.get("cost_low") or 0) for p in turnover)
+    cost_high = sum(int(p.get("cost_high") or 0) for p in turnover)
+    strongest = max(
+        (p.get("package_strength") for p in turnover),
+        key=lambda s: _STRENGTH_RANK.get(s or "", -1),
+        default=PACKAGE_STRENGTH_MODERATE,
+    )
+    confidence = max(
+        (float(p.get("confidence_score") or 0.0) for p in turnover),
+        default=0.0,
+    )
+    supporting_issue_ids: List[str] = []
+    supporting_catalog_item_ids: List[str] = []
+    contributing_package_ids: List[str] = []
+    for p in turnover:
+        supporting_issue_ids.extend(p.get("supporting_issue_ids") or [])
+        supporting_catalog_item_ids.extend(p.get("supporting_catalog_item_ids") or [])
+        if p.get("package_id"):
+            contributing_package_ids.append(str(p["package_id"]))
+
+    return {
+        "package_id": "interior_paint_flooring_refresh__whole_home",
+        "package_type": PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH,
+        "package_category": PACKAGE_CATEGORY_TURNOVER,
+        "room": ROOM_WHOLE_HOME,
+        "package_level": PACKAGE_LEVEL_PROPERTY,
+        "package_strength": strongest,
+        "confidence_score": confidence,
+        "pricing_tier": "property_turnover_aggregate",
+        "pricing_profile": "interior_paint_flooring_refresh",
+        "room_surrogate_id": "",
+        "estimate_unit_id": "whole_home",
+        "source_room_surrogate_ids": [],
+        "estimate_group": ROOM_WHOLE_HOME,
+        "estimate_scope": MARKETABILITY_REHAB,
+        "estimate_scope_reason": "whole_home_turnover_aggregate",
+        "candidate_cost_low": cost_low,
+        "candidate_cost_high": cost_high,
+        "cost_low": cost_low,
+        "cost_high": cost_high,
+        "cost_midpoint": (cost_low + cost_high) // 2,
+        "cost_model": "aggregate",
+        "cost_model_source": "whole_home_turnover_sum",
+        "absorption_scope": {
+            "family": "whole_home",
+            "groups": [],
+            "trade_buckets": [],
+            "components": [],
+        },
+        "cap_behavior": CAP_BEHAVIOR_RESPECT_GROUP_CAP,
+        "absorbed_unit_member_refs": [],
+        "absorbed_total_low": 0,
+        "absorbed_total_high": 0,
+        "replacement_delta_low": 0,
+        "replacement_delta_high": 0,
+        "supporting_issue_ids": _unique_in_order(supporting_issue_ids),
+        "supporting_catalog_item_ids": _unique_in_order(supporting_catalog_item_ids),
+        "driver_issue_ids": [],
+        "support_issue_ids": _unique_in_order(supporting_issue_ids),
+        "review_photo_keys": [],
+        "evidence_items": [],
+        "trigger_reason": "whole_home_turnover_aggregate",
+        "level_decision_notes": [
+            f"aggregated_from_{len(distinct_rooms)}_rooms",
+            f"contributing_packages={len(turnover)}",
+        ],
+        "contributing_package_ids": contributing_package_ids,
+        "verification_status": PACKAGE_VERIFICATION_CONFIRMED_BY_RULE,
+        "confirmed_issue_ids": _unique_in_order(supporting_issue_ids),
+        "rejected_issue_ids": [],
+        "evidence_summary": "Aggregated from per-room turnover packages.",
+        "estimate_eligible": True,
+        "ui_eligible": True,
+        "audit_only": False,
+    }
 
 
 def apply_package_verifications_to_candidates(
@@ -856,11 +1323,14 @@ def apply_package_verifications_to_candidates(
         candidate.visual_verification_status = status
         candidate.package_verification_source = f"pass_2f:{provider}" if status != PACKAGE_VERIFICATION_NOT_RUN else "pass_2f:not_run"
         candidate.review_source = candidate.package_verification_source
-        if status == PACKAGE_VERIFICATION_CONFIRMED:
+        if status in ACTIVE_PACKAGE_STATUSES:
             candidate.is_valid_detection = True
-            candidate.pass_2f_attempted = True
-            candidate.pass_2f_applied = True
-            candidate.pass_2f_fallback_reason = None
+            candidate.pass_2f_attempted = status == PACKAGE_VERIFICATION_CONFIRMED
+            candidate.pass_2f_applied = status == PACKAGE_VERIFICATION_CONFIRMED
+            candidate.pass_2f_fallback_reason = (
+                None if status == PACKAGE_VERIFICATION_CONFIRMED
+                else f"package_{status}"
+            )
         else:
             candidate.is_valid_detection = False
             candidate.pass_2f_attempted = status != PACKAGE_VERIFICATION_NOT_RUN
@@ -893,6 +1363,17 @@ def select_package_review_image_paths(
     return selected_keys, selected_paths
 
 
+_PACKAGE_TYPE_VLM_LABELS = {
+    PACKAGE_TYPE_KITCHEN_MODERNIZATION: "Kitchen modernization",
+    PACKAGE_TYPE_KITCHEN_REPAIR: "Kitchen repair",
+}
+
+
+def _package_vlm_label(package: Dict[str, Any]) -> str:
+    pt = str(package.get("package_type") or "")
+    return _PACKAGE_TYPE_VLM_LABELS.get(pt, "Kitchen modernization")
+
+
 async def run_pass_2f_batch(
     package_candidates: List[Dict[str, Any]],
     *,
@@ -902,7 +1383,13 @@ async def run_pass_2f_batch(
     provider: str = "premium",
     max_images: int = 3,
 ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
-    """Run Pass 2f once per package candidate."""
+    """Run Pass 2f once per package candidate.
+
+    Turnover packages short-circuit: they are confirmed by deterministic
+    bundling, not by VLM image verification. They receive
+    ``verification_status = "confirmed_by_rule"`` to preserve trust semantics
+    (``"confirmed"`` continues to mean "VLM looked and said yes").
+    """
     from tools.scene_classifier_passes import run_pass_2f
 
     verifications: Dict[str, Dict[str, Any]] = {}
@@ -913,12 +1400,32 @@ async def run_pass_2f_batch(
         "candidate_count": len(package_candidates or []),
         "attempted_count": 0,
         "confirmed_count": 0,
+        "confirmed_by_rule_count": 0,
         "rejected_count": 0,
         "uncertain_count": 0,
         "no_image_count": 0,
     }
     for package in package_candidates or []:
         package_id = str(package.get("package_id") or "")
+
+        if package.get("package_category") == PACKAGE_CATEGORY_TURNOVER:
+            supporting_issue_ids = list(package.get("supporting_issue_ids") or [])
+            verifications[package_id] = {
+                "package_id": package_id,
+                "package_type": package.get("package_type"),
+                "verification_status": PACKAGE_VERIFICATION_CONFIRMED_BY_RULE,
+                "confirmed_issue_ids": supporting_issue_ids,
+                "rejected_issue_ids": [],
+                "evidence_summary": (
+                    "Turnover bundling rule fired; deterministic confirmation without VLM review."
+                ),
+                "review_source": "turnover_rule_based",
+                "review_photo_keys": list(package.get("review_photo_keys") or []),
+                "review_image_paths": [],
+            }
+            trace["confirmed_by_rule_count"] += 1
+            continue
+
         image_keys, image_paths = select_package_review_image_paths(
             package,
             photo_key_to_path,
@@ -946,7 +1453,7 @@ async def run_pass_2f_batch(
             package_id=package_id,
             package_type=str(package.get("package_type") or ""),
             evidence_items=list(package.get("evidence_items") or []),
-            package_label="Kitchen modernization",
+            package_label=_package_vlm_label(package),
         )
         record = {
             "package_id": result.package_id,

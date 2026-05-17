@@ -35,6 +35,7 @@ from tools.catalog_cost_model import derive_cost_model
 from tools.estimate_scope import apply_estimate_scope
 from tools.estimate_sanity import build_estimate_sanity_flags
 from tools.rehab_packages import (
+    aggregate_whole_home_turnover,
     apply_package_verifications_to_candidates,
     finalize_package_candidates,
     infer_package_candidates,
@@ -47,6 +48,7 @@ from tools.renovation_estimate import (
     extract_estimate_candidates,
 )
 from tools.estimate_units import build_estimate_units
+from tools.project_scopes import get_project_scope, get_project_scope_name
 from tools.room_surrogates import build_room_surrogates
 
 logger = logging.getLogger(__name__)
@@ -145,11 +147,13 @@ def compute_renovation_estimate_v4(
             candidate,
         )
 
+    suppressed_package_candidates: List[Dict[str, Any]] = []
     package_candidates = infer_package_candidates(
         v4_candidates,
         surrogate_records,
         issue_catalog,
         estimate_units=estimate_unit_resolution.get("estimate_units", []),
+        suppressed_out=suppressed_package_candidates,
     )
     pass_2f_trace = {
         "ran": False,
@@ -193,6 +197,10 @@ def compute_renovation_estimate_v4(
         package_verifications,
         require_confirmation=True,
     )
+    whole_home_turnover = aggregate_whole_home_turnover(packages)
+    if whole_home_turnover is not None:
+        packages.append(whole_home_turnover)
+        package_candidates_audit.append(whole_home_turnover)
 
     v4_estimate = compute_renovation_estimate(
         issues_flat=v4_issues,
@@ -220,6 +228,7 @@ def compute_renovation_estimate_v4(
     )
     v4_estimate["packages"] = packages
     v4_estimate["package_candidates"] = package_candidates_audit
+    v4_estimate["suppressed_package_candidates"] = suppressed_package_candidates
     v4_estimate["pass_2f_trace"] = pass_2f_trace
     v4_estimate["reconciliation"] = reconciliation
     v4_estimate["warnings"] = list(reconciliation.get("warnings") or [])
@@ -235,6 +244,10 @@ def compute_renovation_estimate_v4(
         "final_rehab_resale_ready",
     ):
         v4_estimate[bucket_name] = reconciliation[bucket_name]
+    v4_estimate["project_scope_breakdown"] = _build_project_scope_breakdown(
+        groups=v4_estimate.get("groups") or [],
+        packages=packages,
+    )
     v4_estimate["sanity_flags"] = build_estimate_sanity_flags(
         v4_estimate,
         property_metadata,
@@ -259,6 +272,80 @@ def compute_renovation_estimate_v4(
     }
 
     return v4_estimate
+
+
+def _build_project_scope_breakdown(
+    *,
+    groups: List[Dict[str, Any]],
+    packages: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Aggregate group + package costs by project scope for the frontend.
+
+    Mirrors the frontend's ``EstimatesProjectScopeBreakdown`` type:
+    each entry contains scope_id, scope_name, summed costs, item count,
+    contributing trade_buckets, and contributing package_ids.
+    """
+    by_scope: Dict[str, Dict[str, Any]] = {}
+
+    for group in groups or []:
+        trade = str(group.get("trade_bucket") or "")
+        if not trade:
+            continue
+        try:
+            scope_id = get_project_scope(trade, strict=False)
+        except KeyError:
+            scope_id = "unknown"
+        entry = by_scope.setdefault(scope_id, {
+            "scope_id": scope_id,
+            "scope_name": get_project_scope_name(scope_id),
+            "cost_low": 0,
+            "cost_high": 0,
+            "item_count": 0,
+            "trade_buckets": set(),
+            "contributing_package_ids": set(),
+        })
+        entry["cost_low"] += int(group.get("cost_low") or 0)
+        entry["cost_high"] += int(group.get("cost_high") or 0)
+        entry["item_count"] += len(group.get("line_items") or [])
+        entry["trade_buckets"].add(trade)
+
+    for pkg in packages or []:
+        absorbed = pkg.get("absorption_scope") or {}
+        trade_buckets = absorbed.get("trade_buckets") or []
+        if not trade_buckets:
+            continue
+        package_id = str(pkg.get("package_id") or "")
+        for trade in trade_buckets:
+            try:
+                scope_id = get_project_scope(str(trade), strict=False)
+            except KeyError:
+                scope_id = "unknown"
+            entry = by_scope.setdefault(scope_id, {
+                "scope_id": scope_id,
+                "scope_name": get_project_scope_name(scope_id),
+                "cost_low": 0,
+                "cost_high": 0,
+                "item_count": 0,
+                "trade_buckets": set(),
+                "contributing_package_ids": set(),
+            })
+            entry["trade_buckets"].add(str(trade))
+            if package_id:
+                entry["contributing_package_ids"].add(package_id)
+
+    breakdown: List[Dict[str, Any]] = []
+    for scope_id in sorted(by_scope.keys()):
+        entry = by_scope[scope_id]
+        breakdown.append({
+            "scope_id": entry["scope_id"],
+            "scope_name": entry["scope_name"],
+            "cost_low": entry["cost_low"],
+            "cost_high": entry["cost_high"],
+            "item_count": entry["item_count"],
+            "trade_buckets": sorted(entry["trade_buckets"]),
+            "contributing_package_ids": sorted(entry["contributing_package_ids"]),
+        })
+    return breakdown
 
 
 def _run_pass_2f_sync(

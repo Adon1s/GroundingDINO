@@ -275,8 +275,40 @@ def classify_package_scope(
     package_type: str,
     supporting_candidates: Iterable[Any],
     trigger_reason: str = "",
+    *,
+    package_category: Optional[str] = None,
+    package_strength: Optional[str] = None,
 ) -> Tuple[str, str]:
-    """Classify a package from its package type and supporting drivers."""
+    """Classify a package from its category, type, and supporting drivers.
+
+    When ``package_category`` is provided, the four-category mapping drives
+    the result deterministically:
+
+      repair          -> REQUIRED_REHAB
+      modernization (strong)  -> MARKETABILITY_REHAB
+      modernization (moderate) -> OPTIONAL_VALUE_ADD
+      turnover        -> MARKETABILITY_REHAB
+      inspection_risk -> INSPECTION_RISK
+
+    The existing keyword-heuristic path is preserved as a fallback for
+    packages without an explicit category (legacy/in-transition data).
+    """
+    if package_category:
+        category_l = str(package_category).lower()
+        if category_l == "repair":
+            return REQUIRED_REHAB, "package_category_repair"
+        if category_l == "inspection_risk":
+            return INSPECTION_RISK, "package_category_inspection_risk"
+        if category_l == "turnover":
+            return MARKETABILITY_REHAB, "package_category_turnover"
+        if category_l == "modernization":
+            strength_l = str(package_strength or "").lower()
+            if strength_l == "strong":
+                return MARKETABILITY_REHAB, "package_category_modernization_strong"
+            if strength_l == "moderate":
+                return OPTIONAL_VALUE_ADD, "package_category_modernization_moderate"
+            return MARKETABILITY_REHAB, "package_category_modernization_default"
+
     package_type_l = str(package_type or "").lower()
     trigger_l = str(trigger_reason or "").lower()
     candidates = list(supporting_candidates or [])
