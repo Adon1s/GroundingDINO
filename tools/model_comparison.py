@@ -2050,7 +2050,7 @@ async def async_main(args: argparse.Namespace) -> None:
         return
 
     # ── Setup clients + retriever ────────────────────────────────────────
-    vlm_client = create_vlm_client()
+    vlm_client = create_vlm_client(timeout=args.local_timeout)
 
     logger.info(f"Loading catalog from {cfg.ISSUE_CATALOG_PATH}")
     with open(cfg.ISSUE_CATALOG_PATH, "r", encoding="utf-8") as f:
@@ -2394,7 +2394,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--gemma-model",
-        default=os.environ.get("GEMMA_MODEL", "nvidia/nemotron-3-nano-omni"),
+        default=os.environ.get("GEMMA_MODEL", "qwen/qwen3.6-27b"),
         help="Gemma model id in LM Studio (env: GEMMA_MODEL).",
     )
     parser.add_argument(
@@ -2509,6 +2509,13 @@ def parse_args() -> argparse.Namespace:
         default=3,
         help="Max concurrent images for local LM Studio phases (A and B). Default: 3. "
              "Lower to 1 if LM Studio KV-cache-corrupts under load on your setup.",
+    )
+    parser.add_argument(
+        "--local-timeout",
+        type=int,
+        default=360,
+        help="HTTP read timeout in seconds for LM Studio calls (default: 360). "
+             "Increase further if reasoning models exceed this on long traces.",
     )
 
     args = parser.parse_args()

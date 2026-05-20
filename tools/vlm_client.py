@@ -1060,9 +1060,9 @@ class VLMClient:
 # Factory Functions
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def create_vlm_client() -> VLMClient:
+def create_vlm_client(timeout: int = 120) -> VLMClient:
     """Create a VLMClient with default settings."""
-    return VLMClient()
+    return VLMClient(default_timeout=timeout)
 
 
 def get_model_configs_from_pipeline_config(cfg: Any) -> Tuple[Dict[str, Any], Dict[str, Any]]:

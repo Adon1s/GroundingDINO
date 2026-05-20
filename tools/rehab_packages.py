@@ -741,12 +741,19 @@ def _candidate_evidence_item(
     candidate: EstimateCandidate,
     catalog_item: Dict[str, Any],
 ) -> Dict[str, Any]:
+    photo_keys = _distinct_photo_keys([candidate])
     return {
         "catalog_item_id": candidate.catalog_item_id,
         "name": candidate.catalog_item_name,
         "issue_ids": list(candidate.issue_ids or []),
         "observations": list(candidate.supporting_observations or []),
-        "photo_keys": list(candidate.photo_keys or []),
+        "photo_keys": photo_keys,
+        "supporting_photo_count": len(photo_keys),
+        "corroboration_basis": (
+            "multi_photo_same_issue"
+            if len(photo_keys) >= 2
+            else "single_photo_or_untracked"
+        ),
         "scene_groups_seen": list(candidate.scene_groups_seen or []),
         "estimate_unit_id": _candidate_unit_id(candidate),
         "room_surrogate_id": candidate.room_surrogate_id,
@@ -768,6 +775,50 @@ def _unique_in_order(values: List[Any]) -> List[Any]:
         seen.add(key)
         out.append(value)
     return out
+
+
+def _distinct_photo_keys(candidates: List[EstimateCandidate]) -> List[str]:
+    photo_keys: List[str] = []
+    for candidate in candidates or []:
+        photo_keys.extend(
+            str(photo_key).strip()
+            for photo_key in (candidate.photo_keys or [])
+            if str(photo_key or "").strip()
+        )
+    return _unique_in_order(photo_keys)
+
+
+def _has_multiphoto_opportunity_corroboration(
+    opportunity_drivers: List[EstimateCandidate],
+) -> bool:
+    by_catalog_id: Dict[str, List[EstimateCandidate]] = {}
+    for candidate in opportunity_drivers or []:
+        catalog_id = candidate.catalog_item_id or ""
+        if not catalog_id:
+            continue
+        by_catalog_id.setdefault(catalog_id, []).append(candidate)
+    return any(
+        len(_distinct_photo_keys(same_catalog_drivers)) >= 2
+        for same_catalog_drivers in by_catalog_id.values()
+    )
+
+
+def _package_corroboration_basis(
+    trigger_reason: str,
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+) -> str:
+    if trigger_reason == "opportunity_driver_with_multiphoto_corroboration":
+        return "multi_photo_same_issue"
+    if drivers and supports:
+        return "driver_plus_support"
+    if len({c.catalog_item_id for c in drivers if c.catalog_item_id}) >= 2:
+        return "multiple_distinct_drivers"
+    if drivers:
+        return "single_driver"
+    if len(supports) >= 2:
+        return "multiple_supports"
+    return "none"
 
 
 def _resolve_kitchen_modernization_profile(
@@ -904,6 +955,11 @@ def _build_package_candidate(
     issue_ids = _unique_in_order(issue_ids)
     cat_ids = _unique_in_order(cat_ids)
     photo_keys = _unique_in_order(photo_keys)
+    corroboration_basis = _package_corroboration_basis(
+        trigger_reason,
+        drivers,
+        supports,
+    )
     return {
         "package_id": f"{package_type}__{unit_id}",
         "package_type": package_type,
@@ -939,6 +995,8 @@ def _build_package_candidate(
         "driver_issue_ids": _unique_in_order([iid for c in drivers for iid in (c.issue_ids or [])]),
         "support_issue_ids": _unique_in_order([iid for c in supports for iid in (c.issue_ids or [])]),
         "review_photo_keys": photo_keys[:3],
+        "supporting_photo_count": len(photo_keys),
+        "corroboration_basis": corroboration_basis,
         "evidence_items": evidence_items,
         "trigger_reason": trigger_reason,
         "level_decision_notes": decision_notes,
@@ -1037,6 +1095,9 @@ def infer_package_candidates(
         distinct_opportunity_ids = {
             c.catalog_item_id for c in opportunity_drivers if c.catalog_item_id
         }
+        has_multiphoto_opportunity = _has_multiphoto_opportunity_corroboration(
+            opportunity_drivers
+        )
 
         if defect_drivers:
             drivers = defect_drivers + opportunity_drivers
@@ -1046,6 +1107,10 @@ def infer_package_candidates(
             drivers = list(opportunity_drivers)
             supporting = drivers + supports
             trigger_reason = "opportunity_driver_with_corroboration"
+        elif opportunity_drivers and has_multiphoto_opportunity:
+            drivers = list(opportunity_drivers)
+            supporting = drivers + supports
+            trigger_reason = "opportunity_driver_with_multiphoto_corroboration"
         elif len(supports) >= 2:
             drivers = []
             supporting = supports
@@ -1112,6 +1177,8 @@ def _build_suppressed_candidate_record(
         "support_catalog_item_ids": _unique_in_order(
             [c.catalog_item_id for c in supports if c.catalog_item_id]
         ),
+        "supporting_photo_count": len(_distinct_photo_keys(drivers + supports)),
+        "corroboration_basis": "insufficient_support",
     }
 
 
