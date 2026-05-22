@@ -41,8 +41,8 @@ from tools.renovation_estimate import (
     run_pass_2f_batch,
 )
 from tools.scene_classifier_passes import (
-    PASS_2F_SYSTEM_PROMPT,
-    PASS_2F_USER_PROMPT,
+    PASS_2F_KITCHEN_SYSTEM_PROMPT,
+    PASS_2F_KITCHEN_USER_PROMPT,
     _coerce_pass_2f,
     run_pass_2e,
 )
@@ -1072,14 +1072,14 @@ class TestCoercePass2f:
         assert result.rejected_issue_ids == ["issue_2"]
 
     def test_prompt_shape_is_visual_truth_only(self):
-        assert "review_outcome" not in PASS_2F_SYSTEM_PROMPT
-        assert "review_outcome" not in PASS_2F_USER_PROMPT
-        assert '"verification_status"' in PASS_2F_USER_PROMPT
-        assert '"confirmed_issue_ids"' in PASS_2F_USER_PROMPT
-        assert '"rejected_issue_ids"' in PASS_2F_USER_PROMPT
-        assert "pricing_posture" not in PASS_2F_USER_PROMPT
-        assert "visible_scope" not in PASS_2F_USER_PROMPT
-        assert "do not estimate prices" in PASS_2F_SYSTEM_PROMPT.lower()
+        assert "review_outcome" not in PASS_2F_KITCHEN_SYSTEM_PROMPT
+        assert "review_outcome" not in PASS_2F_KITCHEN_USER_PROMPT
+        assert '"verification_status"' in PASS_2F_KITCHEN_USER_PROMPT
+        assert '"confirmed_issue_ids"' in PASS_2F_KITCHEN_USER_PROMPT
+        assert '"rejected_issue_ids"' in PASS_2F_KITCHEN_USER_PROMPT
+        assert "pricing_posture" not in PASS_2F_KITCHEN_USER_PROMPT
+        assert "visible_scope" not in PASS_2F_KITCHEN_USER_PROMPT
+        assert "do not estimate prices" in PASS_2F_KITCHEN_SYSTEM_PROMPT.lower()
 
 
 class TestRunPass2f:
@@ -1102,6 +1102,7 @@ class TestRunPass2f:
                 image_paths=[Path("/fake/kitchen_1.jpg"), Path("/fake/kitchen_2.jpg")],
                 vlm_client=mock_vlm,
                 model_config={"model": "test"},
+                room="kitchen",
                 package_id="kitchen_modernization__kitchen_1",
                 package_type="kitchen_modernization",
                 evidence_items=[{
@@ -1118,7 +1119,7 @@ class TestRunPass2f:
         assert result.raw_response == vlm_response
         mock_vlm.analyze_images.assert_called_once()
         call = mock_vlm.analyze_images.call_args.kwargs
-        assert call["system_prompt"] == PASS_2F_SYSTEM_PROMPT
+        assert call["system_prompt"] == PASS_2F_KITCHEN_SYSTEM_PROMPT
         assert "pricing_posture" not in call["user_prompt"]
         assert len(call["image_paths"]) == 2
 
@@ -1142,6 +1143,7 @@ class TestRunPass2f:
                 image_paths=[Path("/fake/kitchen_1.jpg")],
                 vlm_client=mock_vlm,
                 model_config={"model": "test"},
+                room="kitchen",
                 package_id="pkg",
                 package_type="kitchen_modernization",
                 evidence_items=[{"issue_ids": ["issue_1"]}],
@@ -1163,6 +1165,7 @@ class TestRunPass2f:
                 image_paths=[Path("/fake/kitchen_1.jpg")],
                 vlm_client=mock_vlm,
                 model_config={"model": "test"},
+                room="kitchen",
                 package_id="pkg",
                 package_type="kitchen_modernization",
                 evidence_items=[{"issue_ids": ["issue_1"]}],
@@ -1183,6 +1186,7 @@ class TestRunPass2f:
                 image_paths=[Path("/fake/kitchen_1.jpg")],
                 vlm_client=mock_vlm,
                 model_config={"model": "test"},
+                room="kitchen",
                 package_id="pkg",
                 package_type="kitchen_modernization",
                 evidence_items=[{"issue_ids": ["issue_1"]}],

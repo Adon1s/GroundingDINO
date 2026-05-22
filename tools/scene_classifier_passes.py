@@ -11,6 +11,12 @@ Pass 2b: Observations → JSON (text-only)
 Pass 2c: Label observations + debug/forward split (text-only)
 Pass 2d: Resolve catalog item ID from candidates (text-only, optional)
 Pass 2e: Normalize canonical issues and build display-filtered issues (Issue cleaning for UI. Rule-based, no LLM)
+Pass 2f: Visual package verification (multi-image; per-room prompts for
+         kitchen / bathroom via PASS_2F_ROOM_PROMPTS). Confirms / rejects /
+         marks-uncertain a proposed renovation package against the photos.
+         Visual-truth only; no pricing posture or cost estimation. Selector
+         is room-keyed so future rooms (exterior, etc.) register here without
+         touching run_pass_2f internals.
 """
 
 from tools.llm_json import extract_json_object
@@ -1729,28 +1735,23 @@ async def run_pass_2e(
 # Pass 2f: Visual package verification (multi-image, visual truth only)
 # -----------------------------------------------------------------------------
 
-PASS_2F_SYSTEM_PROMPT = (
-    "You are verifying a proposed real-estate renovation package from kitchen photos. "
-    "Use only visible evidence in the supplied images. Your job is visual truth only: "
-    "confirm, reject, or mark uncertain whether the proposed package is supported by the photos.\n\n"
+# ── Shared Pass 2f framework ─────────────────────────────────────────────────
+# These two blocks compose into every per-room template; the room body slots in
+# between them. The shared rules and the JSON output schema are defined once so
+# kitchen / bathroom / future rooms cannot drift on visual-truth semantics or
+# downstream parsing.
+
+PASS_2F_SHARED_RULES = (
     "Rules:\n"
     "- Do not estimate prices, costs, repair scope, replacement scope, or rehab budgets.\n"
     "- Do not infer hidden damage or unseen rooms.\n"
     "- Confirm only when the package-level pattern is visibly supported.\n"
     "- Reject when the proposed evidence is not visible or clearly contradicted.\n"
-    "- A modernization or \"outdated finishes\" package is clearly contradicted when the room shows predominantly updated finishes (e.g., shaker or slab cabinetry in current colors, stainless appliances, modern countertops, recent backsplash and flooring). A single isolated dated detail is not sufficient to confirm a modernization package against an otherwise updated room.\n"
     "- Use uncertain when the images are insufficient, ambiguous, cropped, too distant, or mixed.\n"
     "- Return only the requested JSON object.\n"
 )
 
-PASS_2F_USER_PROMPT = (
-    "Analyze these kitchen photos together.\n\n"
-    "Proposed package:\n"
-    "- package_id: {package_id}\n"
-    "- package_type: {package_type}\n"
-    "- package_label: {package_label}\n\n"
-    "Candidate evidence items:\n"
-    "{evidence_json}\n\n"
+PASS_2F_OUTPUT_SCHEMA = (
     "Return exactly this JSON shape:\n"
     "{{\n"
     '  "verification_status": "confirmed" or "rejected" or "uncertain",\n'
@@ -1759,6 +1760,79 @@ PASS_2F_USER_PROMPT = (
     '  "evidence_summary": "Brief visible-only explanation"\n'
     "}}\n"
 )
+
+# ── Kitchen Pass 2f prompt ───────────────────────────────────────────────────
+# Self-contained: no bathroom / exterior vocabulary anywhere in the body.
+
+PASS_2F_KITCHEN_SYSTEM_PROMPT = (
+    "You are verifying a proposed real-estate renovation package from kitchen photos. "
+    "Use only visible evidence in the supplied images. Your job is visual truth only: "
+    "confirm, reject, or mark uncertain whether the proposed package is supported by the photos.\n\n"
+    + PASS_2F_SHARED_RULES +
+    "\nKitchen-specific guidance:\n"
+    "- A modernization or \"outdated finishes\" package is clearly contradicted when "
+    "the kitchen shows predominantly updated finishes (shaker or slab cabinetry in "
+    "current colors, stainless appliances, modern countertops, recent backsplash and "
+    "flooring). A single isolated dated detail is not sufficient to confirm a "
+    "modernization package against an otherwise updated kitchen.\n"
+    "- Strong kitchen support signals: cabinet face damage at severity >= 2, missing "
+    "base cabinets exposing subfloor, dated honey-oak cabinetry, postform laminate "
+    "counters, absent or minimal backsplash, dated appliance suites.\n"
+)
+
+PASS_2F_KITCHEN_USER_PROMPT = (
+    "Analyze these kitchen photos together.\n\n"
+    "Proposed package:\n"
+    "- package_id: {package_id}\n"
+    "- package_type: {package_type}\n"
+    "- package_label: {package_label}\n\n"
+    "Candidate evidence items:\n"
+    "{evidence_json}\n\n"
+    + PASS_2F_OUTPUT_SCHEMA
+)
+
+# ── Bathroom Pass 2f prompt ──────────────────────────────────────────────────
+# Self-contained: no kitchen / exterior vocabulary anywhere in the body.
+
+PASS_2F_BATHROOM_SYSTEM_PROMPT = (
+    "You are verifying a proposed real-estate renovation package from bathroom photos. "
+    "Use only visible evidence in the supplied images. Your job is visual truth only: "
+    "confirm, reject, or mark uncertain whether the proposed package is supported by the photos.\n\n"
+    + PASS_2F_SHARED_RULES +
+    "\nBathroom-specific guidance:\n"
+    "- A modernization or \"outdated finishes\" package is clearly contradicted when "
+    "the bathroom shows predominantly updated finishes (recently-tiled shower surround, "
+    "modern vanity in current colors, contemporary fixtures and faucet, new flooring, "
+    "fresh paint, undermount or vessel sink, subway or large-format tile). A single "
+    "isolated dated detail is not sufficient to confirm a modernization package against "
+    "an otherwise updated bathroom.\n"
+    "- Strong bathroom support signals: visible tile or grout damage at severity >= 2, "
+    "exposed substrate where tile has fallen off, active water damage around tub/shower "
+    "or vanity, missing or damaged vanity exposing plumbing, fixtures with corroded or "
+    "stained finish, dated vanity-bar lighting, vintage tile patterns (pink/yellow/blue "
+    "ceramic, hex tile floors), worn laminate vanity tops.\n"
+    "- Common bathroom photo limitations: tight framing, mirror reflections, partial "
+    "views of vanity or shower. Use uncertain when key surfaces are not visible in any "
+    "of the supplied images.\n"
+)
+
+PASS_2F_BATHROOM_USER_PROMPT = (
+    "Analyze these bathroom photos together.\n\n"
+    "Proposed package:\n"
+    "- package_id: {package_id}\n"
+    "- package_type: {package_type}\n"
+    "- package_label: {package_label}\n\n"
+    "Candidate evidence items:\n"
+    "{evidence_json}\n\n"
+    + PASS_2F_OUTPUT_SCHEMA
+)
+
+# Per-room selector. Future rooms (exterior, etc.) register here without
+# touching run_pass_2f internals.
+PASS_2F_ROOM_PROMPTS = {
+    "kitchen":  (PASS_2F_KITCHEN_SYSTEM_PROMPT,  PASS_2F_KITCHEN_USER_PROMPT),
+    "bathroom": (PASS_2F_BATHROOM_SYSTEM_PROMPT, PASS_2F_BATHROOM_USER_PROMPT),
+}
 
 PASS_2F_VALID_STATUSES = {"confirmed", "rejected", "uncertain"}
 
@@ -1810,10 +1884,11 @@ async def run_pass_2f(
     vlm_client: Any,
     model_config: dict,
     *,
+    room: str,
     package_id: str,
     package_type: str,
     evidence_items: List[Dict[str, Any]],
-    package_label: str = "Kitchen modernization",
+    package_label: str = "Renovation package",
 ) -> Pass2fResult:
     """
     Pass 2f visual package verification.
@@ -1821,7 +1896,19 @@ async def run_pass_2f(
     This pass confirms/rejects the visual truth of a package candidate across
     multiple representative images. It intentionally does not ask the model for
     pricing posture, repair/replace scope, or dollar estimates.
+
+    The `room` argument selects a room-specific prompt template from
+    PASS_2F_ROOM_PROMPTS. Each room template is self-contained (no cross-room
+    vocabulary) to avoid attention bleed when verifying e.g. a bathroom package.
     """
+    try:
+        system_prompt, user_prompt_template = PASS_2F_ROOM_PROMPTS[room]
+    except KeyError as exc:
+        raise ValueError(
+            f"Pass 2f: no prompt template registered for room={room!r}; "
+            f"registered rooms: {sorted(PASS_2F_ROOM_PROMPTS)}"
+        ) from exc
+
     valid_issue_ids = {
         str(issue_id)
         for item in (evidence_items or [])
@@ -1830,20 +1917,20 @@ async def run_pass_2f(
     }
     evidence_json = json.dumps(evidence_items or [], ensure_ascii=False, indent=2)
     user_prompt = safe_format_prompt(
-        PASS_2F_USER_PROMPT,
+        user_prompt_template,
         package_id=package_id,
         package_type=package_type,
         package_label=package_label,
         evidence_json=evidence_json,
     )
 
-    logger.debug("Pass 2f: reviewing %s with %d images", package_id, len(image_paths or []))
+    logger.debug("Pass 2f: reviewing %s (room=%s) with %d images", package_id, room, len(image_paths or []))
 
     try:
         if hasattr(vlm_client, "analyze_images"):
             response = await vlm_client.analyze_images(
                 image_paths=image_paths,
-                system_prompt=PASS_2F_SYSTEM_PROMPT,
+                system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 **model_config,
             )
@@ -1852,7 +1939,7 @@ async def run_pass_2f(
                 raise ValueError("no review images supplied")
             response = await vlm_client.analyze_image(
                 image_path=image_paths[0],
-                system_prompt=PASS_2F_SYSTEM_PROMPT,
+                system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 **model_config,
             )

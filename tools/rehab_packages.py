@@ -4,8 +4,10 @@ tools/rehab_packages.py
 Deterministic package inference and reconciliation for renovation_estimate_v4.
 
 Public API:
-  - infer_packages(candidates, room_surrogates, issue_catalog) -> list[dict]
-        Walk per-room candidates and emit kitchen / bathroom / room packages.
+  - infer_package_candidates(candidates, room_surrogates, issue_catalog) -> list[dict]
+        Strength-scored per-room package inference. Returns package candidates
+        with audit_only=True / estimate_eligible=False until Pass 2f verification
+        promotes them. Sole production inference entrypoint.
   - reconcile_packages_and_estimate_units(groups_out, packages) -> dict
         Normalize line items into per-billable-member child unit records,
         absorb children into matching packages all-or-nothing, recompute
@@ -57,6 +59,10 @@ BATHROOM_MINOR_REPAIR   = ("bathroom_minor_repair",     500,  3_000)
 BATHROOM_REFRESH        = ("bathroom_refresh",        3_000, 10_000)
 BATHROOM_PARTIAL_REHAB  = ("bathroom_partial_rehab",  8_000, 20_000)
 BATHROOM_FULL_REHAB     = ("bathroom_full_rehab",    15_000, 35_000)
+BATHROOM_REPAIR_LIGHT   = ("bathroom_repair_light",     400,  2_500)
+BATHROOM_REPAIR_HEAVY   = ("bathroom_repair_heavy",   2_500,  8_000)
+BATHROOM_TURNOVER_LIGHT = ("bathroom_turnover_light",   500,  2_000)
+BATHROOM_TURNOVER_STD   = ("bathroom_turnover_std",   1_800,  4_500)
 
 ROOM_REFRESH            = ("room_refresh",              750,  4_000)
 ROOM_REPAIR_HEAVY       = ("room_repair_heavy",       3_000, 10_000)
@@ -106,11 +112,22 @@ VALID_PACKAGE_ROLES = frozenset({
 PACKAGE_TYPE_KITCHEN_MODERNIZATION = "kitchen_modernization"
 PACKAGE_TYPE_KITCHEN_REPAIR = "kitchen_repair"
 PACKAGE_TYPE_KITCHEN_TURNOVER = "kitchen_turnover"
+PACKAGE_TYPE_BATHROOM_MODERNIZATION = "bathroom_modernization"
+PACKAGE_TYPE_BATHROOM_REPAIR = "bathroom_repair"
+PACKAGE_TYPE_BATHROOM_TURNOVER = "bathroom_turnover"
 PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH = "interior_paint_flooring_refresh"
+# Naming note: the strings above are *package_type* identifiers used as keys to
+# _PACKAGE_TYPE_TO_CATEGORY / _PACKAGE_TYPE_TO_ROOM / VALID_PACKAGE_TYPES.
+# The *pricing-tier* strings (e.g. "bathroom_turnover_light", "kitchen_full_rehab")
+# live in the per-tier constant tuples above and are the keys to
+# _PACKAGE_ABSORPTION_SCOPES. The two namespaces are intentionally separate.
 VALID_PACKAGE_TYPES = frozenset({
     PACKAGE_TYPE_KITCHEN_MODERNIZATION,
     PACKAGE_TYPE_KITCHEN_REPAIR,
     PACKAGE_TYPE_KITCHEN_TURNOVER,
+    PACKAGE_TYPE_BATHROOM_MODERNIZATION,
+    PACKAGE_TYPE_BATHROOM_REPAIR,
+    PACKAGE_TYPE_BATHROOM_TURNOVER,
     PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH,
 })
 
@@ -210,13 +227,13 @@ _PACKAGE_ABSORPTION_SCOPES: Dict[str, Dict[str, Any]] = {
         "family": "kitchen",
         "groups": {"kitchen"},
         "trade_buckets": {"kitchen_cabinets_counters", "plumbing", "electrical", "moisture_mold"},
-        "components": {"cabinets", "appliance", "plumbing", "electrical", "moisture"},
+        "components": {"cabinets", "appliance", "plumbing", "electrical_heavy", "electrical_light", "moisture"},
     },
     "kitchen_repair_heavy": {
         "family": "kitchen",
         "groups": {"kitchen", "flooring"},
         "trade_buckets": {"kitchen_cabinets_counters", "plumbing", "electrical", "moisture_mold", "flooring"},
-        "components": {"cabinets", "appliance", "plumbing", "electrical", "moisture", "flooring"},
+        "components": {"cabinets", "appliance", "plumbing", "electrical_heavy", "electrical_light", "moisture", "flooring"},
     },
     "kitchen_turnover_light": {
         "family": "kitchen",
@@ -253,6 +270,30 @@ _PACKAGE_ABSORPTION_SCOPES: Dict[str, Dict[str, Any]] = {
         "groups": {"bathroom", "flooring"},
         "trade_buckets": {"bathroom_fixtures_tile", "flooring", "paint_drywall"},
         "components": {"vanity", "tile", "tub_shower", "fixture", "bath_finish", "flooring", "paint"},
+    },
+    "bathroom_repair_light": {
+        "family": "bathroom",
+        "groups": {"bathroom"},
+        "trade_buckets": {"bathroom_fixtures_tile", "plumbing", "electrical", "moisture_mold"},
+        "components": {"vanity", "tile", "tub_shower", "fixture", "plumbing", "electrical_heavy", "electrical_light", "moisture"},
+    },
+    "bathroom_repair_heavy": {
+        "family": "bathroom",
+        "groups": {"bathroom", "flooring"},
+        "trade_buckets": {"bathroom_fixtures_tile", "plumbing", "electrical", "moisture_mold", "flooring"},
+        "components": {"vanity", "tile", "tub_shower", "fixture", "plumbing", "electrical_heavy", "electrical_light", "moisture", "flooring"},
+    },
+    "bathroom_turnover_light": {
+        "family": "bathroom",
+        "groups": {"bathroom"},
+        "trade_buckets": {"paint_drywall", "cleaning_turnover"},
+        "components": {"paint", "bath_finish"},
+    },
+    "bathroom_turnover_std": {
+        "family": "bathroom",
+        "groups": {"bathroom", "flooring"},
+        "trade_buckets": {"paint_drywall", "flooring", "cleaning_turnover"},
+        "components": {"paint", "bath_finish", "flooring"},
     },
     "room_refresh": {
         "family": "room",
@@ -361,6 +402,9 @@ _PACKAGE_TYPE_TO_CATEGORY = {
     PACKAGE_TYPE_KITCHEN_MODERNIZATION: PACKAGE_CATEGORY_MODERNIZATION,
     PACKAGE_TYPE_KITCHEN_REPAIR: PACKAGE_CATEGORY_REPAIR,
     PACKAGE_TYPE_KITCHEN_TURNOVER: PACKAGE_CATEGORY_TURNOVER,
+    PACKAGE_TYPE_BATHROOM_MODERNIZATION: PACKAGE_CATEGORY_MODERNIZATION,
+    PACKAGE_TYPE_BATHROOM_REPAIR: PACKAGE_CATEGORY_REPAIR,
+    PACKAGE_TYPE_BATHROOM_TURNOVER: PACKAGE_CATEGORY_TURNOVER,
     PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH: PACKAGE_CATEGORY_TURNOVER,
 }
 
@@ -368,6 +412,9 @@ _PACKAGE_TYPE_TO_ROOM = {
     PACKAGE_TYPE_KITCHEN_MODERNIZATION: ROOM_KITCHEN,
     PACKAGE_TYPE_KITCHEN_REPAIR: ROOM_KITCHEN,
     PACKAGE_TYPE_KITCHEN_TURNOVER: ROOM_KITCHEN,
+    PACKAGE_TYPE_BATHROOM_MODERNIZATION: ROOM_BATHROOM,
+    PACKAGE_TYPE_BATHROOM_REPAIR: ROOM_BATHROOM,
+    PACKAGE_TYPE_BATHROOM_TURNOVER: ROOM_BATHROOM,
     PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH: ROOM_WHOLE_HOME,
 }
 
@@ -431,12 +478,24 @@ def _split_integer(amount: int, n: int) -> List[int]:
     return [base + 1 if i < remainder else base for i in range(n)]
 
 
+# Issue 3: split the electrical bucket so a missing GFCI / exhaust fan doesn't
+# trigger REPAIR_HEAVY alongside true heavy work (panel, rewire, visible-risk).
+# Catalog audit (trade_bucket=electrical):
+#   HEAVY:  visible_electrical_risks (sev 4, systems)
+#   LIGHT:  GFCI, exhaust fan, lighting fixtures, outlets, ceiling-fan style
+# When new panel-work or rewire IDs are added to the catalog, list them here.
+_ELECTRICAL_HEAVY_IDS = frozenset({
+    "visible_electrical_risks",
+})
+
+
 def classify_component(candidate: EstimateCandidate) -> Optional[str]:
     """Map a candidate to a component class for package inference.
 
     Returns one of: cabinets, counter, kitchen_finish, appliance, vanity, tile,
-    tub_shower, fixture, bath_finish, flooring, plumbing, electrical, moisture,
-    paint — or None when not relevant for any package rule.
+    tub_shower, fixture, bath_finish, flooring, plumbing, electrical_heavy,
+    electrical_light, moisture, paint — or None when not relevant for any
+    package rule.
     """
     if isinstance(candidate, dict):
         cat_id = str(candidate.get("catalog_item_id") or "").lower()
@@ -470,7 +529,7 @@ def classify_component(candidate: EstimateCandidate) -> Optional[str]:
     if trade == "plumbing":
         return "plumbing"
     if trade == "electrical":
-        return "electrical"
+        return "electrical_heavy" if cat_id in _ELECTRICAL_HEAVY_IDS else "electrical_light"
     if trade == "moisture_mold":
         return "moisture"
     if trade == "paint_drywall":
@@ -488,20 +547,38 @@ def _package_absorption_scope(package_type: str) -> Dict[str, Any]:
     }
 
 
-# Strong-signal sentinels: a single occurrence of these catalog IDs is enough
-# to elevate a package to strong strength regardless of corroboration count.
-# Extended as the kitchen catalog is re-tagged; bathroom/etc. added in later passes.
+# Strong-signal sentinels: explicit override list for catalog items that should
+# elevate strength even when they don't meet the generic rule below (e.g. sev-2
+# items with visible-substrate severity). Kept as an exception channel.
+# Note: the 4 items listed already satisfy the generic rule and could be removed
+# from the frozenset without behavior change — they remain here for documentation
+# and as a stable contract for sentinel-driven elevation.
 _STRONG_SIGNAL_CATALOG_IDS = frozenset({
     "missing_base_cabinets_exposed_subfloor",
+    "missing_bathroom_tile_exposed_substrate",
+    "active_water_damage_bathroom",
+    "missing_vanity_exposed_plumbing",
 })
 
 
 def _has_strong_signal(candidates: List[EstimateCandidate]) -> bool:
+    """Return True if any candidate signals strong-strength elevation.
+
+    Two paths:
+      1. Explicit override: catalog_item_id in _STRONG_SIGNAL_CATALOG_IDS.
+      2. Generic rule: severity >= 3 AND package_role == "package_driver".
+         Covers outdated_kitchen_finishes / outdated_bathroom_finishes (upgrade-
+         kind drivers) and outdated_or_damaged_vanity (defect-kind driver)
+         without per-id maintenance. Replaces the previous hardcoded checks.
+    """
     for candidate in candidates or []:
         cat_id = candidate.catalog_item_id or ""
         if cat_id in _STRONG_SIGNAL_CATALOG_IDS:
             return True
-        if (candidate.severity or 0) >= 3 and cat_id == "outdated_kitchen_finishes":
+        if (
+            (candidate.severity or 0) >= 3
+            and getattr(candidate, "package_role", None) == "package_driver"
+        ):
             return True
     return False
 
@@ -594,9 +671,9 @@ def _package_scope_covers_child(pkg: Dict[str, Any], child: Dict[str, Any]) -> b
     if _is_broad_absorption_blocked_child(child):
         return False
 
-    scope = pkg.get("absorption_scope") or _package_absorption_scope(
-        str(pkg.get("package_type") or "")
-    )
+    # `absorption_scope` is guaranteed to be set by reconcile_packages_and_estimate_units
+    # Phase B (raises KeyError if missing). Any package reaching this function has it.
+    scope = pkg["absorption_scope"]
     groups = set(scope.get("groups") or [])
     trade_buckets = set(scope.get("trade_buckets") or [])
     components = set(scope.get("components") or [])
@@ -839,10 +916,10 @@ def _resolve_kitchen_modernization_profile(
     if has_missing_cabinets or (
         severe_cabinet
         and {"counter", "flooring"} <= components
-        and components.intersection({"appliance", "plumbing", "electrical"})
+        and components.intersection({"appliance", "plumbing"})
     ):
         notes.append("partial_or_full_driver_pattern")
-        if len(components.intersection({"cabinets", "counter", "flooring", "appliance", "plumbing", "electrical"})) >= 4:
+        if len(components.intersection({"cabinets", "counter", "flooring", "appliance", "plumbing"})) >= 4:
             return KITCHEN_FULL_REHAB, "full_rehab", notes + ["full_rehab matched"]
         return KITCHEN_PARTIAL_REHAB, "partial_rehab", notes + ["partial_rehab matched"]
 
@@ -864,7 +941,7 @@ def _resolve_kitchen_repair_profile(
     components = {classify_component(c) for c in evidence}
     components.discard(None)
     notes: List[str] = []
-    heavy_components = components.intersection({"plumbing", "electrical", "moisture", "flooring"})
+    heavy_components = components.intersection({"plumbing", "electrical_heavy", "moisture", "flooring"})
     if drivers and heavy_components:
         notes.append("driver_with_heavy_component")
         return KITCHEN_REPAIR_HEAVY, "repair_heavy", notes
@@ -894,19 +971,175 @@ def _resolve_kitchen_turnover_profile(
     return KITCHEN_TURNOVER_LIGHT, "turnover_light", notes
 
 
+def _resolve_bathroom_modernization_profile(
+    evidence: List[EstimateCandidate],
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+) -> Tuple[Tuple[str, int, int], str, List[str]]:
+    """Bathroom modernization pricing: refresh / partial / full based on severity + breadth."""
+    components = {classify_component(c) for c in evidence}
+    components.discard(None)
+    notes: List[str] = []
+
+    severe_finish_signal = any(
+        c.catalog_item_id == "outdated_bathroom_finishes" and (c.severity or 0) >= 3
+        for c in evidence
+    )
+    has_vanity_or_tile_sev3 = any(
+        classify_component(c) in {"vanity", "tile"} and (c.severity or 0) >= 3
+        for c in evidence
+    )
+    full_components = components.intersection(
+        {"vanity", "tile", "flooring", "tub_shower", "fixture", "plumbing", "moisture"}
+    )
+    if (severe_finish_signal or has_vanity_or_tile_sev3) and {"flooring"} <= components and (
+        components.intersection({"tub_shower", "fixture", "plumbing", "moisture"})
+    ):
+        notes.append("severe_driver_plus_flooring_plus_system")
+        if len(full_components) >= 4:
+            return BATHROOM_FULL_REHAB, "full_rehab", notes + ["full_rehab matched"]
+        return BATHROOM_PARTIAL_REHAB, "partial_rehab", notes + ["partial_rehab matched"]
+
+    if drivers and (supports or len(components.intersection({"vanity", "tile", "flooring"})) >= 2):
+        return BATHROOM_PARTIAL_REHAB, "partial_rehab", notes + ["driver_plus_support matched"]
+
+    if drivers:
+        return BATHROOM_REFRESH, "refresh", notes + ["single package_driver refresh"]
+
+    return BATHROOM_REFRESH, "refresh", notes + ["multiple package_support refresh"]
+
+
+def _resolve_bathroom_repair_profile(
+    evidence: List[EstimateCandidate],
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+) -> Tuple[Tuple[str, int, int], str, List[str]]:
+    """Bathroom repair pricing: light vs heavy based on component breadth."""
+    components = {classify_component(c) for c in evidence}
+    components.discard(None)
+    notes: List[str] = []
+    heavy_components = components.intersection({"plumbing", "electrical_heavy", "moisture", "flooring"})
+    if drivers and heavy_components:
+        notes.append("driver_with_heavy_component")
+        return BATHROOM_REPAIR_HEAVY, "repair_heavy", notes
+    if len(components) >= 3:
+        notes.append("multi_component_repair")
+        return BATHROOM_REPAIR_HEAVY, "repair_heavy", notes
+    notes.append("light_repair_default")
+    return BATHROOM_REPAIR_LIGHT, "repair_light", notes
+
+
+def _resolve_bathroom_turnover_profile(
+    evidence: List[EstimateCandidate],
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+) -> Tuple[Tuple[str, int, int], str, List[str]]:
+    """Bathroom turnover pricing: light (paint-only) vs std (paint + flooring)."""
+    components = {classify_component(c) for c in evidence}
+    components.discard(None)
+    notes: List[str] = []
+    if "flooring" in components and "paint" in components:
+        notes.append("paint_plus_flooring")
+        return BATHROOM_TURNOVER_STD, "turnover_std", notes
+    if len(evidence) >= 3:
+        notes.append("multi_signal_turnover")
+        return BATHROOM_TURNOVER_STD, "turnover_std", notes
+    notes.append("light_turnover_default")
+    return BATHROOM_TURNOVER_LIGHT, "turnover_light", notes
+
+
 def _resolve_pricing_profile(
     package_type: str,
     evidence: List[EstimateCandidate],
     drivers: List[EstimateCandidate],
     supports: List[EstimateCandidate],
 ) -> Tuple[Tuple[str, int, int], str, List[str]]:
-    """Dispatch to the right kitchen profile resolver for the package_type."""
+    """Dispatch to the right per-room profile resolver for the package_type."""
     if package_type == PACKAGE_TYPE_KITCHEN_REPAIR:
         return _resolve_kitchen_repair_profile(evidence, drivers, supports)
     if package_type == PACKAGE_TYPE_KITCHEN_TURNOVER:
         return _resolve_kitchen_turnover_profile(evidence, drivers, supports)
+    if package_type == PACKAGE_TYPE_BATHROOM_MODERNIZATION:
+        return _resolve_bathroom_modernization_profile(evidence, drivers, supports)
+    if package_type == PACKAGE_TYPE_BATHROOM_REPAIR:
+        return _resolve_bathroom_repair_profile(evidence, drivers, supports)
+    if package_type == PACKAGE_TYPE_BATHROOM_TURNOVER:
+        return _resolve_bathroom_turnover_profile(evidence, drivers, supports)
     # Default — kitchen_modernization and any future modernization-family types.
     return _resolve_kitchen_modernization_profile(evidence, drivers, supports)
+
+
+# ─── Smarter tier dispatch — escalate when absorbed > tier ceiling ───────────
+#
+# Resolver-time tier selection picks based on component breadth & severity but
+# has no view of what catalog cost the package will absorb. A sub-tier package
+# absorbing a costly item would silently undercut absorbed cost (Phase C's floor
+# catches it post-hoc by raising the package cost). Escalating here moves the
+# fix upstream: pick a real tier whose ceiling already covers the absorbed cost.
+
+_PRICING_TIER_ESCALATION: Dict[str, Tuple[str, int, int]] = {
+    KITCHEN_REFRESH[0]: KITCHEN_PARTIAL_REHAB,
+    KITCHEN_PARTIAL_REHAB[0]: KITCHEN_FULL_REHAB,
+    KITCHEN_REPAIR_LIGHT[0]: KITCHEN_REPAIR_HEAVY,
+    KITCHEN_TURNOVER_LIGHT[0]: KITCHEN_TURNOVER_STD,
+    BATHROOM_REFRESH[0]: BATHROOM_PARTIAL_REHAB,
+    BATHROOM_PARTIAL_REHAB[0]: BATHROOM_FULL_REHAB,
+    BATHROOM_REPAIR_LIGHT[0]: BATHROOM_REPAIR_HEAVY,
+    BATHROOM_TURNOVER_LIGHT[0]: BATHROOM_TURNOVER_STD,
+    # Top tiers (full_rehab / heavy / std) have no further escalation; the
+    # Phase C floor handles any residual undercount.
+}
+
+
+def _absorbed_cost_estimate(
+    drivers: List[EstimateCandidate],
+    catalog_lookup: Dict[str, Dict[str, Any]],
+) -> Tuple[int, int]:
+    """Sum the catalog base cost range for drivers being absorbed by a package.
+
+    Used by tier-escalation logic. Drivers that lack a catalog entry contribute
+    zero rather than blowing up.
+    """
+    low = 0
+    high = 0
+    for driver in drivers or []:
+        cat = catalog_lookup.get(driver.catalog_item_id or "") or {}
+        cost = cat.get("cost") or {}
+        try:
+            low += int(cost.get("base_low") or 0)
+            high += int(cost.get("base_high") or 0)
+        except (TypeError, ValueError):
+            continue
+    return low, high
+
+
+def _escalate_pricing_tier_if_undercut(
+    spec: Tuple[str, int, int],
+    drivers: List[EstimateCandidate],
+    catalog_lookup: Dict[str, Dict[str, Any]],
+) -> Tuple[Tuple[str, int, int], Optional[str]]:
+    """Walk the escalation chain until tier_high >= absorbed_estimate_high.
+
+    Returns the final spec (possibly unchanged) and a note describing the
+    escalation if one happened. Phase C floor still applies if the top tier
+    is exceeded.
+    """
+    absorbed_low, absorbed_high = _absorbed_cost_estimate(drivers, catalog_lookup)
+    original = spec
+    current = spec
+    safety = 0  # guard against accidental cycles in the chain
+    while current[2] < absorbed_high and safety < len(_PRICING_TIER_ESCALATION):
+        next_spec = _PRICING_TIER_ESCALATION.get(current[0])
+        if next_spec is None:
+            break
+        current = next_spec
+        safety += 1
+    if current is original:
+        return current, None
+    return current, (
+        f"escalated_{original[0]}_to_{current[0]}"
+        f"_absorbed_high={absorbed_high}"
+    )
 
 
 def _build_package_candidate(
@@ -927,6 +1160,16 @@ def _build_package_candidate(
         drivers,
         supports,
     )
+    # Smarter dispatch: if the selected tier's ceiling is below what we'll absorb,
+    # escalate up the chain (light→heavy, refresh→partial→full) so the package
+    # cost reflects what's in scope. Phase C floor remains as the safety net for
+    # cases where escalation is exhausted (top tier already).
+    escalated_spec, escalation_note = _escalate_pricing_tier_if_undercut(
+        spec, drivers, catalog_lookup,
+    )
+    if escalation_note:
+        decision_notes = list(decision_notes) + [escalation_note]
+        spec = escalated_spec
     pricing_profile, cost_low, cost_high = spec
     cost_model, cost_model_source = derive_package_cost_model()
     package_strength = compute_package_strength(drivers, supports)
@@ -1065,15 +1308,15 @@ def infer_package_candidates(
         package_type = catalog_package_type(cat_item)
         if package_type not in VALID_PACKAGE_TYPES:
             continue
-        # Kitchen package types are kitchen-scoped; the property-wide
+        # Per-room package types are room-scoped; the property-wide
         # turnover aggregate (interior_paint_flooring_refresh) is derived
         # downstream from per-room turnover packages, not inferred here.
         if package_type == PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH:
             continue
         expected_room = _PACKAGE_TYPE_TO_ROOM.get(package_type)
-        if expected_room == ROOM_KITCHEN and scene_by_room and candidate.room_surrogate_id:
+        if expected_room in (ROOM_KITCHEN, ROOM_BATHROOM) and scene_by_room and candidate.room_surrogate_id:
             scene = scene_by_room.get(candidate.room_surrogate_id)
-            if scene and scene != "kitchen":
+            if scene and scene != expected_room:
                 continue
         unit_id = _candidate_unit_id(candidate)
         by_unit_type.setdefault((unit_id, package_type), []).append(candidate)
@@ -1433,12 +1676,14 @@ def select_package_review_image_paths(
 _PACKAGE_TYPE_VLM_LABELS = {
     PACKAGE_TYPE_KITCHEN_MODERNIZATION: "Kitchen modernization",
     PACKAGE_TYPE_KITCHEN_REPAIR: "Kitchen repair",
+    PACKAGE_TYPE_BATHROOM_MODERNIZATION: "Bathroom modernization",
+    PACKAGE_TYPE_BATHROOM_REPAIR: "Bathroom repair",
 }
 
 
 def _package_vlm_label(package: Dict[str, Any]) -> str:
     pt = str(package.get("package_type") or "")
-    return _PACKAGE_TYPE_VLM_LABELS.get(pt, "Kitchen modernization")
+    return _PACKAGE_TYPE_VLM_LABELS.get(pt, "Renovation package")
 
 
 async def run_pass_2f_batch(
@@ -1472,6 +1717,8 @@ async def run_pass_2f_batch(
         "uncertain_count": 0,
         "no_image_count": 0,
     }
+    from tools.scene_classifier_passes import PASS_2F_ROOM_PROMPTS
+
     for package in package_candidates or []:
         package_id = str(package.get("package_id") or "")
 
@@ -1493,6 +1740,23 @@ async def run_pass_2f_batch(
             trace["confirmed_by_rule_count"] += 1
             continue
 
+        room = str(package.get("room") or "").lower()
+        if room not in PASS_2F_ROOM_PROMPTS:
+            trace["uncertain_count"] += 1
+            verifications[package_id] = {
+                "package_id": package_id,
+                "package_type": package.get("package_type"),
+                "verification_status": PACKAGE_VERIFICATION_UNCERTAIN,
+                "confirmed_issue_ids": [],
+                "rejected_issue_ids": [],
+                "evidence_summary": (
+                    f"Pass 2f skipped: no prompt template registered for room={room or 'unknown'!r}."
+                ),
+                "review_photo_keys": [],
+                "review_image_paths": [],
+            }
+            continue
+
         image_keys, image_paths = select_package_review_image_paths(
             package,
             photo_key_to_path,
@@ -1506,7 +1770,7 @@ async def run_pass_2f_batch(
                 "verification_status": PACKAGE_VERIFICATION_UNCERTAIN,
                 "confirmed_issue_ids": [],
                 "rejected_issue_ids": [],
-                "evidence_summary": "No representative kitchen images were available for package verification.",
+                "evidence_summary": f"No representative {room} images were available for package verification.",
                 "review_photo_keys": [],
                 "review_image_paths": [],
             }
@@ -1517,6 +1781,7 @@ async def run_pass_2f_batch(
             image_paths=image_paths,
             vlm_client=vlm_client,
             model_config=model_config,
+            room=room,
             package_id=package_id,
             package_type=str(package.get("package_type") or ""),
             evidence_items=list(package.get("evidence_items") or []),
@@ -1538,351 +1803,6 @@ async def run_pass_2f_batch(
         if key in trace:
             trace[key] += 1
     return verifications, trace
-
-
-def infer_packages(
-    candidates: List[EstimateCandidate],
-    room_surrogates: List[Dict[str, Any]],
-    issue_catalog: Dict[str, Any],
-    *,
-    estimate_units: Optional[List[Dict[str, Any]]] = None,
-) -> List[Dict[str, Any]]:
-    """Walk per-room candidates, emit kitchen/bathroom/room packages."""
-    catalog_lookup: Dict[str, Dict[str, Any]] = {}
-    for item in (issue_catalog.get("items") or []):
-        if isinstance(item, dict) and item.get("id"):
-            catalog_lookup[item["id"]] = item
-
-    by_surrogate: Dict[str, List[EstimateCandidate]] = {}
-    by_estimate_unit: Dict[str, List[EstimateCandidate]] = {}
-    for c in candidates:
-        if c.room_surrogate_id:
-            by_surrogate.setdefault(c.room_surrogate_id, []).append(c)
-        unit_id = getattr(c, "billable_estimate_unit_id", "") or c.room_surrogate_id
-        if unit_id:
-            by_estimate_unit.setdefault(unit_id, []).append(c)
-
-    packages: List[Dict[str, Any]] = []
-
-    if estimate_units is not None:
-        for unit in estimate_units or []:
-            unit_id = unit.get("estimate_unit_id")
-            if not unit_id:
-                continue
-            scene = unit.get("unit_type") or ""
-            room_candidates = by_estimate_unit.get(unit_id, [])
-            if not room_candidates:
-                continue
-            source_room_ids = list(unit.get("source_room_surrogate_ids") or [])
-
-            if scene == "kitchen":
-                pkg = _infer_kitchen_package(
-                    unit_id, room_candidates, catalog_lookup,
-                    estimate_unit_id=unit_id,
-                    source_room_surrogate_ids=source_room_ids,
-                )
-            elif scene == "bathroom":
-                pkg = _infer_bathroom_package(
-                    unit_id, room_candidates, catalog_lookup,
-                    estimate_unit_id=unit_id,
-                    source_room_surrogate_ids=source_room_ids,
-                )
-            else:
-                pkg = _infer_room_refresh(
-                    unit_id, scene, room_candidates, catalog_lookup,
-                    estimate_unit_id=unit_id,
-                    source_room_surrogate_ids=source_room_ids,
-                )
-
-            if pkg is not None:
-                packages.append(pkg)
-        return packages
-
-    for surrogate in room_surrogates or []:
-        sid = surrogate.get("room_surrogate_id")
-        if not sid:
-            continue
-        scene = surrogate.get("scene") or ""
-        room_candidates = by_surrogate.get(sid, [])
-        if not room_candidates:
-            continue
-
-        if scene == "kitchen":
-            pkg = _infer_kitchen_package(sid, room_candidates, catalog_lookup)
-        elif scene == "bathroom":
-            pkg = _infer_bathroom_package(sid, room_candidates, catalog_lookup)
-        else:
-            pkg = _infer_room_refresh(sid, scene, room_candidates, catalog_lookup)
-
-        if pkg is not None:
-            packages.append(pkg)
-
-    return packages
-
-
-def _build_package(
-    spec: Tuple[str, int, int],
-    *,
-    room_surrogate_id: str,
-    estimate_group: str,
-    supporting_candidates: List[EstimateCandidate],
-    trigger_reason: str,
-    decision_notes: List[str],
-    estimate_unit_id: Optional[str] = None,
-    source_room_surrogate_ids: Optional[List[str]] = None,
-) -> Dict[str, Any]:
-    pkg_type, cost_low, cost_high = spec
-    package_unit_id = estimate_unit_id or room_surrogate_id
-    cost_model, cost_model_source = derive_package_cost_model()
-    estimate_scope, estimate_scope_reason = classify_package_scope(
-        pkg_type,
-        supporting_candidates,
-        trigger_reason,
-    )
-    issue_ids: List[str] = []
-    cat_ids: List[str] = []
-    for c in supporting_candidates:
-        for iid in c.issue_ids:
-            if iid not in issue_ids:
-                issue_ids.append(iid)
-        if c.catalog_item_id and c.catalog_item_id not in cat_ids:
-            cat_ids.append(c.catalog_item_id)
-    return {
-        "package_id": f"{pkg_type}__{package_unit_id}",
-        "package_type": pkg_type,
-        "room_surrogate_id": room_surrogate_id,
-        "estimate_unit_id": package_unit_id,
-        "source_room_surrogate_ids": list(source_room_surrogate_ids or []),
-        "estimate_group": estimate_group,
-        "estimate_scope": estimate_scope,
-        "estimate_scope_reason": estimate_scope_reason,
-        "cost_low": cost_low,
-        "cost_high": cost_high,
-        "cost_midpoint": (cost_low + cost_high) // 2,
-        "cost_model": cost_model,
-        "cost_model_source": cost_model_source,
-        "absorption_scope": _package_absorption_scope(pkg_type),
-        "cap_behavior": CAP_BEHAVIOR_RESPECT_GROUP_CAP,
-        "absorbed_unit_member_refs": [],
-        "absorbed_total_low": 0,
-        "absorbed_total_high": 0,
-        "replacement_delta_low": 0,
-        "replacement_delta_high": 0,
-        "supporting_issue_ids": issue_ids,
-        "supporting_catalog_item_ids": cat_ids,
-        "trigger_reason": trigger_reason,
-        "level_decision_notes": list(decision_notes),
-    }
-
-
-def _bucket_by_component(
-    candidates: List[EstimateCandidate],
-    catalog_lookup: Dict[str, Dict[str, Any]],
-) -> Tuple[Dict[str, List[EstimateCandidate]], List[EstimateCandidate], List[EstimateCandidate]]:
-    """Return (defect_drivers_by_component, dated_evidence, all_defect_drivers)."""
-    drivers: Dict[str, List[EstimateCandidate]] = {}
-    dated: List[EstimateCandidate] = []
-    all_drivers: List[EstimateCandidate] = []
-    for c in candidates:
-        cat = catalog_lookup.get(c.catalog_item_id or "", {})
-        if is_defect_driver(c, cat):
-            all_drivers.append(c)
-            comp = classify_component(c)
-            if comp:
-                drivers.setdefault(comp, []).append(c)
-        elif is_dated_cosmetic_evidence(c, cat):
-            dated.append(c)
-    return drivers, dated, all_drivers
-
-
-def _infer_kitchen_package(
-    room_surrogate_id: str,
-    candidates: List[EstimateCandidate],
-    catalog_lookup: Dict[str, Dict[str, Any]],
-    *,
-    estimate_unit_id: Optional[str] = None,
-    source_room_surrogate_ids: Optional[List[str]] = None,
-) -> Optional[Dict[str, Any]]:
-    drivers, dated, all_drivers = _bucket_by_component(candidates, catalog_lookup)
-    notes: List[str] = []
-
-    cabinets   = drivers.get("cabinets",   [])
-    counter    = drivers.get("counter",    [])
-    flooring   = drivers.get("flooring",   [])
-    appliance  = drivers.get("appliance",  [])
-    plumbing   = drivers.get("plumbing",   [])
-    electrical = drivers.get("electrical", [])
-
-    cabinets_sev3 = [c for c in cabinets if (c.severity or 0) >= 3]
-    if cabinets_sev3 and counter and flooring and (appliance or plumbing or electrical):
-        return _build_package(
-            KITCHEN_FULL_REHAB,
-            room_surrogate_id=room_surrogate_id,
-            estimate_group="kitchen",
-            supporting_candidates=cabinets_sev3 + counter + flooring + appliance + plumbing + electrical,
-            trigger_reason="cabinets_sev3 + counter + flooring + (appliance|plumbing|electrical)",
-            decision_notes=["full_rehab matched"],
-            estimate_unit_id=estimate_unit_id,
-            source_room_surrogate_ids=source_room_surrogate_ids,
-        )
-    notes.append("full_rehab not met")
-
-    if cabinets and (counter or flooring):
-        return _build_package(
-            KITCHEN_PARTIAL_REHAB,
-            room_surrogate_id=room_surrogate_id,
-            estimate_group="kitchen",
-            supporting_candidates=cabinets + counter + flooring,
-            trigger_reason="cabinets + (counter|flooring)",
-            decision_notes=notes + ["partial_rehab matched"],
-            estimate_unit_id=estimate_unit_id,
-            source_room_surrogate_ids=source_room_surrogate_ids,
-        )
-    notes.append("partial_rehab not met")
-
-    if len(dated) >= 2 and len(all_drivers) >= 1:
-        return _build_package(
-            KITCHEN_REFRESH,
-            room_surrogate_id=room_surrogate_id,
-            estimate_group="kitchen",
-            supporting_candidates=dated + all_drivers,
-            trigger_reason="2+ dated_evidence + 1+ defect_driver",
-            decision_notes=notes + ["refresh matched"],
-            estimate_unit_id=estimate_unit_id,
-            source_room_surrogate_ids=source_room_surrogate_ids,
-        )
-    notes.append("refresh not met")
-
-    if 1 <= len(all_drivers) <= 2:
-        return _build_package(
-            KITCHEN_MINOR_REPAIR,
-            room_surrogate_id=room_surrogate_id,
-            estimate_group="kitchen",
-            supporting_candidates=all_drivers,
-            trigger_reason="1-2 isolated defect drivers",
-            decision_notes=notes + ["minor_repair matched"],
-            estimate_unit_id=estimate_unit_id,
-            source_room_surrogate_ids=source_room_surrogate_ids,
-        )
-    return None
-
-
-def _infer_bathroom_package(
-    room_surrogate_id: str,
-    candidates: List[EstimateCandidate],
-    catalog_lookup: Dict[str, Dict[str, Any]],
-    *,
-    estimate_unit_id: Optional[str] = None,
-    source_room_surrogate_ids: Optional[List[str]] = None,
-) -> Optional[Dict[str, Any]]:
-    drivers, dated, all_drivers = _bucket_by_component(candidates, catalog_lookup)
-    notes: List[str] = []
-
-    vanity     = drivers.get("vanity",     [])
-    tile       = drivers.get("tile",       [])
-    flooring   = drivers.get("flooring",   [])
-    tub_shower = drivers.get("tub_shower", [])
-    fixture    = drivers.get("fixture",    [])
-    moisture   = drivers.get("moisture",   [])
-    plumbing   = drivers.get("plumbing",   [])
-
-    if vanity and tile and flooring and (tub_shower or fixture or moisture or plumbing):
-        return _build_package(
-            BATHROOM_FULL_REHAB,
-            room_surrogate_id=room_surrogate_id,
-            estimate_group="bathroom",
-            supporting_candidates=vanity + tile + flooring + tub_shower + fixture + moisture + plumbing,
-            trigger_reason="vanity + tile + flooring + (tub_shower|fixture|moisture|plumbing)",
-            decision_notes=["full_rehab matched"],
-            estimate_unit_id=estimate_unit_id,
-            source_room_surrogate_ids=source_room_surrogate_ids,
-        )
-    notes.append("full_rehab not met")
-
-    if (vanity or tile) and (flooring or tub_shower):
-        return _build_package(
-            BATHROOM_PARTIAL_REHAB,
-            room_surrogate_id=room_surrogate_id,
-            estimate_group="bathroom",
-            supporting_candidates=vanity + tile + flooring + tub_shower,
-            trigger_reason="(vanity|tile) + (flooring|tub_shower)",
-            decision_notes=notes + ["partial_rehab matched"],
-            estimate_unit_id=estimate_unit_id,
-            source_room_surrogate_ids=source_room_surrogate_ids,
-        )
-    notes.append("partial_rehab not met")
-
-    if len(dated) >= 2 and len(all_drivers) >= 1:
-        return _build_package(
-            BATHROOM_REFRESH,
-            room_surrogate_id=room_surrogate_id,
-            estimate_group="bathroom",
-            supporting_candidates=dated + all_drivers,
-            trigger_reason="2+ dated_evidence + 1+ defect_driver",
-            decision_notes=notes + ["refresh matched"],
-            estimate_unit_id=estimate_unit_id,
-            source_room_surrogate_ids=source_room_surrogate_ids,
-        )
-    notes.append("refresh not met")
-
-    if 1 <= len(all_drivers) <= 2:
-        return _build_package(
-            BATHROOM_MINOR_REPAIR,
-            room_surrogate_id=room_surrogate_id,
-            estimate_group="bathroom",
-            supporting_candidates=all_drivers,
-            trigger_reason="1-2 isolated defect drivers",
-            decision_notes=notes + ["minor_repair matched"],
-            estimate_unit_id=estimate_unit_id,
-            source_room_surrogate_ids=source_room_surrogate_ids,
-        )
-    return None
-
-
-def _infer_room_refresh(
-    room_surrogate_id: str,
-    scene: str,
-    candidates: List[EstimateCandidate],
-    catalog_lookup: Dict[str, Dict[str, Any]],
-    *,
-    estimate_unit_id: Optional[str] = None,
-    source_room_surrogate_ids: Optional[List[str]] = None,
-) -> Optional[Dict[str, Any]]:
-    """Room refresh / repair-heavy for non-kitchen, non-bathroom surrogates."""
-    _drivers, _dated, all_drivers = _bucket_by_component(candidates, catalog_lookup)
-
-    minor_sev = [c for c in all_drivers if (c.severity or 0) <= 2]
-    medium_sev = [c for c in all_drivers if (c.severity or 0) == 3]
-
-    if len(minor_sev) >= 2 and len(medium_sev) >= 1:
-        return _build_package(
-            ROOM_REPAIR_HEAVY,
-            room_surrogate_id=room_surrogate_id,
-            estimate_group="other",
-            supporting_candidates=minor_sev + medium_sev,
-            trigger_reason="2+ minor_severity + 1+ medium_severity defect drivers",
-            decision_notes=["room_repair_heavy matched"],
-            estimate_unit_id=estimate_unit_id,
-            source_room_surrogate_ids=source_room_surrogate_ids,
-        )
-
-    qualified_for_refresh: List[EstimateCandidate] = []
-    for c in all_drivers:
-        cat = catalog_lookup.get(c.catalog_item_id or "", {})
-        if (c.severity or 0) <= 2 or cat.get("category") == "cosmetic":
-            qualified_for_refresh.append(c)
-    if len(qualified_for_refresh) >= 3:
-        return _build_package(
-            ROOM_REFRESH,
-            room_surrogate_id=room_surrogate_id,
-            estimate_group="other",
-            supporting_candidates=qualified_for_refresh,
-            trigger_reason="3+ qualified non-optional cosmetic-or-minor-severity defect drivers",
-            decision_notes=["room_refresh matched"],
-            estimate_unit_id=estimate_unit_id,
-            source_room_surrogate_ids=source_room_surrogate_ids,
-        )
-    return None
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1923,10 +1843,17 @@ def reconcile_packages_and_estimate_units(
     for pkg in packages or []:
         pkg.setdefault("cost_model", PACKAGE_ALLOWANCE)
         pkg.setdefault("cost_model_source", COST_MODEL_SOURCE_DERIVED_PACKAGE)
-        pkg.setdefault(
-            "absorption_scope",
-            _package_absorption_scope(str(pkg.get("package_type") or "")),
-        )
+        # NOTE: `absorption_scope` MUST be set by the package builder using the
+        # pricing-tier key (e.g. "bathroom_repair_light"), not the package_type
+        # ("bathroom_repair"). _PACKAGE_ABSORPTION_SCOPES is keyed by pricing
+        # tier — a fallback using package_type would silently lookup to {} and
+        # break absorption entirely. Refuse to proceed if it's missing.
+        if "absorption_scope" not in pkg:
+            raise KeyError(
+                "Package missing absorption_scope at reconciliation: "
+                f"package_id={pkg.get('package_id', '?')} "
+                f"package_type={pkg.get('package_type')}"
+            )
         if pkg.get("estimate_scope") not in VALID_ESTIMATE_SCOPES:
             scope, reason = classify_package_scope(
                 str(pkg.get("package_type") or ""),
@@ -1989,24 +1916,30 @@ def reconcile_packages_and_estimate_units(
             })
             raw_cap_behavior = CAP_BEHAVIOR_RESPECT_GROUP_CAP
         pkg["cap_behavior"] = raw_cap_behavior
-        delta_low = pkg["cost_low"] - pkg["absorbed_total_low"]
-        delta_high = pkg["cost_high"] - pkg["absorbed_total_high"]
-        pkg["replacement_delta_low"] = delta_low
-        pkg["replacement_delta_high"] = delta_high
-        if delta_low < 0:
-            warnings.append({
-                "code": "package_total_below_absorbed_total_low",
-                "package_id": pkg["package_id"],
-                "absorbed_total_low": pkg["absorbed_total_low"],
-                "package_cost_low": pkg["cost_low"],
-            })
-        if delta_high < 0:
-            warnings.append({
-                "code": "package_total_below_absorbed_total_high",
-                "package_id": pkg["package_id"],
-                "absorbed_total_high": pkg["absorbed_total_high"],
-                "package_cost_high": pkg["cost_high"],
-            })
+        # Floor: a package's cost can never undercut what it absorbed. Tier dispatch
+        # picks a cost range without seeing absorbed totals (those are only known
+        # here in Phase C). If a sub-tier package absorbed a costly catalog item,
+        # raise the package cost to match — otherwise the difference would be
+        # silently lost when retained group totals clip to 0 in Phase D.
+        # Smarter dispatch in Step 6 (see _resolve_*_profile) reduces how often
+        # this floor engages; this is the safety net.
+        absorbed_low = pkg["absorbed_total_low"]
+        absorbed_high = pkg["absorbed_total_high"]
+        if pkg["cost_low"] < absorbed_low or pkg["cost_high"] < absorbed_high:
+            logger.warning(
+                "Package cost undercut by absorbed total — applying floor. "
+                "package_id=%s cost_low=%s -> %s cost_high=%s -> %s",
+                pkg.get("package_id"),
+                pkg["cost_low"], max(pkg["cost_low"], absorbed_low),
+                pkg["cost_high"], max(pkg["cost_high"], absorbed_high),
+            )
+            pkg["cost_floor_applied"] = True
+            pkg["cost_low"] = max(pkg["cost_low"], absorbed_low)
+            pkg["cost_high"] = max(pkg["cost_high"], absorbed_high)
+            # Keep cost_midpoint consistent with the floored low/high.
+            pkg["cost_midpoint"] = (pkg["cost_low"] + pkg["cost_high"]) // 2
+        pkg["replacement_delta_low"] = pkg["cost_low"] - absorbed_low
+        pkg["replacement_delta_high"] = pkg["cost_high"] - absorbed_high
 
     # Phase D: recompute retained group totals using v3's stack rule
     retained_group_totals: List[Dict[str, Any]] = []

@@ -927,7 +927,12 @@
         "group": "bathroom",
         "stack_behavior": "group_cap",
         "unit_policy": "per_bathroom"
-      }
+      },
+      "display_class": "estimate_driver",
+      "package_role": "package_driver",
+      "package_type": "bathroom_repair",
+      "package_category": "repair",
+      "room": "bathroom"
     },
     {
       "name": "Appliance Damage or Missing",
@@ -1065,7 +1070,12 @@
         "group": "bathroom",
         "stack_behavior": "group_cap",
         "unit_policy": "per_bathroom"
-      }
+      },
+      "display_class": "estimate_driver",
+      "package_role": "package_support",
+      "package_type": "bathroom_repair",
+      "package_category": "repair",
+      "room": "bathroom"
     },
     {
       "name": "Visible Electrical Risks",
@@ -1568,7 +1578,12 @@
         "group": "bathroom",
         "stack_behavior": "group_cap",
         "unit_policy": "per_bathroom"
-      }
+      },
+      "display_class": "marketability",
+      "package_role": "package_driver",
+      "package_type": "bathroom_modernization",
+      "package_category": "modernization",
+      "room": "bathroom"
     },
     {
       "name": "Outdated Flooring Style",
@@ -1689,7 +1704,7 @@
       "scene_groups": [
         "bathroom"
       ],
-      "tier": "optional",
+      "tier": "work",
       "drop_if_generic": false,
       "cost": {
         "mode": "allowance",
@@ -1701,7 +1716,12 @@
         "cap_high": 750,
         "cost_source": "manual"
       },
-      "require_any": []
+      "require_any": [],
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "bathroom_modernization",
+      "package_category": "modernization",
+      "room": "bathroom"
     },
     {
       "name": "Paint Refresh Opportunity",
@@ -2217,7 +2237,7 @@
       "scene_groups": [
         "bathroom"
       ],
-      "tier": "optional",
+      "tier": "work",
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
@@ -2226,7 +2246,12 @@
         "tile",
         "tiles",
         "tiled"
-      ]
+      ],
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "bathroom_modernization",
+      "package_category": "modernization",
+      "room": "bathroom"
     },
     {
       "name": "Ornate/Vintage Mirror Style",
@@ -2258,14 +2283,820 @@
       "scene_groups": [
         "bathroom"
       ],
-      "tier": "optional",
+      "tier": "work",
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
       },
       "require_any": [
         "mirror"
+      ],
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "bathroom_modernization",
+      "package_category": "modernization",
+      "room": "bathroom"
+    },
+    {
+      "name": "Outdated or Damaged Vanity",
+      "category": "cosmetic",
+      "severity": 3,
+      "trade_bucket": "bathroom_fixtures_tile",
+      "work_item_code": "VANITY_REPLACE",
+      "description": "Bathroom vanity is worn, damaged, or visibly outdated with deteriorated finishes, doors, or hardware.",
+      "support_any": [
+        "vanity",
+        "bathroom cabinet",
+        "sink cabinet",
+        "damaged vanity",
+        "outdated vanity",
+        "worn vanity",
+        "dated vanity"
+      ],
+      "deny_any": [
+        "kitchen",
+        "kitchen cabinet",
+        "kitchen countertop"
+      ],
+      "embed_text": "Outdated or damaged vanity. Worn bathroom vanity with peeling laminate, water-damaged base, swollen particle board, broken hinges or drawer fronts. Dated vanity styling such as oak, golden oak, builder-grade flat-panel, or 1990s-style cabinetry. Replace bathroom vanity.",
+      "kind": "defect",
+      "id": "outdated_or_damaged_vanity",
+      "scope": "replace",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 6000,
+        "per_occurrence_low": 540,
+        "per_occurrence_high": 1500,
+        "cap_low": 5000,
+        "cap_high": 10000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "display_class": "estimate_driver",
+      "package_role": "package_driver",
+      "package_type": "bathroom_repair",
+      "package_category": "repair",
+      "room": "bathroom"
+    },
+    {
+      "name": "Tub Surround or Shower Pan Damage",
+      "category": "cosmetic",
+      "severity": 3,
+      "trade_bucket": "bathroom_fixtures_tile",
+      "work_item_code": "TUB_SHOWER_REPAIR",
+      "description": "Cracked, chipped, or visibly damaged tub surround, shower pan, or shower base allowing potential moisture intrusion.",
+      "support_any": [
+        "tub",
+        "shower",
+        "shower pan",
+        "tub surround",
+        "shower surround",
+        "cracked tub",
+        "chipped tub",
+        "damaged shower"
+      ],
+      "deny_any": [],
+      "embed_text": "Tub surround or shower pan damage. Cracked fiberglass tub, chipped enamel surface, separated tub surround panels, damaged shower base or pan, deteriorated shower walls, broken or warped shower kit. Tub or shower replacement or repair to restore waterproof envelope.",
+      "kind": "defect",
+      "id": "tub_surround_or_shower_pan_damage",
+      "scope": "repair",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 6000,
+        "per_occurrence_low": 480,
+        "per_occurrence_high": 2000,
+        "cap_low": 5000,
+        "cap_high": 12000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_or_replace",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "display_class": "high_concern",
+      "package_role": "package_driver",
+      "package_type": "bathroom_repair",
+      "package_category": "repair",
+      "room": "bathroom"
+    },
+    {
+      "name": "Bathroom Plumbing Visible Issue",
+      "category": "systems",
+      "severity": 3,
+      "trade_bucket": "plumbing",
+      "work_item_code": "PLUMBING_REPAIR",
+      "description": "Visible bathroom plumbing concern: leaking supply lines, corroded shutoffs, failing drain assembly, or compromised P-trap.",
+      "support_any": [
+        "leak",
+        "leaking",
+        "corroded pipe",
+        "rust",
+        "p-trap",
+        "drain",
+        "shutoff valve",
+        "supply line",
+        "bathroom plumbing"
+      ],
+      "deny_any": [],
+      "embed_text": "Bathroom plumbing visible issue. Leaking supply line under vanity, corroded shutoff valves, failing or improvised drain assembly, missing P-trap, rusted or staining bathroom plumbing. Active drip at sink or toilet supply, water on cabinet base from plumbing concern. Plumbing repair required.",
+      "kind": "defect",
+      "id": "bathroom_plumbing_visible_issue",
+      "scope": "repair",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 300,
+        "base_high": 4000,
+        "per_occurrence_low": 360,
+        "per_occurrence_high": 1200,
+        "cap_low": 4000,
+        "cap_high": 9000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "display_class": "high_concern",
+      "package_role": "package_driver",
+      "package_type": "bathroom_repair",
+      "package_category": "repair",
+      "room": "bathroom"
+    },
+    {
+      "name": "Bathroom GFCI Missing or Damaged",
+      "category": "safety",
+      "severity": 3,
+      "trade_bucket": "electrical",
+      "work_item_code": "GFCI_INSTALL",
+      "description": "Bathroom outlets near sink or wet area lack GFCI protection, or existing GFCI is damaged or unresponsive.",
+      "support_any": [
+        "gfci",
+        "outlet",
+        "receptacle",
+        "missing gfci",
+        "broken outlet",
+        "ungrounded outlet",
+        "bathroom outlet"
+      ],
+      "deny_any": [],
+      "embed_text": "Bathroom GFCI missing or damaged. Standard non-GFCI receptacle near bathroom sink, exposed wiring at bathroom outlet, damaged or cracked outlet face, missing GFCI protection on a wet-area circuit. Replace with code-compliant GFCI receptacle.",
+      "require_any": [
+        "outlet",
+        "receptacle",
+        "gfci"
+      ],
+      "kind": "defect",
+      "id": "bathroom_gfci_missing_or_damaged",
+      "scope": "replace",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 150,
+        "base_high": 1500,
+        "per_occurrence_low": 180,
+        "per_occurrence_high": 450,
+        "cap_low": 1200,
+        "cap_high": 2500,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "low",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "display_class": "high_concern",
+      "package_role": "package_driver",
+      "package_type": "bathroom_repair",
+      "package_category": "repair",
+      "room": "bathroom"
+    },
+    {
+      "name": "Active Water Damage in Bathroom",
+      "category": "moisture",
+      "severity": 3,
+      "trade_bucket": "moisture_mold",
+      "work_item_code": "MOISTURE_REMEDIATION",
+      "description": "Active or recent water damage in bathroom: standing water, wet drywall, swollen subflooring, or fresh staining indicating ongoing moisture intrusion.",
+      "support_any": [
+        "water damage",
+        "wet drywall",
+        "soft drywall",
+        "swollen floor",
+        "standing water",
+        "active leak",
+        "fresh stain",
+        "soggy subfloor"
+      ],
+      "deny_any": [],
+      "embed_text": "Active water damage in bathroom. Standing water on bathroom floor, soft or buckled drywall near tub or shower, swollen or rotted baseboard, soggy or sunken subflooring, fresh staining on ceiling below bathroom. Moisture remediation and source repair required to halt active intrusion.",
+      "kind": "defect",
+      "id": "active_water_damage_bathroom",
+      "scope": "repair",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 600,
+        "base_high": 7000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 2500,
+        "cap_low": 6000,
+        "cap_high": 15000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "repair_or_replace",
+        "group": "remediation",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "display_class": "high_concern",
+      "package_role": "package_driver",
+      "package_type": "bathroom_repair",
+      "package_category": "repair",
+      "room": "bathroom"
+    },
+    {
+      "name": "Mold or Mildew Visible in Bathroom",
+      "category": "moisture",
+      "severity": 4,
+      "trade_bucket": "moisture_mold",
+      "work_item_code": "MOISTURE_REMEDIATION",
+      "description": "Visible mold or mildew growth in bathroom on tile, grout, caulk, ceiling, or drywall, suggesting persistent moisture or ventilation issues.",
+      "support_any": [
+        "mold",
+        "mildew",
+        "black spots",
+        "bathroom mold",
+        "shower mold",
+        "grout mold",
+        "ceiling mildew",
+        "fungus"
+      ],
+      "deny_any": [],
+      "embed_text": "Mold or mildew visible in bathroom. Black or dark organic staining on grout lines, tile corners, shower caulk, bathroom ceiling, or near exhaust fan. Microbial growth in tub surround or shower stall. Mold remediation and moisture or ventilation source repair.",
+      "kind": "defect",
+      "id": "mold_or_mildew_visible_bathroom",
+      "scope": "repair",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 300,
+        "base_high": 3000,
+        "per_occurrence_low": 240,
+        "per_occurrence_high": 900,
+        "cap_low": 2500,
+        "cap_high": 6000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_only",
+        "group": "remediation",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "display_class": "high_concern",
+      "package_role": "package_driver",
+      "package_type": "bathroom_repair",
+      "package_category": "repair",
+      "room": "bathroom"
+    },
+    {
+      "name": "Missing Bathroom Tile Exposed Substrate",
+      "category": "cosmetic",
+      "severity": 3,
+      "trade_bucket": "bathroom_fixtures_tile",
+      "work_item_code": "TILE_REPLACE",
+      "description": "Missing bathroom tile exposing substrate, backer board, or wall framing - severe failure of waterproof envelope.",
+      "support_any": [
+        "missing tile",
+        "exposed substrate",
+        "exposed backer board",
+        "exposed framing",
+        "torn off tile",
+        "no tile",
+        "removed tile",
+        "bare wall behind tile"
+      ],
+      "deny_any": [],
+      "embed_text": "Missing bathroom tile exposed substrate. Large area of missing tile exposing cement board, drywall, or wall framing behind shower or tub. Section of tile torn off shower wall or bathroom floor leaving bare substrate. Significant tile failure indicating water intrusion and full tile replacement required.",
+      "kind": "defect",
+      "id": "missing_bathroom_tile_exposed_substrate",
+      "scope": "replace",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 800,
+        "base_high": 8000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 2000,
+        "cap_low": 6000,
+        "cap_high": 14000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "display_class": "high_concern",
+      "package_role": "package_driver",
+      "package_type": "bathroom_repair",
+      "package_category": "repair",
+      "room": "bathroom"
+    },
+    {
+      "name": "Missing Vanity Exposed Plumbing",
+      "category": "cosmetic",
+      "severity": 3,
+      "trade_bucket": "bathroom_fixtures_tile",
+      "work_item_code": "VANITY_REPLACE",
+      "description": "Bathroom vanity has been removed or is missing, leaving plumbing supply and drain lines exposed and unsupported.",
+      "support_any": [
+        "missing vanity",
+        "no vanity",
+        "exposed plumbing",
+        "exposed supply lines",
+        "exposed drain",
+        "vanity removed",
+        "stripped vanity",
+        "pedestal sink removed"
+      ],
+      "deny_any": [],
+      "embed_text": "Missing vanity with exposed plumbing. Bathroom vanity removed exposing supply lines and P-trap, no sink cabinet present, stripped vanity area showing rough plumbing, pedestal or wall-hung sink removed leaving open plumbing. Vanity replacement and finished plumbing connection required.",
+      "require_any": [
+        "exposed",
+        "missing",
+        "removed"
+      ],
+      "kind": "defect",
+      "id": "missing_vanity_exposed_plumbing",
+      "scope": "replace",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 800,
+        "base_high": 8000,
+        "per_occurrence_low": 720,
+        "per_occurrence_high": 2200,
+        "cap_low": 6000,
+        "cap_high": 14000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "display_class": "high_concern",
+      "package_role": "package_driver",
+      "package_type": "bathroom_repair",
+      "package_category": "repair",
+      "room": "bathroom"
+    },
+    {
+      "name": "Vanity Countertop Damage",
+      "category": "cosmetic",
+      "severity": 2,
+      "trade_bucket": "bathroom_fixtures_tile",
+      "work_item_code": "VANITY_TOP_REPAIR",
+      "description": "Damaged bathroom vanity countertop with cracks, chips, burns, or deep staining.",
+      "support_any": [
+        "vanity top",
+        "vanity countertop",
+        "cracked vanity",
+        "chipped vanity top",
+        "burned vanity",
+        "stained vanity top",
+        "damaged sink top"
+      ],
+      "deny_any": [
+        "kitchen",
+        "kitchen cabinet",
+        "kitchen countertop"
+      ],
+      "embed_text": "Vanity countertop damage. Cracked, chipped, burned, or deeply stained bathroom vanity countertop. Cultured marble vanity top with breaks or yellowing, laminate vanity top with delamination or burns. Vanity top replacement or repair.",
+      "kind": "defect",
+      "id": "vanity_countertop_damage",
+      "scope": "replace",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 250,
+        "base_high": 3000,
+        "per_occurrence_low": 250,
+        "per_occurrence_high": 700,
+        "cap_low": 3000,
+        "cap_high": 7000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "display_class": "estimate_driver",
+      "package_role": "package_support",
+      "package_type": "bathroom_repair",
+      "package_category": "repair",
+      "room": "bathroom"
+    },
+    {
+      "name": "Missing or Damaged Caulk at Tub or Shower",
+      "category": "cosmetic",
+      "severity": 1,
+      "trade_bucket": "bathroom_fixtures_tile",
+      "work_item_code": "CAULK_REPAIR",
+      "description": "Failed, missing, or moldy caulk at tub edges, shower transitions, or vanity backsplash - needs re-caulking to prevent moisture intrusion.",
+      "support_any": [
+        "missing caulk",
+        "damaged caulk",
+        "moldy caulk",
+        "failing caulk",
+        "separated caulk",
+        "shower caulk",
+        "tub caulk"
+      ],
+      "deny_any": [],
+      "embed_text": "Missing or damaged caulk at tub or shower. Failed, separated, or visibly moldy caulk along tub edge, shower corners, tile-to-wall transitions, or vanity backsplash. Strip and re-caulk to restore moisture seal.",
+      "require_any": [
+        "caulk",
+        "sealant",
+        "silicone",
+        "grout line"
+      ],
+      "kind": "defect",
+      "id": "missing_or_damaged_caulk_at_tub_or_shower",
+      "scope": "repair",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 75,
+        "base_high": 800,
+        "per_occurrence_low": 90,
+        "per_occurrence_high": 240,
+        "cap_low": 600,
+        "cap_high": 1500,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "low",
+        "strategy": "repair_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "bathroom_repair",
+      "package_category": "repair",
+      "room": "bathroom"
+    },
+    {
+      "name": "Bathroom Exhaust Fan Missing or Damaged",
+      "category": "systems",
+      "severity": 1,
+      "trade_bucket": "electrical",
+      "work_item_code": "EXHAUST_FAN_REPLACE",
+      "description": "Bathroom exhaust fan is missing, broken, or visibly aged or grime-clogged - needed for moisture management and code compliance.",
+      "support_any": [
+        "exhaust fan",
+        "bathroom fan",
+        "ventilation fan",
+        "broken fan",
+        "missing fan",
+        "no exhaust",
+        "ceiling fan vent"
+      ],
+      "deny_any": [
+        "range hood",
+        "kitchen hood",
+        "ceiling fan"
+      ],
+      "embed_text": "Bathroom exhaust fan missing or damaged. No visible exhaust fan in bathroom, broken or dangling exhaust fan cover, grime-clogged fan housing, fan that does not appear operational. Install or replace bathroom exhaust fan.",
+      "kind": "defect",
+      "id": "exhaust_fan_missing_or_damaged",
+      "scope": "replace",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 120,
+        "base_high": 1200,
+        "per_occurrence_low": 150,
+        "per_occurrence_high": 420,
+        "cap_low": 800,
+        "cap_high": 1800,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "low",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "bathroom_repair",
+      "package_category": "repair",
+      "room": "bathroom"
+    },
+    {
+      "name": "Peeling or Damaged Bathroom Paint",
+      "category": "cosmetic",
+      "severity": 2,
+      "trade_bucket": "paint_drywall",
+      "work_item_code": "PAINT_INTERIOR",
+      "description": "Bathroom-specific paint failure: peeling near tub, bubbling near shower, moisture-related discoloration, or efflorescence on bathroom walls.",
+      "support_any": [
+        "peeling paint",
+        "bubbling paint",
+        "flaking paint",
+        "moisture stain",
+        "efflorescence",
+        "bathroom paint",
+        "shower wall paint"
+      ],
+      "deny_any": [],
+      "embed_text": "Peeling or damaged bathroom paint. Paint failure near bathroom tub or shower, bubbling or flaking paint on bathroom walls or ceiling, moisture-related discoloration or efflorescence near plumbing fixtures. Prep, prime with moisture-resistant primer, and repaint with bathroom-rated paint.",
+      "kind": "defect",
+      "id": "peeling_or_damaged_bathroom_paint",
+      "scope": "cosmetic",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 180,
+        "base_high": 2200,
+        "per_occurrence_low": 180,
+        "per_occurrence_high": 480,
+        "cap_low": 2000,
+        "cap_high": 4500,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_only",
+        "group": "paint",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_room"
+      },
+      "display_class": "estimate_driver",
+      "package_role": "package_support",
+      "package_type": "bathroom_repair",
+      "package_category": "repair",
+      "room": "bathroom",
+      "require_any": [
+        "bathroom",
+        "tub",
+        "shower",
+        "vanity"
       ]
+    },
+    {
+      "name": "Worn or Damaged Bathroom Flooring",
+      "category": "cosmetic",
+      "severity": 2,
+      "trade_bucket": "flooring",
+      "work_item_code": "FLOORING_REPLACE",
+      "description": "Bathroom flooring damaged by moisture: lifted vinyl, soft subfloor near toilet, cracked floor tile, or buckled laminate.",
+      "support_any": [
+        "lifted vinyl",
+        "soft floor",
+        "soft subfloor",
+        "cracked floor tile",
+        "buckled floor",
+        "bathroom flooring damage",
+        "toilet base flooring",
+        "moisture damaged floor"
+      ],
+      "deny_any": [],
+      "embed_text": "Worn or damaged bathroom flooring. Lifted or peeling vinyl tile near toilet base, soft or spongy subfloor at vanity or tub, cracked or missing bathroom floor tile, buckled or water-damaged laminate. Bathroom flooring replacement with moisture-rated material.",
+      "kind": "defect",
+      "id": "worn_or_damaged_bathroom_flooring",
+      "scope": "replace",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 400,
+        "base_high": 4500,
+        "per_occurrence_low": 330,
+        "per_occurrence_high": 900,
+        "cap_low": 4500,
+        "cap_high": 10000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "flooring",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_room"
+      },
+      "display_class": "estimate_driver",
+      "package_role": "package_support",
+      "package_type": "bathroom_repair",
+      "package_category": "repair",
+      "room": "bathroom",
+      "require_any": [
+        "soft",
+        "lifted",
+        "buckled",
+        "toilet base",
+        "spongy",
+        "moisture"
+      ]
+    },
+    {
+      "name": "Dated or Worn Vanity Countertop",
+      "category": "cosmetic",
+      "severity": 2,
+      "trade_bucket": "bathroom_fixtures_tile",
+      "work_item_code": "VANITY_TOP_UPDATE",
+      "description": "Vanity countertop is intact but visually dated: yellowed cultured marble, dated laminate pattern, or worn synthetic top.",
+      "support_any": [
+        "dated vanity top",
+        "yellowed cultured marble",
+        "old laminate top",
+        "worn vanity top",
+        "outdated vanity countertop"
+      ],
+      "deny_any": [
+        "kitchen",
+        "kitchen cabinet",
+        "kitchen countertop"
+      ],
+      "embed_text": "Dated or worn vanity countertop. Yellowed cultured marble, dated laminate vanity top, worn integral sink top, builder-grade synthetic top. Bathroom vanity countertop update for marketability.",
+      "kind": "upgrade",
+      "id": "dated_or_worn_vanity_countertop",
+      "scope": "replace",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 250,
+        "base_high": 2500,
+        "per_occurrence_low": 270,
+        "per_occurrence_high": 750,
+        "cap_low": 3000,
+        "cap_high": 7000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "bathroom_modernization",
+      "package_category": "modernization",
+      "room": "bathroom"
+    },
+    {
+      "name": "Dated Bathroom Flooring Style",
+      "category": "cosmetic",
+      "severity": 2,
+      "trade_bucket": "flooring",
+      "work_item_code": "FLOORING_REPLACE",
+      "description": "Bathroom flooring is intact but visually dated - older vinyl pattern, dated linoleum, mid-century tile, or builder-grade carpeting.",
+      "support_any": [
+        "dated bathroom floor",
+        "old bathroom vinyl",
+        "dated linoleum",
+        "vintage bathroom tile",
+        "builder-grade bathroom flooring",
+        "outdated bathroom floor"
+      ],
+      "deny_any": [],
+      "embed_text": "Dated bathroom flooring style. Older vinyl pattern, dated linoleum, mid-century or vintage tile, builder-grade bathroom carpeting. Floor is intact but stylistically out of date. Bathroom flooring update for marketability.",
+      "kind": "upgrade",
+      "id": "dated_bathroom_flooring_style",
+      "scope": "replace",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 300,
+        "base_high": 3500,
+        "per_occurrence_low": 270,
+        "per_occurrence_high": 750,
+        "cap_low": 4000,
+        "cap_high": 9000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "flooring",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_room"
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "bathroom_modernization",
+      "package_category": "modernization",
+      "room": "bathroom"
     },
     {
       "name": "Stained-Glass or Vintage Light Fixture",
@@ -3546,11 +4377,8 @@
       "cost": {
         "mode": "heuristic"
       },
-      "display_class": "marketability",
-      "package_role": "package_support",
-      "package_type": "kitchen_modernization",
-      "package_category": "modernization",
-      "room": "kitchen"
+      "display_class": "hidden",
+      "package_role": "ignore"
     },
     {
       "id": "dated_interior_trim",
@@ -3679,6 +4507,190 @@
       },
       "display_class": "marketability",
       "package_role": "ignore"
+    },
+    {
+      "id": "dated_bathroom_wallpaper",
+      "name": "Dated Bathroom Wallpaper",
+      "category": "opportunity",
+      "severity": 2,
+      "trade_bucket": "paint_drywall",
+      "work_item_code": "WALLPAPER_REMOVE_PAINT",
+      "description": "Dated bathroom wallpaper, borders, or vinyl wall covering where removal and repainting would improve market appeal.",
+      "support_any": [
+        "dated bathroom wallpaper",
+        "bathroom wallpaper",
+        "wallpaper border",
+        "vinyl wallpaper",
+        "floral wallpaper",
+        "patterned wallpaper"
+      ],
+      "require_any": [
+        "wallpaper",
+        "wall paper",
+        "wallpaper border",
+        "wall border",
+        "vinyl wall",
+        "floral wall",
+        "patterned wall"
+      ],
+      "deny_any": [],
+      "embed_text": "Dated bathroom wallpaper. Floral, geometric, or vinyl-print wallpaper covering bathroom walls. Wallpaper borders along ceiling or above tile. Peeling or curling wallpaper edges. Vintage 80s/90s wallpaper patterns. Wallpaper removal and bathroom wall paint refresh.",
+      "kind": "upgrade",
+      "scope": "replace",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 400,
+        "base_high": 2000,
+        "per_occurrence_low": 360,
+        "per_occurrence_high": 900,
+        "cap_low": 2500,
+        "cap_high": 6000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "low",
+        "strategy": "replace_only",
+        "group": "paint",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "bathroom_modernization",
+      "package_category": "modernization",
+      "room": "bathroom"
+    },
+    {
+      "id": "bathroom_layout_modernization_opportunity",
+      "name": "Bathroom Layout Modernization Opportunity",
+      "category": "opportunity",
+      "severity": 3,
+      "trade_bucket": "bathroom_fixtures_tile",
+      "work_item_code": "BATHROOM_LAYOUT_REWORK",
+      "description": "Awkward or constrained bathroom layout where fixture relocation, vanity replacement, or broader redesign could improve function and appeal.",
+      "support_any": [
+        "awkward bathroom layout",
+        "cramped bathroom",
+        "corner toilet",
+        "no vanity",
+        "pedestal sink",
+        "fixture clearance",
+        "narrow bathroom",
+        "tight bathroom"
+      ],
+      "require_any": [
+        "awkward",
+        "cramped",
+        "corner toilet",
+        "no vanity",
+        "pedestal sink",
+        "fixture clearance",
+        "narrow bathroom",
+        "tight bathroom",
+        "wedge"
+      ],
+      "deny_any": [],
+      "embed_text": "Bathroom layout modernization opportunity. Awkward or constrained bathroom layout: corner toilet placement, narrow wedge bathroom, no vanity counter or only a pedestal sink in master, fixture clearance issues, tight shower-toilet sandwich. Layout reconfiguration or full bathroom redesign.",
+      "kind": "upgrade",
+      "scope": "replace",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 5000,
+        "base_high": 25000,
+        "per_occurrence_low": 4500,
+        "per_occurrence_high": 9000,
+        "cap_low": 15000,
+        "cap_high": 35000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "bathroom_modernization",
+      "package_category": "modernization",
+      "room": "bathroom"
+    },
+    {
+      "id": "bathroom_paint_refresh_recommended",
+      "name": "Bathroom Paint Refresh Recommended",
+      "category": "opportunity",
+      "severity": 1,
+      "trade_bucket": "paint_drywall",
+      "work_item_code": "PAINT_INTERIOR",
+      "description": "Bathroom paint is intact but dated, dull, or worn enough that a cosmetic repaint would improve market appeal.",
+      "support_any": [
+        "bathroom paint",
+        "paint refresh",
+        "dated paint",
+        "dull paint",
+        "beige walls",
+        "tan walls",
+        "wall paint refresh"
+      ],
+      "require_any": [
+        "paint",
+        "wall",
+        "walls",
+        "ceiling"
+      ],
+      "deny_any": [
+        "peeling",
+        "damage",
+        "damaged",
+        "stained",
+        "stain",
+        "mold",
+        "mildew"
+      ],
+      "embed_text": "Bathroom paint refresh recommended. Dated paint colors, dull or worn finish, beige or tan walls in need of a contemporary refresh. Wall paint refresh without underlying damage. Bathroom paint update.",
+      "kind": "upgrade",
+      "scope": "cosmetic",
+      "defaultHidden": false,
+      "scene_groups": [
+        "bathroom"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "allowance",
+        "base_low": 200,
+        "base_high": 800,
+        "per_occurrence_low": 180,
+        "per_occurrence_high": 360,
+        "cap_low": 1000,
+        "cap_high": 2500,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "low",
+        "strategy": "replace_only",
+        "group": "paint",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "bathroom_modernization",
+      "package_category": "modernization",
+      "room": "bathroom"
     }
   ]
 }
