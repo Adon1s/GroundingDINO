@@ -396,6 +396,8 @@ class Pass2fResult:
     confirmed_issue_ids: List[str] = field(default_factory=list)
     rejected_issue_ids: List[str] = field(default_factory=list)
     evidence_summary: str = ""
+    visible_room_count: str = "unclear"
+    visible_room_count_evidence: str = ""
     raw_response: Optional[str] = None
 
 
@@ -1761,6 +1763,18 @@ PASS_2F_OUTPUT_SCHEMA = (
     "}}\n"
 )
 
+PASS_2F_BATHROOM_OUTPUT_SCHEMA = (
+    "Return exactly this JSON shape:\n"
+    "{{\n"
+    '  "verification_status": "confirmed" or "rejected" or "uncertain",\n'
+    '  "confirmed_issue_ids": [],\n'
+    '  "rejected_issue_ids": [],\n'
+    '  "evidence_summary": "Brief visible-only explanation",\n'
+    '  "visible_room_count": "one_room" or "multiple_rooms" or "unclear",\n'
+    '  "visible_room_count_evidence": "Brief fixed-feature basis"\n'
+    "}}\n"
+)
+
 # ── Kitchen Pass 2f prompt ───────────────────────────────────────────────────
 # Self-contained: no bathroom / exterior vocabulary anywhere in the body.
 
@@ -1814,6 +1828,14 @@ PASS_2F_BATHROOM_SYSTEM_PROMPT = (
     "- Common bathroom photo limitations: tight framing, mirror reflections, partial "
     "views of vanity or shower. Use uncertain when key surfaces are not visible in any "
     "of the supplied images.\n"
+    "- Also report visible_room_count for audit only. Use one_room when the supplied "
+    "photos appear visually consistent with one bathroom. Use multiple_rooms only when "
+    "fixed bathroom features visibly conflict, such as vanity/cabinet style, tile "
+    "color or pattern, tub/shower type, window or mirror placement, layout, or room "
+    "geometry. Use unclear when the photos are too cropped or ambiguous.\n"
+    "- Mixed-looking bathrooms do not automatically make the package uncertain. If one "
+    "coherent visible bathroom supports the package, you may confirm that package and "
+    "reject only unrelated issue IDs.\n"
 )
 
 PASS_2F_BATHROOM_USER_PROMPT = (
@@ -1824,7 +1846,7 @@ PASS_2F_BATHROOM_USER_PROMPT = (
     "- package_label: {package_label}\n\n"
     "Candidate evidence items:\n"
     "{evidence_json}\n\n"
-    + PASS_2F_OUTPUT_SCHEMA
+    + PASS_2F_BATHROOM_OUTPUT_SCHEMA
 )
 
 # Per-room selector. Future rooms (exterior, etc.) register here without
@@ -1835,6 +1857,7 @@ PASS_2F_ROOM_PROMPTS = {
 }
 
 PASS_2F_VALID_STATUSES = {"confirmed", "rejected", "uncertain"}
+PASS_2F_ROOM_COUNT_VALUES = {"one_room", "multiple_rooms", "unclear"}
 
 
 def _normalize_issue_id_list(value: Any, valid_issue_ids: set) -> List[str]:
@@ -1855,6 +1878,7 @@ def _coerce_pass_2f(
     package_id: str,
     package_type: str,
     valid_issue_ids: set,
+    room: str = "",
 ) -> Pass2fResult:
     status = str(raw.get("verification_status") or "uncertain").strip().lower()
     if status not in PASS_2F_VALID_STATUSES:
@@ -1869,6 +1893,15 @@ def _coerce_pass_2f(
     )
     if status == "rejected" and not rejected_issue_ids:
         rejected_issue_ids = sorted(valid_issue_ids)
+    visible_room_count = "unclear"
+    visible_room_count_evidence = ""
+    if str(room or "").lower() == "bathroom":
+        visible_room_count = str(raw.get("visible_room_count") or "unclear").strip().lower()
+        if visible_room_count not in PASS_2F_ROOM_COUNT_VALUES:
+            visible_room_count = "unclear"
+        visible_room_count_evidence = str(
+            raw.get("visible_room_count_evidence") or ""
+        ).strip()[:240]
     return Pass2fResult(
         package_id=package_id,
         package_type=package_type,
@@ -1876,6 +1909,8 @@ def _coerce_pass_2f(
         confirmed_issue_ids=confirmed_issue_ids,
         rejected_issue_ids=rejected_issue_ids,
         evidence_summary=str(raw.get("evidence_summary") or "").strip()[:400],
+        visible_room_count=visible_room_count,
+        visible_room_count_evidence=visible_room_count_evidence,
     )
 
 
@@ -1951,6 +1986,7 @@ async def run_pass_2f(
             package_id=package_id,
             package_type=package_type,
             valid_issue_ids=valid_issue_ids,
+            room=room,
         )
         result.raw_response = response
         return result

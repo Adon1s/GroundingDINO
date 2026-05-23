@@ -168,6 +168,8 @@ class EstimateCandidate:
     unit_members: List[Dict[str, Any]] = field(default_factory=list)
     source_estimate_unit_ids: List[str] = field(default_factory=list)
     source_issue_ids: List[str] = field(default_factory=list)
+    evidence_refs: List[Dict[str, Any]] = field(default_factory=list)
+    package_evidence_only: bool = False
     # ── Pass 2f review override fields (populated by revisit pass) ────────
     is_valid_detection: Optional[bool] = None  # None = 2f didn't run; False = model deemed invalid
     review_posture: Optional[str] = None    # e.g. "repair", "replace", "keep_default"
@@ -311,6 +313,29 @@ def _estimate_scope_key_for_issue(
     return scope_key, room_surrogate
 
 
+def issue_evidence_ref(issue: Dict[str, Any]) -> Dict[str, Any]:
+    """Return the per-issue reference used by package-level verification."""
+    return {
+        "issue_id": str(issue.get("issue_id") or ""),
+        "photo_key": str(issue.get("photo_key") or ""),
+        "observation": str(issue.get("description") or ""),
+        "room_surrogate_id": str(issue.get("room_surrogate_id") or ""),
+    }
+
+
+def issue_evidence_refs(occurrences: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    refs: List[Dict[str, Any]] = []
+    seen = set()
+    for issue in occurrences or []:
+        ref = issue_evidence_ref(issue)
+        key = (ref["issue_id"], ref["photo_key"])
+        if not ref["issue_id"] or key in seen:
+            continue
+        seen.add(key)
+        refs.append(ref)
+    return refs
+
+
 def extract_estimate_candidates(
     issues_flat: List[Dict[str, Any]],
     issue_catalog: Dict[str, Any],
@@ -372,6 +397,7 @@ def extract_estimate_candidates(
             issue.get("description", "") for issue in occurrences
             if issue.get("description")
         ]
+        evidence_refs = issue_evidence_refs(occurrences)
         unit_id = f"{cat_id}:{_clean_scope_component(scope_key)}"
 
         candidate = EstimateCandidate(
@@ -398,6 +424,7 @@ def extract_estimate_candidates(
             room_surrogate_id=room_surrogate,
             source_room_surrogate_ids=source_room_surrogate_ids,
             supporting_observations=observations,
+            evidence_refs=evidence_refs,
             distinct_photo_count=len(photo_keys),
             distinct_scene_group_count=len(scene_groups),
             representative_issue_id=issue_ids[0] if issue_ids else None,

@@ -39,13 +39,19 @@ from tools.rehab_packages import (
     apply_package_verifications_to_candidates,
     finalize_package_candidates,
     infer_package_candidates,
+    is_package_eligible_catalog_item,
     reconcile_packages_and_estimate_units,
     run_pass_2f_batch,
 )
 from tools.renovation_estimate import (
     EstimateCandidate,
+    _clean_scope_component,
+    _estimate_scope_key_for_issue,
+    _meaningful_scope_hint,
+    _resolve_catalog_estimate_meta,
     compute_renovation_estimate,
     extract_estimate_candidates,
+    issue_evidence_refs,
 )
 from tools.estimate_units import build_estimate_units
 from tools.project_scopes import get_project_scope, get_project_scope_name
@@ -127,6 +133,7 @@ def compute_renovation_estimate_v4(
         v4_issues.append(v4_issue)
 
     v4_candidates = extract_estimate_candidates(v4_issues, issue_catalog)
+    package_only_candidates = _extract_package_only_candidates(v4_issues, issue_catalog)
 
     pass_2f_reuse_audit = _reuse_pass_2f_fields(
         v4_candidates,
@@ -148,8 +155,9 @@ def compute_renovation_estimate_v4(
         )
 
     suppressed_package_candidates: List[Dict[str, Any]] = []
+    package_inference_candidates = v4_candidates + package_only_candidates
     package_candidates = infer_package_candidates(
-        v4_candidates,
+        package_inference_candidates,
         surrogate_records,
         issue_catalog,
         estimate_units=estimate_unit_resolution.get("estimate_units", []),
@@ -228,6 +236,9 @@ def compute_renovation_estimate_v4(
     )
     v4_estimate["packages"] = packages
     v4_estimate["package_candidates"] = package_candidates_audit
+    v4_estimate["bathroom_room_count_signal"] = _build_bathroom_room_count_signal(
+        package_candidates_audit
+    )
     v4_estimate["suppressed_package_candidates"] = suppressed_package_candidates
     v4_estimate["pass_2f_trace"] = pass_2f_trace
     v4_estimate["reconciliation"] = reconciliation
@@ -272,6 +283,134 @@ def compute_renovation_estimate_v4(
     }
 
     return v4_estimate
+
+
+def _extract_package_only_candidates(
+    issues_flat: List[Dict[str, Any]],
+    issue_catalog: Dict[str, Any],
+) -> List[EstimateCandidate]:
+    """Extract package-role evidence that should not become line items."""
+    catalog_lookup = {
+        item["id"]: item
+        for item in (issue_catalog.get("items") or [])
+        if isinstance(item, dict) and item.get("id")
+    }
+    grouped: Dict[tuple[str, str, str], List[Dict[str, Any]]] = {}
+    for issue in issues_flat or []:
+        cat_id = str(issue.get("catalog_item_id") or "")
+        cat = catalog_lookup.get(cat_id)
+        if not cat or not is_package_eligible_catalog_item(cat):
+            continue
+        est_meta = _resolve_catalog_estimate_meta(cat)
+        if est_meta.affects_estimate:
+            continue
+        scope_key, room_surrogate = _estimate_scope_key_for_issue(cat_id, issue)
+        grouped.setdefault((cat_id, scope_key, room_surrogate), []).append(issue)
+
+    candidates: List[EstimateCandidate] = []
+    for (cat_id, scope_key, room_surrogate), occurrences in grouped.items():
+        cat = catalog_lookup[cat_id]
+        est_meta = _resolve_catalog_estimate_meta(cat)
+        scene_groups = sorted(set(
+            issue.get("scene_group", "other") or "other" for issue in occurrences
+        ))
+        photo_keys = sorted(set(
+            issue.get("photo_key", "") for issue in occurrences
+            if issue.get("photo_key")
+        ))
+        issue_ids = [
+            issue.get("issue_id", "") for issue in occurrences
+            if issue.get("issue_id")
+        ]
+        billable_estimate_unit_ids = sorted(set(
+            _meaningful_scope_hint(issue.get("estimate_unit_id"))
+            for issue in occurrences
+            if _meaningful_scope_hint(issue.get("estimate_unit_id"))
+        ))
+        source_room_surrogate_ids = sorted(set(
+            _meaningful_scope_hint(issue.get("room_surrogate_id"))
+            for issue in occurrences
+            if _meaningful_scope_hint(issue.get("room_surrogate_id"))
+        ))
+        observations = [
+            issue.get("description", "") for issue in occurrences
+            if issue.get("description")
+        ]
+        unit_id = f"{cat_id}:{_clean_scope_component(scope_key)}"
+        candidate = EstimateCandidate(
+            catalog_item_id=cat_id,
+            catalog_item_name=cat.get("name", cat_id),
+            estimate_meta=est_meta,
+            kind=cat.get("kind", "defect"),
+            severity=cat.get("severity", 2),
+            scope=cat.get("scope", "repair"),
+            trade_bucket=cat.get("trade_bucket", "safety_general"),
+            cost_obj=cat.get("cost") or {},
+            occurrences=len(occurrences),
+            estimate_unit_count=1,
+            scene_groups_seen=scene_groups,
+            photo_keys=photo_keys,
+            issue_ids=issue_ids,
+            estimate_unit_id=unit_id,
+            billable_estimate_unit_id=(
+                billable_estimate_unit_ids[0]
+                if len(billable_estimate_unit_ids) == 1
+                else ("multiple_estimate_units" if billable_estimate_unit_ids else "")
+            ),
+            estimate_scope_key=scope_key,
+            room_surrogate_id=room_surrogate,
+            source_room_surrogate_ids=source_room_surrogate_ids,
+            supporting_observations=observations,
+            evidence_refs=issue_evidence_refs(occurrences),
+            distinct_photo_count=len(photo_keys),
+            distinct_scene_group_count=len(scene_groups),
+            representative_issue_id=issue_ids[0] if issue_ids else None,
+            package_evidence_only=True,
+        )
+        apply_estimate_scope(candidate, cat)
+        candidate.cost_model, candidate.cost_model_source = derive_cost_model(
+            cat,
+            candidate,
+        )
+        candidates.append(candidate)
+
+    candidates.sort(key=lambda c: (
+        c.catalog_item_id,
+        c.estimate_scope_key,
+        c.estimate_unit_id,
+    ))
+    return candidates
+
+
+def _build_bathroom_room_count_signal(
+    package_candidates_audit: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    multiple_package_ids: List[str] = []
+    one_count = 0
+    unclear_count = 0
+    for package in package_candidates_audit or []:
+        if str(package.get("room") or "").lower() != "bathroom":
+            continue
+        if "visible_room_count" not in package:
+            continue
+        value = str(package.get("visible_room_count") or "unclear").strip().lower()
+        if value == "multiple_rooms":
+            package_id = str(package.get("package_id") or "")
+            if package_id:
+                multiple_package_ids.append(package_id)
+        elif value == "one_room":
+            one_count += 1
+        else:
+            unclear_count += 1
+    multiple_count = len(multiple_package_ids)
+    return {
+        "likely_multiple_visible_bathrooms": multiple_count >= 2 and one_count == 0,
+        "multiple_rooms_vote_count": multiple_count,
+        "one_room_vote_count": one_count,
+        "unclear_vote_count": unclear_count,
+        "supporting_package_ids": multiple_package_ids,
+        "basis": "requires_two_multiple_room_votes",
+    }
 
 
 def _build_project_scope_breakdown(

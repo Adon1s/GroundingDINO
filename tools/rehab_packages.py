@@ -814,15 +814,83 @@ def _source_room_ids_for_unit(
     return []
 
 
+def _candidate_issue_refs(candidate: EstimateCandidate) -> List[Dict[str, Any]]:
+    refs: List[Dict[str, Any]] = []
+    seen = set()
+    raw_refs = getattr(candidate, "evidence_refs", []) or []
+    if raw_refs:
+        for raw in raw_refs:
+            if not isinstance(raw, dict):
+                continue
+            issue_id = str(raw.get("issue_id") or "").strip()
+            photo_key = str(raw.get("photo_key") or "").strip()
+            if not issue_id:
+                continue
+            key = (issue_id, photo_key)
+            if key in seen:
+                continue
+            seen.add(key)
+            refs.append({
+                "issue_id": issue_id,
+                "photo_key": photo_key,
+                "observation": str(raw.get("observation") or "").strip(),
+                "room_surrogate_id": str(
+                    raw.get("room_surrogate_id")
+                    or getattr(candidate, "room_surrogate_id", "")
+                    or ""
+                ).strip(),
+            })
+        return refs
+
+    issue_ids = [
+        str(issue_id).strip()
+        for issue_id in (candidate.issue_ids or [])
+        if str(issue_id or "").strip()
+    ]
+    photo_keys = [
+        str(photo_key).strip()
+        for photo_key in (candidate.photo_keys or [])
+        if str(photo_key or "").strip()
+    ]
+    observations = [
+        str(obs).strip()
+        for obs in (candidate.supporting_observations or [])
+        if str(obs or "").strip()
+    ]
+    pairs: List[Tuple[str, str]] = []
+    if len(issue_ids) == len(photo_keys):
+        pairs = list(zip(issue_ids, photo_keys))
+    elif len(issue_ids) == 1:
+        pairs = [(issue_ids[0], key) for key in photo_keys or [""]]
+    elif len(photo_keys) == 1:
+        pairs = [(issue_id, photo_keys[0]) for issue_id in issue_ids]
+    else:
+        pairs = [(issue_id, "") for issue_id in issue_ids]
+    for idx, (issue_id, photo_key) in enumerate(pairs):
+        key = (issue_id, photo_key)
+        if not issue_id or key in seen:
+            continue
+        seen.add(key)
+        refs.append({
+            "issue_id": issue_id,
+            "photo_key": photo_key,
+            "observation": observations[idx] if idx < len(observations) else "",
+            "room_surrogate_id": str(getattr(candidate, "room_surrogate_id", "") or ""),
+        })
+    return refs
+
+
 def _candidate_evidence_item(
     candidate: EstimateCandidate,
     catalog_item: Dict[str, Any],
 ) -> Dict[str, Any]:
     photo_keys = _distinct_photo_keys([candidate])
+    issue_refs = _candidate_issue_refs(candidate)
     return {
         "catalog_item_id": candidate.catalog_item_id,
         "name": candidate.catalog_item_name,
         "issue_ids": list(candidate.issue_ids or []),
+        "issue_refs": issue_refs,
         "observations": list(candidate.supporting_observations or []),
         "photo_keys": photo_keys,
         "supporting_photo_count": len(photo_keys),
@@ -837,6 +905,7 @@ def _candidate_evidence_item(
         "display_class": catalog_display_class(catalog_item),
         "package_role": catalog_package_role(catalog_item),
         "package_type": catalog_package_type(catalog_item),
+        "package_evidence_only": bool(getattr(candidate, "package_evidence_only", False)),
         "trade_bucket": candidate.trade_bucket,
         "estimate_tier": candidate.estimate_meta.estimate_tier,
     }
@@ -1455,12 +1524,46 @@ def _apply_verification_to_package(
     if status not in VALID_PACKAGE_VERIFICATION_STATUSES:
         status = PACKAGE_VERIFICATION_UNCERTAIN
     pkg["verification_status"] = status
-    pkg["confirmed_issue_ids"] = list(verification.get("confirmed_issue_ids") or pkg.get("confirmed_issue_ids") or [])
-    pkg["rejected_issue_ids"] = list(verification.get("rejected_issue_ids") or pkg.get("rejected_issue_ids") or [])
+    reviewed_issue_ids = list(
+        verification.get("reviewed_issue_ids")
+        or pkg.get("reviewed_issue_ids")
+        or []
+    )
+    reviewed_set = {str(issue_id) for issue_id in reviewed_issue_ids}
+    confirmed_issue_ids = list(
+        verification.get("confirmed_issue_ids") or pkg.get("confirmed_issue_ids") or []
+    )
+    rejected_issue_ids = list(
+        verification.get("rejected_issue_ids") or pkg.get("rejected_issue_ids") or []
+    )
+    if reviewed_set:
+        confirmed_issue_ids = [
+            issue_id for issue_id in confirmed_issue_ids if str(issue_id) in reviewed_set
+        ]
+        rejected_issue_ids = [
+            issue_id for issue_id in rejected_issue_ids if str(issue_id) in reviewed_set
+        ]
+    pkg["confirmed_issue_ids"] = confirmed_issue_ids
+    pkg["rejected_issue_ids"] = rejected_issue_ids
+    pkg["reviewed_issue_ids"] = reviewed_issue_ids
     pkg["evidence_summary"] = str(verification.get("evidence_summary") or pkg.get("evidence_summary") or "")
     pkg["raw_pass_2f_response"] = verification.get("raw_response") or pkg.get("raw_pass_2f_response")
     pkg["review_photo_keys"] = list(verification.get("review_photo_keys") or pkg.get("review_photo_keys") or [])
     pkg["review_image_paths"] = list(verification.get("review_image_paths") or pkg.get("review_image_paths") or [])
+    if (
+        pkg.get("room") == ROOM_BATHROOM
+        and ("visible_room_count" in verification or "visible_room_count" in pkg)
+    ):
+        pkg["visible_room_count"] = str(
+            verification.get("visible_room_count")
+            or pkg.get("visible_room_count")
+            or "unclear"
+        )
+        pkg["visible_room_count_evidence"] = str(
+            verification.get("visible_room_count_evidence")
+            or pkg.get("visible_room_count_evidence")
+            or ""
+        )
     is_active = status in ACTIVE_PACKAGE_STATUSES
     pkg["estimate_eligible"] = is_active
     pkg["ui_eligible"] = is_active
@@ -1673,6 +1776,82 @@ def select_package_review_image_paths(
     return selected_keys, selected_paths
 
 
+def _filter_evidence_items_for_review(
+    evidence_items: List[Dict[str, Any]],
+    review_photo_keys: List[str],
+) -> Tuple[List[Dict[str, Any]], List[str]]:
+    selected = {
+        str(key).strip()
+        for key in (review_photo_keys or [])
+        if str(key or "").strip()
+    }
+    if not selected:
+        return [], []
+
+    filtered_items: List[Dict[str, Any]] = []
+    reviewed_issue_ids: List[str] = []
+    for item in evidence_items or []:
+        if not isinstance(item, dict):
+            continue
+        issue_refs = [
+            dict(ref)
+            for ref in (item.get("issue_refs") or [])
+            if isinstance(ref, dict)
+            and str(ref.get("issue_id") or "").strip()
+            and str(ref.get("photo_key") or "").strip() in selected
+        ]
+        if issue_refs:
+            kept_issue_ids = _unique_in_order([
+                str(ref.get("issue_id") or "").strip()
+                for ref in issue_refs
+                if str(ref.get("issue_id") or "").strip()
+            ])
+            kept_photo_keys = _unique_in_order([
+                str(ref.get("photo_key") or "").strip()
+                for ref in issue_refs
+                if str(ref.get("photo_key") or "").strip()
+            ])
+            kept_observations = _unique_in_order([
+                str(ref.get("observation") or "").strip()
+                for ref in issue_refs
+                if str(ref.get("observation") or "").strip()
+            ])
+        else:
+            item_photo_keys = [
+                str(key).strip()
+                for key in (item.get("photo_keys") or [])
+                if str(key or "").strip()
+            ]
+            if not item_photo_keys:
+                continue
+            kept_photo_keys = [key for key in item_photo_keys if key in selected]
+            if item_photo_keys and not kept_photo_keys:
+                continue
+            kept_issue_ids = _unique_in_order([
+                str(issue_id).strip()
+                for issue_id in (item.get("issue_ids") or [])
+                if str(issue_id or "").strip()
+            ])
+            kept_observations = list(item.get("observations") or [])
+            issue_refs = []
+        if not kept_issue_ids:
+            continue
+        next_item = dict(item)
+        next_item["issue_refs"] = issue_refs
+        next_item["issue_ids"] = kept_issue_ids
+        next_item["photo_keys"] = kept_photo_keys
+        next_item["observations"] = kept_observations
+        next_item["supporting_photo_count"] = len(kept_photo_keys)
+        next_item["corroboration_basis"] = (
+            "multi_photo_same_issue"
+            if len(kept_photo_keys) >= 2
+            else "single_photo_or_untracked"
+        )
+        filtered_items.append(next_item)
+        reviewed_issue_ids.extend(kept_issue_ids)
+    return filtered_items, _unique_in_order(reviewed_issue_ids)
+
+
 _PACKAGE_TYPE_VLM_LABELS = {
     PACKAGE_TYPE_KITCHEN_MODERNIZATION: "Kitchen modernization",
     PACKAGE_TYPE_KITCHEN_REPAIR: "Kitchen repair",
@@ -1762,6 +1941,10 @@ async def run_pass_2f_batch(
             photo_key_to_path,
             max_images=max_images,
         )
+        evidence_items, reviewed_issue_ids = _filter_evidence_items_for_review(
+            list(package.get("evidence_items") or []),
+            image_keys,
+        )
         if not image_paths:
             trace["no_image_count"] += 1
             verifications[package_id] = {
@@ -1773,6 +1956,23 @@ async def run_pass_2f_batch(
                 "evidence_summary": f"No representative {room} images were available for package verification.",
                 "review_photo_keys": [],
                 "review_image_paths": [],
+                "reviewed_issue_ids": [],
+            }
+            continue
+        if not reviewed_issue_ids:
+            trace["uncertain_count"] += 1
+            verifications[package_id] = {
+                "package_id": package_id,
+                "package_type": package.get("package_type"),
+                "verification_status": PACKAGE_VERIFICATION_UNCERTAIN,
+                "confirmed_issue_ids": [],
+                "rejected_issue_ids": [],
+                "evidence_summary": (
+                    "Pass 2f skipped: selected review photos had no matching package evidence."
+                ),
+                "review_photo_keys": image_keys,
+                "review_image_paths": [str(path) for path in image_paths],
+                "reviewed_issue_ids": [],
             }
             continue
         trace["ran"] = True
@@ -1784,7 +1984,7 @@ async def run_pass_2f_batch(
             room=room,
             package_id=package_id,
             package_type=str(package.get("package_type") or ""),
-            evidence_items=list(package.get("evidence_items") or []),
+            evidence_items=evidence_items,
             package_label=_package_vlm_label(package),
         )
         record = {
@@ -1797,7 +1997,11 @@ async def run_pass_2f_batch(
             "raw_response": result.raw_response,
             "review_photo_keys": image_keys,
             "review_image_paths": [str(path) for path in image_paths],
+            "reviewed_issue_ids": reviewed_issue_ids,
         }
+        if room == ROOM_BATHROOM:
+            record["visible_room_count"] = result.visible_room_count
+            record["visible_room_count_evidence"] = result.visible_room_count_evidence
         verifications[package_id] = record
         key = f"{result.verification_status}_count"
         if key in trace:

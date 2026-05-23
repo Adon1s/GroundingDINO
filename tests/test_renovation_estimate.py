@@ -1071,6 +1071,34 @@ class TestCoercePass2f:
         assert result.confirmed_issue_ids == ["issue_1", "issue_2"]
         assert result.rejected_issue_ids == ["issue_2"]
 
+    def test_bathroom_room_count_values_are_coerced(self):
+        result = _coerce_pass_2f(
+            {
+                "visible_room_count": "two_bathrooms",
+                "visible_room_count_evidence": "x" * 300,
+            },
+            package_id="pkg",
+            package_type="bathroom_modernization",
+            valid_issue_ids={"issue_1"},
+            room="bathroom",
+        )
+        assert result.visible_room_count == "unclear"
+        assert len(result.visible_room_count_evidence) == 240
+
+    def test_kitchen_room_count_fields_are_ignored(self):
+        result = _coerce_pass_2f(
+            {
+                "visible_room_count": "multiple_rooms",
+                "visible_room_count_evidence": "Conflicting layouts.",
+            },
+            package_id="pkg",
+            package_type="kitchen_modernization",
+            valid_issue_ids={"issue_1"},
+            room="kitchen",
+        )
+        assert result.visible_room_count == "unclear"
+        assert result.visible_room_count_evidence == ""
+
     def test_prompt_shape_is_visual_truth_only(self):
         assert "review_outcome" not in PASS_2F_KITCHEN_SYSTEM_PROMPT
         assert "review_outcome" not in PASS_2F_KITCHEN_USER_PROMPT

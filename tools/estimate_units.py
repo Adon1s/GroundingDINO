@@ -785,6 +785,7 @@ def _build_resolved_candidate(
     photo_keys = _unique_sorted(source.photo_keys for source in sources)
     scene_groups = _unique_sorted(source.scene_groups_seen for source in sources)
     observations = _unique_sorted(source.supporting_observations for source in sources)
+    evidence_refs = _unique_evidence_refs(source.evidence_refs for source in sources)
     estimate_scope, estimate_scope_reason = choose_scope(
         (
             source.estimate_scope,
@@ -853,6 +854,10 @@ def _build_resolved_candidate(
         unit_members=members,
         source_estimate_unit_ids=source_estimate_unit_ids,
         source_issue_ids=source_issue_ids or issue_ids,
+        evidence_refs=evidence_refs,
+        package_evidence_only=all(
+            getattr(source, "package_evidence_only", False) for source in sources
+        ),
     )
     _copy_common_review_fields(resolved, sources)
     return resolved
@@ -1134,3 +1139,39 @@ def _unique_sorted(values: Iterable[Any]) -> List[str]:
 
     visit(values)
     return sorted(result)
+
+
+def _unique_evidence_refs(values: Iterable[Any]) -> List[Dict[str, Any]]:
+    result: List[Dict[str, Any]] = []
+    seen = set()
+
+    def visit(value: Any) -> None:
+        if value is None:
+            return
+        if isinstance(value, dict):
+            issue_id = str(value.get("issue_id") or "").strip()
+            photo_key = str(value.get("photo_key") or "").strip()
+            if not issue_id:
+                return
+            key = (issue_id, photo_key)
+            if key in seen:
+                return
+            seen.add(key)
+            result.append({
+                "issue_id": issue_id,
+                "photo_key": photo_key,
+                "observation": str(value.get("observation") or "").strip(),
+                "room_surrogate_id": str(value.get("room_surrogate_id") or "").strip(),
+            })
+            return
+        if isinstance(value, str):
+            return
+        try:
+            iterator = iter(value)
+        except TypeError:
+            return
+        for item in iterator:
+            visit(item)
+
+    visit(values)
+    return result
