@@ -16,6 +16,7 @@ Public API:
 """
 from __future__ import annotations
 
+import copy
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -1600,6 +1601,193 @@ def finalize_package_candidates(
         if final_status in ACTIVE_PACKAGE_STATUSES:
             estimate_packages.append(finalized)
     return estimate_packages, audit_packages
+
+
+def _group_confirmed_refs_by_surrogate(
+    package: Dict[str, Any],
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Group a package's confirmed issue refs by their room_surrogate_id.
+
+    Only refs whose issue_id is in the package's confirmed_issue_ids and whose
+    room_surrogate_id is non-empty are considered. Reviewed-but-not-confirmed,
+    rejected, and unreviewed refs are filtered out.
+    """
+    confirmed_ids = {str(i) for i in (package.get("confirmed_issue_ids") or [])}
+    by_surrogate: Dict[str, List[Dict[str, Any]]] = {}
+    for evidence in package.get("evidence_items") or []:
+        for ref in evidence.get("issue_refs") or []:
+            if not isinstance(ref, dict):
+                continue
+            issue_id = str(ref.get("issue_id") or "")
+            surrogate_id = str(ref.get("room_surrogate_id") or "").strip()
+            if not issue_id or not surrogate_id:
+                continue
+            if issue_id not in confirmed_ids:
+                continue
+            by_surrogate.setdefault(surrogate_id, []).append(ref)
+    return by_surrogate
+
+
+def _build_expanded_bathroom_package(
+    original: Dict[str, Any],
+    surrogate_id: str,
+    confirmed_refs_for_surrogate: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Build one per-surrogate copy of a confirmed bathroom_modernization package.
+
+    Restricts evidence and issue lists to the given surrogate's confirmed refs,
+    clears estimate_unit_id so reconciliation absorbs by room_surrogate_id, and
+    rewrites package_id to {package_type}__{estimate_unit_id}__{surrogate_id}.
+    """
+    pkg = copy.deepcopy(original)
+    confirmed_ids = {str(i) for i in (original.get("confirmed_issue_ids") or [])}
+    surrogate_confirmed_ids = {str(r.get("issue_id") or "") for r in confirmed_refs_for_surrogate}
+    surrogate_confirmed_ids.discard("")
+
+    new_evidence_items: List[Dict[str, Any]] = []
+    for evidence in pkg.get("evidence_items") or []:
+        kept_refs = [
+            ref for ref in (evidence.get("issue_refs") or [])
+            if isinstance(ref, dict)
+            and str(ref.get("room_surrogate_id") or "").strip() == surrogate_id
+            and str(ref.get("issue_id") or "") in confirmed_ids
+        ]
+        if not kept_refs:
+            continue
+        item = dict(evidence)
+        item["issue_refs"] = kept_refs
+        item["issue_ids"] = [str(r.get("issue_id") or "") for r in kept_refs if r.get("issue_id")]
+        item["photo_keys"] = _unique_in_order([
+            str(r.get("photo_key") or "") for r in kept_refs if r.get("photo_key")
+        ])
+        item["supporting_photo_count"] = len(item["photo_keys"])
+        item["room_surrogate_id"] = surrogate_id
+        new_evidence_items.append(item)
+    pkg["evidence_items"] = new_evidence_items
+
+    pkg["room_surrogate_id"] = surrogate_id
+    original_estimate_unit_id = str(original.get("estimate_unit_id") or "")
+    pkg["estimate_unit_id"] = ""
+    pkg["source_room_surrogate_ids"] = [surrogate_id]
+    pkg["confirmed_issue_ids"] = [
+        i for i in (original.get("confirmed_issue_ids") or [])
+        if str(i) in surrogate_confirmed_ids
+    ]
+    pkg["supporting_issue_ids"] = [
+        i for i in (original.get("supporting_issue_ids") or [])
+        if str(i) in surrogate_confirmed_ids
+    ]
+
+    package_type = str(original.get("package_type") or "")
+    pkg["package_id"] = (
+        f"{package_type}__{original_estimate_unit_id}__{surrogate_id}"
+        if original_estimate_unit_id
+        else f"{package_type}__{surrogate_id}"
+    )
+    pkg["expansion_source_package_id"] = str(original.get("package_id") or "")
+
+    original_trigger = str(original.get("trigger_reason") or "").strip()
+    pkg["trigger_reason"] = (
+        f"{original_trigger}+bathroom_surrogate_expansion"
+        if original_trigger
+        else "bathroom_surrogate_expansion"
+    )
+    return pkg
+
+
+def expand_bathroom_modernization_packages(
+    packages: List[Dict[str, Any]],
+    *,
+    bathroom_room_count_signal: Optional[Dict[str, Any]],
+    bathroom_metadata_cap: Optional[int],
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Split a merged bathroom_modernization package into one-per-surrogate copies.
+
+    Expansion fires when the package is already confirmed, the room-count signal
+    reports `likely_multiple_visible_bathrooms`, the scraped metadata cap allows
+    >=2 bathrooms, and confirmed issue refs map to multiple distinct surrogates.
+    When expansion fires, the original merged package is REMOVED from the
+    returned list so totals are not double-counted.
+
+    Non-bathroom_modernization packages pass through untouched. Returns
+    (new_packages, expansion_audit).
+    """
+    audit: Dict[str, Any] = {
+        "expanded": False,
+        "source_package_id": None,
+        "produced_package_ids": [],
+        "qualifying_surrogate_ids": [],
+        "skipped_surrogate_ids_no_confirmed": [],
+        "bathroom_metadata_cap": bathroom_metadata_cap,
+        "cap_applied": False,
+        "signal_likely_multiple_visible_bathrooms": bool(
+            (bathroom_room_count_signal or {}).get("likely_multiple_visible_bathrooms")
+        ),
+        "fallback_reason": None,
+    }
+
+    if not packages:
+        audit["fallback_reason"] = "no_packages"
+        return list(packages or []), audit
+
+    candidates = [
+        p for p in packages
+        if isinstance(p, dict)
+        and str(p.get("package_type") or "") == PACKAGE_TYPE_BATHROOM_MODERNIZATION
+        and str(p.get("room") or "") == ROOM_BATHROOM
+        and str(p.get("verification_status") or "") in ACTIVE_PACKAGE_STATUSES
+    ]
+    if not candidates:
+        audit["fallback_reason"] = "no_confirmed_bathroom_modernization_package"
+        return list(packages), audit
+
+    signal_hot = audit["signal_likely_multiple_visible_bathrooms"]
+    cap_ok = bathroom_metadata_cap is not None and bathroom_metadata_cap >= 2
+    if not signal_hot or not cap_ok:
+        audit["fallback_reason"] = (
+            "signal_cold" if not signal_hot else "metadata_cap_below_two"
+        )
+        return list(packages), audit
+
+    # Only expand the first confirmed bathroom_modernization package — there is
+    # at most one per house because infer_package_candidates groups by
+    # (estimate_unit_id, package_type) and bathroom_primary is one unit.
+    original = candidates[0]
+    audit["source_package_id"] = str(original.get("package_id") or "")
+
+    by_surrogate = _group_confirmed_refs_by_surrogate(original)
+    if not by_surrogate:
+        audit["fallback_reason"] = "no_confirmed_refs_with_surrogate"
+        return list(packages), audit
+
+    sorted_surrogates = sorted(by_surrogate.keys())
+    audit["qualifying_surrogate_ids"] = sorted_surrogates
+
+    if len(sorted_surrogates) < 2:
+        audit["fallback_reason"] = "single_qualifying_surrogate"
+        return list(packages), audit
+
+    capped_surrogates = sorted_surrogates[: int(bathroom_metadata_cap)]
+    audit["cap_applied"] = len(capped_surrogates) < len(sorted_surrogates)
+
+    expanded: List[Dict[str, Any]] = []
+    for surrogate_id in capped_surrogates:
+        expanded.append(_build_expanded_bathroom_package(
+            original,
+            surrogate_id,
+            by_surrogate[surrogate_id],
+        ))
+
+    out: List[Dict[str, Any]] = []
+    for pkg in packages:
+        if pkg is original:
+            out.extend(expanded)
+            continue
+        out.append(pkg)
+
+    audit["expanded"] = True
+    audit["produced_package_ids"] = [p["package_id"] for p in expanded]
+    return out, audit
 
 
 _STRENGTH_RANK = {

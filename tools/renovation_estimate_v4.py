@@ -35,8 +35,10 @@ from tools.catalog_cost_model import derive_cost_model
 from tools.estimate_scope import apply_estimate_scope
 from tools.estimate_sanity import build_estimate_sanity_flags
 from tools.rehab_packages import (
+    ACTIVE_PACKAGE_STATUSES,
     aggregate_whole_home_turnover,
     apply_package_verifications_to_candidates,
+    expand_bathroom_modernization_packages,
     finalize_package_candidates,
     infer_package_candidates,
     is_package_eligible_catalog_item,
@@ -53,7 +55,7 @@ from tools.renovation_estimate import (
     extract_estimate_candidates,
     issue_evidence_refs,
 )
-from tools.estimate_units import build_estimate_units
+from tools.estimate_units import bathroom_metadata_cap, build_estimate_units
 from tools.project_scopes import get_project_scope, get_project_scope_name
 from tools.room_surrogates import build_room_surrogates
 
@@ -205,6 +207,15 @@ def compute_renovation_estimate_v4(
         package_verifications,
         require_confirmation=True,
     )
+
+    bathroom_signal = _build_bathroom_room_count_signal(package_candidates_audit)
+    bathroom_cap = bathroom_metadata_cap(property_metadata or {})
+    packages, bathroom_expansion_audit = expand_bathroom_modernization_packages(
+        packages,
+        bathroom_room_count_signal=bathroom_signal,
+        bathroom_metadata_cap=bathroom_cap,
+    )
+
     whole_home_turnover = aggregate_whole_home_turnover(packages)
     if whole_home_turnover is not None:
         packages.append(whole_home_turnover)
@@ -236,9 +247,8 @@ def compute_renovation_estimate_v4(
     )
     v4_estimate["packages"] = packages
     v4_estimate["package_candidates"] = package_candidates_audit
-    v4_estimate["bathroom_room_count_signal"] = _build_bathroom_room_count_signal(
-        package_candidates_audit
-    )
+    v4_estimate["bathroom_room_count_signal"] = bathroom_signal
+    v4_estimate["bathroom_expansion_audit"] = bathroom_expansion_audit
     v4_estimate["suppressed_package_candidates"] = suppressed_package_candidates
     v4_estimate["pass_2f_trace"] = pass_2f_trace
     v4_estimate["reconciliation"] = reconciliation
@@ -395,6 +405,9 @@ def _build_bathroom_room_count_signal(
             continue
         value = str(package.get("visible_room_count") or "unclear").strip().lower()
         if value == "multiple_rooms":
+            status = str(package.get("verification_status") or "").strip().lower()
+            if status and status not in ACTIVE_PACKAGE_STATUSES:
+                continue
             package_id = str(package.get("package_id") or "")
             if package_id:
                 multiple_package_ids.append(package_id)
@@ -404,12 +417,12 @@ def _build_bathroom_room_count_signal(
             unclear_count += 1
     multiple_count = len(multiple_package_ids)
     return {
-        "likely_multiple_visible_bathrooms": multiple_count >= 2 and one_count == 0,
+        "likely_multiple_visible_bathrooms": multiple_count >= 1 and one_count == 0,
         "multiple_rooms_vote_count": multiple_count,
         "one_room_vote_count": one_count,
         "unclear_vote_count": unclear_count,
         "supporting_package_ids": multiple_package_ids,
-        "basis": "requires_two_multiple_room_votes",
+        "basis": "requires_active_multiple_room_vote_no_one_room_votes",
     }
 
 

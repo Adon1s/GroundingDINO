@@ -72,6 +72,11 @@ def _is_effectively_empty_notes(s: str) -> bool:
     return t in {"none", "no", "no issues", "no issue", "n/a", "na", "nothing", "nothing notable"}
 
 
+def _with_analysis_pass(model_config: dict, pass_label: str) -> dict:
+    """Attach a pass label for VLM request logs without mutating caller config."""
+    return {**(model_config or {}), "analysis_pass": pass_label}
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Dimension-string detection (MLS floorplan labels like "12'6 x 10'")
 # ─────────────────────────────────────────────────────────────────────────────
@@ -639,7 +644,7 @@ async def run_pass_1a_scene_type(
             image_path=image_path,
             system_prompt=PASS_1A_SYSTEM_PROMPT,
             user_prompt=PASS_1A_USER_PROMPT,
-            **model_config,
+            **_with_analysis_pass(model_config, "Pass 1a (scene type)"),
         )
 
         # Parse JSON response
@@ -723,7 +728,7 @@ async def run_pass_1b_feature_notes(
             image_path=image_path,
             system_prompt=PASS_1B_SYSTEM_PROMPT,
             user_prompt=user_prompt,
-            **model_config,
+            **_with_analysis_pass(model_config, "Pass 1b (feature notes)"),
         )
 
         notes = (response or "").strip()
@@ -802,7 +807,7 @@ async def run_pass_1c_feature_structuring(
         response = await vlm_client.analyze_text(
             system_prompt=system_prompt,
             user_prompt=PASS_1C_USER_PROMPT,
-            **model_config,
+            **_with_analysis_pass(model_config, "Pass 1c (feature structuring)"),
         )
 
         result = extract_json_object(response) or {}
@@ -881,7 +886,7 @@ async def run_pass_2a(
             image_path=image_path,
             system_prompt=PASS_2A_SYSTEM_PROMPT,
             user_prompt=PASS_2A_USER_PROMPT,
-            **model_config,
+            **_with_analysis_pass(model_config, "Pass 2a (observations freeform)"),
         )
 
         # Do NOT parse JSON. Treat as freeform notes.
@@ -979,7 +984,7 @@ async def run_pass_2b(
         response = await vlm_client.analyze_text(
             system_prompt=system_prompt,
             user_prompt=PASS_2B_USER_PROMPT,
-            **model_config,
+            **_with_analysis_pass(model_config, "Pass 2b (observations JSON)"),
         )
 
         result = extract_json_object(response) or {}
@@ -1087,7 +1092,7 @@ async def run_pass_2c(
         response = await vlm_client.analyze_text(
             system_prompt=PASS_2C_SYSTEM_PROMPT,
             user_prompt=user_prompt,
-            **model_config,
+            **_with_analysis_pass(model_config, "Pass 2c (label observations)"),
         )
         result = extract_json_object(response) or {}
         labeled_debug = _coerce_labeled_2c(result.get("labeled"))
@@ -1319,7 +1324,7 @@ async def run_pass_2d(
         response = await vlm_client.analyze_text(
             system_prompt=PASS_2D_SYSTEM_PROMPT,
             user_prompt=user_prompt,
-            **model_config,
+            **_with_analysis_pass(model_config, "Pass 2d (catalog resolution)"),
         )
         result = extract_json_object(response) or {}
         candidate_by_id = {
@@ -1967,7 +1972,7 @@ async def run_pass_2f(
                 image_paths=image_paths,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
-                **model_config,
+                **_with_analysis_pass(model_config, "Pass 2f (package verification)"),
             )
         else:
             if not image_paths:
@@ -1976,7 +1981,7 @@ async def run_pass_2f(
                 image_path=image_paths[0],
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
-                **model_config,
+                **_with_analysis_pass(model_config, "Pass 2f (package verification)"),
             )
         parsed = extract_json_object(response)
         if not isinstance(parsed, dict) or not parsed:

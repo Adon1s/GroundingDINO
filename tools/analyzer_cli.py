@@ -401,10 +401,14 @@ def _compute_timing_stats(
 
     def _with_usage(d: Dict[str, Any]) -> Dict[str, Any]:
         if usage_stats:
+            metered_calls = usage_stats.get("metered_calls")
+            if metered_calls is None:
+                metered_calls = usage_stats.get("calls", 0)
             d["input_tokens"] = int(usage_stats.get("input_tokens", 0) or 0)
             d["output_tokens"] = int(usage_stats.get("output_tokens", 0) or 0)
             d["total_tokens"] = int(usage_stats.get("total_tokens", 0) or 0)
             d["llm_calls"] = int(usage_stats.get("calls", 0) or 0)
+            d["metered_llm_calls"] = int(metered_calls or 0)
         return d
 
     n = len(photo_times)
@@ -419,10 +423,13 @@ def _compute_timing_stats(
 
     # Separate skipped passes from actually-run passes
     skipped = [p for p in sorted_passes if p not in passes_actually_run]
+    llm_work = sum(pass_totals[p] for p in sorted_passes if p not in skipped)
 
     return _with_usage({
         "photo_count": n,
         "total_wall_clock_sec": round(total_wall_clock, 2),
+        "total_llm_work_sec": round(llm_work, 2),
+        "parallelism_ratio": round(llm_work / total_wall_clock, 2) if total_wall_clock > 0 else 0,
         "avg_photo_sec": round(sum(photo_times) / n, 2),
         "min_photo_sec": round(min(photo_times), 2),
         "max_photo_sec": round(max(photo_times), 2),
@@ -456,9 +463,12 @@ def _log_timing_stats(stats: Dict[str, Any], property_key: str) -> None:
     all_passes_sorted = [p for p in pass_order if p in all_passes]
     all_passes_sorted += [p for p in all_passes if p not in all_passes_sorted]
 
-    llm_total = sum(v for p, v in per_pass_total.items() if p not in skipped)
+    llm_total = float(stats.get("total_llm_work_sec") or 0)
+    if llm_total <= 0:
+        llm_total = sum(v for p, v in per_pass_total.items() if p not in skipped)
 
-    logger.info(f"  {'Pass':<8} {'Total(s)':>9} {'Avg(s)':>9} {'% of LLM':>10}")
+    logger.info("  Pass timings are cumulative work across photos; wall time is elapsed job time.")
+    logger.info(f"  {'Pass':<8} {'Work(s)':>9} {'Avg/photo':>9} {'% work':>10}")
     logger.info(f"  {'--------':8} {'---------':9} {'---------':9} {'----------':10}")
 
     for p in all_passes_sorted:
@@ -471,19 +481,28 @@ def _log_timing_stats(stats: Dict[str, Any], property_key: str) -> None:
         logger.info(f"  {p:<8} {t:>9.2f} {a:>9.2f} {pct:>9.1f}%")
 
     logger.info(f"  {'--------':8} {'---------':9} {'---------':9} {'----------':10}")
-    logger.info(f"  {'LLM':<8} {llm_total:>9.2f} {llm_total / n:>9.2f} {'100.0%':>10}")
+    logger.info(f"  {'LLM work':<8} {llm_total:>9.2f} {llm_total / n:>9.2f} {'100.0%':>10}")
     logger.info(f"  {'Wall':<8} {wall:>9.2f} {wall / n:>9.2f}")
-    speedup = llm_total / wall if wall > 0 else 0
-    logger.info(f"  Concurrency speedup: {speedup:.1f}x")
+    speedup = float(stats.get("parallelism_ratio") or 0)
+    if speedup <= 0:
+        speedup = llm_total / wall if wall > 0 else 0
+    logger.info(f"  Parallelism ratio: {speedup:.1f}x")
 
     total_tokens = int(stats.get("total_tokens", 0) or 0)
     if total_tokens > 0:
         in_tok = int(stats.get("input_tokens", 0) or 0)
         out_tok = int(stats.get("output_tokens", 0) or 0)
         calls = int(stats.get("llm_calls", 0) or 0)
+        metered_calls = int(stats.get("metered_llm_calls", calls) or 0)
         tps = (total_tokens / wall) if wall > 0 else 0.0
-        logger.info(f"  Tokens:     {total_tokens:,} ({in_tok:,} in / {out_tok:,} out, {calls:,} calls)")
-        logger.info(f"  Tokens/sec: {tps:,.1f}")
+        if calls > metered_calls > 0:
+            call_text = f"{metered_calls:,} metered / {calls:,} calls"
+            token_rate_label = "Metered tokens/sec"
+        else:
+            call_text = f"{calls:,} calls"
+            token_rate_label = "Tokens/sec"
+        logger.info(f"  Tokens:     {total_tokens:,} ({in_tok:,} in / {out_tok:,} out, {call_text})")
+        logger.info(f"  {token_rate_label}: {tps:,.1f}")
 
     logger.info("=" * 55)
 

@@ -132,7 +132,7 @@ def build_estimate_units(
             )
 
     if bathrooms:
-        bath_cap = _bathroom_metadata_cap(property_metadata or {})
+        bath_cap = bathroom_metadata_cap(property_metadata or {})
         if bath_cap == 1:
             add_unit(
                 "bathroom_primary",
@@ -419,7 +419,7 @@ def _has_multi_kitchen_metadata_evidence(property_metadata: Dict[str, Any]) -> b
     ) > 1
 
 
-def _bathroom_metadata_cap(property_metadata: Dict[str, Any]) -> Optional[int]:
+def bathroom_metadata_cap(property_metadata: Dict[str, Any]) -> Optional[int]:
     full = _metadata_number(property_metadata, "full_baths", "full_bathrooms")
     half = _metadata_number(property_metadata, "half_baths", "half_bathrooms")
     if full is not None or half is not None:
@@ -453,7 +453,7 @@ def _should_keep_bathrooms_distinct(
 ) -> bool:
     if len(bathrooms) <= 1:
         return False
-    if _bathroom_metadata_cap(property_metadata) == 1:
+    if bathroom_metadata_cap(property_metadata) == 1:
         return False
     photo_texts = [_photo_text_for_surrogate(s, photo_lookup) for s in bathrooms]
     strong_terms = (

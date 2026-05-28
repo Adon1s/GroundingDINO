@@ -1128,7 +1128,11 @@ async def run_judge_for_skill(
         judge_config.get("max_tokens")
         or JUDGE_MAX_TOKENS_BY_SKILL.get(skill, 4000)
     )
-    judge_cfg = {**judge_config, "max_tokens": max_tokens}
+    judge_cfg = {
+        **judge_config,
+        "max_tokens": max_tokens,
+        "analysis_pass": f"Judge pass {skill}",
+    }
     if structured_outputs:
         judge_cfg.setdefault("response_json_schema", _judge_json_schema_for(skill))
         judge_cfg.setdefault("response_schema_name", _judge_schema_name_for(skill))

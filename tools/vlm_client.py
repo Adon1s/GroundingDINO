@@ -82,7 +82,7 @@ class VLMClient:
 
     def __init__(
             self,
-            default_timeout: int = 120,
+            default_timeout: int = 360,
             default_max_tokens: int = 4096,
             default_temperature: float = 0.2,
     ):
@@ -107,6 +107,7 @@ class VLMClient:
             "output_tokens": 0,
             "total_tokens": 0,
             "calls": 0,
+            "metered_calls": 0,
         }
 
     def reset_usage_stats(self) -> None:
@@ -116,6 +117,12 @@ class VLMClient:
             self.usage_stats["output_tokens"] = 0
             self.usage_stats["total_tokens"] = 0
             self.usage_stats["calls"] = 0
+            self.usage_stats["metered_calls"] = 0
+
+    def _record_call(self) -> None:
+        """Count one successful provider call, even if the provider omits token usage."""
+        with self._usage_lock:
+            self.usage_stats["calls"] += 1
 
     def _record_usage(
             self,
@@ -134,7 +141,20 @@ class VLMClient:
             self.usage_stats["input_tokens"] += i
             self.usage_stats["output_tokens"] += o
             self.usage_stats["total_tokens"] += t
-            self.usage_stats["calls"] += 1
+            self.usage_stats["metered_calls"] += 1
+
+    @staticmethod
+    def _analysis_pass_label(kwargs: Dict[str, Any]) -> Optional[str]:
+        """Return a concise pass label for request logs when callers provide one."""
+        label = (
+            kwargs.get("analysis_pass")
+            or kwargs.get("pass_name")
+            or kwargs.get("pass_key")
+        )
+        if label is None:
+            return None
+        label = str(label).strip()
+        return label or None
 
     def _detect_provider(self, url: Optional[str], api_key: Optional[str]) -> ProviderType:
         """
@@ -375,6 +395,7 @@ class VLMClient:
             return client.responses.create(**request)
 
         response = await asyncio.get_event_loop().run_in_executor(None, _call)
+        self._record_call()
         usage = getattr(response, "usage", None)
         if usage is not None:
             self._record_usage(
@@ -446,6 +467,7 @@ class VLMClient:
             return client.responses.create(**request)
 
         response = await asyncio.get_event_loop().run_in_executor(None, _call)
+        self._record_call()
         usage = getattr(response, "usage", None)
         if usage is not None:
             self._record_usage(
@@ -504,6 +526,7 @@ class VLMClient:
             None,
             _call,
         )
+        self._record_call()
 
         usage = getattr(response, "usage", None)
         if usage is not None:
@@ -567,6 +590,7 @@ class VLMClient:
             )
 
         response = await asyncio.get_event_loop().run_in_executor(None, _call)
+        self._record_call()
         usage = getattr(response, "usage_metadata", None)
         if usage is not None:
             self._record_usage(
@@ -600,6 +624,7 @@ class VLMClient:
             )
 
         response = await asyncio.get_event_loop().run_in_executor(None, _call)
+        self._record_call()
         usage = getattr(response, "usage_metadata", None)
         if usage is not None:
             self._record_usage(
@@ -679,6 +704,7 @@ class VLMClient:
             logger.error(f"LM Studio response missing 'choices': {data}")
             raise RuntimeError(f"Unexpected LM Studio response format from LM Studio")
 
+        self._record_call()
         usage = data.get("usage") or {}
         if usage:
             self._record_usage(
@@ -740,6 +766,7 @@ class VLMClient:
             logger.error(f"LM Studio response missing 'choices': {data}")
             raise RuntimeError(f"Unexpected LM Studio response format from LM Studio")
 
+        self._record_call()
         usage = data.get("usage") or {}
         if usage:
             self._record_usage(
@@ -807,7 +834,17 @@ class VLMClient:
         if provider == "auto":
             provider = self._detect_provider(url, api_key)
 
-        logger.info(f"Analyzing image {image_path.name} with {provider}/{model}")
+        pass_label = self._analysis_pass_label(kwargs)
+        if pass_label:
+            logger.info(
+                "Analyzing image %s for %s with %s/%s",
+                image_path.name,
+                pass_label,
+                provider,
+                model,
+            )
+        else:
+            logger.info(f"Analyzing image {image_path.name} with {provider}/{model}")
 
         if provider == "openai":
             # If api_key is provided explicitly, use it.
@@ -896,7 +933,17 @@ class VLMClient:
         if provider == "auto":
             provider = self._detect_provider(url, api_key)
 
-        logger.info("Analyzing %d images with %s/%s", len(image_paths), provider, model)
+        pass_label = self._analysis_pass_label(kwargs)
+        if pass_label:
+            logger.info(
+                "Analyzing %d images for %s with %s/%s",
+                len(image_paths),
+                pass_label,
+                provider,
+                model,
+            )
+        else:
+            logger.info("Analyzing %d images with %s/%s", len(image_paths), provider, model)
 
         if provider == "openai":
             return await self._analyze_images_openai(
@@ -987,7 +1034,11 @@ class VLMClient:
         if provider == "auto":
             provider = self._detect_provider(url, api_key)
 
-        logger.info(f"Analyzing text with {provider}/{model}")
+        pass_label = self._analysis_pass_label(kwargs)
+        if pass_label:
+            logger.info("Analyzing text for %s with %s/%s", pass_label, provider, model)
+        else:
+            logger.info(f"Analyzing text with {provider}/{model}")
 
         if provider == "openai":
             # If api_key is provided explicitly, use it.
@@ -1060,7 +1111,7 @@ class VLMClient:
 # Factory Functions
 # ═══════════════════════════════════════════════════════════════════════════════
 
-def create_vlm_client(timeout: int = 120) -> VLMClient:
+def create_vlm_client(timeout: int = 360) -> VLMClient:
     """Create a VLMClient with default settings."""
     return VLMClient(default_timeout=timeout)
 
