@@ -68,6 +68,24 @@ BATHROOM_TURNOVER_STD   = ("bathroom_turnover_std",   1_800,  4_500)
 ROOM_REFRESH            = ("room_refresh",              750,  4_000)
 ROOM_REPAIR_HEAVY       = ("room_repair_heavy",       3_000, 10_000)
 
+# Bedroom (cosmetic-led: flooring + paint + lighting + trim/doors/closet).
+# Lightweight tier set: modernization uses refresh -> full_rehab (no partial
+# middle tier), repair uses light/heavy, turnover uses light/std.
+BEDROOM_REFRESH         = ("bedroom_refresh",         1_500,  6_000)
+BEDROOM_FULL_REHAB      = ("bedroom_full_rehab",      5_000, 15_000)
+BEDROOM_REPAIR_LIGHT    = ("bedroom_repair_light",      500,  2_500)
+BEDROOM_REPAIR_HEAVY    = ("bedroom_repair_heavy",    2_500,  8_000)
+BEDROOM_TURNOVER_LIGHT  = ("bedroom_turnover_light",    500,  2_000)
+BEDROOM_TURNOVER_STD    = ("bedroom_turnover_std",    1_800,  5_000)
+
+# Living room (larger scope than bedroom; often open to dining).
+LIVING_REFRESH          = ("living_refresh",          2_000,  8_000)
+LIVING_FULL_REHAB       = ("living_full_rehab",       6_000, 18_000)
+LIVING_REPAIR_LIGHT     = ("living_repair_light",       600,  3_000)
+LIVING_REPAIR_HEAVY     = ("living_repair_heavy",     3_000, 10_000)
+LIVING_TURNOVER_LIGHT   = ("living_turnover_light",     600,  2_500)
+LIVING_TURNOVER_STD     = ("living_turnover_std",     2_200,  6_000)
+
 
 _QUALIFIED_POSTURES = frozenset({
     "repair", "replace", "keep_default",                    # Pass 2f outputs
@@ -116,6 +134,12 @@ PACKAGE_TYPE_KITCHEN_TURNOVER = "kitchen_turnover"
 PACKAGE_TYPE_BATHROOM_MODERNIZATION = "bathroom_modernization"
 PACKAGE_TYPE_BATHROOM_REPAIR = "bathroom_repair"
 PACKAGE_TYPE_BATHROOM_TURNOVER = "bathroom_turnover"
+PACKAGE_TYPE_BEDROOM_MODERNIZATION = "bedroom_modernization"
+PACKAGE_TYPE_BEDROOM_REPAIR = "bedroom_repair"
+PACKAGE_TYPE_BEDROOM_TURNOVER = "bedroom_turnover"
+PACKAGE_TYPE_LIVING_MODERNIZATION = "living_modernization"
+PACKAGE_TYPE_LIVING_REPAIR = "living_repair"
+PACKAGE_TYPE_LIVING_TURNOVER = "living_turnover"
 PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH = "interior_paint_flooring_refresh"
 # Naming note: the strings above are *package_type* identifiers used as keys to
 # _PACKAGE_TYPE_TO_CATEGORY / _PACKAGE_TYPE_TO_ROOM / VALID_PACKAGE_TYPES.
@@ -129,6 +153,12 @@ VALID_PACKAGE_TYPES = frozenset({
     PACKAGE_TYPE_BATHROOM_MODERNIZATION,
     PACKAGE_TYPE_BATHROOM_REPAIR,
     PACKAGE_TYPE_BATHROOM_TURNOVER,
+    PACKAGE_TYPE_BEDROOM_MODERNIZATION,
+    PACKAGE_TYPE_BEDROOM_REPAIR,
+    PACKAGE_TYPE_BEDROOM_TURNOVER,
+    PACKAGE_TYPE_LIVING_MODERNIZATION,
+    PACKAGE_TYPE_LIVING_REPAIR,
+    PACKAGE_TYPE_LIVING_TURNOVER,
     PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH,
 })
 
@@ -157,6 +187,18 @@ VALID_ROOMS = frozenset({
     ROOM_EXTERIOR,
     ROOM_WHOLE_HOME,
 })
+
+
+def _normalize_scene_to_room(scene: str) -> str:
+    """Map a Pass-1a/surrogate scene id to its room constant.
+
+    Scene ids mostly equal the room constant, with one exception: the living-room
+    scene is "living_room" but the room constant is ROOM_LIVING = "living".
+    Normalizing keeps room-scoped comparisons (e.g. the scene-mismatch guard in
+    ``infer_package_candidates``) aligned. Bedroom is already consistent
+    ("bedroom" == "bedroom").
+    """
+    return ROOM_LIVING if scene == "living_room" else scene
 
 PACKAGE_LEVEL_PROPERTY = "property"
 PACKAGE_LEVEL_ROOM = "room"
@@ -296,6 +338,81 @@ _PACKAGE_ABSORPTION_SCOPES: Dict[str, Dict[str, Any]] = {
         "trade_buckets": {"paint_drywall", "flooring", "cleaning_turnover"},
         "components": {"paint", "bath_finish", "flooring"},
     },
+    # Bedroom / living reuse the generic component classes (flooring, paint,
+    # electrical_light, moisture) — they have no cabinets/tile/vanity analogue.
+    # `groups` matches the catalog estimate.group (== room) so reconciliation joins.
+    "bedroom_refresh": {
+        "family": "bedroom",
+        "groups": {"bedroom", "flooring"},
+        "trade_buckets": {"flooring", "paint_drywall", "electrical"},
+        "components": {"flooring", "paint", "electrical_light"},
+    },
+    "bedroom_full_rehab": {
+        "family": "bedroom",
+        "groups": {"bedroom", "flooring"},
+        "trade_buckets": {"flooring", "paint_drywall", "electrical", "moisture_mold"},
+        "components": {"flooring", "paint", "electrical_light", "moisture"},
+    },
+    "bedroom_repair_light": {
+        "family": "bedroom",
+        "groups": {"bedroom"},
+        "trade_buckets": {"paint_drywall", "electrical", "moisture_mold"},
+        "components": {"paint", "electrical_light", "moisture"},
+    },
+    "bedroom_repair_heavy": {
+        "family": "bedroom",
+        "groups": {"bedroom", "flooring"},
+        "trade_buckets": {"paint_drywall", "electrical", "moisture_mold", "flooring"},
+        "components": {"paint", "electrical_light", "moisture", "flooring"},
+    },
+    "bedroom_turnover_light": {
+        "family": "bedroom",
+        "groups": {"bedroom"},
+        "trade_buckets": {"paint_drywall", "cleaning_turnover"},
+        "components": {"paint"},
+    },
+    "bedroom_turnover_std": {
+        "family": "bedroom",
+        "groups": {"bedroom", "flooring"},
+        "trade_buckets": {"paint_drywall", "flooring", "cleaning_turnover"},
+        "components": {"paint", "flooring"},
+    },
+    "living_refresh": {
+        "family": "living",
+        "groups": {"living", "flooring"},
+        "trade_buckets": {"flooring", "paint_drywall", "electrical"},
+        "components": {"flooring", "paint", "electrical_light"},
+    },
+    "living_full_rehab": {
+        "family": "living",
+        "groups": {"living", "flooring"},
+        "trade_buckets": {"flooring", "paint_drywall", "electrical", "moisture_mold"},
+        "components": {"flooring", "paint", "electrical_light", "moisture"},
+    },
+    "living_repair_light": {
+        "family": "living",
+        "groups": {"living"},
+        "trade_buckets": {"paint_drywall", "electrical", "moisture_mold"},
+        "components": {"paint", "electrical_light", "moisture"},
+    },
+    "living_repair_heavy": {
+        "family": "living",
+        "groups": {"living", "flooring"},
+        "trade_buckets": {"paint_drywall", "electrical", "moisture_mold", "flooring"},
+        "components": {"paint", "electrical_light", "moisture", "flooring"},
+    },
+    "living_turnover_light": {
+        "family": "living",
+        "groups": {"living"},
+        "trade_buckets": {"paint_drywall", "cleaning_turnover"},
+        "components": {"paint"},
+    },
+    "living_turnover_std": {
+        "family": "living",
+        "groups": {"living", "flooring"},
+        "trade_buckets": {"paint_drywall", "flooring", "cleaning_turnover"},
+        "components": {"paint", "flooring"},
+    },
     "room_refresh": {
         "family": "room",
         "groups": {"other", "flooring", "paint_drywall"},
@@ -406,6 +523,12 @@ _PACKAGE_TYPE_TO_CATEGORY = {
     PACKAGE_TYPE_BATHROOM_MODERNIZATION: PACKAGE_CATEGORY_MODERNIZATION,
     PACKAGE_TYPE_BATHROOM_REPAIR: PACKAGE_CATEGORY_REPAIR,
     PACKAGE_TYPE_BATHROOM_TURNOVER: PACKAGE_CATEGORY_TURNOVER,
+    PACKAGE_TYPE_BEDROOM_MODERNIZATION: PACKAGE_CATEGORY_MODERNIZATION,
+    PACKAGE_TYPE_BEDROOM_REPAIR: PACKAGE_CATEGORY_REPAIR,
+    PACKAGE_TYPE_BEDROOM_TURNOVER: PACKAGE_CATEGORY_TURNOVER,
+    PACKAGE_TYPE_LIVING_MODERNIZATION: PACKAGE_CATEGORY_MODERNIZATION,
+    PACKAGE_TYPE_LIVING_REPAIR: PACKAGE_CATEGORY_REPAIR,
+    PACKAGE_TYPE_LIVING_TURNOVER: PACKAGE_CATEGORY_TURNOVER,
     PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH: PACKAGE_CATEGORY_TURNOVER,
 }
 
@@ -416,6 +539,12 @@ _PACKAGE_TYPE_TO_ROOM = {
     PACKAGE_TYPE_BATHROOM_MODERNIZATION: ROOM_BATHROOM,
     PACKAGE_TYPE_BATHROOM_REPAIR: ROOM_BATHROOM,
     PACKAGE_TYPE_BATHROOM_TURNOVER: ROOM_BATHROOM,
+    PACKAGE_TYPE_BEDROOM_MODERNIZATION: ROOM_BEDROOM,
+    PACKAGE_TYPE_BEDROOM_REPAIR: ROOM_BEDROOM,
+    PACKAGE_TYPE_BEDROOM_TURNOVER: ROOM_BEDROOM,
+    PACKAGE_TYPE_LIVING_MODERNIZATION: ROOM_LIVING,
+    PACKAGE_TYPE_LIVING_REPAIR: ROOM_LIVING,
+    PACKAGE_TYPE_LIVING_TURNOVER: ROOM_LIVING,
     PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH: ROOM_WHOLE_HOME,
 }
 
@@ -1118,6 +1247,78 @@ def _resolve_bathroom_turnover_profile(
     return BATHROOM_TURNOVER_LIGHT, "turnover_light", notes
 
 
+# ─── Generic room resolvers (bedroom / living) ───────────────────────────────
+#
+# Bedroom and living rooms share the same cosmetic component structure (flooring,
+# paint, lighting, moisture) and differ only in pricing tier, so a single set of
+# parameterized resolvers serves both — the dispatcher passes the room's tiers.
+# Kitchen/bathroom keep their dedicated resolvers (cabinets/tile-specific logic).
+
+def _resolve_room_modernization_profile(
+    refresh_tier: Tuple[str, int, int],
+    full_tier: Tuple[str, int, int],
+    evidence: List[EstimateCandidate],
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+) -> Tuple[Tuple[str, int, int], str, List[str]]:
+    """Generic room modernization: refresh by default, escalate to full_rehab
+    when the cosmetic scope is broad (>=3 distinct component classes, e.g.
+    flooring + paint + lighting/moisture)."""
+    components = {classify_component(c) for c in evidence}
+    components.discard(None)
+    notes: List[str] = []
+    broad = components.intersection({"flooring", "paint", "electrical_light", "moisture"})
+    if drivers and len(broad) >= 3:
+        notes.append("broad_cosmetic_scope")
+        return full_tier, "full_rehab", notes + ["full_rehab matched"]
+    if drivers:
+        return refresh_tier, "refresh", notes + ["single package_driver refresh"]
+    return refresh_tier, "refresh", notes + ["multiple package_support refresh"]
+
+
+def _resolve_room_repair_profile(
+    light_tier: Tuple[str, int, int],
+    heavy_tier: Tuple[str, int, int],
+    evidence: List[EstimateCandidate],
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+) -> Tuple[Tuple[str, int, int], str, List[str]]:
+    """Generic room repair pricing: light vs heavy based on component breadth."""
+    components = {classify_component(c) for c in evidence}
+    components.discard(None)
+    notes: List[str] = []
+    heavy_components = components.intersection({"moisture", "electrical_heavy", "flooring"})
+    if drivers and heavy_components:
+        notes.append("driver_with_heavy_component")
+        return heavy_tier, "repair_heavy", notes
+    if len(components) >= 3:
+        notes.append("multi_component_repair")
+        return heavy_tier, "repair_heavy", notes
+    notes.append("light_repair_default")
+    return light_tier, "repair_light", notes
+
+
+def _resolve_room_turnover_profile(
+    light_tier: Tuple[str, int, int],
+    std_tier: Tuple[str, int, int],
+    evidence: List[EstimateCandidate],
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+) -> Tuple[Tuple[str, int, int], str, List[str]]:
+    """Generic room turnover pricing: light (paint-only) vs std (paint + flooring)."""
+    components = {classify_component(c) for c in evidence}
+    components.discard(None)
+    notes: List[str] = []
+    if "flooring" in components and "paint" in components:
+        notes.append("paint_plus_flooring")
+        return std_tier, "turnover_std", notes
+    if len(evidence) >= 3:
+        notes.append("multi_signal_turnover")
+        return std_tier, "turnover_std", notes
+    notes.append("light_turnover_default")
+    return light_tier, "turnover_light", notes
+
+
 def _resolve_pricing_profile(
     package_type: str,
     evidence: List[EstimateCandidate],
@@ -1135,6 +1336,24 @@ def _resolve_pricing_profile(
         return _resolve_bathroom_repair_profile(evidence, drivers, supports)
     if package_type == PACKAGE_TYPE_BATHROOM_TURNOVER:
         return _resolve_bathroom_turnover_profile(evidence, drivers, supports)
+    if package_type == PACKAGE_TYPE_BEDROOM_MODERNIZATION:
+        return _resolve_room_modernization_profile(
+            BEDROOM_REFRESH, BEDROOM_FULL_REHAB, evidence, drivers, supports)
+    if package_type == PACKAGE_TYPE_BEDROOM_REPAIR:
+        return _resolve_room_repair_profile(
+            BEDROOM_REPAIR_LIGHT, BEDROOM_REPAIR_HEAVY, evidence, drivers, supports)
+    if package_type == PACKAGE_TYPE_BEDROOM_TURNOVER:
+        return _resolve_room_turnover_profile(
+            BEDROOM_TURNOVER_LIGHT, BEDROOM_TURNOVER_STD, evidence, drivers, supports)
+    if package_type == PACKAGE_TYPE_LIVING_MODERNIZATION:
+        return _resolve_room_modernization_profile(
+            LIVING_REFRESH, LIVING_FULL_REHAB, evidence, drivers, supports)
+    if package_type == PACKAGE_TYPE_LIVING_REPAIR:
+        return _resolve_room_repair_profile(
+            LIVING_REPAIR_LIGHT, LIVING_REPAIR_HEAVY, evidence, drivers, supports)
+    if package_type == PACKAGE_TYPE_LIVING_TURNOVER:
+        return _resolve_room_turnover_profile(
+            LIVING_TURNOVER_LIGHT, LIVING_TURNOVER_STD, evidence, drivers, supports)
     # Default — kitchen_modernization and any future modernization-family types.
     return _resolve_kitchen_modernization_profile(evidence, drivers, supports)
 
@@ -1156,6 +1375,13 @@ _PRICING_TIER_ESCALATION: Dict[str, Tuple[str, int, int]] = {
     BATHROOM_PARTIAL_REHAB[0]: BATHROOM_FULL_REHAB,
     BATHROOM_REPAIR_LIGHT[0]: BATHROOM_REPAIR_HEAVY,
     BATHROOM_TURNOVER_LIGHT[0]: BATHROOM_TURNOVER_STD,
+    # Bedroom / living use lightweight tiers: refresh -> full (no partial middle).
+    BEDROOM_REFRESH[0]: BEDROOM_FULL_REHAB,
+    BEDROOM_REPAIR_LIGHT[0]: BEDROOM_REPAIR_HEAVY,
+    BEDROOM_TURNOVER_LIGHT[0]: BEDROOM_TURNOVER_STD,
+    LIVING_REFRESH[0]: LIVING_FULL_REHAB,
+    LIVING_REPAIR_LIGHT[0]: LIVING_REPAIR_HEAVY,
+    LIVING_TURNOVER_LIGHT[0]: LIVING_TURNOVER_STD,
     # Top tiers (full_rehab / heavy / std) have no further escalation; the
     # Phase C floor handles any residual undercount.
 }
@@ -1365,7 +1591,7 @@ def infer_package_candidates(
     """
     catalog_lookup = _catalog_lookup(issue_catalog)
     scene_by_room = {
-        str(r.get("room_surrogate_id") or ""): str(r.get("scene") or "")
+        str(r.get("room_surrogate_id") or ""): _normalize_scene_to_room(str(r.get("scene") or ""))
         for r in (room_surrogates or [])
         if isinstance(r, dict)
     }
@@ -1384,7 +1610,9 @@ def infer_package_candidates(
         if package_type == PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH:
             continue
         expected_room = _PACKAGE_TYPE_TO_ROOM.get(package_type)
-        if expected_room in (ROOM_KITCHEN, ROOM_BATHROOM) and scene_by_room and candidate.room_surrogate_id:
+        if expected_room in (ROOM_KITCHEN, ROOM_BATHROOM, ROOM_BEDROOM, ROOM_LIVING) and scene_by_room and candidate.room_surrogate_id:
+            # scene_by_room is normalized (living_room -> living) so this compares
+            # like-for-like against the room constant.
             scene = scene_by_room.get(candidate.room_surrogate_id)
             if scene and scene != expected_room:
                 continue
@@ -2045,6 +2273,10 @@ _PACKAGE_TYPE_VLM_LABELS = {
     PACKAGE_TYPE_KITCHEN_REPAIR: "Kitchen repair",
     PACKAGE_TYPE_BATHROOM_MODERNIZATION: "Bathroom modernization",
     PACKAGE_TYPE_BATHROOM_REPAIR: "Bathroom repair",
+    PACKAGE_TYPE_BEDROOM_MODERNIZATION: "Bedroom modernization",
+    PACKAGE_TYPE_BEDROOM_REPAIR: "Bedroom repair",
+    PACKAGE_TYPE_LIVING_MODERNIZATION: "Living room modernization",
+    PACKAGE_TYPE_LIVING_REPAIR: "Living room repair",
 }
 
 

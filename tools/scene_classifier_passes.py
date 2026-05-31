@@ -1854,11 +1854,89 @@ PASS_2F_BATHROOM_USER_PROMPT = (
     + PASS_2F_BATHROOM_OUTPUT_SCHEMA
 )
 
+# ── Bedroom Pass 2f prompt ───────────────────────────────────────────────────
+# Self-contained: no kitchen / bathroom / exterior vocabulary anywhere in the
+# body. Uses the standard output schema (no visible_room_count telemetry).
+
+PASS_2F_BEDROOM_SYSTEM_PROMPT = (
+    "You are verifying a proposed real-estate renovation package from bedroom photos. "
+    "Use only visible evidence in the supplied images. Your job is visual truth only: "
+    "confirm, reject, or mark uncertain whether the proposed package is supported by the photos.\n\n"
+    + PASS_2F_SHARED_RULES +
+    "\nBedroom-specific guidance:\n"
+    "- A modernization or \"outdated finishes\" package is clearly contradicted when "
+    "the bedroom shows predominantly updated finishes (newer wood, laminate, or vinyl-plank "
+    "flooring or clean modern carpet, fresh neutral paint, a flat or smooth ceiling, modern "
+    "light fixture or ceiling fan, intact contemporary trim, doors, and closet). A single "
+    "isolated dated detail is not sufficient to confirm a modernization package against an "
+    "otherwise updated bedroom.\n"
+    "- Strong bedroom support signals: worn, stained, or dated carpet; damaged or heavily "
+    "worn hard flooring; popcorn or acoustic ceiling texture; wood paneling or dated "
+    "wallpaper; holes, cracks, or damaged drywall; water stains on ceiling or walls; a "
+    "dated builder-grade ceiling fan or light fixture; damaged, missing, or dated closet "
+    "doors; dated trim or scuffed baseboards.\n"
+    "- Common bedroom photo limitations: tight framing and staging furniture or rugs that "
+    "obscure floors and walls. Use uncertain when key surfaces are not visible in any of "
+    "the supplied images.\n"
+)
+
+PASS_2F_BEDROOM_USER_PROMPT = (
+    "Analyze these bedroom photos together.\n\n"
+    "Proposed package:\n"
+    "- package_id: {package_id}\n"
+    "- package_type: {package_type}\n"
+    "- package_label: {package_label}\n\n"
+    "Candidate evidence items:\n"
+    "{evidence_json}\n\n"
+    + PASS_2F_OUTPUT_SCHEMA
+)
+
+# ── Living room Pass 2f prompt ───────────────────────────────────────────────
+# Self-contained: no kitchen / bathroom / exterior vocabulary anywhere in the
+# body. Uses the standard output schema (no visible_room_count telemetry).
+
+PASS_2F_LIVING_SYSTEM_PROMPT = (
+    "You are verifying a proposed real-estate renovation package from living-room photos. "
+    "Use only visible evidence in the supplied images. Your job is visual truth only: "
+    "confirm, reject, or mark uncertain whether the proposed package is supported by the photos.\n\n"
+    + PASS_2F_SHARED_RULES +
+    "\nLiving-room-specific guidance:\n"
+    "- A modernization or \"outdated finishes\" package is clearly contradicted when "
+    "the living area shows predominantly updated finishes (newer hardwood, laminate, or "
+    "vinyl-plank flooring or clean modern carpet, fresh neutral paint, a flat or smooth "
+    "ceiling, modern light fixtures, intact contemporary trim and built-ins, and an updated "
+    "fireplace surround). A single isolated dated detail is not sufficient to confirm a "
+    "modernization package against an otherwise updated living area.\n"
+    "- Strong living-room support signals: worn, stained, or dated carpet or large expanses "
+    "of dated hard flooring; popcorn or acoustic ceiling texture; wood paneling or dated "
+    "wallpaper; holes, cracks, or damaged drywall; water stains on ceiling or walls; a "
+    "dated builder-grade light fixture or ceiling fan; a dated brick, stone, or tile "
+    "fireplace surround; dated built-in shelving or cabinetry; dated trim or scuffed "
+    "baseboards.\n"
+    "- Common living-area photo limitations: wide open-plan framing and staging furniture "
+    "that obscures floors and walls. Use uncertain when key surfaces are not visible in any "
+    "of the supplied images.\n"
+)
+
+PASS_2F_LIVING_USER_PROMPT = (
+    "Analyze these living-room photos together.\n\n"
+    "Proposed package:\n"
+    "- package_id: {package_id}\n"
+    "- package_type: {package_type}\n"
+    "- package_label: {package_label}\n\n"
+    "Candidate evidence items:\n"
+    "{evidence_json}\n\n"
+    + PASS_2F_OUTPUT_SCHEMA
+)
+
 # Per-room selector. Future rooms (exterior, etc.) register here without
-# touching run_pass_2f internals.
+# touching run_pass_2f internals. NOTE: the living key is "living" (the room
+# constant / package["room"]), not the "living_room" scene id.
 PASS_2F_ROOM_PROMPTS = {
     "kitchen":  (PASS_2F_KITCHEN_SYSTEM_PROMPT,  PASS_2F_KITCHEN_USER_PROMPT),
     "bathroom": (PASS_2F_BATHROOM_SYSTEM_PROMPT, PASS_2F_BATHROOM_USER_PROMPT),
+    "bedroom":  (PASS_2F_BEDROOM_SYSTEM_PROMPT,  PASS_2F_BEDROOM_USER_PROMPT),
+    "living":   (PASS_2F_LIVING_SYSTEM_PROMPT,   PASS_2F_LIVING_USER_PROMPT),
 }
 
 PASS_2F_VALID_STATUSES = {"confirmed", "rejected", "uncertain"}
