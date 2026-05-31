@@ -3289,6 +3289,51 @@
       "room": "kitchen"
     },
     {
+      "name": "Dated Fireplace Surround",
+      "category": "opportunity",
+      "severity": 2,
+      "trade_bucket": "interior_finishes",
+      "work_item_code": "FIREPLACE_SURROUND_UPDATE",
+      "description": "Fireplace surround, mantel, hearth, or facing material appears dated; updating it can modernize the living area.",
+      "support_any": [
+        "fireplace",
+        "fireplace surround",
+        "mantel",
+        "hearth",
+        "dated fireplace",
+        "brick fireplace",
+        "stone fireplace"
+      ],
+      "deny_any": [
+        "chimney leak",
+        "fire damage",
+        "soot damage"
+      ],
+      "embed_text": "Dated fireplace surround. Fireplace mantel, hearth, brick, stone, tile, or facing material appears stylistically dated. Update surround finishes to modernize the living area.",
+      "kind": "upgrade",
+      "id": "dated_fireplace_surround",
+      "scope": "repair",
+      "defaultHidden": false,
+      "scene_groups": [
+        "living_areas"
+      ],
+      "tier": "optional",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      },
+      "require_any": [
+        "fireplace",
+        "mantel",
+        "hearth"
+      ],
+      "display_class": "marketability",
+      "package_role": "package_support",
+      "package_type": "living_modernization",
+      "package_category": "modernization",
+      "room": "living"
+    },
+    {
       "name": "Mismatched Furniture/Staging Opportunity",
       "category": "opportunity",
       "severity": 1,

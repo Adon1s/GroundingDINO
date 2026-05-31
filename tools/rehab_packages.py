@@ -598,6 +598,36 @@ PACKAGE_AFFINITY: Dict[Tuple[str, str], Dict[str, str]] = {
         "package_category": PACKAGE_CATEGORY_MODERNIZATION,
         "room": ROOM_BEDROOM,
     },
+    (ROOM_BEDROOM, "baseboard_wear_scuffs"): {
+        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_BEDROOM,
+    },
+    (ROOM_BEDROOM, "dated_interior_trim"): {
+        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_BEDROOM,
+    },
+    (ROOM_BEDROOM, "dated_interior_doors"): {
+        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_BEDROOM,
+    },
+    (ROOM_BEDROOM, "dated_wood_paneling"): {
+        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_BEDROOM,
+    },
+    (ROOM_BEDROOM, "dated_wallpaper_present"): {
+        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_BEDROOM,
+    },
     (ROOM_BEDROOM, "damaged_drywall_or_cracks"): {
         "package_type": PACKAGE_TYPE_BEDROOM_REPAIR,
         "package_role": PACKAGE_ROLE_DRIVER,
@@ -647,6 +677,24 @@ PACKAGE_AFFINITY: Dict[Tuple[str, str], Dict[str, str]] = {
         "room": ROOM_LIVING,
     },
     (ROOM_LIVING, "paint_refresh_recommended"): {
+        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_LIVING,
+    },
+    (ROOM_LIVING, "baseboard_wear_scuffs"): {
+        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_LIVING,
+    },
+    (ROOM_LIVING, "dated_interior_trim"): {
+        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_LIVING,
+    },
+    (ROOM_LIVING, "dated_interior_doors"): {
         "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
         "package_role": PACKAGE_ROLE_SUPPORT,
         "package_category": PACKAGE_CATEGORY_MODERNIZATION,
@@ -860,7 +908,23 @@ _STRONG_SIGNAL_CATALOG_IDS = frozenset({
 })
 
 
-def _has_strong_signal(candidates: List[EstimateCandidate]) -> bool:
+def _effective_candidate_package_role(
+    candidate: EstimateCandidate,
+    candidate_catalog_meta: Optional[Dict[int, Dict[str, Any]]] = None,
+) -> str:
+    cat_item = (candidate_catalog_meta or {}).get(id(candidate))
+    if cat_item:
+        return catalog_package_role(cat_item)
+    raw = str(getattr(candidate, "package_role", None) or "").strip().lower()
+    if raw in VALID_PACKAGE_ROLES:
+        return raw
+    return PACKAGE_ROLE_IGNORE
+
+
+def _has_strong_signal(
+    candidates: List[EstimateCandidate],
+    candidate_catalog_meta: Optional[Dict[int, Dict[str, Any]]] = None,
+) -> bool:
     """Return True if any candidate signals strong-strength elevation.
 
     Two paths:
@@ -876,7 +940,9 @@ def _has_strong_signal(candidates: List[EstimateCandidate]) -> bool:
             return True
         if (
             (candidate.severity or 0) >= 3
-            and getattr(candidate, "package_role", None) == "package_driver"
+            and _effective_candidate_package_role(
+                candidate, candidate_catalog_meta
+            ) == PACKAGE_ROLE_DRIVER
         ):
             return True
     return False
@@ -885,6 +951,7 @@ def _has_strong_signal(candidates: List[EstimateCandidate]) -> bool:
 def compute_package_strength(
     drivers: List[EstimateCandidate],
     supports: List[EstimateCandidate],
+    candidate_catalog_meta: Optional[Dict[int, Dict[str, Any]]] = None,
 ) -> str:
     """Classify package strength per the user's threshold rules.
 
@@ -894,7 +961,10 @@ def compute_package_strength(
               >=2 supports same estimate_unit.
     Weak:    a single orphan support (or empty). Caller should suppress.
     """
-    if _has_strong_signal(drivers) or _has_strong_signal(supports):
+    if (
+        _has_strong_signal(drivers, candidate_catalog_meta)
+        or _has_strong_signal(supports, candidate_catalog_meta)
+    ):
         return PACKAGE_STRENGTH_STRONG
 
     distinct_driver_ids = {c.catalog_item_id for c in drivers if c.catalog_item_id}
@@ -1638,7 +1708,9 @@ def _build_package_candidate(
         spec = escalated_spec
     pricing_profile, cost_low, cost_high = spec
     cost_model, cost_model_source = derive_package_cost_model()
-    package_strength = compute_package_strength(drivers, supports)
+    package_strength = compute_package_strength(
+        drivers, supports, candidate_catalog_meta,
+    )
     confidence_score = compute_initial_confidence_score(package_strength)
     package_category, room = _resolve_package_category_and_room(
         package_type, drivers, supports, catalog_lookup, candidate_catalog_meta,
@@ -1855,7 +1927,9 @@ def infer_package_candidates(
                 ))
             continue
 
-        strength = compute_package_strength(drivers, supports)
+        strength = compute_package_strength(
+            drivers, supports, candidate_catalog_meta,
+        )
         if strength not in VALID_EMITTED_PACKAGE_STRENGTHS:
             if suppressed_out is not None:
                 suppressed_out.append(_build_suppressed_candidate_record(
