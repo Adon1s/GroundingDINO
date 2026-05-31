@@ -194,11 +194,14 @@ def _normalize_scene_to_room(scene: str) -> str:
 
     Scene ids mostly equal the room constant, with one exception: the living-room
     scene is "living_room" but the room constant is ROOM_LIVING = "living".
+    Catalog retrieval scene groups also use "living_areas"; package inference
+    normalizes both spellings at the boundary.
     Normalizing keeps room-scoped comparisons (e.g. the scene-mismatch guard in
     ``infer_package_candidates``) aligned. Bedroom is already consistent
     ("bedroom" == "bedroom").
     """
-    return ROOM_LIVING if scene == "living_room" else scene
+    scene_norm = str(scene or "").strip().lower()
+    return ROOM_LIVING if scene_norm in {"living_room", "living_areas"} else scene_norm
 
 PACKAGE_LEVEL_PROPERTY = "property"
 PACKAGE_LEVEL_ROOM = "room"
@@ -549,6 +552,133 @@ _PACKAGE_TYPE_TO_ROOM = {
 }
 
 
+# Scene-aware package affinity keeps the catalog vocabulary canonical. Generic
+# issues such as worn carpet or popcorn ceilings stay as one issue ID, then route
+# to the room package implied by the observed scene.
+PACKAGE_AFFINITY: Dict[Tuple[str, str], Dict[str, str]] = {
+    (ROOM_BEDROOM, "worn_or_stained_carpet"): {
+        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_DRIVER,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_BEDROOM,
+    },
+    (ROOM_BEDROOM, "older_flooring_style"): {
+        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_DRIVER,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_BEDROOM,
+    },
+    (ROOM_BEDROOM, "worn_or_stained_vinyl_linoleum"): {
+        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_DRIVER,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_BEDROOM,
+    },
+    (ROOM_BEDROOM, "scratched_or_damaged_flooring"): {
+        "package_type": PACKAGE_TYPE_BEDROOM_REPAIR,
+        "package_role": PACKAGE_ROLE_DRIVER,
+        "package_category": PACKAGE_CATEGORY_REPAIR,
+        "room": ROOM_BEDROOM,
+    },
+    (ROOM_BEDROOM, "dated_lighting_fixtures"): {
+        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_BEDROOM,
+    },
+    (ROOM_BEDROOM, "popcorn_or_acoustic_ceiling_texture"): {
+        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_BEDROOM,
+    },
+    (ROOM_BEDROOM, "paint_refresh_recommended"): {
+        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_BEDROOM,
+    },
+    (ROOM_BEDROOM, "damaged_drywall_or_cracks"): {
+        "package_type": PACKAGE_TYPE_BEDROOM_REPAIR,
+        "package_role": PACKAGE_ROLE_DRIVER,
+        "package_category": PACKAGE_CATEGORY_REPAIR,
+        "room": ROOM_BEDROOM,
+    },
+    (ROOM_BEDROOM, "water_stain_ceiling"): {
+        "package_type": PACKAGE_TYPE_BEDROOM_REPAIR,
+        "package_role": PACKAGE_ROLE_DRIVER,
+        "package_category": PACKAGE_CATEGORY_REPAIR,
+        "room": ROOM_BEDROOM,
+    },
+    (ROOM_LIVING, "worn_or_stained_carpet"): {
+        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_DRIVER,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_LIVING,
+    },
+    (ROOM_LIVING, "older_flooring_style"): {
+        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_DRIVER,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_LIVING,
+    },
+    (ROOM_LIVING, "worn_or_stained_vinyl_linoleum"): {
+        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_DRIVER,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_LIVING,
+    },
+    (ROOM_LIVING, "scratched_or_damaged_flooring"): {
+        "package_type": PACKAGE_TYPE_LIVING_REPAIR,
+        "package_role": PACKAGE_ROLE_DRIVER,
+        "package_category": PACKAGE_CATEGORY_REPAIR,
+        "room": ROOM_LIVING,
+    },
+    (ROOM_LIVING, "dated_lighting_fixtures"): {
+        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_LIVING,
+    },
+    (ROOM_LIVING, "popcorn_or_acoustic_ceiling_texture"): {
+        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_LIVING,
+    },
+    (ROOM_LIVING, "paint_refresh_recommended"): {
+        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_LIVING,
+    },
+    (ROOM_LIVING, "dated_wood_paneling"): {
+        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_LIVING,
+    },
+    (ROOM_LIVING, "dated_wallpaper_present"): {
+        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": ROOM_LIVING,
+    },
+    (ROOM_LIVING, "damaged_drywall_or_cracks"): {
+        "package_type": PACKAGE_TYPE_LIVING_REPAIR,
+        "package_role": PACKAGE_ROLE_DRIVER,
+        "package_category": PACKAGE_CATEGORY_REPAIR,
+        "room": ROOM_LIVING,
+    },
+    (ROOM_LIVING, "water_stain_ceiling"): {
+        "package_type": PACKAGE_TYPE_LIVING_REPAIR,
+        "package_role": PACKAGE_ROLE_DRIVER,
+        "package_category": PACKAGE_CATEGORY_REPAIR,
+        "room": ROOM_LIVING,
+    },
+}
+
+
 def catalog_package_category(catalog_item: Dict[str, Any]) -> Optional[str]:
     raw = str(catalog_item.get("package_category") or "").strip().lower()
     if raw in VALID_PACKAGE_CATEGORIES:
@@ -575,6 +705,45 @@ def catalog_room(catalog_item: Dict[str, Any]) -> Optional[str]:
             if scene_norm in VALID_ROOMS:
                 return scene_norm
     return None
+
+
+def package_affinity_for(scene_group: str, issue_id: str) -> Optional[Dict[str, str]]:
+    scene = _normalize_scene_to_room(scene_group)
+    issue = str(issue_id or "").strip()
+    if not scene or not issue:
+        return None
+    return PACKAGE_AFFINITY.get((scene, issue))
+
+
+def _candidate_scene_room(
+    candidate: EstimateCandidate,
+    scene_by_room: Dict[str, str],
+) -> Optional[str]:
+    room_surrogate_id = str(getattr(candidate, "room_surrogate_id", "") or "")
+    if room_surrogate_id and room_surrogate_id in scene_by_room:
+        return scene_by_room[room_surrogate_id]
+    for scene in getattr(candidate, "scene_groups_seen", []) or []:
+        scene_norm = _normalize_scene_to_room(str(scene or ""))
+        if scene_norm:
+            return scene_norm
+    return None
+
+
+def _catalog_item_with_package_affinity(
+    catalog_item: Dict[str, Any],
+    candidate: EstimateCandidate,
+    scene_by_room: Dict[str, str],
+) -> Dict[str, Any]:
+    affinity = package_affinity_for(
+        _candidate_scene_room(candidate, scene_by_room) or "",
+        getattr(candidate, "catalog_item_id", "") or catalog_item.get("id") or "",
+    )
+    if not affinity:
+        return catalog_item
+    effective = dict(catalog_item)
+    effective.update(affinity)
+    effective["_package_affinity_scene"] = _candidate_scene_room(candidate, scene_by_room)
+    return effective
 
 
 def is_package_eligible_catalog_item(catalog_item: Dict[str, Any]) -> bool:
@@ -1449,6 +1618,7 @@ def _build_package_candidate(
     supports: List[EstimateCandidate],
     catalog_lookup: Dict[str, Dict[str, Any]],
     trigger_reason: str,
+    candidate_catalog_meta: Optional[Dict[int, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     spec, pricing_tier, decision_notes = _resolve_pricing_profile(
         package_type,
@@ -1471,7 +1641,7 @@ def _build_package_candidate(
     package_strength = compute_package_strength(drivers, supports)
     confidence_score = compute_initial_confidence_score(package_strength)
     package_category, room = _resolve_package_category_and_room(
-        package_type, drivers, supports, catalog_lookup,
+        package_type, drivers, supports, catalog_lookup, candidate_catalog_meta,
     )
     estimate_scope, estimate_scope_reason = classify_package_scope(
         pricing_profile,
@@ -1485,7 +1655,10 @@ def _build_package_candidate(
     photo_keys: List[str] = []
     evidence_items: List[Dict[str, Any]] = []
     for candidate in supporting_candidates:
-        cat_item = catalog_lookup.get(candidate.catalog_item_id or "", {})
+        cat_item = (
+            (candidate_catalog_meta or {}).get(id(candidate))
+            or catalog_lookup.get(candidate.catalog_item_id or "", {})
+        )
         evidence_items.append(_candidate_evidence_item(candidate, cat_item))
         issue_ids.extend(candidate.issue_ids or [])
         photo_keys.extend(candidate.photo_keys or [])
@@ -1554,6 +1727,7 @@ def _resolve_package_category_and_room(
     drivers: List[EstimateCandidate],
     supports: List[EstimateCandidate],
     catalog_lookup: Dict[str, Dict[str, Any]],
+    candidate_catalog_meta: Optional[Dict[int, Dict[str, Any]]] = None,
 ) -> Tuple[str, Optional[str]]:
     """Pick category and room from the first driver (or first support fallback).
 
@@ -1561,7 +1735,10 @@ def _resolve_package_category_and_room(
     is missing on the candidate's catalog entry.
     """
     for candidate in list(drivers or []) + list(supports or []):
-        cat_item = catalog_lookup.get(candidate.catalog_item_id or "", {})
+        cat_item = (
+            (candidate_catalog_meta or {}).get(id(candidate))
+            or catalog_lookup.get(candidate.catalog_item_id or "", {})
+        )
         category = catalog_package_category(cat_item)
         room = catalog_room(cat_item)
         if category or room:
@@ -1583,11 +1760,13 @@ def infer_package_candidates(
     estimate_units: Optional[List[Dict[str, Any]]] = None,
     suppressed_out: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
-    """Build package candidates from catalog package metadata.
+    """Build package candidates from scene-aware affinity or catalog fallback.
 
     Candidates are grouped by (estimate_unit_id, package_type) and dispatched
-    to the matching pricing profile resolver. Weak-strength buckets are
-    suppressed and (optionally) reported through ``suppressed_out`` for audit.
+    to the matching pricing profile resolver. Generic catalog issues first use
+    PACKAGE_AFFINITY keyed by observed scene; catalog package metadata remains a
+    fallback for kitchen/bathroom compatibility during the transition. Weak
+    buckets are suppressed and (optionally) reported through ``suppressed_out``.
     """
     catalog_lookup = _catalog_lookup(issue_catalog)
     scene_by_room = {
@@ -1597,11 +1776,16 @@ def infer_package_candidates(
     }
 
     by_unit_type: Dict[Tuple[str, str], List[EstimateCandidate]] = {}
+    candidate_catalog_meta: Dict[int, Dict[str, Any]] = {}
     for candidate in candidates or []:
         cat_item = catalog_lookup.get(candidate.catalog_item_id or "", {})
-        if not is_package_eligible_catalog_item(cat_item):
+        effective_cat_item = _catalog_item_with_package_affinity(
+            cat_item, candidate, scene_by_room,
+        )
+        candidate_catalog_meta[id(candidate)] = effective_cat_item
+        if not is_package_eligible_catalog_item(effective_cat_item):
             continue
-        package_type = catalog_package_type(cat_item)
+        package_type = catalog_package_type(effective_cat_item)
         if package_type not in VALID_PACKAGE_TYPES:
             continue
         # Per-room package types are room-scoped; the property-wide
@@ -1613,7 +1797,7 @@ def infer_package_candidates(
         if expected_room in (ROOM_KITCHEN, ROOM_BATHROOM, ROOM_BEDROOM, ROOM_LIVING) and scene_by_room and candidate.room_surrogate_id:
             # scene_by_room is normalized (living_room -> living) so this compares
             # like-for-like against the room constant.
-            scene = scene_by_room.get(candidate.room_surrogate_id)
+            scene = _candidate_scene_room(candidate, scene_by_room)
             if scene and scene != expected_room:
                 continue
         unit_id = _candidate_unit_id(candidate)
@@ -1625,7 +1809,10 @@ def infer_package_candidates(
         opportunity_drivers: List[EstimateCandidate] = []
         supports: List[EstimateCandidate] = []
         for candidate in unit_candidates:
-            cat_item = catalog_lookup.get(candidate.catalog_item_id or "", {})
+            cat_item = (
+                candidate_catalog_meta.get(id(candidate))
+                or catalog_lookup.get(candidate.catalog_item_id or "", {})
+            )
             if _is_defect_driver_role(cat_item):
                 defect_drivers.append(candidate)
             elif _is_opportunity_driver(cat_item):
@@ -1694,6 +1881,7 @@ def infer_package_candidates(
             supports=supports,
             catalog_lookup=catalog_lookup,
             trigger_reason=trigger_reason,
+            candidate_catalog_meta=candidate_catalog_meta,
         ))
     return out
 
