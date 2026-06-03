@@ -42,6 +42,7 @@ from tools.rehab_packages import (
     finalize_package_candidates,
     infer_package_candidates,
     is_package_eligible_catalog_item,
+    package_affinity_for,
     reconcile_packages_and_estimate_units,
     run_pass_2f_batch,
 )
@@ -309,7 +310,16 @@ def _extract_package_only_candidates(
     for issue in issues_flat or []:
         cat_id = str(issue.get("catalog_item_id") or "")
         cat = catalog_lookup.get(cat_id)
-        if not cat or not is_package_eligible_catalog_item(cat):
+        if not cat:
+            continue
+        # Generics carry no package_type in the catalog (it's stripped); scene
+        # affinity is the router. Admit them when the issue's scene group has an
+        # affinity entry, in addition to raw-eligible catalog items. The overlay
+        # in infer_package_candidates re-applies package_type/role downstream.
+        eligible = is_package_eligible_catalog_item(cat) or (
+            package_affinity_for(issue.get("scene_group", ""), cat_id) is not None
+        )
+        if not eligible:
             continue
         est_meta = _resolve_catalog_estimate_meta(cat)
         if est_meta.affects_estimate:

@@ -41,6 +41,7 @@ from tools.estimate_scope import (
     empty_scope_totals,
     sum_scope_totals,
 )
+from tools.pipeline_common import SCENE_TO_GROUP_UI
 from tools.renovation_estimate import GROUP_BUDGET_CAPS, EstimateCandidate
 
 logger = logging.getLogger(__name__)
@@ -189,19 +190,54 @@ VALID_ROOMS = frozenset({
 })
 
 
-def _normalize_scene_to_room(scene: str) -> str:
-    """Map a Pass-1a/surrogate scene id to its room constant.
+# UI group token -> package room constant. Only groups that own a per-room
+# package appear here; utility/other deliberately map to no room.
+_GROUP_TO_ROOM: Dict[str, str] = {
+    "kitchen": ROOM_KITCHEN,
+    "bathroom": ROOM_BATHROOM,
+    "bedroom": ROOM_BEDROOM,
+    "living_areas": ROOM_LIVING,
+    "exterior": ROOM_EXTERIOR,
+}
 
-    Scene ids mostly equal the room constant, with one exception: the living-room
-    scene is "living_room" but the room constant is ROOM_LIVING = "living".
-    Catalog retrieval scene groups also use "living_areas"; package inference
-    normalizes both spellings at the boundary.
-    Normalizing keeps room-scoped comparisons (e.g. the scene-mismatch guard in
-    ``infer_package_candidates``) aligned. Bedroom is already consistent
-    ("bedroom" == "bedroom").
+# Transitional living-area scenes that must NOT drive a living package even
+# though they belong to the living_areas group (product decision).
+_SCENE_ROOM_EXCLUSIONS = frozenset({"hallway", "stairway"})
+
+
+def _normalize_scene_to_room(scene: str) -> str:
+    """Map a scene id, UI scene group, or room constant to its package room.
+
+    Three vocabularies feed package routing and must collapse consistently:
+    Pass-1a/surrogate scene ids ("living_room", "dining_room"), UI/retrieval
+    scene groups ("living_areas"), and package room constants ("living").
+    Resolution is group-aware via ``SCENE_TO_GROUP_UI`` so every living-area
+    scene (living_room, dining_room, home_office) collapses to ROOM_LIVING and
+    "pantry" collapses to ROOM_KITCHEN — keeping both the affinity lookup and the
+    scene-mismatch guard in ``infer_package_candidates`` aligned. Bedroom is
+    already consistent ("bedroom" == "bedroom").
+
+    ``hallway``/``stairway`` are excluded: as transitional spaces they don't
+    drive a living package. They are non-breaking scenes, so they never open a
+    surrogate and never reach the primary path as their own scene id; the
+    exclusion only bites if a literal scene id is normalized. The fallback path
+    sees the group token "living_areas" (no scene-level detail), so a truly
+    surrogate-less hallway issue would still map to living — acceptable since the
+    pipeline stamps a surrogate on every issue.
     """
     scene_norm = str(scene or "").strip().lower()
-    return ROOM_LIVING if scene_norm in {"living_room", "living_areas"} else scene_norm
+    if not scene_norm:
+        return scene_norm
+    if scene_norm in VALID_ROOMS:
+        return scene_norm
+    if scene_norm in _SCENE_ROOM_EXCLUSIONS:
+        return scene_norm
+    if scene_norm in _GROUP_TO_ROOM:
+        return _GROUP_TO_ROOM[scene_norm]
+    group = SCENE_TO_GROUP_UI.get(scene_norm)
+    if group in _GROUP_TO_ROOM:
+        return _GROUP_TO_ROOM[group]
+    return scene_norm
 
 PACKAGE_LEVEL_PROPERTY = "property"
 PACKAGE_LEVEL_ROOM = "room"
@@ -727,6 +763,87 @@ PACKAGE_AFFINITY: Dict[Tuple[str, str], Dict[str, str]] = {
 }
 
 
+# ── Generic-issue affinity coverage (kitchen/bathroom + cosmetic gaps) ───────
+# Generics route to a room's MODERNIZATION package as SUPPORT: the true drivers
+# in those rooms are cabinets/vanity, so a lone generic stays corroboration-
+# dependent and never over-buckets (no generic acts as a kitchen/bathroom
+# driver). Bedroom/living keep their explicit entries above — where
+# flooring/drywall act as drivers — and only the three cosmetic gap items are
+# registered for those rooms here. The three structural/feature generics
+# (unfinished_interior_wall_osb_exposed, stained_glass_or_vintage_light_fixture,
+# layout_modernization_opportunity) are intentionally omitted: they stay
+# line-item / observation only.
+_MODERNIZATION_PACKAGE_BY_ROOM: Dict[str, str] = {
+    ROOM_KITCHEN: PACKAGE_TYPE_KITCHEN_MODERNIZATION,
+    ROOM_BATHROOM: PACKAGE_TYPE_BATHROOM_MODERNIZATION,
+    ROOM_BEDROOM: PACKAGE_TYPE_BEDROOM_MODERNIZATION,
+    ROOM_LIVING: PACKAGE_TYPE_LIVING_MODERNIZATION,
+}
+
+# The 16 generics that route to a KITCHEN package (all as modernization support).
+_GENERIC_KITCHEN_SUPPORTS = (
+    "worn_or_stained_carpet",
+    "worn_or_stained_vinyl_linoleum",
+    "older_flooring_style",
+    "worn_or_stained_flooring",
+    "scratched_or_damaged_flooring",
+    "damaged_drywall_or_cracks",
+    "paint_refresh_recommended",
+    "popcorn_or_acoustic_ceiling_texture",
+    "dated_wood_paneling",
+    "dated_wallpaper_present",
+    "dated_lighting_fixtures",
+    "baseboard_wear_scuffs",
+    "dated_interior_trim",
+    "dated_interior_doors",
+    "peeling_or_discolored_paint",
+    "wall_scuffs_marks_or_dents",
+)
+
+# Bathrooms carry dedicated catalog items for flooring/paint/wallpaper/lighting
+# (dated_bathroom_wallpaper, bathroom_paint_refresh_recommended,
+# dated_bathroom_flooring_style, dated_bathroom_vanity_light, …), so generics
+# route to a bathroom package ONLY for the "dry construction" gap categories that
+# lack a bathroom-specific equivalent — the rest defer to those items.
+_GENERIC_BATHROOM_SUPPORTS = (
+    "damaged_drywall_or_cracks",
+    "popcorn_or_acoustic_ceiling_texture",
+    "dated_wood_paneling",
+    "baseboard_wear_scuffs",
+    "dated_interior_trim",
+    "dated_interior_doors",
+    "wall_scuffs_marks_or_dents",
+)
+
+# Cosmetic generics that lack bedroom/living coverage (the rest already have
+# explicit bedroom/living entries above).
+_GENERIC_BEDROOM_LIVING_GAP_SUPPORTS = (
+    "peeling_or_discolored_paint",
+    "wall_scuffs_marks_or_dents",
+    "worn_or_stained_flooring",
+)
+
+
+def _register_generic_support(room: str, issue_id: str) -> None:
+    # setdefault never clobbers an explicit entry above (e.g. bedroom/living
+    # drivers), so registration order and re-imports are harmless.
+    PACKAGE_AFFINITY.setdefault((room, issue_id), {
+        "package_type": _MODERNIZATION_PACKAGE_BY_ROOM[room],
+        "package_role": PACKAGE_ROLE_SUPPORT,
+        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
+        "room": room,
+    })
+
+
+for _issue_id in _GENERIC_KITCHEN_SUPPORTS:
+    _register_generic_support(ROOM_KITCHEN, _issue_id)
+for _issue_id in _GENERIC_BATHROOM_SUPPORTS:
+    _register_generic_support(ROOM_BATHROOM, _issue_id)
+for _issue_id in _GENERIC_BEDROOM_LIVING_GAP_SUPPORTS:
+    _register_generic_support(ROOM_BEDROOM, _issue_id)
+    _register_generic_support(ROOM_LIVING, _issue_id)
+
+
 def catalog_package_category(catalog_item: Dict[str, Any]) -> Optional[str]:
     raw = str(catalog_item.get("package_category") or "").strip().lower()
     if raw in VALID_PACKAGE_CATEGORIES:
@@ -800,13 +917,6 @@ def is_package_eligible_catalog_item(catalog_item: Dict[str, Any]) -> bool:
         catalog_package_role(catalog_item) in {PACKAGE_ROLE_DRIVER, PACKAGE_ROLE_SUPPORT}
         and catalog_package_type(catalog_item) in VALID_PACKAGE_TYPES
     )
-
-
-def is_candidate_package_eligible(
-    candidate: EstimateCandidate,
-    catalog_lookup: Dict[str, Dict[str, Any]],
-) -> bool:
-    return is_package_eligible_catalog_item(catalog_lookup.get(candidate.catalog_item_id or "", {}))
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1380,7 +1490,12 @@ def _resolve_kitchen_repair_profile(
     components.discard(None)
     notes: List[str] = []
     heavy_components = components.intersection({"plumbing", "electrical_heavy", "moisture", "flooring"})
-    if drivers and heavy_components:
+    heavy_breadth = (
+        any((d.severity or 0) >= 3 for d in drivers)
+        or len(components) >= 2
+        or len({d.catalog_item_id for d in drivers if d.catalog_item_id}) >= 2
+    )
+    if drivers and heavy_components and heavy_breadth:
         notes.append("driver_with_heavy_component")
         return KITCHEN_REPAIR_HEAVY, "repair_heavy", notes
     if len(components) >= 3:
@@ -1457,7 +1572,12 @@ def _resolve_bathroom_repair_profile(
     components.discard(None)
     notes: List[str] = []
     heavy_components = components.intersection({"plumbing", "electrical_heavy", "moisture", "flooring"})
-    if drivers and heavy_components:
+    heavy_breadth = (
+        any((d.severity or 0) >= 3 for d in drivers)
+        or len(components) >= 2
+        or len({d.catalog_item_id for d in drivers if d.catalog_item_id}) >= 2
+    )
+    if drivers and heavy_components and heavy_breadth:
         notes.append("driver_with_heavy_component")
         return BATHROOM_REPAIR_HEAVY, "repair_heavy", notes
     if len(components) >= 3:
@@ -1527,7 +1647,12 @@ def _resolve_room_repair_profile(
     components.discard(None)
     notes: List[str] = []
     heavy_components = components.intersection({"moisture", "electrical_heavy", "flooring"})
-    if drivers and heavy_components:
+    heavy_breadth = (
+        any((d.severity or 0) >= 3 for d in drivers)
+        or len(components) >= 2
+        or len({d.catalog_item_id for d in drivers if d.catalog_item_id}) >= 2
+    )
+    if drivers and heavy_components and heavy_breadth:
         notes.append("driver_with_heavy_component")
         return heavy_tier, "repair_heavy", notes
     if len(components) >= 3:
