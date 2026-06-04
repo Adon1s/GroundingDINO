@@ -1018,6 +1018,15 @@ _STRONG_SIGNAL_CATALOG_IDS = frozenset({
 })
 
 
+# A support whose catalog id appears in support role across this many distinct
+# estimate units is "ambient" — a property-wide trait (e.g. popcorn ceilings)
+# rather than a room-scoped finding — and must not be the marginal vote that
+# mints a driverless package. Tunable; see HANDOFF_ambient_support_catalog_tagging
+# and the N=2 vs N=3 audit. Scope is package-existence only: ambient supports
+# still corroborate driver-anchored packages and are still costed.
+_AMBIENT_SUPPORT_MIN_UNITS = 3
+
+
 def _effective_candidate_package_role(
     candidate: EstimateCandidate,
     candidate_catalog_meta: Optional[Dict[int, Dict[str, Any]]] = None,
@@ -1974,6 +1983,12 @@ def infer_package_candidates(
 
     by_unit_type: Dict[Tuple[str, str], List[EstimateCandidate]] = {}
     candidate_catalog_meta: Dict[int, Dict[str, Any]] = {}
+    # Cross-room recurrence tally: catalog_item_id -> set of distinct estimate
+    # units where it appears in *support* role. Only support-role appearances
+    # are counted, so an id that drives elsewhere (e.g. worn_or_stained_carpet
+    # drives bedrooms but supports kitchens) never inflates the tally and is
+    # never demoted. Uses the same _candidate_unit_id that keys the buckets.
+    support_unit_tally: Dict[str, set] = {}
     for candidate in candidates or []:
         cat_item = catalog_lookup.get(candidate.catalog_item_id or "", {})
         effective_cat_item = _catalog_item_with_package_affinity(
@@ -1999,6 +2014,16 @@ def infer_package_candidates(
                 continue
         unit_id = _candidate_unit_id(candidate)
         by_unit_type.setdefault((unit_id, package_type), []).append(candidate)
+        if (
+            catalog_package_role(effective_cat_item) == PACKAGE_ROLE_SUPPORT
+            and candidate.catalog_item_id
+        ):
+            support_unit_tally.setdefault(candidate.catalog_item_id, set()).add(unit_id)
+
+    ambient_support_ids = {
+        cat_id for cat_id, units in support_unit_tally.items()
+        if len(units) >= _AMBIENT_SUPPORT_MIN_UNITS
+    }
 
     out: List[Dict[str, Any]] = []
     for (unit_id, package_type), unit_candidates in sorted(by_unit_type.items()):
@@ -2023,6 +2048,12 @@ def infer_package_candidates(
         has_multiphoto_opportunity = _has_multiphoto_opportunity_corroboration(
             opportunity_drivers
         )
+        # Ambient (recurring cross-room) supports still corroborate and are
+        # costed, but do not count toward the driverless emit gate below.
+        non_ambient_supports = [
+            c for c in supports
+            if (c.catalog_item_id or "") not in ambient_support_ids
+        ]
 
         if defect_drivers:
             drivers = defect_drivers + opportunity_drivers
@@ -2036,20 +2067,38 @@ def infer_package_candidates(
             drivers = list(opportunity_drivers)
             supporting = drivers + supports
             trigger_reason = "opportunity_driver_with_multiphoto_corroboration"
-        elif len(supports) >= 2:
+        elif len(non_ambient_supports) >= 2:
             drivers = []
             supporting = supports
             trigger_reason = "multiple_package_support_same_estimate_unit"
         else:
             _suppress_blocked_opportunity_drivers(opportunity_drivers)
             if suppressed_out is not None:
-                suppressed_out.append(_build_suppressed_candidate_record(
+                # Distinguish a bucket killed *because* its supports were
+                # demoted as ambient (would have emitted under the old
+                # len(supports) >= 2 rule) from a genuinely weak bucket.
+                demotion_caused = (
+                    not opportunity_drivers
+                    and len(supports) >= 2
+                    and len(non_ambient_supports) < 2
+                )
+                record = _build_suppressed_candidate_record(
                     unit_id=unit_id,
                     package_type=package_type,
                     drivers=opportunity_drivers,
                     supports=supports,
-                    reason="weak_no_qualifying_pattern",
-                ))
+                    reason=(
+                        "weak_after_ambient_support_demotion"
+                        if demotion_caused
+                        else "weak_no_qualifying_pattern"
+                    ),
+                )
+                if demotion_caused:
+                    record["ambient_demoted_catalog_item_ids"] = sorted({
+                        c.catalog_item_id for c in supports
+                        if (c.catalog_item_id or "") in ambient_support_ids
+                    })
+                suppressed_out.append(record)
             continue
 
         strength = compute_package_strength(
@@ -2070,7 +2119,7 @@ def infer_package_candidates(
         source_room_ids = _source_room_ids_for_unit(unit_id, estimate_units)
         if not source_room_ids and first.room_surrogate_id:
             source_room_ids = [first.room_surrogate_id]
-        out.append(_build_package_candidate(
+        package = _build_package_candidate(
             package_type=package_type,
             unit_id=unit_id,
             room_surrogate_id=first.room_surrogate_id or (source_room_ids[0] if source_room_ids else ""),
@@ -2081,7 +2130,18 @@ def infer_package_candidates(
             catalog_lookup=catalog_lookup,
             trigger_reason=trigger_reason,
             candidate_catalog_meta=candidate_catalog_meta,
-        ))
+        )
+        # Audit note: ambient supports rode along as corroboration/cost on a
+        # package that stood on its own anchor (driver or non-ambient supports).
+        ambient_corroborating = sorted({
+            c.catalog_item_id for c in supports
+            if (c.catalog_item_id or "") in ambient_support_ids
+        })
+        if ambient_corroborating:
+            package["level_decision_notes"] = list(
+                package.get("level_decision_notes") or []
+            ) + ["ambient_supports_corroborating=" + ",".join(ambient_corroborating)]
+        out.append(package)
     return out
 
 

@@ -40,6 +40,25 @@ _OPENING_SIDE_WORDS = {
     "garage", "entry", "patio", "sliding", "bay", "side",
 }
 
+# Single-instance scenes: room types a typical home has exactly one of. Repeated
+# surrogates of these collapse into one <scene>_primary billable unit (mirroring
+# the kitchen single-unit default), so listing-order splits (living -> kitchen ->
+# living => living_room_1 + living_room_2) don't inflate unit and package counts.
+# Bedrooms and bathrooms are deliberately excluded — they are routinely multiple
+# and are gated by metadata caps instead. This is a conservative default, not a
+# certainty: a home can occasionally have two (attached + detached garage, formal
+# + family living room); the merge_decisions audit trail keeps it visible and
+# reversible, and a distinct-evidence escape hatch is a future refinement.
+_SINGLE_INSTANCE_SCENES = frozenset({
+    "living_room",
+    "dining_room",
+    "home_office",
+    "garage",
+    "basement",
+    "attic",
+    "laundry_room",
+})
+
 
 def build_estimate_units(
     photos: list[dict],
@@ -229,6 +248,28 @@ def build_estimate_units(
                     decision_reason="bedroom_surrogates_capped_by_metadata",
                     decision_confidence="high",
                 )
+
+    # Collapse repeated single-instance scenes (living/dining/office/garage/
+    # basement/attic/laundry) into one <scene>_primary unit before the generic
+    # per-surrogate fallback. Bedrooms/kitchens/bathrooms were handled above.
+    single_instance_by_scene: Dict[str, List[Dict[str, Any]]] = {}
+    for surrogate in surrogates:
+        if surrogate["room_surrogate_id"] in handled:
+            continue
+        unit_type = _surrogate_unit_type(surrogate)
+        if unit_type in _SINGLE_INSTANCE_SCENES:
+            single_instance_by_scene.setdefault(unit_type, []).append(surrogate)
+    for scene, scene_surrogates in single_instance_by_scene.items():
+        add_unit(
+            f"{scene}_primary",
+            scene,
+            scene_surrogates,
+            confidence="default_assumption",
+            merge_reason="single_instance_scene_collapsed",
+            decision_reason=f"repeated_{scene}_surrogates_merged_single_instance_default",
+        )
+        for collapsed in scene_surrogates:
+            handled.add(collapsed["room_surrogate_id"])
 
     for surrogate in surrogates:
         sid = surrogate["room_surrogate_id"]
