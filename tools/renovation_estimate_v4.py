@@ -264,6 +264,7 @@ def compute_renovation_estimate_v4(
         "totals_by_scope_capped",
         "final_rehab_required",
         "final_rehab_resale_ready",
+        "final_rehab_full_renewal",
     ):
         v4_estimate[bucket_name] = reconciliation[bucket_name]
     v4_estimate["project_scope_breakdown"] = _build_project_scope_breakdown(

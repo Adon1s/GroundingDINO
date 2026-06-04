@@ -36,7 +36,7 @@ from tools.estimate_scope import (
     VALID_ESTIMATE_SCOPES,
     add_scope_amount,
     allocate_capped_scope_totals,
-    build_required_and_resale_ready,
+    build_scope_headline_tiers,
     classify_package_scope,
     empty_scope_totals,
     sum_scope_totals,
@@ -3056,9 +3056,11 @@ def reconcile_packages_and_estimate_units(
     )
     totals_by_scope_raw = scope_rollups["totals_by_scope_raw"]
     totals_by_scope_capped = scope_rollups["totals_by_scope_capped"]
-    final_rehab_required, final_rehab_resale_ready = build_required_and_resale_ready(
-        totals_by_scope_capped,
-    )
+    (
+        final_rehab_required,
+        final_rehab_resale_ready,
+        final_rehab_full_renewal,
+    ) = build_scope_headline_tiers(totals_by_scope_capped)
     package_net_delta_low = sum(
         int(a["package_net_delta"]["low"]) for a in package_group_reconciliation
     )
@@ -3137,6 +3139,7 @@ def reconcile_packages_and_estimate_units(
         "totals_by_scope_capped": totals_by_scope_capped,
         "final_rehab_required": final_rehab_required,
         "final_rehab_resale_ready": final_rehab_resale_ready,
+        "final_rehab_full_renewal": final_rehab_full_renewal,
     }
 
 

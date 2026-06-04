@@ -408,22 +408,57 @@ def build_final_bucket(
     }
 
 
+def build_scope_headline_tiers(
+    capped_totals: Dict[str, Dict[str, int]],
+) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+    """Build the three nested headline tiers from capped per-scope totals.
+
+    The tiers are cumulative and nested by construction:
+
+      required      = required_rehab
+      resale_ready  = required + marketability_rehab
+      full_renewal  = required + marketability_rehab + optional_value_add
+
+    ``inspection_risk`` is never folded into any headline tier; it remains a
+    separate risk line.
+    """
+    required = capped_totals.get(REQUIRED_REHAB, {})
+    marketability = capped_totals.get(MARKETABILITY_REHAB, {})
+    optional = capped_totals.get(OPTIONAL_VALUE_ADD, {})
+
+    required_low = _int(required.get("low", 0))
+    required_high = _int(required.get("high", 0))
+    marketability_low = _int(marketability.get("low", 0))
+    marketability_high = _int(marketability.get("high", 0))
+    optional_low = _int(optional.get("low", 0))
+    optional_high = _int(optional.get("high", 0))
+
+    required_bucket = build_final_bucket(
+        required_low,
+        required_high,
+        basis="totals_by_scope_capped.required_rehab",
+    )
+    resale_bucket = build_final_bucket(
+        required_low + marketability_low,
+        required_high + marketability_high,
+        basis="totals_by_scope_capped.required_rehab_plus_marketability_rehab",
+    )
+    full_renewal_bucket = build_final_bucket(
+        required_low + marketability_low + optional_low,
+        required_high + marketability_high + optional_high,
+        basis=(
+            "totals_by_scope_capped."
+            "required_rehab_plus_marketability_rehab_plus_optional_value_add"
+        ),
+    )
+    return required_bucket, resale_bucket, full_renewal_bucket
+
+
 def build_required_and_resale_ready(
     capped_totals: Dict[str, Dict[str, int]],
 ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-    required = capped_totals.get(REQUIRED_REHAB, {})
-    marketability = capped_totals.get(MARKETABILITY_REHAB, {})
-    required_bucket = build_final_bucket(
-        required.get("low", 0),
-        required.get("high", 0),
-        basis="totals_by_scope_capped.required_rehab",
-    )
-    resale_low = _int(required.get("low", 0)) + _int(marketability.get("low", 0))
-    resale_high = _int(required.get("high", 0)) + _int(marketability.get("high", 0))
-    resale_bucket = build_final_bucket(
-        resale_low,
-        resale_high,
-        basis="totals_by_scope_capped.required_rehab_plus_marketability_rehab",
+    required_bucket, resale_bucket, _full_renewal_bucket = build_scope_headline_tiers(
+        capped_totals,
     )
     return required_bucket, resale_bucket
 
