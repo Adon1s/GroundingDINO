@@ -497,9 +497,10 @@ def _effective_posture(candidate: EstimateCandidate) -> Optional[str]:
     """Return effective_posture if set, else fall back to catalog strategy.
 
     `compute_renovation_estimate` only populates `effective_posture` on its own
-    resolved-candidate list, so candidates passed straight into `infer_packages`
-    may still have `effective_posture is None`. Falling back to the catalog
-    strategy mirrors v3's `resolve_effective_posture` keep-default semantics.
+    resolved-candidate list, so candidates passed straight into
+    `infer_package_candidates` may still have `effective_posture is None`. Falling
+    back to the catalog strategy mirrors v3's `resolve_effective_posture`
+    keep-default semantics.
     """
     if candidate.effective_posture:
         return candidate.effective_posture

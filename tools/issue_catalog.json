@@ -450,6 +450,8 @@
       "embed_text": "Scratched or damaged hard flooring. Scratches, scuffs, chips, warping, broken pieces, or failed floor finish. Repair, refinish, or replace affected flooring.",
       "kind": "defect",
       "id": "scratched_or_damaged_flooring",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_cosmetic_flooring_marketability",
       "scope": "repair",
       "defaultHidden": false,
       "scene_groups": [
@@ -866,6 +868,8 @@
       "embed_text": "Damaged countertops. Chips, cracks, burns, swollen seams. Countertop replacement.",
       "kind": "defect",
       "id": "countertop_damage",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_damaged_functional_marketability",
       "scope": "replace",
       "defaultHidden": false,
       "scene_groups": [
@@ -1864,6 +1868,8 @@
       "embed_text": "Unfinished basement. Bare concrete floor, stripped basement floor, unfinished utility surfaces, exposed concrete slab in basement. Opportunity to finish space and add living area.",
       "kind": "upgrade",
       "id": "unfinished_basement_present",
+      "estimate_scope": "optional_value_add",
+      "estimate_scope_reason": "catalog_override_discretionary_finish_optional",
       "scope": "replace",
       "defaultHidden": false,
       "scene_groups": [
@@ -1945,6 +1951,8 @@
       "embed_text": "Baseboard wear or scuffs. Scuffed, dented, or chipped baseboards and trim. Missing baseboards, detached trim, visible gaps at wall base, incomplete base trim installation. Repair, repaint, or replace trim.",
       "kind": "defect",
       "id": "baseboard_wear_scuffs",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_cosmetic_trim_marketability",
       "scope": "cosmetic",
       "defaultHidden": true,
       "scene_groups": [
@@ -2032,6 +2040,8 @@
       "embed_text": "Ceiling fan with mismatched blades. Fan blades mismatched/damaged. Replace fan or blades.",
       "kind": "defect",
       "id": "ceiling_fan_mismatched_blades",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_cosmetic_fan_not_required",
       "scope": "replace",
       "defaultHidden": true,
       "scene_groups": [
@@ -2311,6 +2321,8 @@
       "embed_text": "Outdated or damaged vanity. Worn bathroom vanity with peeling laminate, water-damaged base, swollen particle board, broken hinges or drawer fronts. Dated vanity styling such as oak, golden oak, builder-grade flat-panel, or 1990s-style cabinetry. Replace bathroom vanity.",
       "kind": "defect",
       "id": "outdated_or_damaged_vanity",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_dated_vanity_marketability",
       "scope": "replace",
       "defaultHidden": false,
       "scene_groups": [
@@ -3424,6 +3436,8 @@
       "embed_text": "Possible water damage at roofline. Staining/deterioration at eaves/fascia/soffit. Inspect and repair leak source.",
       "kind": "defect",
       "id": "roofline_water_damage_suspected",
+      "estimate_scope": "inspection_risk",
+      "estimate_scope_reason": "catalog_override_suspected_latent_inspection_risk",
       "scope": "repair",
       "defaultHidden": false,
       "scene_groups": [
@@ -3489,6 +3503,8 @@
       "embed_text": "Shed exterior paint failure. Peeling/flaking paint on shed. Scrape, prep, and repaint exterior.",
       "kind": "defect",
       "id": "shed_exterior_paint_failure",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_cosmetic_repaint_not_failure",
       "scope": "cosmetic",
       "defaultHidden": true,
       "scene_groups": [
@@ -3860,6 +3876,8 @@
       "embed_text": "Deck surface weathering. Sun-faded or grayed wood deck boards. Clean, sand, stain, or refinish.",
       "kind": "defect",
       "id": "deck_surface_weathering",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_cosmetic_refinish_not_structural",
       "scope": "cosmetic",
       "defaultHidden": true,
       "scene_groups": [
@@ -3890,6 +3908,8 @@
       "embed_text": "Tree stump present in yard. Visible leftover stump. Remove and regrade landscaping.",
       "kind": "defect",
       "id": "tree_stump_present_in_yard",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_curb_appeal_not_required",
       "scope": "service",
       "defaultHidden": true,
       "scene_groups": [
@@ -3922,6 +3942,8 @@
       "embed_text": "Exterior door paint failure or lower door deterioration. Worn, chipped, peeling, or flaking paint on entry door. Moisture-damaged, swollen, or rotting wood at bottom of exterior door or door frame. Deteriorated door sill or threshold. Sand, prep, repair, seal, and repaint.",
       "kind": "defect",
       "id": "exterior_door_paint_failure",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_cosmetic_repaint_not_failure",
       "scope": "cosmetic",
       "defaultHidden": true,
       "scene_groups": [
@@ -4607,6 +4629,8 @@
     },
     {
       "id": "bathroom_layout_modernization_opportunity",
+      "estimate_scope": "optional_value_add",
+      "estimate_scope_reason": "catalog_override_layout_redesign_optional",
       "name": "Bathroom Layout Modernization Opportunity",
       "category": "opportunity",
       "severity": 3,
