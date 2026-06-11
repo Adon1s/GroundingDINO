@@ -61,6 +61,8 @@ _VALID_UNIT_POLICIES = {
     "per_scope", "per_property", "per_room", "per_opening",
     "per_kitchen", "per_bathroom", "per_system", "per_area",
 }
+# Public alias for catalog validation (tools/catalog_validation.py).
+VALID_UNIT_POLICIES = _VALID_UNIT_POLICIES
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Catalog estimate metadata
@@ -134,7 +136,7 @@ class EstimateCandidate:
     catalog_item_name: str
     estimate_meta: CatalogEstimateMeta
     kind: str                               # defect | upgrade
-    severity: int                           # 1-4
+    severity: int                           # 1-5
     scope: str                              # repair | replace | cosmetic | service
     trade_bucket: str                       # original trade bucket (for cost lookup)
     cost_obj: Dict[str, Any] = field(default_factory=dict)

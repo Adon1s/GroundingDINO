@@ -483,6 +483,16 @@
         "utility"
       ],
       "tier": "work",
+      "cost": {
+        "mode": "allowance",
+        "base_low": 300,
+        "base_high": 3500,
+        "per_occurrence_low": 270,
+        "per_occurrence_high": 690,
+        "cap_low": 3500,
+        "cap_high": 7000,
+        "cost_source": "manual"
+      },
       "display_class": "marketability",
       "package_role": "ignore",
       "package_affinity": {
@@ -2705,7 +2715,7 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "estimate_tier": "low",
+        "estimate_tier": "medium",
         "strategy": "replace_only",
         "group": "bathroom",
         "stack_behavior": "group_cap",
@@ -3036,7 +3046,7 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "estimate_tier": "low",
+        "estimate_tier": "minor",
         "strategy": "repair_only",
         "group": "bathroom",
         "stack_behavior": "group_cap",
@@ -3092,7 +3102,7 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "estimate_tier": "low",
+        "estimate_tier": "minor",
         "strategy": "replace_only",
         "group": "bathroom",
         "stack_behavior": "group_cap",
@@ -3146,7 +3156,7 @@
       "estimate": {
         "estimate_tier": "medium",
         "strategy": "repair_only",
-        "group": "paint",
+        "group": "paint_drywall",
         "stack_behavior": "group_cap",
         "unit_policy": "per_room"
       },
@@ -4931,9 +4941,9 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "estimate_tier": "low",
+        "estimate_tier": "minor",
         "strategy": "replace_only",
-        "group": "paint",
+        "group": "paint_drywall",
         "stack_behavior": "group_cap",
         "unit_policy": "per_bathroom"
       },
@@ -5063,9 +5073,9 @@
         "cost_source": "manual"
       },
       "estimate": {
-        "estimate_tier": "low",
+        "estimate_tier": "minor",
         "strategy": "replace_only",
-        "group": "paint",
+        "group": "paint_drywall",
         "stack_behavior": "group_cap",
         "unit_policy": "per_bathroom"
       },

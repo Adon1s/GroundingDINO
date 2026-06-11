@@ -1,9 +1,16 @@
 import argparse
 import json
 import re
+import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from tools.catalog_validation import validate_issue_catalog  # noqa: E402
 
 
 ROOM_TERMS = (
@@ -382,6 +389,17 @@ def markdown_table(headers, rows):
 
 def render_stdout(data):
     lines = []
+    validation = data["validation"]
+    lines.append("Catalog Validation")
+    lines.append("==================")
+    lines.append(f"errors: {len(validation.errors)}")
+    for entry in validation.errors:
+        lines.append(f"  ERROR {entry}")
+    lines.append(f"warnings: {len(validation.warnings)}")
+    for entry in validation.warnings:
+        lines.append(f"  WARN  {entry}")
+    lines.append("")
+
     summary_data = data["summary"]
     lines.append("Catalog Summary")
     lines.append("===============")
@@ -552,6 +570,7 @@ def build_audit(catalog_path):
     lines = read_lines(catalog_path)
     items = [item for item in catalog.get("items", []) if isinstance(item, dict)]
     return {
+        "validation": validate_issue_catalog(catalog),
         "summary": summary(items),
         "long_embeds": long_embed_rows(items),
         "room_specific": room_specific_rows(items),
