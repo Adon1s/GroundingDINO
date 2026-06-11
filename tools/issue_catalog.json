@@ -126,7 +126,17 @@
         "ceiling"
       ],
       "display_class": "high_concern",
-      "package_role": "standalone"
+      "package_role": "standalone",
+      "package_affinity": {
+        "bedroom": {
+          "package_type": "bedroom_repair",
+          "package_role": "package_driver"
+        },
+        "living": {
+          "package_type": "living_repair",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Peeling or Discolored Paint",
@@ -168,7 +178,21 @@
         "cost_source": "manual"
       },
       "display_class": "marketability",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_support"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Visible Mold or Mildew",
@@ -263,7 +287,25 @@
         "cost_source": "manual"
       },
       "display_class": "estimate_driver",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        },
+        "bedroom": {
+          "package_type": "bedroom_repair",
+          "package_role": "package_driver"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_repair",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Ceiling Cracks or Sagging",
@@ -390,7 +432,21 @@
         "rug"
       ],
       "display_class": "estimate_driver",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_driver"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Worn or Stained Vinyl / Linoleum Flooring",
@@ -428,7 +484,21 @@
       ],
       "tier": "work",
       "display_class": "marketability",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_driver"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Scratched or Damaged Hard Flooring",
@@ -481,7 +551,21 @@
         "unit_policy": "per_room"
       },
       "display_class": "estimate_driver",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bedroom": {
+          "package_type": "bedroom_repair",
+          "package_role": "package_driver"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_repair",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Trip Hazard or Unlevel Floor",
@@ -844,10 +928,12 @@
         "unit_policy": "per_kitchen"
       },
       "display_class": "estimate_driver",
-      "package_role": "package_driver",
-      "package_type": "kitchen_modernization",
-      "package_category": "modernization",
-      "room": "kitchen"
+      "package_affinity": {
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Damaged Countertops",
@@ -895,10 +981,12 @@
         "unit_policy": "per_kitchen"
       },
       "display_class": "estimate_driver",
-      "package_role": "package_support",
-      "package_type": "kitchen_modernization",
-      "package_category": "modernization",
-      "room": "kitchen"
+      "package_affinity": {
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Damaged Tile or Grout",
@@ -944,10 +1032,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "estimate_driver",
-      "package_role": "package_driver",
-      "package_type": "bathroom_repair",
-      "package_category": "repair",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Appliance Damage or Missing",
@@ -994,10 +1084,12 @@
         "unit_policy": "per_kitchen"
       },
       "display_class": "estimate_driver",
-      "package_role": "package_support",
-      "package_type": "kitchen_modernization",
-      "package_category": "modernization",
-      "room": "kitchen"
+      "package_affinity": {
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Leaking or Stained Plumbing Fixtures",
@@ -1087,10 +1179,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "estimate_driver",
-      "package_role": "package_support",
-      "package_type": "bathroom_repair",
-      "package_category": "repair",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Visible Electrical Risks",
@@ -1543,10 +1637,12 @@
         "unit_policy": "per_kitchen"
       },
       "display_class": "marketability",
-      "package_role": "package_driver",
-      "package_type": "kitchen_modernization",
-      "package_category": "modernization",
-      "room": "kitchen"
+      "package_affinity": {
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Outdated Bathroom Finishes",
@@ -1595,10 +1691,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "marketability",
-      "package_role": "package_driver",
-      "package_type": "bathroom_modernization",
-      "package_category": "modernization",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Outdated Flooring Style",
@@ -1646,7 +1744,21 @@
         "unit_policy": "per_room"
       },
       "display_class": "marketability",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_driver"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Outdated Lighting Fixtures",
@@ -1689,7 +1801,21 @@
         "cost_source": "manual"
       },
       "display_class": "marketability",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_support"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Dated Bathroom Vanity Light",
@@ -1727,10 +1853,12 @@
       },
       "require_any": [],
       "display_class": "marketability",
-      "package_role": "package_support",
-      "package_type": "bathroom_modernization",
-      "package_category": "modernization",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Paint Refresh Opportunity",
@@ -1771,7 +1899,21 @@
         "cost_source": "manual"
       },
       "display_class": "marketability",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_support"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Landscape Improvement",
@@ -1970,7 +2112,25 @@
         "mode": "heuristic"
       },
       "display_class": "marketability",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        },
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_support"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Wall Scuffs, Marks, or Dents",
@@ -2014,7 +2174,25 @@
         "mode": "heuristic"
       },
       "display_class": "marketability",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        },
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_support"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Ceiling Fan with Mismatched Blades",
@@ -2128,7 +2306,25 @@
         "mode": "heuristic"
       },
       "display_class": "marketability",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        },
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_support"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Unfinished Interior Wall (OSB Exposed)",
@@ -2248,10 +2444,12 @@
         "tiled"
       ],
       "display_class": "marketability",
-      "package_role": "package_support",
-      "package_type": "bathroom_modernization",
-      "package_category": "modernization",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Ornate/Vintage Mirror Style",
@@ -2292,10 +2490,12 @@
         "mirror"
       ],
       "display_class": "marketability",
-      "package_role": "package_support",
-      "package_type": "bathroom_modernization",
-      "package_category": "modernization",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Outdated or Damaged Vanity",
@@ -2348,10 +2548,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "estimate_driver",
-      "package_role": "package_driver",
-      "package_type": "bathroom_repair",
-      "package_category": "repair",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Tub Surround or Shower Pan Damage",
@@ -2399,10 +2601,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "high_concern",
-      "package_role": "package_driver",
-      "package_type": "bathroom_repair",
-      "package_category": "repair",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Bathroom Plumbing Visible Issue",
@@ -2451,10 +2655,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "high_concern",
-      "package_role": "package_driver",
-      "package_type": "bathroom_repair",
-      "package_category": "repair",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Bathroom GFCI Missing or Damaged",
@@ -2506,10 +2712,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "high_concern",
-      "package_role": "package_driver",
-      "package_type": "bathroom_repair",
-      "package_category": "repair",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Active Water Damage in Bathroom",
@@ -2557,10 +2765,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "high_concern",
-      "package_role": "package_driver",
-      "package_type": "bathroom_repair",
-      "package_category": "repair",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Mold or Mildew Visible in Bathroom",
@@ -2608,10 +2818,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "high_concern",
-      "package_role": "package_driver",
-      "package_type": "bathroom_repair",
-      "package_category": "repair",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Missing Bathroom Tile Exposed Substrate",
@@ -2659,10 +2871,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "high_concern",
-      "package_role": "package_driver",
-      "package_type": "bathroom_repair",
-      "package_category": "repair",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Missing Vanity Exposed Plumbing",
@@ -2715,10 +2929,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "high_concern",
-      "package_role": "package_driver",
-      "package_type": "bathroom_repair",
-      "package_category": "repair",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Vanity Countertop Damage",
@@ -2769,10 +2985,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "estimate_driver",
-      "package_role": "package_support",
-      "package_type": "bathroom_repair",
-      "package_category": "repair",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Missing or Damaged Caulk at Tub or Shower",
@@ -2825,10 +3043,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "marketability",
-      "package_role": "package_support",
-      "package_type": "bathroom_repair",
-      "package_category": "repair",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Bathroom Exhaust Fan Missing or Damaged",
@@ -2879,10 +3099,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "marketability",
-      "package_role": "package_support",
-      "package_type": "bathroom_repair",
-      "package_category": "repair",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Peeling or Damaged Bathroom Paint",
@@ -2929,10 +3151,12 @@
         "unit_policy": "per_room"
       },
       "display_class": "estimate_driver",
-      "package_role": "package_support",
-      "package_type": "bathroom_repair",
-      "package_category": "repair",
-      "room": "bathroom",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_support"
+        }
+      },
       "require_any": [
         "bathroom",
         "tub",
@@ -2986,10 +3210,12 @@
         "unit_policy": "per_room"
       },
       "display_class": "estimate_driver",
-      "package_role": "package_support",
-      "package_type": "bathroom_repair",
-      "package_category": "repair",
-      "room": "bathroom",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_support"
+        }
+      },
       "require_any": [
         "soft",
         "lifted",
@@ -3046,10 +3272,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "marketability",
-      "package_role": "package_support",
-      "package_type": "bathroom_modernization",
-      "package_category": "modernization",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Dated Bathroom Flooring Style",
@@ -3095,10 +3323,12 @@
         "unit_policy": "per_room"
       },
       "display_class": "marketability",
-      "package_role": "package_support",
-      "package_type": "bathroom_modernization",
-      "package_category": "modernization",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Stained-Glass or Vintage Light Fixture",
@@ -3215,7 +3445,21 @@
         "mode": "heuristic"
       },
       "display_class": "marketability",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_support"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Dated Wood Paneling",
@@ -3253,7 +3497,25 @@
         "mode": "heuristic"
       },
       "display_class": "marketability",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        },
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_support"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Dated Fireplace Surround",
@@ -3295,10 +3557,12 @@
         "hearth"
       ],
       "display_class": "marketability",
-      "package_role": "package_support",
-      "package_type": "living_modernization",
-      "package_category": "modernization",
-      "room": "living"
+      "package_affinity": {
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "name": "Mismatched Furniture/Staging Opportunity",
@@ -4082,10 +4346,12 @@
         "unit_policy": "per_kitchen"
       },
       "display_class": "estimate_driver",
-      "package_role": "package_driver",
-      "package_type": "kitchen_modernization",
-      "package_category": "modernization",
-      "room": "kitchen"
+      "package_affinity": {
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Rotted Subfloor or Structural Framing",
@@ -4358,7 +4624,21 @@
       ],
       "tier": "work",
       "display_class": "marketability",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_support"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "id": "bare_or_missing_finish_flooring",
@@ -4482,7 +4762,25 @@
         "mode": "heuristic"
       },
       "display_class": "marketability",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        },
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_support"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "id": "dated_interior_doors",
@@ -4525,7 +4823,25 @@
         "mode": "heuristic"
       },
       "display_class": "marketability",
-      "package_role": "ignore"
+      "package_role": "ignore",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        },
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_support"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "id": "dated_entry_or_patio_door",
@@ -4622,10 +4938,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "marketability",
-      "package_role": "package_support",
-      "package_type": "bathroom_modernization",
-      "package_category": "modernization",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "id": "bathroom_layout_modernization_opportunity",
@@ -4686,10 +5004,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "marketability",
-      "package_role": "package_support",
-      "package_type": "bathroom_modernization",
-      "package_category": "modernization",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        }
+      }
     },
     {
       "id": "bathroom_paint_refresh_recommended",
@@ -4750,10 +5070,12 @@
         "unit_policy": "per_bathroom"
       },
       "display_class": "marketability",
-      "package_role": "package_support",
-      "package_type": "bathroom_modernization",
-      "package_category": "modernization",
-      "room": "bathroom"
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        }
+      }
     }
   ]
 }

@@ -42,16 +42,12 @@ from tools.estimate_scope import (  # noqa: E402
     classify_package_scope,
 )
 from tools.rehab_packages import (  # noqa: E402
-    PACKAGE_AFFINITY,
     PACKAGE_CATEGORY_MODERNIZATION,
     PACKAGE_ROLE_DRIVER,
-    PACKAGE_ROLE_SUPPORT,
     PACKAGE_STRENGTH_MODERATE,
     PACKAGE_STRENGTH_STRONG,
     _PACKAGE_TYPE_TO_CATEGORY,
-    catalog_package_category,
-    catalog_package_role,
-    catalog_package_type,
+    build_package_affinity,
 )
 
 # Reasons we trust enough to *deprioritize* in review. Hard != presumed correct;
@@ -166,13 +162,17 @@ def _trap_hits(item: Dict[str, Any]) -> Tuple[Tuple[str, str], ...]:
     return tuple(hits)
 
 
-def _priority(item: Dict[str, Any], traps: Tuple[Tuple[str, str], ...]) -> int:
+def _priority(
+    item: Dict[str, Any],
+    traps: Tuple[Tuple[str, str], ...],
+    driver_ids: set,
+) -> int:
     trade = str(item.get("trade_bucket") or "").lower()
     category = str(item.get("category") or "").lower()
     if any(tok in trade or tok in category for tok in TIER1_TRADE_TOKENS):
         return 1
     cap_high = ((item.get("cost") or {}).get("cap_high")) or 0
-    is_driver = catalog_package_role(item) == PACKAGE_ROLE_DRIVER
+    is_driver = _item_id(item) in driver_ids
     try:
         cap_high = int(cap_high)
     except (TypeError, ValueError):
@@ -184,7 +184,10 @@ def _priority(item: Dict[str, Any], traps: Tuple[Tuple[str, str], ...]) -> int:
     return 4
 
 
-def enumerate_line_items(items: List[Dict[str, Any]]) -> List[LineRow]:
+def enumerate_line_items(
+    items: List[Dict[str, Any]],
+    driver_ids: set,
+) -> List[LineRow]:
     rows: List[LineRow] = []
     for item in items:
         scope, reason = classify_estimate_scope_with_reason({}, item, None)
@@ -199,7 +202,7 @@ def enumerate_line_items(items: List[Dict[str, Any]]) -> List[LineRow]:
             scope=scope,
             reason=reason,
             hardsoft="hard" if reason in HARD_REASONS else "soft",
-            priority=_priority(item, traps),
+            priority=_priority(item, traps, driver_ids),
             has_override=_has_override(item),
             traps=traps,
         ))
@@ -219,40 +222,28 @@ def _package_looks_like(package_type: str) -> Optional[str]:
 
 
 def build_package_groups(
-    items: List[Dict[str, Any]],
+    affinity_table: Dict[Tuple[str, str], Dict[str, str]],
     scope_by_id: Dict[str, str],
 ) -> List[PackageGroup]:
-    members: Dict[str, Dict[str, List[Dict[str, Any]]]] = defaultdict(
+    """Group affinity-table entries by package_type, one membership per
+    (item, room) entry. Routing comes from build_package_affinity, which
+    derives package_category from package_type — so category disagreement
+    between members is impossible by construction and no longer flagged."""
+    members: Dict[str, Dict[str, List[str]]] = defaultdict(
         lambda: {"driver": [], "support": []}
     )
-    for item in items:
-        ptype = catalog_package_type(item)
-        if not ptype:
-            continue
-        role = catalog_package_role(item)
-        if role == PACKAGE_ROLE_DRIVER:
-            members[ptype]["driver"].append(item)
-        elif role == PACKAGE_ROLE_SUPPORT:
-            members[ptype]["support"].append(item)
+    for (room, issue_id), meta in sorted(affinity_table.items()):
+        role = "driver" if meta["package_role"] == PACKAGE_ROLE_DRIVER else "support"
+        members[meta["package_type"]][role].append(issue_id)
 
     groups: List[PackageGroup] = []
     for ptype in sorted(members):
-        drivers = members[ptype]["driver"]
-        supports = members[ptype]["support"]
+        driver_ids = members[ptype]["driver"]
+        support_ids = members[ptype]["support"]
 
-        catalog_cats = {
-            c for c in (catalog_package_category(m) for m in drivers + supports) if c
-        }
         static_cat = _PACKAGE_TYPE_TO_CATEGORY.get(ptype)
-        if catalog_cats:
-            category = sorted(catalog_cats)[0]
-            category_source = "catalog-field"
-        elif static_cat:
-            category = static_cat
-            category_source = "static-map"
-        else:
-            category = PACKAGE_CATEGORY_MODERNIZATION
-            category_source = "default"
+        category = static_cat or PACKAGE_CATEGORY_MODERNIZATION
+        category_source = "derived-from-package-type" if static_cat else "default"
 
         strong_scope, _ = classify_package_scope(
             ptype, [], "", package_category=category, package_strength=PACKAGE_STRENGTH_STRONG,
@@ -261,14 +252,14 @@ def build_package_groups(
             ptype, [], "", package_category=category, package_strength=PACKAGE_STRENGTH_MODERATE,
         )
 
-        driver_scopes = [scope_by_id.get(_item_id(d), "?") for d in drivers]
+        driver_scopes = [scope_by_id.get(d, "?") for d in driver_ids]
 
         group = PackageGroup(
             package_type=ptype,
             category=category,
             category_source=category_source,
-            driver_ids=[_item_id(d) for d in drivers],
-            support_ids=[_item_id(s) for s in supports],
+            driver_ids=driver_ids,
+            support_ids=support_ids,
             driver_scopes=driver_scopes,
             strong_scope=strong_scope,
             moderate_scope=moderate_scope,
@@ -279,16 +270,6 @@ def build_package_groups(
             group.flags.append((
                 "deterministic-mismatch",
                 f"package_type '{ptype}' absent from _PACKAGE_TYPE_TO_CATEGORY",
-            ))
-        if len(catalog_cats) > 1:
-            group.flags.append((
-                "deterministic-mismatch",
-                f"members disagree on package_category: {sorted(catalog_cats)}",
-            ))
-        if catalog_cats and static_cat and category != static_cat:
-            group.flags.append((
-                "deterministic-mismatch",
-                f"catalog package_category '{category}' != static-map '{static_cat}'",
             ))
         looks = _package_looks_like(ptype)
         if looks and looks != category:
@@ -311,18 +292,6 @@ def build_package_groups(
     return groups
 
 
-def affinity_issues() -> List[Tuple[str, str, str, str]]:
-    """(room, issue_id, affinity_category, static_map_category) where they disagree."""
-    out: List[Tuple[str, str, str, str]] = []
-    for (room, issue_id), meta in PACKAGE_AFFINITY.items():
-        ptype = meta.get("package_type")
-        aff_cat = meta.get("package_category")
-        static_cat = _PACKAGE_TYPE_TO_CATEGORY.get(ptype)
-        if aff_cat and static_cat and aff_cat != static_cat:
-            out.append((room, issue_id, str(aff_cat), str(static_cat)))
-    return out
-
-
 def summarize(rows: List[LineRow]) -> Dict[str, Any]:
     return {
         "total": len(rows),
@@ -338,13 +307,17 @@ def summarize(rows: List[LineRow]) -> Dict[str, Any]:
 def build_audit(catalog_path: Path) -> Dict[str, Any]:
     catalog = load_catalog(catalog_path)
     items = [it for it in catalog.get("items", []) if isinstance(it, dict)]
-    rows = enumerate_line_items(items)
+    affinity_table = build_package_affinity(catalog)
+    driver_ids = {
+        issue_id for (_room, issue_id), meta in affinity_table.items()
+        if meta["package_role"] == PACKAGE_ROLE_DRIVER
+    }
+    rows = enumerate_line_items(items, driver_ids)
     scope_by_id = {r.item_id: r.scope for r in rows}
-    packages = build_package_groups(items, scope_by_id)
+    packages = build_package_groups(affinity_table, scope_by_id)
     return {
         "rows": rows,
         "packages": packages,
-        "affinity_issues": affinity_issues(),
         "summary": summarize(rows),
     }
 
@@ -556,17 +529,11 @@ def render_markdown(
         ],
     ))
     out.append("")
-
-    aff = data["affinity_issues"]
-    out.append("### PACKAGE_AFFINITY category consistency")
-    out.append("")
-    if aff:
-        out.append(markdown_table(
-            ("room", "issue_id", "affinity_category", "static_map_category"),
-            aff,
-        ))
-    else:
-        out.append("_All PACKAGE_AFFINITY entries agree with the static package_type→category map._")
+    out.append(
+        "_Package routing is catalog-driven (`package_affinity` blocks); "
+        "`package_category` derives from `package_type`, so category "
+        "consistency holds by construction._"
+    )
     out.append("")
 
     return "\n".join(out)
@@ -579,8 +546,7 @@ def render_stdout(data: Dict[str, Any]) -> str:
                f"fallback_required={s['fallback_required']}  with_traps={s['with_traps']}")
     out.append("scopes: " + ", ".join(f"{k}={v}" for k, v in sorted(s["scope_counts"].items())))
     flagged = [g for g in data["packages"] if g.flags]
-    out.append(f"packages={len(data['packages'])}  flagged={len(flagged)}  "
-               f"affinity_issues={len(data['affinity_issues'])}")
+    out.append(f"packages={len(data['packages'])}  flagged={len(flagged)}")
     for g in flagged:
         out.append(f"  - {g.package_type}: " + "; ".join(f"[{c}] {m}" for c, m in g.flags))
     return "\n".join(out)

@@ -17,6 +17,7 @@ Public API:
 from __future__ import annotations
 
 import copy
+import json
 import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -589,260 +590,105 @@ _PACKAGE_TYPE_TO_ROOM = {
 }
 
 
-# Scene-aware package affinity keeps the catalog vocabulary canonical. Generic
-# issues such as worn carpet or popcorn ceilings stay as one issue ID, then route
-# to the room package implied by the observed scene.
-PACKAGE_AFFINITY: Dict[Tuple[str, str], Dict[str, str]] = {
-    (ROOM_BEDROOM, "worn_or_stained_carpet"): {
-        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_DRIVER,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_BEDROOM,
-    },
-    (ROOM_BEDROOM, "older_flooring_style"): {
-        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_DRIVER,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_BEDROOM,
-    },
-    (ROOM_BEDROOM, "worn_or_stained_vinyl_linoleum"): {
-        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_DRIVER,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_BEDROOM,
-    },
-    (ROOM_BEDROOM, "scratched_or_damaged_flooring"): {
-        "package_type": PACKAGE_TYPE_BEDROOM_REPAIR,
-        "package_role": PACKAGE_ROLE_DRIVER,
-        "package_category": PACKAGE_CATEGORY_REPAIR,
-        "room": ROOM_BEDROOM,
-    },
-    (ROOM_BEDROOM, "dated_lighting_fixtures"): {
-        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_BEDROOM,
-    },
-    (ROOM_BEDROOM, "popcorn_or_acoustic_ceiling_texture"): {
-        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_BEDROOM,
-    },
-    (ROOM_BEDROOM, "paint_refresh_recommended"): {
-        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_BEDROOM,
-    },
-    (ROOM_BEDROOM, "baseboard_wear_scuffs"): {
-        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_BEDROOM,
-    },
-    (ROOM_BEDROOM, "dated_interior_trim"): {
-        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_BEDROOM,
-    },
-    (ROOM_BEDROOM, "dated_interior_doors"): {
-        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_BEDROOM,
-    },
-    (ROOM_BEDROOM, "dated_wood_paneling"): {
-        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_BEDROOM,
-    },
-    (ROOM_BEDROOM, "dated_wallpaper_present"): {
-        "package_type": PACKAGE_TYPE_BEDROOM_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_BEDROOM,
-    },
-    (ROOM_BEDROOM, "damaged_drywall_or_cracks"): {
-        "package_type": PACKAGE_TYPE_BEDROOM_REPAIR,
-        "package_role": PACKAGE_ROLE_DRIVER,
-        "package_category": PACKAGE_CATEGORY_REPAIR,
-        "room": ROOM_BEDROOM,
-    },
-    (ROOM_BEDROOM, "water_stain_ceiling"): {
-        "package_type": PACKAGE_TYPE_BEDROOM_REPAIR,
-        "package_role": PACKAGE_ROLE_DRIVER,
-        "package_category": PACKAGE_CATEGORY_REPAIR,
-        "room": ROOM_BEDROOM,
-    },
-    (ROOM_LIVING, "worn_or_stained_carpet"): {
-        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_DRIVER,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_LIVING,
-    },
-    (ROOM_LIVING, "older_flooring_style"): {
-        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_DRIVER,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_LIVING,
-    },
-    (ROOM_LIVING, "worn_or_stained_vinyl_linoleum"): {
-        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_DRIVER,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_LIVING,
-    },
-    (ROOM_LIVING, "scratched_or_damaged_flooring"): {
-        "package_type": PACKAGE_TYPE_LIVING_REPAIR,
-        "package_role": PACKAGE_ROLE_DRIVER,
-        "package_category": PACKAGE_CATEGORY_REPAIR,
-        "room": ROOM_LIVING,
-    },
-    (ROOM_LIVING, "dated_lighting_fixtures"): {
-        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_LIVING,
-    },
-    (ROOM_LIVING, "popcorn_or_acoustic_ceiling_texture"): {
-        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_LIVING,
-    },
-    (ROOM_LIVING, "paint_refresh_recommended"): {
-        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_LIVING,
-    },
-    (ROOM_LIVING, "baseboard_wear_scuffs"): {
-        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_LIVING,
-    },
-    (ROOM_LIVING, "dated_interior_trim"): {
-        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_LIVING,
-    },
-    (ROOM_LIVING, "dated_interior_doors"): {
-        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_LIVING,
-    },
-    (ROOM_LIVING, "dated_wood_paneling"): {
-        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_LIVING,
-    },
-    (ROOM_LIVING, "dated_wallpaper_present"): {
-        "package_type": PACKAGE_TYPE_LIVING_MODERNIZATION,
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": ROOM_LIVING,
-    },
-    (ROOM_LIVING, "damaged_drywall_or_cracks"): {
-        "package_type": PACKAGE_TYPE_LIVING_REPAIR,
-        "package_role": PACKAGE_ROLE_DRIVER,
-        "package_category": PACKAGE_CATEGORY_REPAIR,
-        "room": ROOM_LIVING,
-    },
-    (ROOM_LIVING, "water_stain_ceiling"): {
-        "package_type": PACKAGE_TYPE_LIVING_REPAIR,
-        "package_role": PACKAGE_ROLE_DRIVER,
-        "package_category": PACKAGE_CATEGORY_REPAIR,
-        "room": ROOM_LIVING,
-    },
-}
+# ── Catalog-driven package affinity ──────────────────────────────────────────
+# Routing ("which issue, seen in which room, feeds which package, in which
+# role") lives in the catalog: each routable item carries a `package_affinity`
+# object keyed by package room (VALID_ROOMS vocabulary — "living", not the
+# "living_areas" scene-group token). Entries store only the non-derivable
+# fields (package_type, package_role); package_category and room derive from
+# package_type via the vocabulary maps above. Items without a block never
+# route to a package.
+#
+# Generic-issue design note (kitchen/bathroom + cosmetic gaps): generics route
+# to a room's MODERNIZATION package as SUPPORT — the true drivers in those
+# rooms are cabinets/vanity, so a lone generic stays corroboration-dependent
+# and never over-buckets (no generic acts as a kitchen/bathroom driver).
+# Bedroom/living carry explicit driver entries where flooring/drywall act as
+# drivers. Bathrooms have dedicated items for flooring/paint/wallpaper/lighting
+# (dated_bathroom_wallpaper, bathroom_paint_refresh_recommended, …), so
+# generics route to a bathroom package ONLY for the "dry construction" gap
+# categories that lack a bathroom-specific equivalent. The three
+# structural/feature generics (unfinished_interior_wall_osb_exposed,
+# stained_glass_or_vintage_light_fixture, layout_modernization_opportunity)
+# are intentionally unrouted: they stay line-item / observation only.
+
+def build_package_affinity(
+    issue_catalog: Dict[str, Any],
+) -> Dict[Tuple[str, str], Dict[str, str]]:
+    """Flatten per-item ``package_affinity`` blocks into the runtime table.
+
+    Returns {(room, issue_id): {package_type, package_role, package_category,
+    room}} with category/room derived from package_type. The catalog is the
+    single source of truth for routing, so validation raises instead of
+    silently skipping malformed entries.
+    """
+    table: Dict[Tuple[str, str], Dict[str, str]] = {}
+    for item in (issue_catalog or {}).get("items") or []:
+        if not isinstance(item, dict):
+            continue
+        block = item.get("package_affinity")
+        if block is None:
+            continue
+        item_id = str(item.get("id") or "").strip()
+        if not item_id:
+            raise ValueError("package_affinity block on a catalog item without an id")
+        if not isinstance(block, dict):
+            raise ValueError(
+                f"{item_id}: package_affinity must be an object keyed by package room"
+            )
+        for room_key, entry in block.items():
+            room = str(room_key or "").strip().lower()
+            if room not in VALID_ROOMS:
+                raise ValueError(
+                    f"{item_id}: package_affinity room {room_key!r} is not a valid package room"
+                )
+            if not isinstance(entry, dict):
+                raise ValueError(
+                    f"{item_id}/{room}: package_affinity entry must be an object"
+                )
+            package_type = str(entry.get("package_type") or "").strip().lower()
+            package_role = str(entry.get("package_role") or "").strip().lower()
+            if package_type not in VALID_PACKAGE_TYPES:
+                raise ValueError(
+                    f"{item_id}/{room}: unknown package_type {entry.get('package_type')!r}"
+                )
+            if package_type == PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH:
+                raise ValueError(
+                    f"{item_id}/{room}: {package_type} is derived downstream from "
+                    "per-room turnover packages and must never be referenced by a "
+                    "catalog item"
+                )
+            if _PACKAGE_TYPE_TO_ROOM.get(package_type) != room:
+                raise ValueError(
+                    f"{item_id}/{room}: package_type {package_type!r} belongs to room "
+                    f"{_PACKAGE_TYPE_TO_ROOM.get(package_type)!r}, not {room!r}"
+                )
+            if package_role not in (PACKAGE_ROLE_DRIVER, PACKAGE_ROLE_SUPPORT):
+                raise ValueError(
+                    f"{item_id}/{room}: package_role must be {PACKAGE_ROLE_DRIVER!r} "
+                    f"or {PACKAGE_ROLE_SUPPORT!r}, got {entry.get('package_role')!r}"
+                )
+            table[(room, item_id)] = {
+                "package_type": package_type,
+                "package_role": package_role,
+                "package_category": _PACKAGE_TYPE_TO_CATEGORY[package_type],
+                "room": room,
+            }
+    return table
 
 
-# ── Generic-issue affinity coverage (kitchen/bathroom + cosmetic gaps) ───────
-# Generics route to a room's MODERNIZATION package as SUPPORT: the true drivers
-# in those rooms are cabinets/vanity, so a lone generic stays corroboration-
-# dependent and never over-buckets (no generic acts as a kitchen/bathroom
-# driver). Bedroom/living keep their explicit entries above — where
-# flooring/drywall act as drivers — and only the three cosmetic gap items are
-# registered for those rooms here. The three structural/feature generics
-# (unfinished_interior_wall_osb_exposed, stained_glass_or_vintage_light_fixture,
-# layout_modernization_opportunity) are intentionally omitted: they stay
-# line-item / observation only.
-_MODERNIZATION_PACKAGE_BY_ROOM: Dict[str, str] = {
-    ROOM_KITCHEN: PACKAGE_TYPE_KITCHEN_MODERNIZATION,
-    ROOM_BATHROOM: PACKAGE_TYPE_BATHROOM_MODERNIZATION,
-    ROOM_BEDROOM: PACKAGE_TYPE_BEDROOM_MODERNIZATION,
-    ROOM_LIVING: PACKAGE_TYPE_LIVING_MODERNIZATION,
-}
-
-# The 16 generics that route to a KITCHEN package (all as modernization support).
-_GENERIC_KITCHEN_SUPPORTS = (
-    "worn_or_stained_carpet",
-    "worn_or_stained_vinyl_linoleum",
-    "older_flooring_style",
-    "worn_or_stained_flooring",
-    "scratched_or_damaged_flooring",
-    "damaged_drywall_or_cracks",
-    "paint_refresh_recommended",
-    "popcorn_or_acoustic_ceiling_texture",
-    "dated_wood_paneling",
-    "dated_wallpaper_present",
-    "dated_lighting_fixtures",
-    "baseboard_wear_scuffs",
-    "dated_interior_trim",
-    "dated_interior_doors",
-    "peeling_or_discolored_paint",
-    "wall_scuffs_marks_or_dents",
-)
-
-# Bathrooms carry dedicated catalog items for flooring/paint/wallpaper/lighting
-# (dated_bathroom_wallpaper, bathroom_paint_refresh_recommended,
-# dated_bathroom_flooring_style, dated_bathroom_vanity_light, …), so generics
-# route to a bathroom package ONLY for the "dry construction" gap categories that
-# lack a bathroom-specific equivalent — the rest defer to those items.
-_GENERIC_BATHROOM_SUPPORTS = (
-    "damaged_drywall_or_cracks",
-    "popcorn_or_acoustic_ceiling_texture",
-    "dated_wood_paneling",
-    "baseboard_wear_scuffs",
-    "dated_interior_trim",
-    "dated_interior_doors",
-    "wall_scuffs_marks_or_dents",
-)
-
-# Cosmetic generics that lack bedroom/living coverage (the rest already have
-# explicit bedroom/living entries above).
-_GENERIC_BEDROOM_LIVING_GAP_SUPPORTS = (
-    "peeling_or_discolored_paint",
-    "wall_scuffs_marks_or_dents",
-    "worn_or_stained_flooring",
-)
+_default_affinity_table: Optional[Dict[Tuple[str, str], Dict[str, str]]] = None
 
 
-def _register_generic_support(room: str, issue_id: str) -> None:
-    # setdefault never clobbers an explicit entry above (e.g. bedroom/living
-    # drivers), so registration order and re-imports are harmless.
-    PACKAGE_AFFINITY.setdefault((room, issue_id), {
-        "package_type": _MODERNIZATION_PACKAGE_BY_ROOM[room],
-        "package_role": PACKAGE_ROLE_SUPPORT,
-        "package_category": PACKAGE_CATEGORY_MODERNIZATION,
-        "room": room,
-    })
-
-
-for _issue_id in _GENERIC_KITCHEN_SUPPORTS:
-    _register_generic_support(ROOM_KITCHEN, _issue_id)
-for _issue_id in _GENERIC_BATHROOM_SUPPORTS:
-    _register_generic_support(ROOM_BATHROOM, _issue_id)
-for _issue_id in _GENERIC_BEDROOM_LIVING_GAP_SUPPORTS:
-    _register_generic_support(ROOM_BEDROOM, _issue_id)
-    _register_generic_support(ROOM_LIVING, _issue_id)
+def _default_package_affinity() -> Dict[Tuple[str, str], Dict[str, str]]:
+    """Affinity table from the shipped catalog, built once on first use."""
+    global _default_affinity_table
+    if _default_affinity_table is None:
+        catalog_path = Path(__file__).resolve().parent / "issue_catalog.json"
+        _default_affinity_table = build_package_affinity(
+            json.loads(catalog_path.read_text(encoding="utf-8"))
+        )
+    return _default_affinity_table
 
 
 def catalog_package_category(catalog_item: Dict[str, Any]) -> Optional[str]:
@@ -873,12 +719,33 @@ def catalog_room(catalog_item: Dict[str, Any]) -> Optional[str]:
     return None
 
 
-def package_affinity_for(scene_group: str, issue_id: str) -> Optional[Dict[str, str]]:
-    scene = _normalize_scene_to_room(scene_group)
+def package_affinity_for(
+    scene_group: str,
+    issue_id: str,
+    table: Optional[Dict[Tuple[str, str], Dict[str, str]]] = None,
+) -> Optional[Dict[str, str]]:
+    """Resolve the affinity entry for an issue observed in a scene.
+
+    Exact (room, issue_id) hits win. When the scene does not resolve to a
+    package room (no surrogate, "other", hallway/stairway) and the issue's
+    affinity block routes to exactly one room, that entry is returned —
+    preserving the legacy flat-field behavior where a kitchen/bathroom item
+    routed without a resolvable scene. Multi-room blocks stay unrouted without
+    a scene; the scene-mismatch guard in infer_package_candidates still
+    protects this fallback when a contradicting surrogate scene exists.
+    """
+    if table is None:
+        table = _default_package_affinity()
     issue = str(issue_id or "").strip()
-    if not scene or not issue:
+    if not issue:
         return None
-    return PACKAGE_AFFINITY.get((scene, issue))
+    scene = _normalize_scene_to_room(scene_group)
+    if scene in VALID_ROOMS:
+        return table.get((scene, issue))
+    rooms = [room for (room, table_issue) in table if table_issue == issue]
+    if len(rooms) == 1:
+        return table[(rooms[0], issue)]
+    return None
 
 
 def _candidate_scene_room(
@@ -899,16 +766,23 @@ def _catalog_item_with_package_affinity(
     catalog_item: Dict[str, Any],
     candidate: EstimateCandidate,
     scene_by_room: Dict[str, str],
+    affinity_table: Optional[Dict[Tuple[str, str], Dict[str, str]]] = None,
 ) -> Dict[str, Any]:
+    scene_room = _candidate_scene_room(candidate, scene_by_room)
     affinity = package_affinity_for(
-        _candidate_scene_room(candidate, scene_by_room) or "",
+        scene_room or "",
         getattr(candidate, "catalog_item_id", "") or catalog_item.get("id") or "",
+        affinity_table,
     )
     if not affinity:
         return catalog_item
     effective = dict(catalog_item)
     effective.update(affinity)
-    effective["_package_affinity_scene"] = _candidate_scene_room(candidate, scene_by_room)
+    effective["_package_affinity_scene"] = (
+        scene_room
+        if scene_room == affinity["room"]
+        else f"single_room_fallback:{affinity['room']}"
+    )
     return effective
 
 
@@ -1967,15 +1841,17 @@ def infer_package_candidates(
     estimate_units: Optional[List[Dict[str, Any]]] = None,
     suppressed_out: Optional[List[Dict[str, Any]]] = None,
 ) -> List[Dict[str, Any]]:
-    """Build package candidates from scene-aware affinity or catalog fallback.
+    """Build package candidates from catalog-driven scene-aware affinity.
 
     Candidates are grouped by (estimate_unit_id, package_type) and dispatched
-    to the matching pricing profile resolver. Generic catalog issues first use
-    PACKAGE_AFFINITY keyed by observed scene; catalog package metadata remains a
-    fallback for kitchen/bathroom compatibility during the transition. Weak
-    buckets are suppressed and (optionally) reported through ``suppressed_out``.
+    to the matching pricing profile resolver. Routing comes from the catalog's
+    per-item ``package_affinity`` blocks keyed by observed scene (see
+    build_package_affinity); single-room blocks fall back to their only room
+    when no scene resolves. Weak buckets are suppressed and (optionally)
+    reported through ``suppressed_out``.
     """
     catalog_lookup = _catalog_lookup(issue_catalog)
+    affinity_table = build_package_affinity(issue_catalog)
     scene_by_room = {
         str(r.get("room_surrogate_id") or ""): _normalize_scene_to_room(str(r.get("scene") or ""))
         for r in (room_surrogates or [])
@@ -1993,7 +1869,7 @@ def infer_package_candidates(
     for candidate in candidates or []:
         cat_item = catalog_lookup.get(candidate.catalog_item_id or "", {})
         effective_cat_item = _catalog_item_with_package_affinity(
-            cat_item, candidate, scene_by_room,
+            cat_item, candidate, scene_by_room, affinity_table,
         )
         candidate_catalog_meta[id(candidate)] = effective_cat_item
         if not is_package_eligible_catalog_item(effective_cat_item):

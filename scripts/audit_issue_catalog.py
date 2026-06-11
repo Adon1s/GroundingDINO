@@ -41,6 +41,9 @@ ROOM_LIKE_SCENE_GROUPS = {
     "other",
 }
 
+# Legacy flat routing fields. Routing now lives in per-item `package_affinity`
+# blocks (room-keyed); these fields should no longer appear with routing values
+# and are kept only so the audit surfaces any regression/re-introduction.
 PACKAGE_FIELDS = ("room", "package_type", "package_role", "package_category")
 
 TAIL_LINE_THRESHOLD = 4694
@@ -109,10 +112,7 @@ class MetadataRow:
     item_id: str
     name: str
     scene_groups: str
-    room: str
-    package_type: str
-    package_role: str
-    package_category: str
+    package_affinity: str
     classification: str
 
 
@@ -267,7 +267,18 @@ def duplicate_clusters(items):
 
 
 def has_any_package_field(item):
-    return any(field in item for field in PACKAGE_FIELDS)
+    return "package_affinity" in item or any(field in item for field in PACKAGE_FIELDS)
+
+
+def _affinity_cell(item):
+    """Join an item's package_affinity block into one `room:type/role` cell."""
+    block = item.get("package_affinity") or {}
+    if not isinstance(block, dict):
+        return str(block)
+    return "; ".join(
+        f"{room}:{(entry or {}).get('package_type', '?')}/{(entry or {}).get('package_role', '?')}"
+        for room, entry in sorted(block.items())
+    )
 
 
 def metadata_rows(items):
@@ -277,20 +288,20 @@ def metadata_rows(items):
         room_like_count = sum(1 for group in groups if group in ROOM_LIKE_SCENE_GROUPS)
         if room_like_count <= 1 or not has_any_package_field(item):
             continue
-        package_type = str(item.get("package_type") or "")
-        room = str(item.get("room") or "")
-        if package_type or room:
+        block = item.get("package_affinity") or {}
+        if any(field in item for field in ("package_type", "package_category", "room")):
+            classification = "legacy flat routing fields (regression)"
+        elif len(block) == 1:
             classification = "one-room package tie"
+        elif block:
+            classification = "multi-room affinity"
         else:
             classification = "role-only metadata"
         rows.append(MetadataRow(
             item_id=item_id(item),
             name=str(item.get("name") or ""),
             scene_groups=", ".join(groups),
-            room=room,
-            package_type=package_type,
-            package_role=str(item.get("package_role") or ""),
-            package_category=str(item.get("package_category") or ""),
+            package_affinity=_affinity_cell(item),
             classification=classification,
         ))
     return sorted(rows, key=lambda row: (row.classification, row.item_id))
@@ -338,7 +349,7 @@ def resolver_assumptions():
         "`require_any` and `deny_any` are hard lexical guardrails during embedding candidate retrieval.",
         "`scene_groups` hard-filters candidate retrieval by observed scene group; missing `scene_groups` defaults to broad reach.",
         "`drop_if_generic` and `defaultHidden` make candidates generic for prioritization and shortcuts; `drop_if_generic` also suppresses final output in Pass 2e.",
-        "`package_type`, `package_role`, `package_category`, and `room` are not Pass 2d matching fields; they belong to later package construction / Pass 2f behavior.",
+        "`package_affinity` (room-keyed routing blocks; superseded the flat `package_type`/`package_role`/`package_category`/`room` fields) is not a Pass 2d matching field; it belongs to later package construction / Pass 2f behavior.",
     ]
 
 
@@ -416,8 +427,8 @@ def render_stdout(data):
     lines.append("Generic Items With One-Room Package Metadata")
     lines.append("============================================")
     lines.append(table(
-        ("id", "name", "scene_groups", "room", "package_type", "package_role", "package_category", "classification"),
-        [(r.item_id, r.name, r.scene_groups, r.room, r.package_type, r.package_role, r.package_category, r.classification) for r in data["metadata"]],
+        ("id", "name", "scene_groups", "package_affinity", "classification"),
+        [(r.item_id, r.name, r.scene_groups, r.package_affinity, r.classification) for r in data["metadata"]],
     ) if data["metadata"] else "(none)")
     lines.append("")
 
@@ -501,8 +512,8 @@ def render_markdown(data, catalog_path):
     lines.append("## 4. Generic Items With One-Room Package Metadata")
     lines.append("")
     lines.append(markdown_table(
-        ("id", "name", "scene_groups", "room", "package_type", "package_role", "package_category", "classification"),
-        [(r.item_id, r.name, r.scene_groups, r.room, r.package_type, r.package_role, r.package_category, r.classification) for r in data["metadata"]],
+        ("id", "name", "scene_groups", "package_affinity", "classification"),
+        [(r.item_id, r.name, r.scene_groups, r.package_affinity, r.classification) for r in data["metadata"]],
     ) if data["metadata"] else "_No generic multi-room metadata findings._")
     lines.append("")
 

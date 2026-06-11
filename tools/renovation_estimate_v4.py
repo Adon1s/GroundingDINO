@@ -38,10 +38,10 @@ from tools.rehab_packages import (
     ACTIVE_PACKAGE_STATUSES,
     aggregate_whole_home_turnover,
     apply_package_verifications_to_candidates,
+    build_package_affinity,
     expand_bathroom_modernization_packages,
     finalize_package_candidates,
     infer_package_candidates,
-    is_package_eligible_catalog_item,
     package_affinity_for,
     reconcile_packages_and_estimate_units,
     run_pass_2f_batch,
@@ -307,20 +307,19 @@ def _extract_package_only_candidates(
         for item in (issue_catalog.get("items") or [])
         if isinstance(item, dict) and item.get("id")
     }
+    affinity_table = build_package_affinity(issue_catalog)
     grouped: Dict[tuple[str, str, str], List[Dict[str, Any]]] = {}
     for issue in issues_flat or []:
         cat_id = str(issue.get("catalog_item_id") or "")
         cat = catalog_lookup.get(cat_id)
         if not cat:
             continue
-        # Generics carry no package_type in the catalog (it's stripped); scene
-        # affinity is the router. Admit them when the issue's scene group has an
-        # affinity entry, in addition to raw-eligible catalog items. The overlay
-        # in infer_package_candidates re-applies package_type/role downstream.
-        eligible = is_package_eligible_catalog_item(cat) or (
-            package_affinity_for(issue.get("scene_group", ""), cat_id) is not None
-        )
-        if not eligible:
+        # The catalog's package_affinity blocks are the router: admit an issue
+        # when its scene group resolves to an affinity entry (single-room
+        # blocks fall back to their only room when the scene doesn't resolve).
+        # The overlay in infer_package_candidates re-applies package_type/role
+        # downstream.
+        if package_affinity_for(issue.get("scene_group", ""), cat_id, affinity_table) is None:
             continue
         est_meta = _resolve_catalog_estimate_meta(cat)
         if est_meta.affects_estimate:
