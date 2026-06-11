@@ -38,6 +38,7 @@ from tools.rehab_packages import (
     ACTIVE_PACKAGE_STATUSES,
     aggregate_whole_home_turnover,
     apply_package_verifications_to_candidates,
+    apply_same_unit_package_subsumption,
     build_package_affinity,
     expand_bathroom_modernization_packages,
     finalize_package_candidates,
@@ -209,6 +210,11 @@ def compute_renovation_estimate_v4(
         require_confirmation=True,
     )
 
+    # Must run before bathroom expansion (expanded packages lose their
+    # estimate_unit_id) and before whole-home turnover aggregation (which must
+    # only see surviving turnover packages).
+    packages, subsumption_audit = apply_same_unit_package_subsumption(packages)
+
     bathroom_signal = _build_bathroom_room_count_signal(package_candidates_audit)
     bathroom_cap = bathroom_metadata_cap(property_metadata or {})
     packages, bathroom_expansion_audit = expand_bathroom_modernization_packages(
@@ -250,6 +256,7 @@ def compute_renovation_estimate_v4(
     v4_estimate["package_candidates"] = package_candidates_audit
     v4_estimate["bathroom_room_count_signal"] = bathroom_signal
     v4_estimate["bathroom_expansion_audit"] = bathroom_expansion_audit
+    v4_estimate["package_subsumption_audit"] = subsumption_audit
     v4_estimate["suppressed_package_candidates"] = suppressed_package_candidates
     v4_estimate["pass_2f_trace"] = pass_2f_trace
     v4_estimate["reconciliation"] = reconciliation
@@ -287,6 +294,7 @@ def compute_renovation_estimate_v4(
             "package_candidates",
             "pass_2f",
             "package_finalization",
+            "package_subsumption",
             "reconciliation",
         ],
         "packages_enabled": True,

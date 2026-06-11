@@ -2155,6 +2155,219 @@ def finalize_package_candidates(
     return estimate_packages, audit_packages
 
 
+# ─── Same-unit package subsumption ────────────────────────────────────────────
+#
+# infer_package_candidates groups by (estimate_unit_id, package_type), so one
+# room can emit a modernization AND a repair AND a turnover package at once.
+# Child absorption dedupes their line items, but the package tier ranges are
+# independent and all sum into the scope rollups — a bathroom_full_rehab and a
+# bathroom_repair_heavy both price, yet a gut rehab subsumes the repair work.
+# This pass drops the subsumed bundles after finalization. Dropping (rather
+# than transferring supporting_issue_ids to the winner) keeps required-scope
+# children out of marketability-scoped packages: supporting-issue absorption
+# bypasses scope checks, so a transferred plumbing leak would vanish from
+# required_rehab. Dropped packages' children instead get broad-absorbed by the
+# modernization where its absorption_scope covers them, or retained as line
+# items in their own scope.
+
+_MODERNIZATION_TIER_RANK = {"refresh": 0, "partial_rehab": 1, "full_rehab": 2}
+
+# Modernization tiers whose scope includes the unit's repair work. A refresh
+# is cosmetic-only — it does not fix plumbing — so it never subsumes repair.
+_REPAIR_SUBSUMING_MODERNIZATION_TIERS = frozenset({"partial_rehab", "full_rehab"})
+
+# repair_heavy already covers flooring, so a coexisting turnover_std (paint +
+# flooring) downgrades to its paint-only light tier. Keyed by pricing profile.
+_TURNOVER_STD_TO_LIGHT: Dict[str, Tuple[str, int, int]] = {
+    KITCHEN_TURNOVER_STD[0]: KITCHEN_TURNOVER_LIGHT,
+    BATHROOM_TURNOVER_STD[0]: BATHROOM_TURNOVER_LIGHT,
+    BEDROOM_TURNOVER_STD[0]: BEDROOM_TURNOVER_LIGHT,
+    LIVING_TURNOVER_STD[0]: LIVING_TURNOVER_LIGHT,
+}
+
+_SUBSUMPTION_TRADEOFF_NOTE = (
+    "Dropping a repair package reverts its unit's required_rehab from the "
+    "repair bundle range to the sum of retained line items (v3 semantics); "
+    "required-scope children are never absorbed into marketability packages."
+)
+
+
+def _drop_subsumed_package(
+    loser: Dict[str, Any],
+    winner: Dict[str, Any],
+    *,
+    ref_field: str,
+    note: str,
+    winner_list_field: str,
+) -> None:
+    """Mark a package as dropped, mutating the shared dict in place.
+
+    Eligibility flags are the gate — verification_status is never touched, so
+    "confirmed" keeps meaning "the VLM looked and said yes" (same pattern as
+    _apply_verification_to_package). The mutation is deliberately in place:
+    finalize_package_candidates aliases the same dict into the
+    package_candidates audit list, which therefore stays consistent for free.
+    """
+    loser["estimate_eligible"] = False
+    loser["ui_eligible"] = False
+    loser["audit_only"] = True
+    loser[ref_field] = str(winner.get("package_id") or "")
+    loser["level_decision_notes"] = list(loser.get("level_decision_notes") or []) + [note]
+    winner_list = list(winner.get(winner_list_field) or [])
+    winner_list.append(str(loser.get("package_id") or ""))
+    winner[winner_list_field] = winner_list
+
+
+def _downgrade_turnover_to_light(
+    turnover: Dict[str, Any],
+    repair: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Downgrade a turnover_std package to its light tier in place.
+
+    Returns the audit record, or None when the profile has no light mapping.
+    """
+    from_profile = str(turnover.get("pricing_profile") or "")
+    light_spec = _TURNOVER_STD_TO_LIGHT.get(from_profile)
+    if light_spec is None:
+        return None
+    to_profile, cost_low, cost_high = light_spec
+    turnover["pricing_profile"] = to_profile
+    turnover["pricing_tier"] = "turnover_light"
+    turnover["candidate_cost_low"] = cost_low
+    turnover["candidate_cost_high"] = cost_high
+    turnover["cost_low"] = cost_low
+    turnover["cost_high"] = cost_high
+    turnover["cost_midpoint"] = (cost_low + cost_high) // 2
+    turnover["absorption_scope"] = _package_absorption_scope(to_profile)
+    turnover["level_decision_notes"] = list(
+        turnover.get("level_decision_notes") or []
+    ) + ["downgraded_to_light_by_same_unit_repair_heavy"]
+    return {
+        "unit": str(turnover.get("estimate_unit_id") or "") or str(turnover.get("room_surrogate_id") or ""),
+        "turnover_package_id": str(turnover.get("package_id") or ""),
+        "repair_package_id": str(repair.get("package_id") or ""),
+        "from_profile": from_profile,
+        "to_profile": to_profile,
+    }
+
+
+def apply_same_unit_package_subsumption(
+    packages: List[Dict[str, Any]],
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Drop same-unit packages whose scope a modernization package subsumes.
+
+    Within one estimate unit (room_surrogate_id fallback for unit-less
+    packages):
+      - modernization at partial_rehab/full_rehab subsumes the repair
+        packages — a gut rehab includes the repair work;
+      - modernization at ANY tier (incl. refresh) suppresses the turnover
+        packages — even a refresh covers paint + flooring + finish, and both
+        land in marketability_rehab;
+      - repair alone never suppresses turnover (scopes barely overlap), but a
+        repair_heavy downgrades a coexisting turnover_std to its light tier.
+
+    Returns (active_packages, subsumption_audit): drops removed from the list
+    (order otherwise preserved — Phase B absorption is first-come-first-
+    absorbed in list order), dropped dicts mutated in place for the aliased
+    package_candidates audit list.
+    """
+    audit: Dict[str, Any] = {
+        "applied": False,
+        "subsumptions": [],
+        "downgrades": [],
+        "tradeoff_note": _SUBSUMPTION_TRADEOFF_NOTE,
+    }
+
+    by_unit: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+    for pkg in packages or []:
+        if not isinstance(pkg, dict):
+            continue
+        if str(pkg.get("verification_status") or "") not in ACTIVE_PACKAGE_STATUSES:
+            continue
+        if pkg.get("package_level") != PACKAGE_LEVEL_ROOM:
+            continue
+        unit_key = (
+            str(pkg.get("estimate_unit_id") or "")
+            or str(pkg.get("room_surrogate_id") or "")
+        )
+        if not unit_key:
+            continue
+        category = str(pkg.get("package_category") or "")
+        if category not in (
+            PACKAGE_CATEGORY_MODERNIZATION,
+            PACKAGE_CATEGORY_REPAIR,
+            PACKAGE_CATEGORY_TURNOVER,
+        ):
+            continue
+        by_unit.setdefault(unit_key, {}).setdefault(category, []).append(pkg)
+
+    dropped: set = set()
+    for unit_key, by_category in by_unit.items():
+        modernizations = by_category.get(PACKAGE_CATEGORY_MODERNIZATION) or []
+        repairs = by_category.get(PACKAGE_CATEGORY_REPAIR) or []
+        turnovers = by_category.get(PACKAGE_CATEGORY_TURNOVER) or []
+
+        if modernizations:
+            # max() keeps the first maximal element, so ties break by list order.
+            winner = max(
+                modernizations,
+                key=lambda p: _MODERNIZATION_TIER_RANK.get(
+                    str(p.get("pricing_tier") or ""), -1
+                ),
+            )
+            winner_tier = str(winner.get("pricing_tier") or "")
+            if winner_tier in _REPAIR_SUBSUMING_MODERNIZATION_TIERS:
+                for repair_pkg in repairs:
+                    _drop_subsumed_package(
+                        repair_pkg,
+                        winner,
+                        ref_field="subsumed_by_package_id",
+                        note="subsumed_by_same_unit_modernization",
+                        winner_list_field="subsumed_package_ids",
+                    )
+                    dropped.add(id(repair_pkg))
+                    audit["subsumptions"].append({
+                        "unit": unit_key,
+                        "winner_package_id": str(winner.get("package_id") or ""),
+                        "loser_package_id": str(repair_pkg.get("package_id") or ""),
+                        "rule": "modernization_subsumes_repair",
+                    })
+            for turnover_pkg in turnovers:
+                _drop_subsumed_package(
+                    turnover_pkg,
+                    winner,
+                    ref_field="suppressed_by_package_id",
+                    note="suppressed_by_same_unit_modernization",
+                    winner_list_field="suppressed_package_ids",
+                )
+                dropped.add(id(turnover_pkg))
+                audit["subsumptions"].append({
+                    "unit": unit_key,
+                    "winner_package_id": str(winner.get("package_id") or ""),
+                    "loser_package_id": str(turnover_pkg.get("package_id") or ""),
+                    "rule": "modernization_suppresses_turnover",
+                })
+        elif repairs and turnovers:
+            heavy_repair = next(
+                (
+                    r for r in repairs
+                    if str(r.get("pricing_tier") or "") == "repair_heavy"
+                ),
+                None,
+            )
+            if heavy_repair is not None:
+                for turnover_pkg in turnovers:
+                    if str(turnover_pkg.get("pricing_tier") or "") != "turnover_std":
+                        continue
+                    record = _downgrade_turnover_to_light(turnover_pkg, heavy_repair)
+                    if record is not None:
+                        audit["downgrades"].append(record)
+
+    audit["applied"] = bool(audit["subsumptions"] or audit["downgrades"])
+    active = [pkg for pkg in packages or [] if id(pkg) not in dropped]
+    return active, audit
+
+
 def _group_confirmed_refs_by_surrogate(
     package: Dict[str, Any],
 ) -> Dict[str, List[Dict[str, Any]]]:
