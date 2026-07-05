@@ -255,6 +255,7 @@ _PROPERTY_METADATA_KEYS = (
     "sqft", "square_feet", "living_area_sqft",
     "year_built", "lot_size", "property_type", "property_type_detail",
     "status", "description", "hoa", "garage", "parking", "price_per_sqft",
+    "area_price_per_sqft",
     "days_on_market",
     # Multi-kitchen / multi-unit evidence consumed by
     # tools.estimate_units._has_multi_kitchen_metadata_evidence.

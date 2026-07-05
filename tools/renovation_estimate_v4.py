@@ -32,6 +32,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from tools.catalog_cost_model import derive_cost_model
+from tools.cost_factors import resolve_property_cost_factor, scale_estimate_dollars
 from tools.estimate_scope import apply_estimate_scope
 from tools.estimate_sanity import build_estimate_sanity_flags
 from tools.rehab_packages import (
@@ -278,6 +279,11 @@ def compute_renovation_estimate_v4(
         groups=v4_estimate.get("groups") or [],
         packages=packages,
     )
+    # Market/size scaling must precede sanity flags, which compare scaled
+    # totals against list price.
+    cost_factor, cost_factor_audit = resolve_property_cost_factor(property_metadata)
+    scale_estimate_dollars(v4_estimate, cost_factor)
+    v4_estimate["cost_adjustment"] = cost_factor_audit
     v4_estimate["sanity_flags"] = build_estimate_sanity_flags(
         v4_estimate,
         property_metadata,
@@ -296,6 +302,7 @@ def compute_renovation_estimate_v4(
             "package_finalization",
             "package_subsumption",
             "reconciliation",
+            "cost_adjustment",
         ],
         "packages_enabled": True,
         "reconciliation_enabled": True,

@@ -42,6 +42,7 @@ from tools.estimate_scope import (
     empty_scope_totals,
     sum_scope_totals,
 )
+from tools.cost_factors import MAX_UNITS_PER_PACKAGE, PER_EXTRA_UNIT_FACTOR
 from tools.pipeline_common import SCENE_TO_GROUP_UI
 from tools.renovation_estimate import GROUP_BUDGET_CAPS, EstimateCandidate
 
@@ -1716,6 +1717,17 @@ def _build_package_candidate(
         decision_notes = list(decision_notes) + [escalation_note]
         spec = escalated_spec
     pricing_profile, cost_low, cost_high = spec
+    # A merged unit spanning multiple physical rooms prices each extra room at
+    # PER_EXTRA_UNIT_FACTOR of the tier (shared mobilization, per-room materials).
+    unit_count = min(max(len(source_room_surrogate_ids or []), 1), MAX_UNITS_PER_PACKAGE)
+    unit_factor = 1 + PER_EXTRA_UNIT_FACTOR * (unit_count - 1)
+    pre_unit_cost_low, pre_unit_cost_high = cost_low, cost_high
+    if unit_count > 1:
+        cost_low = round(cost_low * unit_factor)
+        cost_high = round(cost_high * unit_factor)
+        decision_notes = list(decision_notes) + [
+            f"unit_count_factor={unit_factor}_n={unit_count}"
+        ]
     cost_model, cost_model_source = derive_package_cost_model()
     package_strength = compute_package_strength(
         drivers, supports, candidate_catalog_meta,
@@ -1753,7 +1765,7 @@ def _build_package_candidate(
         drivers,
         supports,
     )
-    return {
+    package = {
         "package_id": f"{package_type}__{unit_id}",
         "package_type": package_type,
         "package_category": package_category,
@@ -1801,6 +1813,13 @@ def _build_package_candidate(
         "ui_eligible": False,
         "audit_only": True,
     }
+    if unit_count > 1:
+        # Rebase anchor for bathroom expansion: per-surrogate copies revert to
+        # the single-room tier range.
+        package["unit_count_factor"] = unit_factor
+        package["pre_unit_factor_cost_low"] = pre_unit_cost_low
+        package["pre_unit_factor_cost_high"] = pre_unit_cost_high
+    return package
 
 
 def _resolve_package_category_and_room(
@@ -2434,6 +2453,20 @@ def _build_expanded_bathroom_package(
     original_estimate_unit_id = str(original.get("estimate_unit_id") or "")
     pkg["estimate_unit_id"] = ""
     pkg["source_room_surrogate_ids"] = [surrogate_id]
+
+    # Each copy covers ONE surrogate: rebase costs to the merged original's
+    # pre-unit-factor tier range so N copies don't compound the unit factor.
+    pre_low = original.get("pre_unit_factor_cost_low")
+    pre_high = original.get("pre_unit_factor_cost_high")
+    if pre_low is not None and pre_high is not None:
+        pkg["cost_low"] = pre_low
+        pkg["cost_high"] = pre_high
+        pkg["candidate_cost_low"] = pre_low
+        pkg["candidate_cost_high"] = pre_high
+        pkg["cost_midpoint"] = (pre_low + pre_high) // 2
+        pkg.pop("unit_count_factor", None)
+        pkg.pop("pre_unit_factor_cost_low", None)
+        pkg.pop("pre_unit_factor_cost_high", None)
     pkg["confirmed_issue_ids"] = [
         i for i in (original.get("confirmed_issue_ids") or [])
         if str(i) in surrogate_confirmed_ids
