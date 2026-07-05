@@ -218,7 +218,8 @@ def _metadata_bedroom_count(metadata: Dict[str, Any]) -> Optional[int]:
 def _is_single_family(metadata: Dict[str, Any]) -> bool:
     property_type = str(metadata.get("property_type") or "").strip().lower()
     normalized = property_type.replace("-", "_").replace(" ", "_")
-    return normalized in {"single_family", "sfh"}
+    # CSV funnel emits "Single Family Residential" → single_family_residential.
+    return normalized.startswith("single_family") or normalized == "sfh"
 
 
 def _metadata_number(metadata: Dict[str, Any], *keys: str) -> Optional[float]:

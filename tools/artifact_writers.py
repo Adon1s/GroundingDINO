@@ -264,6 +264,10 @@ _PROPERTY_METADATA_KEYS = (
     "has_adu", "adu",
     "has_second_kitchen", "second_kitchen",
     "number_of_units", "unit_count", "units",
+    # Provenance: keep the caller-supplied source label (e.g. "csv_funnel_db")
+    # so artifacts record where metadata came from. Scrape path fills this via
+    # setdefault below when absent.
+    "metadata_source",
 )
 
 

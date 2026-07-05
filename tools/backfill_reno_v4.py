@@ -31,6 +31,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from tools.artifact_writers import (
+    _extract_property_metadata_from_mapping,
     _load_scrape_metadata_for_job,
     load_issue_catalog,
 )
@@ -97,6 +98,7 @@ def backfill(
     *,
     force: bool,
     dry_run: bool,
+    metadata_override: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Backfill renovation_estimate_v4 into a single artifact.
 
@@ -122,6 +124,10 @@ def backfill(
         return {"status": "skip_already_present"}
 
     property_metadata = _resolve_property_metadata_from_artifact(artifact)
+    if metadata_override:
+        # CLI-supplied metadata wins over artifact/scrape recovery — heals July
+        # artifacts that shipped property_metadata: {} without a re-analysis.
+        property_metadata = {**property_metadata, **metadata_override}
 
     try:
         v4 = compute_renovation_estimate_v4(
@@ -217,7 +223,30 @@ def main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="Compute v4 and print the result, but do not write to disk.",
     )
+    parser.add_argument(
+        "--metadata-json",
+        default=None,
+        help=(
+            "JSON string of listing facts (price/beds/baths/sqft/...) to inject, "
+            "winning over artifact/scrape recovery. Heals artifacts that shipped "
+            "property_metadata: {} without re-analysis."
+        ),
+    )
     args = parser.parse_args(argv)
+
+    metadata_override: Optional[Dict[str, Any]] = None
+    if args.metadata_json:
+        try:
+            parsed = json.loads(args.metadata_json)
+        except (ValueError, TypeError) as e:
+            print(f"error: failed to parse --metadata-json: {e}", file=sys.stderr)
+            return 1
+        if not isinstance(parsed, dict):
+            print("error: --metadata-json is not a JSON object", file=sys.stderr)
+            return 1
+        # Run through the same allowlist/alias normalization as the live path.
+        metadata_override = _extract_property_metadata_from_mapping(parsed)
+        metadata_override.setdefault("metadata_source", "cli_metadata_json")
 
     run_path = Path(args.run)
     try:
@@ -242,6 +271,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         catalog,
         force=args.force,
         dry_run=args.dry_run,
+        metadata_override=metadata_override,
     )
 
     line = _format_result(artifact_path, result)

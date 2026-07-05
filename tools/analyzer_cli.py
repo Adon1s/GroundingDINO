@@ -71,6 +71,7 @@ class PropertyAnalysisJob:
     timestamp: str
     results: List[ImageResult] = field(default_factory=list)
     total_processing_time: float = 0.0
+    property_metadata: Optional[Dict[str, Any]] = None
 
 # Environment variable keys that should be resolved as filesystem paths
 PATH_OVERRIDE_KEYS = {
@@ -249,6 +250,10 @@ Pass Control Examples:
     # ─────────────────────────────────────────────────────────────────────────
     parser.add_argument("--output-json", dest="output_json",
                         help="Path to write JSON summary")
+    parser.add_argument("--property-metadata-json", dest="property_metadata_json",
+                        default=None,
+                        help="JSON string of listing facts (price/beds/baths/sqft/...) "
+                             "from the CSV funnel DB; feeds cost_factors/estimate_units/sanity")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Runtime options
@@ -836,6 +841,17 @@ def main() -> int:
     # ─────────────────────────────────────────────────────────────────────────
     # Build job and write artifacts
     # ─────────────────────────────────────────────────────────────────────────
+    property_metadata: Optional[Dict[str, Any]] = None
+    if args.property_metadata_json:
+        try:
+            parsed = json.loads(args.property_metadata_json)
+            if isinstance(parsed, dict):
+                property_metadata = parsed
+            else:
+                logger.warning("--property-metadata-json is not a JSON object; ignoring")
+        except (ValueError, TypeError) as exc:
+            logger.warning(f"Failed to parse --property-metadata-json: {exc}; ignoring")
+
     job = PropertyAnalysisJob(
         property_key=args.property_key,
         job_id=job_id,
@@ -843,6 +859,7 @@ def main() -> int:
         timestamp=datetime.utcnow().isoformat() + "Z",
         results=results,
         total_processing_time=total_time,
+        property_metadata=property_metadata,
     )
 
     # Build a resolved view of overrides (model names, not just families) for

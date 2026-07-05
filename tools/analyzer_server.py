@@ -328,6 +328,13 @@ def _process_job(
     detection_backend = request.get("detectionBackend", "dinox")
     concurrency = request.get("concurrency", int(os.environ.get("ANALYZER_CONCURRENCY", "3")))
 
+    # Listing facts from the CSV funnel DB (frontend passes the Property row).
+    # Feeds cost_factors / estimate_units / estimate_sanity via
+    # artifact_writers._resolve_property_metadata (job metadata wins over scrape).
+    property_metadata = request.get("propertyMetadata")
+    if not isinstance(property_metadata, dict):
+        property_metadata = None
+
     logger.info(f"[Job {ts_job_id}] Starting: {property_key} ({len(image_paths)} images)")
 
     # Reset token counters so this job's TIMING STATS reflect only its own usage.
@@ -524,6 +531,7 @@ def _process_job(
             timestamp=datetime.utcnow().isoformat() + "Z",
             results=results,
             total_processing_time=total_time,
+            property_metadata=property_metadata,
         )
 
         try:
