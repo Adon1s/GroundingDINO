@@ -6,6 +6,7 @@ objects and returns deterministic scope labels for audit and UI selection.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -338,16 +339,19 @@ def empty_scope_totals() -> Dict[str, Dict[str, int]]:
     return {scope: {"low": 0, "high": 0} for scope in VALID_ESTIMATE_SCOPES}
 
 
+def normalize_scope_key(scope: Any) -> str:
+    """Coerce to a valid estimate scope; unknown/missing land in required_rehab."""
+    scope_key = str(scope or "")
+    return scope_key if scope_key in VALID_ESTIMATE_SCOPES else REQUIRED_REHAB
+
+
 def add_scope_amount(
     totals: Dict[str, Dict[str, int]],
     scope: Any,
     low: Any,
     high: Any,
 ) -> None:
-    scope_key = str(scope or "")
-    if scope_key not in VALID_ESTIMATE_SCOPES:
-        scope_key = REQUIRED_REHAB
-    bucket = totals.setdefault(scope_key, {"low": 0, "high": 0})
+    bucket = totals.setdefault(normalize_scope_key(scope), {"low": 0, "high": 0})
     bucket["low"] = int(bucket.get("low") or 0) + _int(low)
     bucket["high"] = int(bucket.get("high") or 0) + _int(high)
 
@@ -410,6 +414,9 @@ def build_final_bucket(
 
 def build_scope_headline_tiers(
     capped_totals: Dict[str, Dict[str, int]],
+    width_stats: Optional[Dict[str, Dict[str, float]]] = None,
+    *,
+    rho: float = 0.0,
 ) -> Tuple[Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
     """Build the three nested headline tiers from capped per-scope totals.
 
@@ -421,37 +428,59 @@ def build_scope_headline_tiers(
 
     ``inspection_risk`` is never folded into any headline tier; it remains a
     separate risk line.
+
+    ``width_stats`` ({scope: {"sum_w", "sum_w2"}}, half-widths of the raw
+    contributions) narrows each tier to midpoint ± W with
+    W = √Σw² + rho·(Σw − √Σw²): a straight Σlow→Σhigh band assumes every
+    contributor lands best-case (worst-case) simultaneously, overstating the
+    spread roughly linearly in item count, while √Σw² keeps a single-item
+    scope at its full honest width. W is clamped to the capped half-width, so
+    the band always sits inside the straight-sum band, which each bucket
+    retains as ``sum_low``/``sum_high`` for audit. Without ``width_stats`` the
+    buckets are the straight sums, unchanged.
     """
-    required = capped_totals.get(REQUIRED_REHAB, {})
-    marketability = capped_totals.get(MARKETABILITY_REHAB, {})
-    optional = capped_totals.get(OPTIONAL_VALUE_ADD, {})
-
-    required_low = _int(required.get("low", 0))
-    required_high = _int(required.get("high", 0))
-    marketability_low = _int(marketability.get("low", 0))
-    marketability_high = _int(marketability.get("high", 0))
-    optional_low = _int(optional.get("low", 0))
-    optional_high = _int(optional.get("high", 0))
-
-    required_bucket = build_final_bucket(
-        required_low,
-        required_high,
-        basis="totals_by_scope_capped.required_rehab",
+    scopes_by_tier = (
+        (REQUIRED_REHAB,),
+        (REQUIRED_REHAB, MARKETABILITY_REHAB),
+        (REQUIRED_REHAB, MARKETABILITY_REHAB, OPTIONAL_VALUE_ADD),
     )
-    resale_bucket = build_final_bucket(
-        required_low + marketability_low,
-        required_high + marketability_high,
-        basis="totals_by_scope_capped.required_rehab_plus_marketability_rehab",
-    )
-    full_renewal_bucket = build_final_bucket(
-        required_low + marketability_low + optional_low,
-        required_high + marketability_high + optional_high,
-        basis=(
+    bases = (
+        "totals_by_scope_capped.required_rehab",
+        "totals_by_scope_capped.required_rehab_plus_marketability_rehab",
+        (
             "totals_by_scope_capped."
             "required_rehab_plus_marketability_rehab_plus_optional_value_add"
         ),
     )
-    return required_bucket, resale_bucket, full_renewal_bucket
+
+    buckets: List[Dict[str, Any]] = []
+    prev_low = prev_high = 0
+    for scopes, basis in zip(scopes_by_tier, bases):
+        sum_low = sum(_int((capped_totals.get(s) or {}).get("low", 0)) for s in scopes)
+        sum_high = sum(_int((capped_totals.get(s) or {}).get("high", 0)) for s in scopes)
+        low, high = sum_low, sum_high
+        if width_stats is not None:
+            sum_w = sum(float((width_stats.get(s) or {}).get("sum_w") or 0.0) for s in scopes)
+            sum_w2 = sum(float((width_stats.get(s) or {}).get("sum_w2") or 0.0) for s in scopes)
+            quad = math.sqrt(sum_w2)
+            blended = quad + rho * (sum_w - quad)
+            # Widths come from raw contributions; group caps truncate scopes
+            # without scaling contributors, so clamp the width here instead.
+            half = min(blended, (sum_high - sum_low) / 2.0)
+            mid = (sum_low + sum_high) / 2.0
+            low = int(round(mid - half))
+            high = int(round(mid + half))
+        # Cumulative tiers can't get cheaper as scope grows; a binding group
+        # cap could otherwise leave a lower tier's bound above this one's.
+        low = max(low, prev_low)
+        high = max(high, prev_high)
+        prev_low, prev_high = low, high
+        bucket = build_final_bucket(low, high, basis=basis)
+        if width_stats is not None:
+            bucket["sum_low"] = sum_low
+            bucket["sum_high"] = sum_high
+        buckets.append(bucket)
+    return buckets[0], buckets[1], buckets[2]
 
 
 def build_required_and_resale_ready(

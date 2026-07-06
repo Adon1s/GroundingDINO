@@ -8,9 +8,6 @@ homogeneous):
   - market factor: list $/sqft vs national baseline (labor is local)
   - size factor:   living sqft vs typical listing (more surface area)
 
-Plus the per-package unit-count constants used by rehab_packages when one
-merged estimate unit spans multiple physical rooms.
-
 The constants below are the entire "data" of this feature. Baselines are
 judgment calls, stated as such — tune here, no data file.
 """
@@ -26,8 +23,10 @@ PPSF_CLAMP = (0.75, 1.5)
 SQFT_BASELINE = 1800.0     # typical single-family listing
 SQFT_EXPONENT = 0.3        # more surface area, but fixed costs don't scale
 SQFT_CLAMP = (0.9, 1.25)
-PER_EXTRA_UNIT_FACTOR = 0.6  # 2nd+ room in a merged unit: shared mobilization
-MAX_UNITS_PER_PACKAGE = 4
+# Headline-tier band blend: how correlated per-item cost outcomes are treated.
+# 0 = independent (pure √Σw² quadrature), 1 = perfectly correlated (today's
+# straight sum of extremes). Judgment call.
+ROLLUP_CORRELATION_RHO = 0.4
 
 # area_price_per_sqft is a zip/area-level baseline (frontend zip medians or
 # future sold-price scraping); preferred over the subject's own ratio because

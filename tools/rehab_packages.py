@@ -31,6 +31,7 @@ from tools.catalog_cost_model import (
     ROOM_ALLOWANCE,
     derive_package_cost_model,
 )
+from tools import cost_factors
 from tools.estimate_scope import (
     INSPECTION_RISK,
     MARKETABILITY_REHAB,
@@ -40,9 +41,9 @@ from tools.estimate_scope import (
     build_scope_headline_tiers,
     classify_package_scope,
     empty_scope_totals,
+    normalize_scope_key,
     sum_scope_totals,
 )
-from tools.cost_factors import MAX_UNITS_PER_PACKAGE, PER_EXTRA_UNIT_FACTOR
 from tools.pipeline_common import SCENE_TO_GROUP_UI
 from tools.renovation_estimate import GROUP_BUDGET_CAPS, EstimateCandidate
 
@@ -1700,7 +1701,7 @@ def _build_package_candidate(
     trigger_reason: str,
     candidate_catalog_meta: Optional[Dict[int, Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
-    spec, pricing_tier, decision_notes = _resolve_pricing_profile(
+    spec, _, decision_notes = _resolve_pricing_profile(
         package_type,
         supporting_candidates,
         drivers,
@@ -1717,17 +1718,10 @@ def _build_package_candidate(
         decision_notes = list(decision_notes) + [escalation_note]
         spec = escalated_spec
     pricing_profile, cost_low, cost_high = spec
-    # A merged unit spanning multiple physical rooms prices each extra room at
-    # PER_EXTRA_UNIT_FACTOR of the tier (shared mobilization, per-room materials).
-    unit_count = min(max(len(source_room_surrogate_ids or []), 1), MAX_UNITS_PER_PACKAGE)
-    unit_factor = 1 + PER_EXTRA_UNIT_FACTOR * (unit_count - 1)
-    pre_unit_cost_low, pre_unit_cost_high = cost_low, cost_high
-    if unit_count > 1:
-        cost_low = round(cost_low * unit_factor)
-        cost_high = round(cost_high * unit_factor)
-        decision_notes = list(decision_notes) + [
-            f"unit_count_factor={unit_factor}_n={unit_count}"
-        ]
+    # The generic tier label must come from the spec actually priced — escalation
+    # may have replaced the resolver's pick. Profile keys are
+    # "<family>_<generic tier>" with single-token families.
+    pricing_tier = pricing_profile.split("_", 1)[1]
     cost_model, cost_model_source = derive_package_cost_model()
     package_strength = compute_package_strength(
         drivers, supports, candidate_catalog_meta,
@@ -1813,12 +1807,6 @@ def _build_package_candidate(
         "ui_eligible": False,
         "audit_only": True,
     }
-    if unit_count > 1:
-        # Rebase anchor for bathroom expansion: per-surrogate copies revert to
-        # the single-room tier range.
-        package["unit_count_factor"] = unit_factor
-        package["pre_unit_factor_cost_low"] = pre_unit_cost_low
-        package["pre_unit_factor_cost_high"] = pre_unit_cost_high
     return package
 
 
@@ -2453,20 +2441,6 @@ def _build_expanded_bathroom_package(
     original_estimate_unit_id = str(original.get("estimate_unit_id") or "")
     pkg["estimate_unit_id"] = ""
     pkg["source_room_surrogate_ids"] = [surrogate_id]
-
-    # Each copy covers ONE surrogate: rebase costs to the merged original's
-    # pre-unit-factor tier range so N copies don't compound the unit factor.
-    pre_low = original.get("pre_unit_factor_cost_low")
-    pre_high = original.get("pre_unit_factor_cost_high")
-    if pre_low is not None and pre_high is not None:
-        pkg["cost_low"] = pre_low
-        pkg["cost_high"] = pre_high
-        pkg["candidate_cost_low"] = pre_low
-        pkg["candidate_cost_high"] = pre_high
-        pkg["cost_midpoint"] = (pre_low + pre_high) // 2
-        pkg.pop("unit_count_factor", None)
-        pkg.pop("pre_unit_factor_cost_low", None)
-        pkg.pop("pre_unit_factor_cost_high", None)
     pkg["confirmed_issue_ids"] = [
         i for i in (original.get("confirmed_issue_ids") or [])
         if str(i) in surrogate_confirmed_ids
@@ -3183,7 +3157,11 @@ def reconcile_packages_and_estimate_units(
         final_rehab_required,
         final_rehab_resale_ready,
         final_rehab_full_renewal,
-    ) = build_scope_headline_tiers(totals_by_scope_capped)
+    ) = build_scope_headline_tiers(
+        totals_by_scope_capped,
+        scope_rollups["scope_width_stats"],
+        rho=cost_factors.ROLLUP_CORRELATION_RHO,
+    )
     package_net_delta_low = sum(
         int(a["package_net_delta"]["low"]) for a in package_group_reconciliation
     )
@@ -3492,8 +3470,18 @@ def _build_scope_rollups(
     children_by_group: Dict[str, List[Dict[str, Any]]],
     packages: List[Dict[str, Any]],
     package_group_reconciliation: List[Dict[str, Any]],
-) -> Dict[str, Dict[str, Dict[str, int]]]:
+) -> Dict[str, Any]:
     raw_by_group: Dict[str, Dict[str, Dict[str, int]]] = {}
+    # Half-width spread stats (Σw² per scope, across groups) accumulate from
+    # the same RAW contributions summed below. Group caps truncate scopes
+    # rather than scale contributors, so the tier builder clamps its blended
+    # width to the capped half-width instead of re-deriving widths post-cap.
+    sum_w2_by_scope: Dict[str, float] = {}
+
+    def _add_width(scope: Any, low: Any, high: Any) -> None:
+        w = (int(high or 0) - int(low or 0)) / 2.0
+        key = normalize_scope_key(scope)
+        sum_w2_by_scope[key] = sum_w2_by_scope.get(key, 0.0) + w * w
 
     for audit in package_group_reconciliation or []:
         group_name = audit.get("group") or "other"
@@ -3511,6 +3499,7 @@ def _build_scope_rollups(
                 child.get("allocated_low", 0),
                 child.get("allocated_high", 0),
             )
+            _add_width(scope, child.get("allocated_low", 0), child.get("allocated_high", 0))
 
     for pkg in packages or []:
         scope = pkg.get("estimate_scope")
@@ -3527,6 +3516,7 @@ def _build_scope_rollups(
             int(pkg.get("cost_high") or 0) - int(pkg.get("absorbed_total_high") or 0),
         )
         add_scope_amount(group_totals, scope, net_low, net_high)
+        _add_width(scope, net_low, net_high)
 
     totals_by_scope_raw = sum_scope_totals(raw_by_group)
     inspection_risk = {
@@ -3547,9 +3537,20 @@ def _build_scope_rollups(
         caps_by_group,
         inspection_risk=inspection_risk,
     )
+    # Σw needs no accumulator of its own: the raw scope totals are straight
+    # sums of the same contributions, so Σw == (raw_high − raw_low) / 2.
+    scope_width_stats = {
+        scope: {
+            "sum_w": (int(bucket.get("high") or 0) - int(bucket.get("low") or 0)) / 2.0,
+            "sum_w2": sum_w2_by_scope.get(scope, 0.0),
+        }
+        for scope, bucket in totals_by_scope_raw.items()
+        if scope != INSPECTION_RISK
+    }
     return {
         "totals_by_scope_raw": totals_by_scope_raw,
         "totals_by_scope_capped": totals_by_scope_capped,
+        "scope_width_stats": scope_width_stats,
     }
 
 
