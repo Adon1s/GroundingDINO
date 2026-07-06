@@ -465,26 +465,24 @@ def _build_project_scope_breakdown(
     by_scope: Dict[str, Dict[str, Any]] = {}
 
     for group in groups or []:
-        trade = str(group.get("trade_bucket") or "")
-        if not trade:
-            continue
-        try:
+        for li in group.get("line_items") or []:
+            trade = str(li.get("trade_bucket") or "")
+            if not trade:
+                continue
             scope_id = get_project_scope(trade, strict=False)
-        except KeyError:
-            scope_id = "unknown"
-        entry = by_scope.setdefault(scope_id, {
-            "scope_id": scope_id,
-            "scope_name": get_project_scope_name(scope_id),
-            "cost_low": 0,
-            "cost_high": 0,
-            "item_count": 0,
-            "trade_buckets": set(),
-            "contributing_package_ids": set(),
-        })
-        entry["cost_low"] += int(group.get("cost_low") or 0)
-        entry["cost_high"] += int(group.get("cost_high") or 0)
-        entry["item_count"] += len(group.get("line_items") or [])
-        entry["trade_buckets"].add(trade)
+            entry = by_scope.setdefault(scope_id, {
+                "scope_id": scope_id,
+                "scope_name": get_project_scope_name(scope_id),
+                "cost_low": 0,
+                "cost_high": 0,
+                "item_count": 0,
+                "trade_buckets": set(),
+                "contributing_package_ids": set(),
+            })
+            entry["cost_low"] += int(li.get("cost_low") or 0)
+            entry["cost_high"] += int(li.get("cost_high") or 0)
+            entry["item_count"] += 1
+            entry["trade_buckets"].add(trade)
 
     for pkg in packages or []:
         absorbed = pkg.get("absorption_scope") or {}
@@ -493,10 +491,7 @@ def _build_project_scope_breakdown(
             continue
         package_id = str(pkg.get("package_id") or "")
         for trade in trade_buckets:
-            try:
-                scope_id = get_project_scope(str(trade), strict=False)
-            except KeyError:
-                scope_id = "unknown"
+            scope_id = get_project_scope(str(trade), strict=False)
             entry = by_scope.setdefault(scope_id, {
                 "scope_id": scope_id,
                 "scope_name": get_project_scope_name(scope_id),

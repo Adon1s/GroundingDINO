@@ -34,7 +34,6 @@ from tools.catalog_cost_model import (
     derive_cost_model,
 )
 from tools.estimate_scope import REQUIRED_REHAB, apply_estimate_scope
-from tools.project_scopes import get_project_scope, get_project_scope_name
 
 logger = logging.getLogger(__name__)
 
@@ -702,12 +701,6 @@ def resolve_risk_exposure_band(
     )
 
 
-def _compute_candidate_cost(candidate: EstimateCandidate) -> Tuple[int, int]:
-    """Compute (low, high) for a single candidate using effective posture."""
-    effective = candidate.effective_posture or candidate.estimate_meta.strategy
-    return resolve_pricing_band(candidate, effective)
-
-
 def _resolve_dominant_stack(candidates: List[EstimateCandidate]) -> str:
     """Determine the dominant stack behavior: max_only > group_cap > sum."""
     behaviors = set(c.estimate_meta.stack_behavior for c in candidates)
@@ -1054,20 +1047,6 @@ def compute_renovation_estimate(
                 "source": "probable_total",
                 "validated_portion": {"low": 0, "high": 0},
             },
-            "tier_summary": {
-                "version": "tier_summary_v1",
-                "validated_total": {"low": 0, "high": 0},
-                "validated_items": [],
-                "invalidated_items": [],
-                "unreviewed_items": [],
-                "confidence": "low",
-                "meta": {
-                    "total_reviewable": 0,
-                    "validated_count": 0,
-                    "invalidated_count": 0,
-                    "unreviewed_count": 0,
-                },
-            },
             "meta": {
                 "candidate_count": 0,
                 "estimate_unit_count": 0,
@@ -1213,33 +1192,6 @@ def compute_renovation_estimate(
         "validated_portion": {"low": validated_low, "high": validated_high},
     }
 
-    # ── Project scope summary (presentation rollup) ──
-    scope_accum: Dict[str, Dict[str, Any]] = {}
-    for c in candidates:
-        sid = get_project_scope(c.trade_bucket, strict=False)
-        if sid not in scope_accum:
-            scope_accum[sid] = {"low": 0, "high": 0, "item_count": 0}
-        c_low, c_high = _compute_candidate_cost(c)
-        if c.is_valid_detection is False:
-            c_low, c_high = 0, 0
-        scope_accum[sid]["low"] += c_low
-        scope_accum[sid]["high"] += c_high
-        scope_accum[sid]["item_count"] += 1
-
-    project_scope_summary = sorted(
-        [
-            {
-                "scope_id": sid,
-                "scope_name": get_project_scope_name(sid),
-                "low": s["low"],
-                "high": s["high"],
-                "item_count": s["item_count"],
-            }
-            for sid, s in scope_accum.items()
-        ],
-        key=lambda x: -x["high"],
-    )
-
     return {
         "version": "renovation_estimate_v3",
         "groups": groups_out,
@@ -1249,8 +1201,6 @@ def compute_renovation_estimate(
             "high": total_high,
         },
         "primary_estimate": primary_estimate,
-        "tier_summary": tier_summary,
-        "project_scope_summary": project_scope_summary,
         "meta": {
             "candidate_count": len(candidates),
             "estimate_unit_count": sum(max(1, c.estimate_unit_count) for c in candidates),

@@ -612,10 +612,9 @@ class TestResolveEstimateUnits:
         assert li["unit_resolution_method"] == "distinct_room_surrogates"
         assert len(li["unit_members"]) == 3
         assert li["cost_high"] == 4000
-        summary_item = result["tier_summary"]["unreviewed_items"][0]
-        assert summary_item["unit_policy"] == "per_room"
-        assert summary_item["resolved_cluster_key"] == "catalog:flooring|unit_policy:per_room"
         audit_item = result["pass_2f_review_audit"]["items"][0]
+        assert audit_item["unit_policy"] == "per_room"
+        assert audit_item["resolved_cluster_key"] == "catalog:flooring|unit_policy:per_room"
         assert audit_item["unit_members"] == li["unit_members"]
         assert audit_item["source_issue_ids"] == li["source_issue_ids"]
 
@@ -852,11 +851,11 @@ class TestComputeQuickEstimate:
         assert "roof" in group_names
 
         assert "primary_estimate" in result
-        assert "tier_summary" in result
+        assert "tier_summary" not in result
+        assert "project_scope_summary" not in result
         assert result["primary_estimate"]["source"] == "probable_total"
         assert result["primary_estimate"]["low"] == result["totals"]["probable_total"]["low"]
         assert result["primary_estimate"]["high"] == result["totals"]["probable_total"]["high"]
-        assert result["tier_summary"]["version"] == "tier_summary_v1"
 
     def test_backward_compat_no_estimate_blocks(self):
         """Catalog without any estimate blocks → empty quick estimate."""
@@ -934,14 +933,15 @@ class TestRevisitPassReadiness:
         assert li["required_baseline_included"] is True
         assert li["inspection_risk_added"] is False
         assert "review_rationale" not in li
-        summary_item = result["tier_summary"]["unreviewed_items"][0]
         audit_item = result["pass_2f_review_audit"]["items"][0]
-        for record in (summary_item, audit_item):
-            assert "baseline_scope_before_posture" in record
-            assert "visible_required_with_inspect_posture" in record
-            assert "required_baseline_included" in record
-            assert "inspection_risk_added" in record
-            assert "pricing_posture" in record
+        for key in (
+            "baseline_scope_before_posture",
+            "visible_required_with_inspect_posture",
+            "required_baseline_included",
+            "inspection_risk_added",
+            "pricing_posture",
+        ):
+            assert key in audit_item
 
     def test_review_override_flows_to_output(self):
         """Review posture flows to output while rationale stays debug-only."""
