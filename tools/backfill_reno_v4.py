@@ -134,15 +134,10 @@ def backfill(
             issues_flat=artifact.get("estimate_issues_flat") or [],
             issue_catalog=catalog,
             photos=artifact.get("photos") or {},
-            v3_reviewed_candidates=None,
-            v3_estimate=artifact.get("renovation_estimate"),
             property_metadata=property_metadata or None,
         )
     except Exception as e:
         return {"status": "error", "reason": f"v4 computation failed: {e}"}
-
-    if v4 is None:
-        return {"status": "error", "reason": "v4 returned None"}
 
     final_rehab = v4.get("final_rehab") or {}
     summary = {

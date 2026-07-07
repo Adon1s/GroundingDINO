@@ -767,7 +767,6 @@ def write_photo_intel(
 
     # -- Compute renovation estimate (primary cost estimation engine) -------------
     try:
-        from tools.renovation_estimate import compute_renovation_estimate
         renovation_issues_flat = estimate_issues_flat or issues_flat
 
         # Pass 2f is now package-level visual verification in v4.
@@ -811,28 +810,19 @@ def write_photo_intel(
             except Exception as exc_2f:
                 logger.error(f"Pass 2f setup failed (non-fatal): {exc_2f}", exc_info=True)
 
-        quick_est = compute_renovation_estimate(
-            issues_flat=renovation_issues_flat,
-            issue_catalog=issue_catalog,
-            prebuilt_candidates=reviewed_candidates,
-        )
-        if reviewed_candidates is not None:
-            quick_est["meta"]["pass_2f_ran"] = True
-        photo_intel["renovation_estimate"] = quick_est
-
         from tools.renovation_estimate_v4 import compute_renovation_estimate_v4
-        photo_intel["renovation_estimate_v4"] = compute_renovation_estimate_v4(
+        v4_est = compute_renovation_estimate_v4(
             issues_flat=renovation_issues_flat,
             issue_catalog=issue_catalog,
             photos=photos,
             v3_reviewed_candidates=reviewed_candidates,
-            v3_estimate=quick_est,
             property_metadata=property_metadata,
             pass_2f_vlm_client=vlm_client if pass_2f_enabled else None,
             pass_2f_model_config=pass_2f_model_config,
             photo_key_to_path=photo_key_to_path,
             pass_2f_provider=pass_2f_provider,
         )
+        photo_intel["renovation_estimate_v4"] = v4_est
         photo_intel["ui_priorities_v1"] = _build_ui_priorities_v1(
             issues_flat=renovation_issues_flat,
             issue_catalog=issue_catalog,
@@ -860,17 +850,16 @@ def write_photo_intel(
                 "mode": "package_visual_verification",
             }
         logger.info(
-            "Renovation estimate: $%s-$%s (%d candidates, %d groups, %d high-tier, %d medium-tier)",
-            f'{quick_est["raw_totals"]["low"]:,}',
-            f'{quick_est["raw_totals"]["high"]:,}',
-            quick_est["meta"]["candidate_count"],
-            quick_est["meta"]["groups_active"],
-            quick_est["meta"]["high_tier_count"],
-            quick_est["meta"]["medium_tier_count"],
+            "Renovation estimate v4: $%s-$%s (%d candidates, %d groups, %d high-tier, %d medium-tier)",
+            f'{v4_est["final_rehab"]["low"]:,}',
+            f'{v4_est["final_rehab"]["high"]:,}',
+            v4_est["meta"]["candidate_count"],
+            v4_est["meta"]["groups_active"],
+            v4_est["meta"]["high_tier_count"],
+            v4_est["meta"]["medium_tier_count"],
         )
     except Exception as exc:
         logger.error(f"Failed to compute renovation estimate: {exc}", exc_info=True)
-        photo_intel["renovation_estimate"] = None
         photo_intel["renovation_estimate_v4"] = None
 
     # -- Build defect events, work items, and search index ----------------------
@@ -920,7 +909,6 @@ def write_photo_intel(
     slim.pop("analysis_debug", None)
     slim.pop("pass_2f_trace", None)
 
-    _strip_pass_2f_audit_rationale(slim.get("renovation_estimate"))
     _strip_pass_2f_audit_rationale(slim.get("renovation_estimate_v4"))
 
     # Strip per-photo debug fields (v3 schema)

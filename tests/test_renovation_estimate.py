@@ -2009,7 +2009,7 @@ class TestAuditBlock:
 
             slim = json.loads(output_path.read_text(encoding="utf-8"))
             debug = json.loads((tmp_path / "photo_intel_debug.json").read_text(encoding="utf-8"))
-            slim_audit = slim["renovation_estimate"]["pass_2f_review_audit"]
+            slim_audit = slim["renovation_estimate_v4"]["pass_2f_review_audit"]
 
             assert debug["pass_2f_trace"]["mode"] == "package_visual_verification"
             assert debug["pass_2f_trace"]["attempted_count"] == 1
@@ -2019,6 +2019,8 @@ class TestAuditBlock:
             mock_vlm.analyze_image.assert_not_called()
             assert "consistency_flag_counts" not in slim_audit
             assert "pass_2f_trace" not in slim
+            assert "renovation_estimate" not in slim
+            assert "renovation_estimate" not in debug
         finally:
             shutil.rmtree(tmp_path, ignore_errors=True)
 

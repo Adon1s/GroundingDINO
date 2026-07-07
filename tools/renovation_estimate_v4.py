@@ -93,14 +93,13 @@ def compute_renovation_estimate_v4(
     photos: Dict[str, Any],
     *,
     v3_reviewed_candidates: Optional[List[EstimateCandidate]] = None,
-    v3_estimate: Optional[Dict[str, Any]] = None,
     property_metadata: Optional[Dict[str, Any]] = None,
     package_verifications: Optional[Dict[str, Dict[str, Any]]] = None,
     pass_2f_vlm_client: Any = None,
     pass_2f_model_config: Optional[Dict[str, Any]] = None,
     photo_key_to_path: Optional[Dict[str, Path]] = None,
     pass_2f_provider: str = "premium",
-) -> Optional[Dict[str, Any]]:
+) -> Dict[str, Any]:
     """Compute the v4 (room-aware) renovation estimate.
 
     Runs the full pipeline: surrogate clustering, estimate-unit resolution,
@@ -112,8 +111,6 @@ def compute_renovation_estimate_v4(
     and sanity flags. None disables those features but the rest of the
     pipeline still runs.
     """
-    if v3_estimate is None:
-        return None
 
     surrogates = build_room_surrogates(photos or {})
     surrogate_records = surrogates.get("room_surrogates", [])
