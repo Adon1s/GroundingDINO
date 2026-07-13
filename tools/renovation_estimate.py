@@ -124,6 +124,48 @@ def _resolve_catalog_estimate_meta(item: Dict[str, Any]) -> CatalogEstimateMeta:
     return resolve_estimate_meta(raw or None)
 
 
+def product_quarantined_trade_buckets(
+    issue_catalog: Optional[Dict[str, Any]],
+) -> frozenset:
+    """Trade-bucket ids flagged ``product_quarantined`` in the catalog.
+
+    Issues in these trades stay in the raw audit lanes (issues_flat /
+    estimate_issues_flat) but must never reach product surfaces: estimates,
+    packages, scoring, summaries, priorities, or public API fields.
+    """
+    return frozenset(
+        str(bucket.get("id"))
+        for bucket in (issue_catalog or {}).get("trade_buckets") or []
+        if isinstance(bucket, dict)
+        and bucket.get("id")
+        and bucket.get("product_quarantined")
+    )
+
+
+def filter_product_issues(
+    issues_flat: List[Dict[str, Any]],
+    issue_catalog: Dict[str, Any],
+) -> List[Dict[str, Any]]:
+    """Derive a product lane: drop issues whose trade is product-quarantined.
+
+    Issues without a catalog match are kept — quarantine is a trade-level
+    judgment and only applies to issues that resolve to a quarantined trade.
+    """
+    quarantined = product_quarantined_trade_buckets(issue_catalog)
+    if not quarantined:
+        return list(issues_flat or [])
+    trade_by_item = {
+        item["id"]: str(item.get("trade_bucket") or "")
+        for item in (issue_catalog.get("items") or [])
+        if isinstance(item, dict) and item.get("id")
+    }
+    return [
+        issue for issue in (issues_flat or [])
+        if trade_by_item.get(str(issue.get("catalog_item_id") or ""), "")
+        not in quarantined
+    ]
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # EstimateCandidate — clean handoff from detection to estimate engine
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -352,12 +394,18 @@ def extract_estimate_candidates(
         if isinstance(item, dict) and item.get("id"):
             catalog_lookup[item["id"]] = item
 
+    quarantined_trades = product_quarantined_trade_buckets(issue_catalog)
+
     # Group issues into estimate units. Photos are evidence inside a unit, not
     # separate cost multipliers.
     grouped: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = {}
     for issue in (issues_flat or []):
         cat_id = issue.get("catalog_item_id")
         if not cat_id or cat_id not in catalog_lookup:
+            continue
+        # Defense-in-depth: callers should already feed product lanes, but a
+        # quarantined trade must never become a candidate regardless of caller.
+        if str(catalog_lookup[cat_id].get("trade_bucket") or "") in quarantined_trades:
             continue
         est_meta = _resolve_catalog_estimate_meta(catalog_lookup[cat_id])
         if not est_meta.affects_estimate:

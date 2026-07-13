@@ -57,6 +57,7 @@ from tools.renovation_estimate import (
     compute_renovation_estimate,
     extract_estimate_candidates,
     issue_evidence_refs,
+    product_quarantined_trade_buckets,
 )
 from tools.estimate_units import bathroom_metadata_cap, build_estimate_units
 from tools.project_scopes import get_project_scope, get_project_scope_name
@@ -319,12 +320,17 @@ def _extract_package_only_candidates(
         for item in (issue_catalog.get("items") or [])
         if isinstance(item, dict) and item.get("id")
     }
+    quarantined_trades = product_quarantined_trade_buckets(issue_catalog)
     affinity_table = build_package_affinity(issue_catalog)
     grouped: Dict[tuple[str, str, str], List[Dict[str, Any]]] = {}
     for issue in issues_flat or []:
         cat_id = str(issue.get("catalog_item_id") or "")
         cat = catalog_lookup.get(cat_id)
         if not cat:
+            continue
+        # Defense-in-depth: quarantined trades never become package evidence,
+        # even if a caller bypasses the product lanes.
+        if str(cat.get("trade_bucket") or "") in quarantined_trades:
             continue
         # The catalog's package_affinity blocks are the router: admit an issue
         # when its scene group resolves to an affinity entry (single-room

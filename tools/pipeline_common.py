@@ -30,6 +30,10 @@ for _group, _scenes in SCENE_GROUPS_UI.items():
 PHOTO_INTEL_SCHEMA_VERSION = "photo_intel_v3"
 PROPERTY_SUMMARY_SCHEMA_VERSION = "property_summary_v3"
 NORMALIZATION_POLICY_VERSION = "workitem_v1"
+# Product-quarantine policy version. Bump when quarantine semantics change.
+# Readers must treat a missing version as "legacy / needs projection",
+# never as safe.
+PRODUCT_POLICY_VERSION = "quarantine_v1"
 
 
 def stable_hash_id(*parts: str, length: int = 12) -> str:

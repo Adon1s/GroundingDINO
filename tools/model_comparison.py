@@ -2504,14 +2504,14 @@ def parse_args() -> argparse.Namespace:
         "--concurrency",
         type=int,
         default=3,
-        help="Max concurrent images for API phases (0 and D). Default: 3. "
+        help="Max concurrent images for API phases (0 and D). Default: 4. "
              "Mirrors catalog_auditor's default.",
     )
     parser.add_argument(
         "--local-concurrency",
         type=int,
         default=3,
-        help="Max concurrent images for local LM Studio phases (A and B). Default: 3. "
+        help="Max concurrent images for local LM Studio phases (A and B). Default: 4. "
              "Lower to 1 if LM Studio KV-cache-corrupts under load on your setup.",
     )
     parser.add_argument(

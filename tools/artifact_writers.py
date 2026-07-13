@@ -21,6 +21,7 @@ from tools.pipeline_common import (
     SCENE_TO_GROUP_UI,
     PHOTO_INTEL_SCHEMA_VERSION,
     NORMALIZATION_POLICY_VERSION,
+    PRODUCT_POLICY_VERSION,
     make_photo_id,
     make_issue_id,
     safe_list,
@@ -673,9 +674,21 @@ def write_photo_intel(
     if property_metadata:
         property_block.update(property_metadata)
 
+    # Product lanes: raw lanes above are the internal audit record; every
+    # product surface (scoring, summary, estimate, priorities) consumes only
+    # these quarantine-filtered views.
+    from tools.renovation_estimate import filter_product_issues
+    product_issues_flat = filter_product_issues(issues_flat, issue_catalog)
+    product_estimate_issues_flat = filter_product_issues(
+        estimate_issues_flat, issue_catalog,
+    )
+
     photo_intel = {
         "schema_version":               PHOTO_INTEL_SCHEMA_VERSION,
         "normalization_policy_version": NORMALIZATION_POLICY_VERSION,
+        "product_policy_version":       PRODUCT_POLICY_VERSION,
+        "catalog_version":              str(issue_catalog.get("version") or ""),
+        "product_projection_status":    "native",
         "run": {
             "run_id":              job.job_id,
             "job_id":              job.job_id,
@@ -704,6 +717,10 @@ def write_photo_intel(
         "issues_flat_count": len(issues_flat),
         "estimate_issues_flat": estimate_issues_flat,
         "estimate_issues_flat_count": len(estimate_issues_flat),
+        "product_issues_flat": product_issues_flat,
+        "product_issues_flat_count": len(product_issues_flat),
+        "product_estimate_issues_flat": product_estimate_issues_flat,
+        "product_estimate_issues_flat_count": len(product_estimate_issues_flat),
         # Property-level per-pass routing summary. One entry per LLM pass that ran,
         # deduped across photos. Pass 2f's entry is appended below if 2f executes.
         "model_routing": aggregated_model_routing,
@@ -724,7 +741,7 @@ def write_photo_intel(
     try:
         from tools.costing import compute_scoring, CatalogDataError
         scoring = compute_scoring(
-            issues_flat=issues_flat,
+            issues_flat=product_issues_flat,
             issue_catalog=issue_catalog,
             n_photos=len(photos),
         )
@@ -750,7 +767,7 @@ def write_photo_intel(
         summary_v1 = build_property_summary_v1(
             property_key=job.property_key,
             run_id=job.job_id,
-            issues_flat=issues_flat,
+            issues_flat=product_issues_flat,
             catalog_index=catalog_index,
         )
         photo_intel["summary_v1"] = summary_v1
@@ -767,7 +784,12 @@ def write_photo_intel(
 
     # -- Compute renovation estimate (primary cost estimation engine) -------------
     try:
-        renovation_issues_flat = estimate_issues_flat or issues_flat
+        # Lane choice follows the RAW canonical lane's existence; quarantine
+        # filtering must never switch which lane feeds the estimate.
+        renovation_issues_flat = (
+            product_estimate_issues_flat if estimate_issues_flat
+            else product_issues_flat
+        )
 
         # Pass 2f is now package-level visual verification in v4.
         reviewed_candidates = None
@@ -863,6 +885,9 @@ def write_photo_intel(
         photo_intel["renovation_estimate_v4"] = None
 
     # -- Build defect events, work items, and search index ----------------------
+    # NOTE: if this layer is revived, it consumes raw per-photo issues and MUST
+    # exclude product-quarantined trades (see filter_product_issues) before
+    # producing work_items / search_index — both are product surfaces.
     if DEFECT_EVENTS_AVAILABLE:
         try:
             defect_events = build_defect_events(

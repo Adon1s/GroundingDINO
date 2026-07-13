@@ -262,7 +262,7 @@ Pass Control Examples:
                         help="Python executable for subprocesses")
     parser.add_argument("--debug", action="store_true",
                         help="Enable debug logging")
-    parser.add_argument("--concurrency", type=int, default=3,
+    parser.add_argument("--concurrency", type=int, default=4,
                         help="Max concurrent image analysis tasks (default: %(default)s)")
 
     # ─────────────────────────────────────────────────────────────────────────

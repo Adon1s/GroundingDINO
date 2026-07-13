@@ -27,7 +27,8 @@
     },
     {
       "id": "electrical",
-      "name": "Electrical"
+      "name": "Electrical",
+      "product_quarantined": true
     },
     {
       "id": "hvac",
