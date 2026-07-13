@@ -3,33 +3,33 @@ Bias Check — orchestrates two Phase D runs over the SAME cached cells to
 quantify judge position bias.
 
 What it does:
-  Run 1: calls model_comparison.py with --ab-order gemma_first (full pipeline
+  Run 1: calls model_comparison.py with --ab-order model_a_first (full pipeline
          the first time: Phase 0 + A + B + D).
   Run 2: calls model_comparison.py with --resume --force-rejudge --ab-order
-         qwen_first (reuses cells from Run 1; re-runs only Phase D).
+         model_b_first (reuses cells from Run 1; re-runs only Phase D).
   Diff:  loads both reports and prints per-skill flip rates + aggregate
          disagreement, then writes a bias_check_<property>_<timestamp>.json
          summary.
 
 Both runs share Phase 0 + A + B cells, so any verdict delta is 100%
-attributable to judge ordering — no local-model nondeterminism in the signal.
+attributable to judge ordering — no contestant rerun nondeterminism in the signal.
 
 Cost model:
   - Phase 0 (GPT fixtures): paid once (Run 2 resumes the checkpoint, Phase 0
     is fully cached).
-  - Phases A + B (local cells): paid once. Run 2 skips them because cells
+  - Phases A + B (contestant cells): paid once. Run 2 skips them because cells
     are already checkpointed. You are NOT asked to swap LM Studio models
     a second time.
   - Phase D (judge): paid TWICE. This is the only doubled cost and it's
     exactly the point of the test.
 
 Typical usage:
-    python tools/bias_check.py --property redfin_126224899 --comprehensive-judge
+    python tools/bias_check.py --profile sol_vs_terra --property redfin_126224899 --comprehensive-judge
 
 Pass-through flags:
     --property, --max-images, --judge-model, --comprehensive-judge,
-    --concurrency, --local-concurrency, --confirm-every, --skip-skills,
-    --artifacts-dir, --images-base, --gemma-model, --qwen-model, --lm-studio-url
+    --concurrency, --confirm-every, --skip-skills,
+    --artifacts-dir, --images-base, --model-a, --model-b, --provider-a, --provider-b
 
 Interpretation guide (printed at the end of every run):
     flip_rate   <10%  = judge is effectively position-neutral; trust results
@@ -43,6 +43,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -73,6 +74,7 @@ def _build_main_cmd(
 ) -> List[str]:
     """Build the argv for one invocation of model_comparison.py."""
     cmd: List[str] = [sys.executable, str(_MAIN_SCRIPT)]
+    cmd += ["--profile", args.profile]
 
     # Pass-through flags (only include values the user actually set)
     if args.property:
@@ -83,12 +85,16 @@ def _build_main_cmd(
         cmd += ["--artifacts-dir", args.artifacts_dir]
     if args.images_base:
         cmd += ["--images-base", args.images_base]
-    if args.gemma_model:
-        cmd += ["--gemma-model", args.gemma_model]
-    if args.qwen_model:
-        cmd += ["--qwen-model", args.qwen_model]
-    if args.lm_studio_url:
-        cmd += ["--lm-studio-url", args.lm_studio_url]
+    if args.model_a:
+        cmd += ["--model-a", args.model_a]
+    if args.provider_a:
+        cmd += ["--provider-a", args.provider_a]
+    if args.model_b:
+        cmd += ["--model-b", args.model_b]
+    if args.provider_b:
+        cmd += ["--provider-b", args.provider_b]
+    if args.fixture_model:
+        cmd += ["--fixture-model", args.fixture_model]
     if args.judge_model:
         cmd += ["--judge-model", args.judge_model]
     if args.judge_delay is not None:
@@ -101,8 +107,6 @@ def _build_main_cmd(
         cmd += ["--confirm-every", str(args.confirm_every)]
     if args.concurrency is not None:
         cmd += ["--concurrency", str(args.concurrency)]
-    if args.local_concurrency is not None:
-        cmd += ["--local-concurrency", str(args.local_concurrency)]
 
     # Bias-check-specific flags
     cmd += ["--output", str(output_path)]
@@ -120,7 +124,7 @@ def _run_main(cmd: List[str], label: str) -> None:
     print(f"  {label}")
     print(f"  $ {' '.join(cmd)}")
     print("=" * 70 + "\n")
-    # Inherit stdin so LM Studio model-swap prompts still work on Run 1, and
+    # Inherit stdin so optional LM Studio load prompts work on Run 1, and
     # so --confirm-every safeguards behave normally. Inherit stdout/stderr for
     # live log streaming.
     result = subprocess.run(cmd)
@@ -213,8 +217,8 @@ def _diff_reports(
                 flipped += 1
                 flipped_photos.append({
                     "photo_key": photo,
-                    "gemma_first_winner": w_gf,
-                    "qwen_first_winner": w_qf,
+                    "model_a_first_winner": w_gf,
+                    "model_b_first_winner": w_qf,
                 })
 
         n_both = len(photos_both)
@@ -338,8 +342,8 @@ def _print_flipped_photos(diff: Dict[str, Any], max_per_skill: int = 5) -> None:
         print(f"    {skill}:")
         for fp in s["flipped_photos"][:max_per_skill]:
             print(f"      {fp['photo_key']}: "
-                  f"gemma-first→{fp['gemma_first_winner']}, "
-                  f"qwen-first→{fp['qwen_first_winner']}")
+                  f"model_a-first→{fp['model_a_first_winner']}, "
+                  f"model_b-first→{fp['model_b_first_winner']}")
         remaining = len(s["flipped_photos"]) - max_per_skill
         if remaining > 0:
             print(f"      ... {remaining} more (see summary JSON)")
@@ -352,21 +356,24 @@ def _print_flipped_photos(diff: Dict[str, Any], max_per_skill: int = 5) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Run two Phase D passes over the same cells (gemma_first + qwen_first) "
+            "Run two Phase D passes over the same cells (model_a_first + model_b_first) "
             "and diff the results to measure judge position bias."
         ),
     )
 
     # All flags below are passed through to model_comparison.py verbatim.
+    parser.add_argument("--profile", required=True, help="Comparison profile name or JSON path.")
     parser.add_argument("--property", default=None,
                         help="Filter to a single property ID.")
     parser.add_argument("--max-images", type=int, default=None,
                         help="Cap on images processed.")
     parser.add_argument("--artifacts-dir", default=None)
     parser.add_argument("--images-base", default=None)
-    parser.add_argument("--gemma-model", default=None)
-    parser.add_argument("--qwen-model", default=None)
-    parser.add_argument("--lm-studio-url", default=None)
+    parser.add_argument("--model-a", default=None)
+    parser.add_argument("--provider-a", choices=("openai", "lmstudio"), default=None)
+    parser.add_argument("--model-b", default=None)
+    parser.add_argument("--provider-b", choices=("openai", "lmstudio"), default=None)
+    parser.add_argument("--fixture-model", default=None)
     parser.add_argument("--judge-model", default=None,
                         help="Judge model. Recommended: gpt-5.4-mini for bias check "
                              "(cheap enough to afford two Phase D runs).")
@@ -380,8 +387,6 @@ def parse_args() -> argparse.Namespace:
                         help="Pause for confirmation every N images in API phases.")
     parser.add_argument("--concurrency", type=int, default=None,
                         help="Max concurrent images for API phases.")
-    parser.add_argument("--local-concurrency", type=int, default=None,
-                        help="Max concurrent images for local LM Studio phases.")
 
     # Bias-check-specific flags
     parser.add_argument(
@@ -399,7 +404,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--skip-run-1",
         action="store_true",
-        help="Skip Run 1 (gemma_first) — assumes its output already exists at "
+        help="Skip Run 1 (model_a_first) — assumes its output already exists at "
              "the expected path. Useful if Run 1 completed but Run 2 failed.",
     )
     return parser.parse_args()
@@ -413,8 +418,8 @@ def _build_output_paths(args: argparse.Namespace) -> Tuple[Path, Path, Path]:
     tag = f"_{args.tag}" if args.tag else ""
     ts = datetime.now().strftime("%Y%m%d_%H%M%S")
     base = f"bias_check_{stem}{tag}_{ts}"
-    run1 = out_dir / f"{base}__run1_gemma_first.json"
-    run2 = out_dir / f"{base}__run2_qwen_first.json"
+    run1 = out_dir / f"{base}__run1_model_a_first.json"
+    run2 = out_dir / f"{base}__run2_model_b_first.json"
     summary = out_dir / f"{base}__summary.json"
     return run1, run2, summary
 
@@ -436,14 +441,14 @@ def main() -> None:
     print(f"  Run 2 output:     {run2_path}")
     print(f"  Summary output:   {summary_path}")
     if args.judge_model:
-        print(f"  Judge model:      {args.judge_model}")
+        print(f"  Judge override:   {args.judge_model}")
     if args.comprehensive_judge:
         print("  Comprehensive:    ENABLED")
     print("=" * 70)
 
     started = time.time()
 
-    # ── Run 1: gemma_first (full pipeline; cells + judge) ────────────────
+    # ── Run 1: model_a_first (full pipeline; cells + judge) ────────────────
     if args.skip_run_1:
         if not run1_path.exists():
             print(f"[bias_check] --skip-run-1 set but {run1_path} does not exist.")
@@ -453,27 +458,29 @@ def main() -> None:
         cmd1 = _build_main_cmd(
             args,
             output_path=run1_path,
-            ab_order="gemma_first",
+            ab_order="model_a_first",
             resume=False,
             force_rejudge=False,
         )
-        _run_main(cmd1, "Run 1: --ab-order gemma_first (full pipeline)")
+        _run_main(cmd1, "Run 1: --ab-order model_a_first (full pipeline)")
 
-    # ── Run 2: qwen_first, resuming the Run 1 checkpoint, rejudge only ──
-    # NOTE: the main script's --resume picks up the MOST RECENT checkpoint
-    # matching the property. Because Run 1 just finished and wrote its
-    # checkpoint, Run 2's --resume will find it. We pass --output explicitly
-    # to force a SEPARATE output file — but the main script's resume logic
-    # matches on property prefix, not on the exact --output path, so cell
-    # reuse happens regardless.
+    # ── Run 2: model_b_first, resuming the Run 1 checkpoint, rejudge only ──
+    # Copy the exact schema-versioned checkpoint so Run 2 can use a separate
+    # report path while reusing identical fixture and contestant cells.
+    run1_checkpoint = run1_path.with_suffix(".checkpoint.json")
+    run2_checkpoint = run2_path.with_suffix(".checkpoint.json")
+    if not run1_checkpoint.exists():
+        print(f"[bias_check] Run 1 checkpoint not found: {run1_checkpoint}")
+        sys.exit(1)
+    shutil.copy2(run1_checkpoint, run2_checkpoint)
     cmd2 = _build_main_cmd(
         args,
         output_path=run2_path,
-        ab_order="qwen_first",
+        ab_order="model_b_first",
         resume=True,
         force_rejudge=True,
     )
-    _run_main(cmd2, "Run 2: --ab-order qwen_first (reuses Run 1 cells; rejudges only)")
+    _run_main(cmd2, "Run 2: --ab-order model_b_first (reuses Run 1 cells; rejudges only)")
 
     # ── Diff ─────────────────────────────────────────────────────────────
     report_gf = _load_report(run1_path)
@@ -493,10 +500,10 @@ def main() -> None:
         "property": args.property,
         "run1_report": str(run1_path),
         "run2_report": str(run2_path),
-        "run1_ab_order": "gemma_first",
-        "run2_ab_order": "qwen_first",
-        "run1_judge_model": (report_gf.get("meta") or {}).get("judge_model"),
-        "run2_judge_model": (report_qf.get("meta") or {}).get("judge_model"),
+        "run1_ab_order": "model_a_first",
+        "run2_ab_order": "model_b_first",
+        "run1_judge_model": ((report_gf.get("meta") or {}).get("judge") or {}).get("model"),
+        "run2_judge_model": ((report_qf.get("meta") or {}).get("judge") or {}).get("model"),
         "n_images_run1": (report_gf.get("meta") or {}).get("n_images"),
         "n_images_run2": (report_qf.get("meta") or {}).get("n_images"),
         "active_skills": active_skills,

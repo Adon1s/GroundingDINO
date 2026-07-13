@@ -1,30 +1,30 @@
 """
-Model Comparison — head-to-head Gemma 4 vs Qwen 3.6 across pipeline passes.
+Model Comparison — provider-neutral, blinded A/B analysis across pipeline passes.
 
-Reframes "Gemma or Qwen?" as four separate skill questions (2a, 2b, 2c, 2d)
+Reframes "which analysis model?" as four separate skill questions (2a, 2b, 2c, 2d)
 plus a coupled 2c+2d real-world-unit question. The configured GPT judge scores each skill
 independently, so a model that's best at seeing can still lose at structuring.
 
-The judge is BLINDED: it sees "Model A" / "Model B" only, never "Gemma" /
-"Qwen". This reduces position and identity bias. --ab-order controls how
+The judge is BLINDED: it sees "Model A" / "Model B" only, never contestant
+labels, provider names, or model IDs. This reduces position and identity bias. --ab-order controls how
 A/B is assigned; 'random' (default) is deterministic per (photo, skill) for
 reproducibility.
 
-Sequential hosting: load one model in LM Studio at a time. The script runs
-Phase A with Gemma, prompts to swap, then Phase B with Qwen. GPT fixtures
-(Phase 0) and judges (Phase D) run without any local model loaded.
+Each contestant can use OpenAI or LM Studio. LM Studio roles can request a
+manual-load prompt; cloud roles run without one. Fixture and judge roles are
+configured independently from both contestants.
 
 Usage:
-    python tools/model_comparison.py --property redfin_126224899 --max-images 20
-    python tools/model_comparison.py --property redfin_126224899 --resume
-    python tools/model_comparison.py --property redfin_126224899 --skip-skills 2d_isolated
+    python tools/model_comparison.py --profile sol_vs_terra --property redfin_126224899 --max-images 20
+    python tools/model_comparison.py --profile sol_vs_terra --property redfin_126224899 --resume
+    python tools/model_comparison.py --profile sol_vs_terra --property redfin_126224899 --skip-skills 2d_isolated
 
 Bias-check workflow (cheap: reuses all cells, only re-runs Phase D):
-    # 1) Initial run with forced gemma-first
-    python tools/model_comparison.py --property X --ab-order gemma_first
-    # 2) Re-judge the same cells with forced qwen-first
-    python tools/model_comparison.py --property X --resume --force-rejudge \\
-        --ab-order qwen_first
+    # 1) Initial run with forced model_a-first
+    python tools/model_comparison.py --profile sol_vs_terra --property X --ab-order model_a_first
+    # 2) Re-judge the same cells with forced model_b-first
+    python tools/model_comparison.py --profile sol_vs_terra --property X --resume --force-rejudge \\
+        --ab-order model_b_first
     # 3) Diff the two reports — large winner-flip rate = position bias is real.
 """
 
@@ -53,11 +53,21 @@ if str(_TOOLS_DIR) not in sys.path:
 if str(_PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(_PROJECT_ROOT))
 
+from model_comparison_config import (
+    COMPARISON_SCHEMA_VERSION,
+    ComparisonConfig,
+    list_profiles,
+    load_comparison_profile,
+    load_dotenv_without_override,
+    with_cli_overrides,
+)
+
+load_dotenv_without_override(_PROJECT_ROOT / ".env")
+
 import pipeline_config as cfg
 from vlm_client import (
     VLMClient,
     create_vlm_client,
-    get_model_configs_from_pipeline_config,
 )
 from catalog_embeddings import CatalogEmbeddingsRetriever, MatchCandidate, build_guardrails_from_catalog
 from scene_classifier_passes import (
@@ -102,8 +112,8 @@ MAX_FREEFORM_CHARS = 3000  # truncation cap for freeform before feeding to 2b
 
 # Skill keys — stable throughout code + output JSON
 SKILLS = ("2a", "2b", "2c", "2d_isolated", "2c+2d_coupled")
-MODEL_KEYS = ("gemma", "qwen")
-JUDGE_SCHEMA_VERSION = 2
+MODEL_KEYS = ("model_a", "model_b")
+JUDGE_SCHEMA_VERSION = 3
 JUDGE_DEFAULT_REASONING_EFFORT = "low"
 JUDGE_DEFAULT_VERBOSITY = "low"
 JUDGE_MAX_TOKENS_BY_SKILL = {
@@ -130,7 +140,7 @@ class TwoDRow:
     chosen_null: bool
     # Coupled-mode only: the 2c output that fed this 2d call
     from_2c: Optional[Dict[str, str]] = None     # {label, kind}
-    # Filled in by judge (Phase D) — never by the local model
+    # Filled in by judge (Phase D) — never by the analysis model
     judge_correct_id: Optional[str] = None
     judge_correct_rank: Optional[int] = None     # 1-indexed, null if not in candidates
     judge_correct_in_candidates: Optional[bool] = None
@@ -138,7 +148,7 @@ class TwoDRow:
 
 @dataclass
 class ModelCells:
-    """All outputs for one local model (Gemma or Qwen) on one image."""
+    """All outputs for one analysis model (Model A or Model B) on one image."""
     pass_2a: Optional[str] = None                              # freeform text
     pass_2b: List[Dict[str, str]] = field(default_factory=list)  # [{description}]
     pass_2c: List[Dict[str, str]] = field(default_factory=list)  # [{description, label}]
@@ -164,8 +174,8 @@ class ImageRecord:
     scene_group: str = "other"
 
     fixture: FixtureCells = field(default_factory=FixtureCells)
-    gemma: ModelCells = field(default_factory=ModelCells)
-    qwen: ModelCells = field(default_factory=ModelCells)
+    model_a: ModelCells = field(default_factory=ModelCells)
+    model_b: ModelCells = field(default_factory=ModelCells)
 
     judge: Dict[str, Optional[Dict[str, Any]]] = field(
         default_factory=lambda: {k: None for k in SKILLS}
@@ -175,6 +185,7 @@ class ImageRecord:
     judge_parse_failures: Dict[str, int] = field(default_factory=dict)
 
     error: Optional[str] = None
+    phase_errors: Dict[str, str] = field(default_factory=dict)
 
 
 # ---------------------------------------------------------------------------
@@ -334,10 +345,10 @@ async def build_fixture_for_image(
 
 
 # ---------------------------------------------------------------------------
-# Phases A & B: local model cells (all 5 skills)
+# Phases A & B: analysis-model cells (all 5 skills)
 # ---------------------------------------------------------------------------
 
-async def run_local_model_cells(
+async def run_analysis_model_cells(
     image_info: Dict[str, Any],
     fixture: FixtureCells,
     vlm_client: VLMClient,
@@ -345,7 +356,7 @@ async def run_local_model_cells(
     retriever: CatalogEmbeddingsRetriever,
     skip_skills: set,
 ) -> ModelCells:
-    """Run all 5 skill cells for one local model on one image."""
+    """Run all 5 skill cells for one analysis model on one image."""
     image_path = Path(image_info["image_path"])
     scene = image_info.get("scene", "other")
     scene_group = image_info.get("scene_group", "other")
@@ -468,10 +479,10 @@ async def _run_2d_batch(
 # Phase D: Judges (5 separate skill-specific prompts)
 # ---------------------------------------------------------------------------
 
-# ── A/B blinding: judge sees "Model A" / "Model B" instead of "Gemma" / "Qwen"
+# ── A/B blinding: the judge sees display aliases, never contestant identity
 # to reduce position + identity bias. Mapping is per-image+skill (deterministic
 # random by default, or forced by --ab-order). Verdicts are canonicalized back
-# to gemma/qwen immediately after parsing so the rest of the pipeline is
+# to model_a/model_b immediately after parsing so the rest of the pipeline is
 # unchanged.
 
 import hashlib as _hashlib
@@ -482,38 +493,38 @@ def _ab_mapping_for(
     photo_key: str,
     skill: str,
 ) -> Dict[str, str]:
-    """Return {'A': 'gemma'|'qwen', 'B': 'gemma'|'qwen'}.
+    """Return {'A': 'model_a'|'model_b', 'B': 'model_a'|'model_b'}.
 
     `random` is deterministic per (photo_key, skill) so reruns are reproducible
-    and so the bias-check workflow (forced gemma_first vs forced qwen_first)
+    and so the bias-check workflow (forced model_a_first vs forced model_b_first)
     produces clean comparisons.
     """
-    if ab_order == "gemma_first":
-        return {"A": "gemma", "B": "qwen"}
-    if ab_order == "qwen_first":
-        return {"A": "qwen", "B": "gemma"}
+    if ab_order == "model_a_first":
+        return {"A": "model_a", "B": "model_b"}
+    if ab_order == "model_b_first":
+        return {"A": "model_b", "B": "model_a"}
     # random: deterministic per (photo_key, skill)
     h = _hashlib.sha256(f"{photo_key}::{skill}".encode("utf-8")).hexdigest()
     if int(h[:8], 16) % 2 == 0:
-        return {"A": "gemma", "B": "qwen"}
-    return {"A": "qwen", "B": "gemma"}
+        return {"A": "model_a", "B": "model_b"}
+    return {"A": "model_b", "B": "model_a"}
 
 
 def _canonicalize_verdict(
     verdict: Optional[Dict[str, Any]],
     ab_mapping: Dict[str, str],
 ) -> Optional[Dict[str, Any]]:
-    """Convert a judge verdict from A/B naming to gemma/qwen naming in place.
+    """Convert a judge verdict from A/B naming to model_a/model_b naming in place.
 
     Preserves `ab_mapping` on the verdict for audit. If the verdict is already
-    in gemma/qwen form (e.g. legacy pre-A/B checkpoint), returns it unchanged.
+    in model_a/model_b form (e.g. legacy pre-A/B checkpoint), returns it unchanged.
     """
     if not isinstance(verdict, dict):
         return verdict
 
-    # Legacy verdict: already has gemma/qwen keys, nothing to do.
+    # Legacy verdict: already has model_a/model_b keys, nothing to do.
     scores = verdict.get("scores")
-    if isinstance(scores, dict) and ("gemma" in scores or "qwen" in scores):
+    if isinstance(scores, dict) and ("model_a" in scores or "model_b" in scores):
         verdict.setdefault("ab_mapping", ab_mapping)
         return verdict
 
@@ -538,7 +549,7 @@ def _canonicalize_verdict(
     # Map top-level model-named lists (unique_good / hallucinations)
     for suffix in ("unique_good", "hallucinations"):
         for ab in ("A", "B"):
-            src_key = f"model_{ab.lower()}_{suffix}"
+            src_key = f"{ab}_{suffix}"
             if src_key in verdict:
                 model = ab_mapping.get(ab)
                 if model:
@@ -551,7 +562,7 @@ def _canonicalize_verdict(
             if not isinstance(entry, dict):
                 continue
             for ab in ("A", "B"):
-                src_key = f"model_{ab.lower()}_correct"
+                src_key = f"{ab}_correct"
                 if src_key in entry:
                     model = ab_mapping.get(ab)
                     if model:
@@ -627,10 +638,10 @@ def _judge_json_schema_for(skill: str) -> Dict[str, Any]:
                 "hallucination_penalty",
                 "specificity",
             ]),
-            "model_a_unique_good": _string_array_schema(),
-            "model_b_unique_good": _string_array_schema(),
-            "model_a_hallucinations": _string_array_schema(),
-            "model_b_hallucinations": _string_array_schema(),
+            "A_unique_good": _string_array_schema(),
+            "B_unique_good": _string_array_schema(),
+            "A_hallucinations": _string_array_schema(),
+            "B_hallucinations": _string_array_schema(),
             "missed_by_both": _string_array_schema(),
             "rationale": rationale,
         })
@@ -674,8 +685,8 @@ def _judge_json_schema_for(skill: str) -> Dict[str, Any]:
                 "items": _json_obj({
                     "row_id": {"type": "string"},
                     "judge_correct_id": _nullable_string_schema(),
-                    "model_a_correct": {"type": "boolean"},
-                    "model_b_correct": {"type": "boolean"},
+                    "A_correct": {"type": "boolean"},
+                    "B_correct": {"type": "boolean"},
                 }),
             },
             "rationale": rationale,
@@ -716,10 +727,10 @@ def _judge_json_schema_for(skill: str) -> Dict[str, Any]:
                 "hallucination_penalty",
                 "specificity",
             ]),
-            "model_a_unique_good": _string_array_schema(),
-            "model_b_unique_good": _string_array_schema(),
-            "model_a_hallucinations": _string_array_schema(),
-            "model_b_hallucinations": _string_array_schema(),
+            "A_unique_good": _string_array_schema(),
+            "B_unique_good": _string_array_schema(),
+            "A_hallucinations": _string_array_schema(),
+            "B_hallucinations": _string_array_schema(),
             "missed_by_both": _string_array_schema(),
             "rationale": rationale,
         })
@@ -842,10 +853,10 @@ Score each on a 0–5 scale:
 - specificity       → concrete location, material, extent (beats "walls need work")
 
 You MUST also list:
-- model_a_unique_good  — items Model A caught that Model B missed AND are truly present
-- model_b_unique_good  — same for Model B
-- model_a_hallucinations — items Model A claimed that are NOT visible / NOT defensible
-- model_b_hallucinations — same for Model B
+- A_unique_good  — items Model A caught that Model B missed AND are truly present
+- B_unique_good  — same for Model B
+- A_hallucinations — items Model A claimed that are NOT visible / NOT defensible
+- B_hallucinations — same for Model B
 - missed_by_both       — issues clearly visible in the photo that neither chain surfaced
 
 Return a single JSON object — no prose, no markdown."""
@@ -855,7 +866,7 @@ def _verdict_schema_for(skill: str) -> str:
     """Describe the expected output JSON schema for each skill.
 
     Uses Model A / Model B naming — the judge is blinded to model identity.
-    Verdicts get canonicalized back to gemma/qwen immediately after parsing.
+    Verdicts get canonicalized back to model_a/model_b immediately after parsing.
     """
     if skill == "2a":
         return """\
@@ -866,10 +877,10 @@ def _verdict_schema_for(skill: str) -> str:
     "A": {"accuracy": 0-5, "completeness": 0-5, "hallucination_penalty": 0-5, "specificity": 0-5},
     "B": {"accuracy": 0-5, "completeness": 0-5, "hallucination_penalty": 0-5, "specificity": 0-5}
   },
-  "model_a_unique_good": ["..."],
-  "model_b_unique_good": ["..."],
-  "model_a_hallucinations": ["..."],
-  "model_b_hallucinations": ["..."],
+  "A_unique_good": ["..."],
+  "B_unique_good": ["..."],
+  "A_hallucinations": ["..."],
+  "B_hallucinations": ["..."],
   "missed_by_both": ["..."],
   "rationale": "..."
 }"""
@@ -908,8 +919,8 @@ def _verdict_schema_for(skill: str) -> str:
     {
       "observation": "...",
       "judge_correct_id": "..." | null,
-      "model_a_correct": true | false,
-      "model_b_correct": true | false
+      "A_correct": true | false,
+      "B_correct": true | false
     }
   ],
   "rationale": "..."
@@ -927,8 +938,8 @@ def _verdict_schema_for(skill: str) -> str:
     {
       "observation": "...",
       "judge_correct_id": "..." | null,
-      "model_a_correct": true | false,
-      "model_b_correct": true | false,
+      "A_correct": true | false,
+      "B_correct": true | false,
       "failure_attribution": "2c" | "2d" | "both" | "none"
     }
   ],
@@ -943,10 +954,10 @@ def _verdict_schema_for(skill: str) -> str:
     "A": {"accuracy": 0-5, "completeness": 0-5, "hallucination_penalty": 0-5, "specificity": 0-5},
     "B": {"accuracy": 0-5, "completeness": 0-5, "hallucination_penalty": 0-5, "specificity": 0-5}
   },
-  "model_a_unique_good": ["..."],
-  "model_b_unique_good": ["..."],
-  "model_a_hallucinations": ["..."],
-  "model_b_hallucinations": ["..."],
+  "A_unique_good": ["..."],
+  "B_unique_good": ["..."],
+  "A_hallucinations": ["..."],
+  "B_hallucinations": ["..."],
   "missed_by_both": ["..."],
   "rationale": "..."
 }"""
@@ -955,14 +966,14 @@ def _verdict_schema_for(skill: str) -> str:
 
 # ── Per-skill user prompt builders ───────────────────────────────────────────
 #
-# Each builder takes an `ab_mapping` dict like {"A": "gemma", "B": "qwen"} and
+# Each builder takes an `ab_mapping` dict like {"A": "model_a", "B": "model_b"} and
 # arranges the presentation so the judge sees Model A first, then Model B,
-# with no reference to gemma/qwen. The mapping is then used to canonicalize
-# the judge's A/B-keyed response back into gemma/qwen keys.
+# with no reference to model_a/model_b. The mapping is then used to canonicalize
+# the judge's A/B-keyed response back into model_a/model_b keys.
 
 
 def _cells_for(record: ImageRecord, model_key: str) -> ModelCells:
-    return record.gemma if model_key == "gemma" else record.qwen
+    return record.model_a if model_key == "model_a" else record.model_b
 
 
 def _build_user_prompt_2a(record: ImageRecord, ab_mapping: Dict[str, str]) -> str:
@@ -1107,8 +1118,8 @@ async def run_judge_for_skill(
     """Run a single per-skill judge call. Returns (verdict | None, parse_failure_count).
 
     The judge is blinded: it sees "Model A" / "Model B" with their order
-    determined by `ab_order` ('random' | 'gemma_first' | 'qwen_first').
-    Verdicts are canonicalized back to gemma/qwen keys before return.
+    determined by `ab_order` ('random' | 'model_a_first' | 'model_b_first').
+    Verdicts are canonicalized back to model_a/model_b keys before return.
 
     On a JSON parse failure, retries once with a correction prompt. The parse
     failure count (0, 1, or 2) is returned so callers can surface it.
@@ -1202,7 +1213,7 @@ async def run_judge_for_skill(
     if not isinstance(verdict, dict):
         return None, parse_failures
 
-    # Canonicalize A/B -> gemma/qwen so the rest of the pipeline is unchanged.
+    # Canonicalize A/B -> model_a/model_b so the rest of the pipeline is unchanged.
     verdict = _canonicalize_verdict(verdict, ab_mapping)
     return verdict, parse_failures
 
@@ -1309,18 +1320,18 @@ def _sum_scores(verdicts: List[Dict[str, Any]], model_key: str) -> Dict[str, flo
 def aggregate_per_skill(records: List[ImageRecord], skill: str) -> Dict[str, Any]:
     """Count wins/ties and average scores for one skill."""
     verdicts = [r.judge[skill] for r in records if r.judge.get(skill)]
-    gemma_wins = sum(1 for v in verdicts if v.get("winner") == "gemma")
-    qwen_wins = sum(1 for v in verdicts if v.get("winner") == "qwen")
+    model_a_wins = sum(1 for v in verdicts if v.get("winner") == "model_a")
+    model_b_wins = sum(1 for v in verdicts if v.get("winner") == "model_b")
     ties = sum(1 for v in verdicts if v.get("winner") == "tie")
 
     return {
         "judged_images": len(verdicts),
-        "gemma_wins": gemma_wins,
-        "qwen_wins": qwen_wins,
+        "model_a_wins": model_a_wins,
+        "model_b_wins": model_b_wins,
         "ties": ties,
         "avg_scores": {
-            "gemma": _sum_scores(verdicts, "gemma"),
-            "qwen": _sum_scores(verdicts, "qwen"),
+            "model_a": _sum_scores(verdicts, "model_a"),
+            "model_b": _sum_scores(verdicts, "model_b"),
         },
     }
 
@@ -1328,12 +1339,12 @@ def aggregate_per_skill(records: List[ImageRecord], skill: str) -> Dict[str, Any
 def _pick_winner(agg: Dict[str, Any]) -> str:
     if agg.get("judged_images", 0) == 0:
         return "tie"
-    g = agg.get("gemma_wins", 0)
-    q = agg.get("qwen_wins", 0)
+    g = agg.get("model_a_wins", 0)
+    q = agg.get("model_b_wins", 0)
     if g > q:
-        return "gemma"
+        return "model_a"
     if q > g:
-        return "qwen"
+        return "model_b"
     return "tie"
 
 
@@ -1341,10 +1352,9 @@ def build_recommendation(aggregate: Dict[str, Dict[str, Any]]) -> Dict[str, Any]
     """Derive suggested config from per-skill aggregates.
 
     Two recommendations are produced:
-    - suggested_config_per_pass: independent winner per pass. 2c and 2d are
-      allowed to split across models — if the isolated data says Gemma is best
-      at 2c and Qwen is best at 2d, that's what gets surfaced. The user can
-      decide whether to actually test that gemma-2c -> qwen-2d combination.
+    - suggested_config_per_pass: winner per pass, except 2c and 2d remain an
+      atomic pair when their isolated winners disagree; the measured coupled winner
+      is used instead of recommending an untested cross-model chain.
     - suggested_config_coupled_2cd: treats 2c+2d as an atomic unit (same model
       for both), based on the coupled judge. Simpler to deploy.
 
@@ -1362,19 +1372,24 @@ def build_recommendation(aggregate: Dict[str, Dict[str, Any]]) -> Dict[str, Any]
     winners = {best_2a, best_2b, best_2c, best_2d_iso, best_2cd_coupled} - {"tie"}
     winners_split = len(winners) > 1
 
-    # Per-pass: every pass chooses independently. Ties fall back to gemma
-    # (a harmless default; the user sees the tie in best_* fields anyway).
+    coupled_choice = best_2cd_coupled if best_2cd_coupled != "tie" else "model_a"
+    per_pass_2c = best_2c if best_2c != "tie" else "model_a"
+    per_pass_2d = best_2d_iso if best_2d_iso != "tie" else "model_a"
+    if per_pass_2c != per_pass_2d:
+        # 2d consumes 2c output, so an untested cross-model split is not a safe
+        # recommendation. Defer the pair to the directly measured coupled winner.
+        per_pass_2c = coupled_choice
+        per_pass_2d = coupled_choice
     suggested_per_pass = {
-        "2a": best_2a if best_2a != "tie" else "gemma",
-        "2b": best_2b if best_2b != "tie" else "gemma",
-        "2c": best_2c if best_2c != "tie" else "gemma",
-        "2d": best_2d_iso if best_2d_iso != "tie" else "gemma",
+        "2a": best_2a if best_2a != "tie" else "model_a",
+        "2b": best_2b if best_2b != "tie" else "model_a",
+        "2c": per_pass_2c,
+        "2d": per_pass_2d,
     }
 
-    coupled_choice = best_2cd_coupled if best_2cd_coupled != "tie" else "gemma"
     suggested_coupled = {
-        "2a": best_2a if best_2a != "tie" else "gemma",
-        "2b": best_2b if best_2b != "tie" else "gemma",
+        "2a": best_2a if best_2a != "tie" else "model_a",
+        "2b": best_2b if best_2b != "tie" else "model_a",
         "2c_and_2d": coupled_choice,
     }
 
@@ -1391,7 +1406,7 @@ def build_recommendation(aggregate: Dict[str, Dict[str, Any]]) -> Dict[str, Any]
 
     rationale_parts = [
         "The user picks between suggested_config_per_pass (maximally optimized, may use different "
-        "models for different passes, possibly including a gemma-2c -> qwen-2d split) and "
+        "models for different passes, possibly including a model_a-2c -> model_b-2d split) and "
         "suggested_config_coupled_2cd (treats 2c+2d as atomic, simpler to deploy) based on "
         "operational preference.",
     ]
@@ -1429,23 +1444,24 @@ def _record_to_dict(r: ImageRecord) -> Dict[str, Any]:
         "scene": r.scene,
         "scene_group": r.scene_group,
         "fixture": asdict(r.fixture),
-        "gemma": {
-            "pass_2a": r.gemma.pass_2a,
-            "pass_2b": r.gemma.pass_2b,
-            "pass_2c": r.gemma.pass_2c,
-            "pass_2d_isolated": [asdict(x) for x in r.gemma.pass_2d_isolated],
-            "pass_2c_2d_coupled": [asdict(x) for x in r.gemma.pass_2c_2d_coupled],
+        "model_a": {
+            "pass_2a": r.model_a.pass_2a,
+            "pass_2b": r.model_a.pass_2b,
+            "pass_2c": r.model_a.pass_2c,
+            "pass_2d_isolated": [asdict(x) for x in r.model_a.pass_2d_isolated],
+            "pass_2c_2d_coupled": [asdict(x) for x in r.model_a.pass_2c_2d_coupled],
         },
-        "qwen": {
-            "pass_2a": r.qwen.pass_2a,
-            "pass_2b": r.qwen.pass_2b,
-            "pass_2c": r.qwen.pass_2c,
-            "pass_2d_isolated": [asdict(x) for x in r.qwen.pass_2d_isolated],
-            "pass_2c_2d_coupled": [asdict(x) for x in r.qwen.pass_2c_2d_coupled],
+        "model_b": {
+            "pass_2a": r.model_b.pass_2a,
+            "pass_2b": r.model_b.pass_2b,
+            "pass_2c": r.model_b.pass_2c,
+            "pass_2d_isolated": [asdict(x) for x in r.model_b.pass_2d_isolated],
+            "pass_2c_2d_coupled": [asdict(x) for x in r.model_b.pass_2c_2d_coupled],
         },
         "judge": r.judge,
         "judge_parse_failures": r.judge_parse_failures,
         "error": r.error,
+        "phase_errors": r.phase_errors,
     }
 
 
@@ -1484,7 +1500,7 @@ def _record_from_dict(d: Dict[str, Any]) -> ImageRecord:
         pass_2b=fx.get("pass_2b") or [],
         pass_2c=fx.get("pass_2c") or [],
     )
-    for key in ("gemma", "qwen"):
+    for key in ("model_a", "model_b"):
         src = d.get(key) or {}
         target = ModelCells(
             pass_2a=src.get("pass_2a"),
@@ -1497,37 +1513,67 @@ def _record_from_dict(d: Dict[str, Any]) -> ImageRecord:
     r.judge = d.get("judge") or {k: None for k in SKILLS}
     r.judge_parse_failures = d.get("judge_parse_failures") or {}
     r.error = d.get("error")
+    r.phase_errors = d.get("phase_errors") or {}
     return r
 
 
-def load_checkpoint(output_path: Path) -> Dict[str, ImageRecord]:
+def load_checkpoint(
+    output_path: Path,
+    expected_config_fingerprint: Optional[str] = None,
+    checkpoint_meta: Optional[Dict[str, Any]] = None,
+) -> Dict[str, ImageRecord]:
     ckpt = output_path.with_suffix(".checkpoint.json")
     if not ckpt.exists():
         return {}
     try:
         with open(ckpt, "r", encoding="utf-8") as f:
-            data = json.load(f)
-    except Exception as e:
-        logger.warning(f"Failed to load checkpoint {ckpt}: {e}")
-        return {}
+            payload = json.load(f)
+    except Exception as exc:
+        raise ValueError(f"Failed to load checkpoint {ckpt}: {exc}") from exc
+
+    if not isinstance(payload, dict) or payload.get("schema_version") != COMPARISON_SCHEMA_VERSION:
+        raise ValueError(
+            f"Checkpoint {ckpt} uses the legacy Gemma/Qwen schema and cannot be resumed. "
+            "Start a new provider-neutral run without --resume."
+        )
+    actual_fingerprint = str(payload.get("config_fingerprint") or "")
+    if expected_config_fingerprint and actual_fingerprint != expected_config_fingerprint:
+        raise ValueError(
+            f"Checkpoint {ckpt} configuration does not match this run; "
+            "use the original profile/settings or start a new output."
+        )
+
+    if checkpoint_meta is not None:
+        checkpoint_meta["phase_stats"] = payload.get("phase_stats") or {}
 
     out: Dict[str, ImageRecord] = {}
-    for key, entry in (data or {}).items():
+    for key, entry in (payload.get("records") or {}).items():
         if isinstance(entry, dict):
             out[key] = _record_from_dict(entry)
     logger.info(f"Loaded checkpoint with {len(out)} image records")
     return out
 
 
-def save_checkpoint(output_path: Path, records: Dict[str, ImageRecord]) -> None:
+def save_checkpoint(
+    output_path: Path,
+    records: Dict[str, ImageRecord],
+    config_fingerprint: str = "",
+    phase_stats: Optional[Dict[str, Dict[str, Any]]] = None,
+) -> None:
     ckpt = output_path.with_suffix(".checkpoint.json")
-    payload = {key: _record_to_dict(r) for key, r in records.items()}
-    with open(ckpt, "w", encoding="utf-8") as f:
+    payload = {
+        "schema_version": COMPARISON_SCHEMA_VERSION,
+        "config_fingerprint": config_fingerprint,
+        "phase_stats": phase_stats or {},
+        "records": {key: _record_to_dict(record) for key, record in records.items()},
+    }
+    tmp = ckpt.with_suffix(".checkpoint.json.tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
         json.dump(payload, f, indent=2, default=str)
+    os.replace(tmp, ckpt)
 
 
-# ---------------------------------------------------------------------------
-# Persistent Phase 0 fixture cache
+# ---------------------------------------------------------------------------# Persistent Phase 0 fixture cache
 # ---------------------------------------------------------------------------
 
 def _safe_cache_component(value: str) -> str:
@@ -1759,11 +1805,11 @@ def _phase_complete(record: ImageRecord, phase: str, skip_skills: Optional[set] 
         # Fixture is "done" even if empty (valid case: empty 2a → empty 2b/2c)
         return record.fixture.pass_2a is not None
 
-    if phase in ("gemma", "qwen"):
+    if phase in ("model_a", "model_b"):
         # If this phase errored mid-run, it's incomplete regardless of cell content.
         if record.error and record.error.startswith(f"{phase}:"):
             return False
-        cells = record.gemma if phase == "gemma" else record.qwen
+        cells = record.model_a if phase == "model_a" else record.model_b
         # 2a is the only cell that distinguishes None (never ran) from "" (ran, empty).
         # If 2a wasn't skipped and is None, the phase clearly didn't complete.
         if "2a" not in skip_skills and cells.pass_2a is None:
@@ -1850,6 +1896,9 @@ async def _run_phase_0(
             try:
                 fixture = await build_fixture_for_image(img, vlm_client, judge_config)
                 rec.fixture = fixture
+                rec.phase_errors.pop("fixture", None)
+                if rec.error and rec.error.startswith("fixture:"):
+                    rec.error = None
                 if save_fixture_cache_entry is not None:
                     try:
                         await save_fixture_cache_entry(img, fixture)
@@ -1862,6 +1911,7 @@ async def _run_phase_0(
                     raise _AbortPhase(str(e))
                 logger.error(f"Fixture error for {key}: {e}")
                 rec.error = f"fixture: {e}"
+                rec.phase_errors["fixture"] = str(e)
         await save_ckpt()
 
     batch_size = confirm_every if confirm_every > 0 else n
@@ -1880,9 +1930,9 @@ async def _run_phase_0(
         raise SystemExit(2)
 
 
-async def _run_phase_local(
-    phase_name: str,               # "gemma" or "qwen" (used for log lines)
-    model_cells_attr: str,         # "gemma" or "qwen" (ImageRecord attribute name)
+async def _run_phase_analysis(
+    phase_name: str,               # "model_a" or "model_b" (used for log lines)
+    model_cells_attr: str,         # "model_a" or "model_b" (ImageRecord attribute name)
     model_config: Dict[str, Any],
     images: List[Dict[str, Any]],
     records: Dict[str, ImageRecord],
@@ -1892,7 +1942,7 @@ async def _run_phase_local(
     save_ckpt,
     concurrency: int,
 ) -> None:
-    """Phases A/B worker pool. Each image runs all 5 local-model skill cells."""
+    """Phases A/B worker pool. Each image runs all 5 analysis-model skill cells."""
     sem = asyncio.Semaphore(max(1, concurrency))
     n = len(images)
 
@@ -1905,13 +1955,17 @@ async def _run_phase_local(
                 return
             logger.info(f"  [{i}/{n}] {phase_name}  {key}")
             try:
-                cells = await run_local_model_cells(
+                cells = await run_analysis_model_cells(
                     img, rec.fixture, vlm_client, model_config, retriever, skip_skills,
                 )
                 setattr(rec, model_cells_attr, cells)
+                rec.phase_errors.pop(phase_name, None)
+                if rec.error and rec.error.startswith(f"{phase_name}:"):
+                    rec.error = None
             except Exception as e:
                 logger.error(f"{phase_name} phase error for {key}: {e}")
                 rec.error = f"{phase_name}: {e}"
+                rec.phase_errors[phase_name] = str(e)
         await save_ckpt()
 
     tasks = [_worker(i, img) for i, img in enumerate(images, 1)]
@@ -1938,7 +1992,7 @@ async def _run_phase_judge(
 
     If `confirm_every > 0`, pauses for user confirmation after each batch.
 
-    `ab_order` ('random' | 'gemma_first' | 'qwen_first') controls how the judge
+    `ab_order` ('random' | 'model_a_first' | 'model_b_first') controls how the judge
     sees Model A vs Model B. Use forced orders for bias-check workflows.
     """
     sem = asyncio.Semaphore(max(1, concurrency))
@@ -1980,11 +2034,11 @@ async def _run_phase_judge(
 
                 # Backfill judge ground-truth into 2d rows
                 if skill == "2d_isolated":
-                    backfill_2d_judge_into_rows(rec.gemma.pass_2d_isolated, verdict, model_key="gemma")
-                    backfill_2d_judge_into_rows(rec.qwen.pass_2d_isolated, verdict, model_key="qwen")
+                    backfill_2d_judge_into_rows(rec.model_a.pass_2d_isolated, verdict, model_key="model_a")
+                    backfill_2d_judge_into_rows(rec.model_b.pass_2d_isolated, verdict, model_key="model_b")
                 elif skill == "2c+2d_coupled":
-                    backfill_2d_judge_into_rows(rec.gemma.pass_2c_2d_coupled, verdict, model_key="gemma")
-                    backfill_2d_judge_into_rows(rec.qwen.pass_2c_2d_coupled, verdict, model_key="qwen")
+                    backfill_2d_judge_into_rows(rec.model_a.pass_2c_2d_coupled, verdict, model_key="model_a")
+                    backfill_2d_judge_into_rows(rec.model_b.pass_2c_2d_coupled, verdict, model_key="model_b")
 
                 if judge_delay > 0:
                     await asyncio.sleep(judge_delay)
@@ -2006,42 +2060,54 @@ async def _run_phase_judge(
         raise SystemExit(2)
 
 
+def _usage_snapshot(vlm_client: VLMClient) -> Dict[str, int]:
+    return {key: int(value or 0) for key, value in vlm_client.usage_stats.items()}
+
+
+def _finish_phase_stats(
+    vlm_client: VLMClient,
+    before: Dict[str, int],
+    started_at: float,
+) -> Dict[str, Any]:
+    after = _usage_snapshot(vlm_client)
+    return {
+        "wall_time_seconds": round(time.time() - started_at, 3),
+        "usage": {key: after.get(key, 0) - before.get(key, 0) for key in after},
+    }
+
+def _merge_phase_stats(
+    phase_stats: Dict[str, Dict[str, Any]],
+    role: str,
+    current: Dict[str, Any],
+) -> None:
+    if int((current.get("usage") or {}).get("calls", 0)) > 0 or role not in phase_stats:
+        phase_stats[role] = current
+
 async def async_main(args: argparse.Namespace) -> None:
     start_time = time.time()
+    phase_stats: Dict[str, Dict[str, Any]] = {}
 
     # ── Resolve model configs ────────────────────────────────────────────
-    qwen_cfg, gpt_cfg = get_model_configs_from_pipeline_config(cfg)
+    comparison: ComparisonConfig = args.comparison_config
+    model_a_spec = comparison.model_a
+    model_b_spec = comparison.model_b
+    fixture_spec = comparison.fixture
+    judge_spec = comparison.judge
+    model_a_config = model_a_spec.to_vlm_config()
+    model_b_config = model_b_spec.to_vlm_config()
+    fixture_config = fixture_spec.to_vlm_config()
+    judge_config = judge_spec.to_vlm_config()
+    judge_config["disable_structured_outputs"] = bool(args.disable_judge_structured_outputs)
+    judge_structured_outputs = (
+        judge_spec.provider == "openai"
+        and not judge_config["disable_structured_outputs"]
+    )
+    config_fingerprint = comparison.fingerprint()
 
-    gemma_config = {
-        "model": args.gemma_model,
-        "url": args.lm_studio_url,
-        "provider": "lmstudio",
-    }
-    qwen_config = {
-        "model": args.qwen_model,
-        "url": args.lm_studio_url,
-        "provider": "lmstudio",
-    }
-
-    judge_model = args.judge_model or gpt_cfg.get("model", "gpt-5.4")
-    judge_config = {
-        "model": judge_model,
-        "api_key": gpt_cfg.get("api_key", os.environ.get("OPENAI_API_KEY", "")),
-        "provider": "openai",
-        "reasoning_effort": args.judge_reasoning_effort,
-        "verbosity": args.judge_verbosity,
-        "disable_structured_outputs": bool(args.disable_judge_structured_outputs),
-    }
-    fixture_config = {
-        k: v for k, v in judge_config.items()
-        if k not in {"reasoning_effort", "verbosity", "disable_structured_outputs"}
-    }
-
-    logger.info(f"Gemma model:  {gemma_config['model']}")
-    logger.info(f"Qwen model:   {qwen_config['model']}")
-    logger.info(f"Judge model:  {judge_config['model']}")
-    logger.info(f"LM Studio URL: {gemma_config['url']}")
-
+    logger.info("Model A: %s (%s/%s)", model_a_spec.label, model_a_spec.provider, model_a_spec.model)
+    logger.info("Model B: %s (%s/%s)", model_b_spec.label, model_b_spec.provider, model_b_spec.model)
+    logger.info("Fixture: %s/%s", fixture_spec.provider, fixture_spec.model)
+    logger.info("Judge: %s/%s", judge_spec.provider, judge_spec.model)
     # ── Discover images ──────────────────────────────────────────────────
     images = discover_images(
         artifacts_dir=Path(args.artifacts_dir),
@@ -2054,7 +2120,7 @@ async def async_main(args: argparse.Namespace) -> None:
         return
 
     # ── Setup clients + retriever ────────────────────────────────────────
-    vlm_client = create_vlm_client(timeout=args.local_timeout)
+    vlm_client = create_vlm_client(timeout=max(spec.timeout_seconds for spec in comparison.roles().values()))
 
     logger.info(f"Loading catalog from {cfg.ISSUE_CATALOG_PATH}")
     with open(cfg.ISSUE_CATALOG_PATH, "r", encoding="utf-8") as f:
@@ -2074,7 +2140,12 @@ async def async_main(args: argparse.Namespace) -> None:
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    existing = load_checkpoint(output_path) if args.resume else {}
+    checkpoint_meta: Dict[str, Any] = {}
+    existing = (
+        load_checkpoint(output_path, config_fingerprint, checkpoint_meta)
+        if args.resume else {}
+    )
+    phase_stats.update(checkpoint_meta.get("phase_stats") or {})
     records: Dict[str, ImageRecord] = {}
     for img in images:
         key = f"{img['property_id']}/{img['photo_key']}"
@@ -2121,7 +2192,7 @@ async def async_main(args: argparse.Namespace) -> None:
 
     # --force-rejudge: wipe saved verdicts from checkpoint so Phase D re-runs.
     # This is the core of the bias-check workflow: rerun only Phase D with a
-    # different --ab-order (e.g. --ab-order qwen_first) against the same cells.
+    # different --ab-order (e.g. --ab-order model_b_first) against the same cells.
     if args.force_rejudge:
         cleared = 0
         for rec in records.values():
@@ -2133,8 +2204,8 @@ async def async_main(args: argparse.Namespace) -> None:
             rec.judge_parse_failures = {}
             # Also clear any judge-backfilled fields on 2d rows so they reflect
             # the new run, not the prior one.
-            for row in rec.gemma.pass_2d_isolated + rec.qwen.pass_2d_isolated \
-                    + rec.gemma.pass_2c_2d_coupled + rec.qwen.pass_2c_2d_coupled:
+            for row in rec.model_a.pass_2d_isolated + rec.model_b.pass_2d_isolated \
+                    + rec.model_a.pass_2c_2d_coupled + rec.model_b.pass_2c_2d_coupled:
                 row.judge_correct_id = None
                 row.judge_correct_rank = None
                 row.judge_correct_in_candidates = None
@@ -2149,7 +2220,7 @@ async def async_main(args: argparse.Namespace) -> None:
 
     async def _save_ckpt() -> None:
         async with ckpt_lock:
-            save_checkpoint(output_path, records)
+            save_checkpoint(output_path, records, config_fingerprint, phase_stats)
 
     async def _save_fixture_cache_entry(image_info: Dict[str, Any], fixture: FixtureCells) -> None:
         if not fixture_cache_enabled:
@@ -2166,6 +2237,9 @@ async def async_main(args: argparse.Namespace) -> None:
 
     if fixture_cache_hits > 0:
         await _save_ckpt()
+
+    _phase_started = time.time()
+    _phase_usage_before = _usage_snapshot(vlm_client)
 
     # ── Phase 0: fixture generation (concurrency=args.concurrency) ─────────
     print("\n" + "=" * 60)
@@ -2189,60 +2263,80 @@ async def async_main(args: argparse.Namespace) -> None:
         confirm_every=args.confirm_every,
         save_fixture_cache_entry=_save_fixture_cache_entry if fixture_cache_enabled else None,
     )
+    _merge_phase_stats(
+        phase_stats, "fixture",
+        _finish_phase_stats(vlm_client, _phase_usage_before, _phase_started),
+    )
 
-    # ── Phase A: Gemma (concurrency=args.local_concurrency) ──────────────
-    _phase_needed = any(not _phase_complete(records[k], "gemma", skip_skills) for k in records)
-    if _phase_needed and not args.skip_gemma:
-        _prompt_swap_model(gemma_config["model"])
+    # ── Phase A: Model A (concurrency=args.concurrency) ──────────────
+    _phase_needed = any(not _phase_complete(records[k], "model_a", skip_skills) for k in records)
+    if _phase_needed and not args.skip_model_a:
+        _phase_started = time.time()
+        _phase_usage_before = _usage_snapshot(vlm_client)
+        if model_a_spec.provider == "lmstudio" and model_a_spec.manual_load:
+            _prompt_swap_model(model_a_spec.model)
         print("\n" + "=" * 60)
-        print(f"Phase A: Gemma ({gemma_config['model']}) "
-              f"(local-concurrency={args.local_concurrency})")
+        print(f"Phase A: Model A ({model_a_config['model']}) "
+              f"(concurrency={args.concurrency})")
         print("=" * 60)
-        await _run_phase_local(
-            phase_name="gemma",
-            model_cells_attr="gemma",
-            model_config=gemma_config,
+        await _run_phase_analysis(
+            phase_name="model_a",
+            model_cells_attr="model_a",
+            model_config=model_a_config,
             images=images,
             records=records,
             vlm_client=vlm_client,
             retriever=retriever,
             skip_skills=skip_skills,
             save_ckpt=_save_ckpt,
-            concurrency=args.local_concurrency,
+            concurrency=args.concurrency,
+        )
+        _merge_phase_stats(
+            phase_stats, "model_a",
+            _finish_phase_stats(vlm_client, _phase_usage_before, _phase_started),
         )
 
-    # ── Phase B: Qwen (concurrency=args.local_concurrency) ───────────────
-    _phase_needed = any(not _phase_complete(records[k], "qwen", skip_skills) for k in records)
-    if _phase_needed and not args.skip_qwen:
-        _prompt_swap_model(qwen_config["model"])
+    # ── Phase B: Model B (concurrency=args.concurrency) ───────────────
+    _phase_needed = any(not _phase_complete(records[k], "model_b", skip_skills) for k in records)
+    if _phase_needed and not args.skip_model_b:
+        _phase_started = time.time()
+        _phase_usage_before = _usage_snapshot(vlm_client)
+        if model_b_spec.provider == "lmstudio" and model_b_spec.manual_load:
+            _prompt_swap_model(model_b_spec.model)
         print("\n" + "=" * 60)
-        print(f"Phase B: Qwen ({qwen_config['model']}) "
-              f"(local-concurrency={args.local_concurrency})")
+        print(f"Phase B: Model B ({model_b_config['model']}) "
+              f"(concurrency={args.concurrency})")
         print("=" * 60)
-        await _run_phase_local(
-            phase_name="qwen",
-            model_cells_attr="qwen",
-            model_config=qwen_config,
+        await _run_phase_analysis(
+            phase_name="model_b",
+            model_cells_attr="model_b",
+            model_config=model_b_config,
             images=images,
             records=records,
             vlm_client=vlm_client,
             retriever=retriever,
             skip_skills=skip_skills,
             save_ckpt=_save_ckpt,
-            concurrency=args.local_concurrency,
+            concurrency=args.concurrency,
+        )
+        _merge_phase_stats(
+            phase_stats, "model_b",
+            _finish_phase_stats(vlm_client, _phase_usage_before, _phase_started),
         )
 
     # ── Phase D: Judge (concurrency=args.concurrency) ────────────────────
     if not args.skip_judge:
+        _phase_started = time.time()
+        _phase_usage_before = _usage_snapshot(vlm_client)
         print("\n" + "=" * 60)
         print(f"Phase D: Judge ({judge_config['model']}) "
               f"(concurrency={args.concurrency})")
         print(f"  Judge is BLINDED: models shown as 'Model A' / 'Model B' "
               f"(ab_order={args.ab_order})")
-        if judge_config.get("disable_structured_outputs"):
-            print("  GPT judge structured outputs: DISABLED")
+        if not judge_structured_outputs:
+            print("  Judge structured outputs: DISABLED")
         else:
-            print(f"  GPT judge structured outputs: ENABLED "
+            print(f"  Judge structured outputs: ENABLED "
                   f"(reasoning_effort={judge_config.get('reasoning_effort')})")
         if args.comprehensive_judge:
             print("  Comprehensive end-to-end judge: ENABLED (+1 judge call per image)")
@@ -2261,6 +2355,12 @@ async def async_main(args: argparse.Namespace) -> None:
             confirm_every=args.confirm_every,
             ab_order=args.ab_order,
         )
+        _merge_phase_stats(
+            phase_stats, "judge",
+            _finish_phase_stats(vlm_client, _phase_usage_before, _phase_started),
+        )
+
+    await _save_ckpt()
 
     # ── Aggregate + write final report ───────────────────────────────────
     records_list = list(records.values())
@@ -2294,17 +2394,23 @@ async def async_main(args: argparse.Namespace) -> None:
             missing_verdicts_by_skill[skill] = missing
 
     report = {
+        "schema_version": COMPARISON_SCHEMA_VERSION,
+        "config": comparison.redacted_dict(),
+        "config_fingerprint": config_fingerprint,
+        "phase_stats": phase_stats,
         "meta": {
             "timestamp": datetime.now().isoformat(),
             "property_id": args.property,
             "n_images": len(records_list),
-            "gemma_model": gemma_config["model"],
-            "qwen_model": qwen_config["model"],
-            "judge_model": judge_config["model"],
-            "judge_structured_outputs": not bool(judge_config.get("disable_structured_outputs")),
+            "profile": comparison.name,
+            "model_a": model_a_spec.redacted_dict(),
+            "model_b": model_b_spec.redacted_dict(),
+            "fixture": fixture_spec.redacted_dict(),
+            "judge": judge_spec.redacted_dict(),
+            "judge_structured_outputs": judge_structured_outputs,
             "judge_schema_version": JUDGE_SCHEMA_VERSION,
             "judge_reasoning_effort": judge_config.get("reasoning_effort"),
-            "fixture_source": judge_config["model"],
+            "fixture_source": fixture_config["model"],
             "skills_tested": [s for s in SKILLS if s not in skip_skills],
             "comprehensive_judge": args.comprehensive_judge,
             "ab_order": args.ab_order,
@@ -2336,10 +2442,10 @@ async def async_main(args: argparse.Namespace) -> None:
         if skill in skip_skills:
             continue
         agg = aggregate[skill]
-        print(f"  {skill:20s} gemma={agg['gemma_wins']} qwen={agg['qwen_wins']} ties={agg['ties']} (judged {agg['judged_images']})")
+        print(f"  {skill:20s} model_a={agg['model_a_wins']} model_b={agg['model_b_wins']} ties={agg['ties']} (judged {agg['judged_images']})")
     if comprehensive_agg is not None:
-        print(f"  {'comprehensive':20s} gemma={comprehensive_agg['gemma_wins']} "
-              f"qwen={comprehensive_agg['qwen_wins']} ties={comprehensive_agg['ties']} "
+        print(f"  {'comprehensive':20s} model_a={comprehensive_agg['model_a_wins']} "
+              f"model_b={comprehensive_agg['model_b_wins']} ties={comprehensive_agg['ties']} "
               f"(judged {comprehensive_agg['judged_images']})")
     print("")
     print(f"Best 2a:             {recommendation['best_2a']}")
@@ -2366,193 +2472,107 @@ async def async_main(args: argparse.Namespace) -> None:
 # CLI
 # ---------------------------------------------------------------------------
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Model comparison — head-to-head Gemma 4 vs Qwen 3.6 across pipeline passes.",
+        description="Provider-neutral, blinded two-model comparison across pipeline passes.",
     )
+    parser.add_argument("--profile", help="Profile name from configs/model_comparison or a JSON path.")
+    parser.add_argument("--list-profiles", action="store_true", help="List available profiles and exit.")
     parser.add_argument(
-        "--property",
-        default=None,
-        help="Filter to a single property ID (e.g. redfin_126224899).",
+        "--validate-config",
+        action="store_true",
+        help="Resolve, validate, and print the redacted configuration without provider calls.",
     )
-    parser.add_argument(
-        "--artifacts-dir",
-        default=str(DEFAULT_ARTIFACTS_DIR),
-        help="Path to artifacts directory (default: %(default)s).",
-    )
-    parser.add_argument(
-        "--images-base",
-        default=str(DEFAULT_IMAGES_BASE),
-        help="Base path for property images (default: %(default)s).",
-    )
-    parser.add_argument(
-        "--output", "-o",
-        default=None,
-        help="Output JSON path (default: model_comparison_<property>_<timestamp>.json).",
-    )
-    parser.add_argument(
-        "--max-images",
-        type=int,
-        default=None,
-        help="Cap on images processed.",
-    )
-    parser.add_argument(
-        "--gemma-model",
-        default=os.environ.get("GEMMA_MODEL", "qwen/qwen3.6-27b"),
-        help="Gemma model id in LM Studio (env: GEMMA_MODEL).",
-    )
-    parser.add_argument(
-        "--qwen-model",
-        default=os.environ.get("QWEN_MODEL", "qwen/qwen3.6-27b"),
-        help="Qwen model id in LM Studio (env: QWEN_MODEL).",
-    )
-    parser.add_argument(
-        "--lm-studio-url",
-        default=cfg.LM_STUDIO_URL,
-        help=f"LM Studio URL (default: %(default)s).",
-    )
-    parser.add_argument(
-        "--judge-model",
-        default=None,
-        help="Judge model (default: cfg.GPT_MODEL).",
-    )
+    parser.add_argument("--property", default=None, help="Property ID, e.g. redfin_126224899.")
+    parser.add_argument("--artifacts-dir", default=str(DEFAULT_ARTIFACTS_DIR))
+    parser.add_argument("--images-base", default=str(DEFAULT_IMAGES_BASE))
+    parser.add_argument("--output", "-o", default=None)
+    parser.add_argument("--max-images", type=int, default=None)
+
+    parser.add_argument("--model-a", default=None, help="Override profile Model A id.")
+    parser.add_argument("--provider-a", choices=("openai", "lmstudio"), default=None)
+    parser.add_argument("--model-b", default=None, help="Override profile Model B id.")
+    parser.add_argument("--provider-b", choices=("openai", "lmstudio"), default=None)
+    parser.add_argument("--fixture-model", default=None)
+    parser.add_argument("--judge-model", default=None)
     parser.add_argument(
         "--judge-reasoning-effort",
         choices=("none", "low", "medium", "high", "xhigh"),
-        default=JUDGE_DEFAULT_REASONING_EFFORT,
-        help="Reasoning effort for OpenAI judge calls. Default: %(default)s",
+        default=None,
     )
-    parser.add_argument(
-        "--judge-verbosity",
-        choices=("low", "medium", "high"),
-        default=JUDGE_DEFAULT_VERBOSITY,
-        help="Text verbosity for OpenAI judge calls. Default: %(default)s",
-    )
-    parser.add_argument(
-        "--disable-judge-structured-outputs",
-        action="store_true",
-        help="Use legacy prompt-and-parse judge calls instead of OpenAI strict JSON Schema.",
-    )
-    parser.add_argument(
-        "--judge-delay",
-        type=float,
-        default=2.0,
-        help="Seconds between judge calls (rate limiting). Default: 2.0",
-    )
-    parser.add_argument(
-        "--skip-skills",
-        nargs="*",
-        default=[],
-        choices=list(SKILLS),
-        help="Skills to skip entirely (cells + judge).",
-    )
-    parser.add_argument("--skip-gemma", action="store_true", help="Skip Phase A (Gemma).")
-    parser.add_argument("--skip-qwen", action="store_true", help="Skip Phase B (Qwen).")
-    parser.add_argument("--skip-judge", action="store_true", help="Skip Phase D (Judge).")
-    parser.add_argument(
-        "--comprehensive-judge",
-        action="store_true",
-        help="Add an end-to-end 6th judge call per image that sees the IMAGE plus both "
-             "models' final forward-sets (after full 2a->2b->2c chains). Captures "
-             "'who missed what that is visible in the photo' more directly than per-pass judges.",
-    )
-    parser.add_argument(
-        "--confirm-every",
-        type=int,
-        default=0,
-        metavar="N",
-        help="Safeguard against runaway API spend: after every N images are processed in "
-             "an API phase (Phase 0 and Phase D), pause and require Enter to continue. "
-             "Ctrl-C cleanly stops (checkpoint preserved; --resume picks up). "
-             "Default 0 = no pause. Typical value: 20.",
-    )
-    parser.add_argument(
-        "--fixture-cache-dir",
-        default=str(DEFAULT_FIXTURE_CACHE_DIR),
-        help="Persistent Phase 0 fixture cache directory (default: %(default)s).",
-    )
-    parser.add_argument(
-        "--disable-fixture-cache",
-        action="store_true",
-        help="Disable the persistent Phase 0 fixture cache for this run.",
-    )
-    parser.add_argument(
-        "--refresh-fixture-cache",
-        action="store_true",
-        help="Ignore existing persistent fixture cache hits and write fresh Phase 0 fixtures.",
-    )
-    parser.add_argument("--resume", action="store_true", help="Resume from checkpoint if present.")
+    parser.add_argument("--judge-verbosity", choices=("low", "medium", "high"), default=None)
+    parser.add_argument("--disable-judge-structured-outputs", action="store_true")
+    parser.add_argument("--judge-delay", type=float, default=None)
+
+    parser.add_argument("--skills", nargs="+", choices=list(SKILLS), default=None)
+    parser.add_argument("--skip-skills", nargs="*", choices=list(SKILLS), default=[])
+    parser.add_argument("--skip-model-a", action="store_true")
+    parser.add_argument("--skip-model-b", action="store_true")
+    parser.add_argument("--skip-judge", action="store_true")
+    parser.add_argument("--comprehensive-judge", action="store_true")
+    parser.add_argument("--confirm-every", type=int, default=None, metavar="N")
+    parser.add_argument("--concurrency", type=int, default=None)
+
+    parser.add_argument("--fixture-cache-dir", default=str(DEFAULT_FIXTURE_CACHE_DIR))
+    parser.add_argument("--disable-fixture-cache", action="store_true")
+    parser.add_argument("--refresh-fixture-cache", action="store_true")
+    parser.add_argument("--resume", action="store_true")
     parser.add_argument(
         "--ab-order",
-        choices=("random", "gemma_first", "qwen_first"),
+        choices=("random", "model_a_first", "model_b_first"),
         default="random",
-        help="How the judge sees Model A vs Model B (always blinded — 'gemma'/'qwen' never "
-             "appear in judge prompts). 'random' assigns a deterministic random order per "
-             "(photo, skill) so reruns are reproducible. Use 'gemma_first' or 'qwen_first' "
-             "for bias-check runs: run once with one forced order, then --resume "
-             "--force-rejudge --ab-order <opposite> to re-judge the same cells with reversed "
-             "positions. Large disagreement between the two = position bias is real.",
+        help="Blinded A/B position policy; random is deterministic per photo and skill.",
     )
-    parser.add_argument(
-        "--force-rejudge",
-        action="store_true",
-        help="On --resume, wipe existing judge verdicts so Phase D re-runs from scratch "
-             "(cells/fixtures are preserved). Intended for the bias-check workflow: pair "
-             "with a new --ab-order to re-judge the same cells with swapped positions.",
-    )
-    parser.add_argument(
-        "--concurrency",
-        type=int,
-        default=3,
-        help="Max concurrent images for API phases (0 and D). Default: 4. "
-             "Mirrors catalog_auditor's default.",
-    )
-    parser.add_argument(
-        "--local-concurrency",
-        type=int,
-        default=3,
-        help="Max concurrent images for local LM Studio phases (A and B). Default: 4. "
-             "Lower to 1 if LM Studio KV-cache-corrupts under load on your setup.",
-    )
-    parser.add_argument(
-        "--local-timeout",
-        type=int,
-        default=360,
-        help="HTTP read timeout in seconds for LM Studio calls (default: 360). "
-             "Increase further if reasoning models exceed this on long traces.",
-    )
+    parser.add_argument("--force-rejudge", action="store_true")
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
+    if args.list_profiles:
+        return args
+    if not args.profile:
+        parser.error("--profile is required unless --list-profiles is used")
+
+    try:
+        comparison = load_comparison_profile(
+            args.profile,
+            _PROJECT_ROOT,
+            model_overrides={
+                "model_a": args.model_a,
+                "model_b": args.model_b,
+                "fixture": args.fixture_model,
+                "judge": args.judge_model,
+            },
+        )
+        comparison = with_cli_overrides(comparison, args)
+        warnings = comparison.validate(require_credentials=True)
+    except ValueError as exc:
+        parser.error(str(exc))
+
+    args.comparison_config = comparison
+    args.config_warnings = warnings
+    args.concurrency = comparison.run.concurrency
+    args.judge_delay = comparison.run.judge_delay
+    args.confirm_every = comparison.run.confirm_every
+    active_skills = set(comparison.run.skills)
+    args.skip_skills = sorted((set(SKILLS) - active_skills) | set(args.skip_skills))
 
     if not args.output:
-        stem = args.property or "all"
-        # On --resume without an explicit --output, reuse the most recent
-        # checkpoint matching this property stem. Otherwise every resumed run
-        # gets a fresh timestamp and load_checkpoint finds nothing.
+        property_stem = args.property or "all"
+        profile_stem = "".join(c if c.isalnum() or c in "-_" else "_" for c in comparison.name)
+        prefix = f"model_comparison_{property_stem}_{profile_stem}_"
         if args.resume:
-            prefix = f"model_comparison_{stem}_"
-            cwd = Path(".")
             candidates = sorted(
-                cwd.glob(f"{prefix}*.checkpoint.json"),
-                key=lambda p: p.stat().st_mtime,
+                Path(".").glob(f"{prefix}*.checkpoint.json"),
+                key=lambda path: path.stat().st_mtime,
                 reverse=True,
             )
             if candidates:
                 args.output = str(candidates[0]).replace(".checkpoint.json", ".json")
-                logger.info(f"--resume: reusing checkpoint {candidates[0]}")
             else:
-                logger.warning(
-                    f"--resume set but no checkpoint found matching {prefix}*.checkpoint.json "
-                    f"in cwd; starting fresh with a new timestamped output."
-                )
-                ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-                args.output = f"model_comparison_{stem}_{ts}.json"
+                parser.error(f"--resume found no checkpoint matching {prefix}*.checkpoint.json")
         else:
-            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
-            args.output = f"model_comparison_{stem}_{ts}.json"
-
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            args.output = f"{prefix}{timestamp}.json"
     return args
-
 
 def main() -> None:
     logging.basicConfig(
@@ -2560,6 +2580,24 @@ def main() -> None:
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",
     )
     args = parse_args()
+    if args.list_profiles:
+        profiles = list_profiles(_PROJECT_ROOT)
+        if not profiles:
+            print("No model-comparison profiles found.")
+        for profile in profiles:
+            print(f"{profile.stem}\t{profile}")
+        return
+    for warning in args.config_warnings:
+        logger.warning("CONFIG WARNING: %s", warning)
+    if args.validate_config:
+        print(json.dumps({
+            "valid": True,
+            "config": args.comparison_config.redacted_dict(),
+            "config_fingerprint": args.comparison_config.fingerprint(),
+            "warnings": args.config_warnings,
+            "output": args.output,
+        }, indent=2))
+        return
     asyncio.run(async_main(args))
 
 
