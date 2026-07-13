@@ -14,6 +14,12 @@ PROFILE_SCHEMA_VERSION = 1
 COMPARISON_SCHEMA_VERSION = 2
 SUPPORTED_PROVIDERS = {"openai", "lmstudio"}
 DEFAULT_SKILLS = ("2a", "2b", "2c", "2d_isolated", "2c+2d_coupled")
+DEFAULT_LOCAL_MODEL = "unsloth/qwen3.6-27b@q6_k"
+
+
+def local_model_default() -> str:
+    """Return the contestant default used only for an explicit LM Studio role."""
+    return os.environ.get("MODEL_COMPARISON_LOCAL_MODEL", "").strip() or DEFAULT_LOCAL_MODEL
 
 
 def load_dotenv_without_override(path: Path) -> None:
@@ -308,6 +314,8 @@ def with_cli_overrides(config: ComparisonConfig, args: Any) -> ComparisonConfig:
         if model:
             values["model"] = model
         if provider:
+            if provider == "lmstudio" and spec.provider != "lmstudio" and not model:
+                values["model"] = local_model_default()
             values["provider"] = provider
             values["manual_load"] = provider == "lmstudio"
         return ModelSpec(**values)
