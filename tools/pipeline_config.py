@@ -66,8 +66,11 @@ ISSUE_CATALOG_PATH = TOOLS_DIR / "issue_catalog.json"
 # =============================================================================
 # LM STUDIO / VLM SETTINGS (Qwen - local)
 # =============================================================================
-LM_STUDIO_URL = os.environ.get("LM_STUDIO_URL", "http://169.254.83.107:1234")
-LM_STUDIO_MODEL = os.environ.get("LM_STUDIO_MODEL", "unsloth/gemma-4-26b-a4b-it")
+LM_STUDIO_URL = os.environ.get("LM_STUDIO_URL", "http://100.102.92.1:1234")
+LM_STUDIO_MODEL = os.environ.get(
+    "LM_STUDIO_MODEL",
+    "unsloth/qwen3.6-27b@q6_k",
+)
 
 # =============================================================================
 # OPENAI / GPT SETTINGS (Premium - cloud)
@@ -81,7 +84,7 @@ GPT_MODEL = (
         os.environ.get("GPT5_MODEL")
         or os.environ.get("GPT_MODEL")
         or os.environ.get("OPENAI_MODEL")
-        or "gpt-5.6-sol"  #Need to stop relying on this and use env variables
+        or "gpt-5.6-terra"  #Need to stop relying on this and use env variables
 )
 
 # Alias for backward compatibility with vlm_client.py

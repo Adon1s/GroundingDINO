@@ -1932,6 +1932,16 @@ def infer_package_candidates(
         has_multiphoto_opportunity = _has_multiphoto_opportunity_corroboration(
             opportunity_drivers
         )
+        has_legacy_flat_opportunity_driver = (
+            any(
+                bool(getattr(candidate, "estimate_unit_id", ""))
+                and (candidate_catalog_meta.get(id(candidate)) or {}).get(
+                    "package_affinity"
+                ) is None
+                for candidate in opportunity_drivers
+            )
+        )
+
         # Ambient (recurring cross-room) supports still corroborate and are
         # costed, but do not count toward the driverless emit gate below.
         non_ambient_supports = [
@@ -1951,6 +1961,11 @@ def infer_package_candidates(
             drivers = list(opportunity_drivers)
             supporting = drivers + supports
             trigger_reason = "opportunity_driver_with_multiphoto_corroboration"
+        elif opportunity_drivers and has_legacy_flat_opportunity_driver:
+            drivers = list(opportunity_drivers)
+            supporting = drivers + supports
+            trigger_reason = "legacy_flat_package_driver"
+
         elif len(non_ambient_supports) >= 2:
             drivers = []
             supporting = supports
@@ -2828,6 +2843,117 @@ def _package_vlm_label(package: Dict[str, Any]) -> str:
     pt = str(package.get("package_type") or "")
     return _PACKAGE_TYPE_VLM_LABELS.get(pt, "Renovation package")
 
+def prepare_pass_2f_cases(
+    package_candidates: List[Dict[str, Any]],
+    *,
+    photo_key_to_path: Dict[str, Path],
+    max_images: int = 3,
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Freeze package-level Pass 2f inputs once for one or more model runs."""
+    from tools.scene_classifier_passes import (
+        PASS_2F_PROMPT_SHA256,
+        PASS_2F_PROMPT_VERSION,
+        PASS_2F_ROOM_PROMPTS,
+    )
+
+    prepared_cases: List[Dict[str, Any]] = []
+    trace: Dict[str, Any] = {
+        "candidate_count": len(package_candidates or []),
+        "vlm_eligible_count": 0,
+        "rule_confirmed_count": 0,
+        "not_evaluated_count": 0,
+        "not_evaluated_reasons": {},
+    }
+
+    for source_package in package_candidates or []:
+        package = copy.deepcopy(source_package)
+        package_id = str(package.get("package_id") or "")
+        package_type = str(package.get("package_type") or "")
+        room = str(package.get("room") or "").lower()
+        case: Dict[str, Any] = {
+            "package_id": package_id,
+            "package_type": package_type,
+            "package_label": _package_vlm_label(package),
+            "room": room,
+            "source_package": package,
+            "evaluation_kind": "vlm_eligible",
+            "not_evaluated_reason": None,
+            "rule_confirmation": None,
+            "prepared_input": {
+                "evidence_items": [],
+                "review_photo_keys": [],
+                "review_image_paths": [],
+                "reviewed_issue_ids": [],
+                "prompt_template_version": PASS_2F_PROMPT_VERSION,
+                "prompt_template_sha256": PASS_2F_PROMPT_SHA256,
+                "max_images_per_package": max_images,
+            },
+        }
+
+        if package.get("package_category") == PACKAGE_CATEGORY_TURNOVER:
+            supporting_issue_ids = list(package.get("supporting_issue_ids") or [])
+            case["evaluation_kind"] = "rule_confirmed"
+            case["rule_confirmation"] = {
+                "verification_status": PACKAGE_VERIFICATION_CONFIRMED_BY_RULE,
+                "confirmed_issue_ids": supporting_issue_ids,
+                "rejected_issue_ids": [],
+                "evidence_summary": (
+                    "Turnover bundling rule fired; deterministic confirmation "
+                    "without VLM review."
+                ),
+                "review_source": "turnover_rule_based",
+            }
+            case["prepared_input"]["evidence_items"] = copy.deepcopy(
+                package.get("evidence_items") or []
+            )
+            case["prepared_input"]["review_photo_keys"] = list(
+                package.get("review_photo_keys") or []
+            )
+            case["prepared_input"]["reviewed_issue_ids"] = supporting_issue_ids
+            trace["rule_confirmed_count"] += 1
+            prepared_cases.append(case)
+            continue
+
+        if room not in PASS_2F_ROOM_PROMPTS:
+            case["evaluation_kind"] = "not_evaluated"
+            case["not_evaluated_reason"] = "unsupported_room"
+            case["prepared_input"]["evidence_items"] = copy.deepcopy(
+                package.get("evidence_items") or []
+            )
+        else:
+            image_keys, image_paths = select_package_review_image_paths(
+                package,
+                photo_key_to_path,
+                max_images=max_images,
+            )
+            evidence_items, reviewed_issue_ids = _filter_evidence_items_for_review(
+                list(package.get("evidence_items") or []),
+                image_keys,
+            )
+            case["prepared_input"].update({
+                "evidence_items": evidence_items,
+                "review_photo_keys": image_keys,
+                "review_image_paths": [str(path) for path in image_paths],
+                "reviewed_issue_ids": reviewed_issue_ids,
+            })
+            if not image_paths:
+                case["evaluation_kind"] = "not_evaluated"
+                case["not_evaluated_reason"] = "no_review_images"
+            elif not reviewed_issue_ids:
+                case["evaluation_kind"] = "not_evaluated"
+                case["not_evaluated_reason"] = "no_reviewed_issue_ids"
+
+        if case["evaluation_kind"] == "vlm_eligible":
+            trace["vlm_eligible_count"] += 1
+        else:
+            reason = str(case.get("not_evaluated_reason") or "unknown")
+            trace["not_evaluated_count"] += 1
+            reasons = trace["not_evaluated_reasons"]
+            reasons[reason] = int(reasons.get(reason) or 0) + 1
+        prepared_cases.append(case)
+
+    return prepared_cases, trace
+
 
 async def run_pass_2f_batch(
     package_candidates: List[Dict[str, Any]],
@@ -2837,16 +2963,20 @@ async def run_pass_2f_batch(
     photo_key_to_path: Dict[str, Path],
     provider: str = "premium",
     max_images: int = 3,
+    strict: bool = False,
 ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
-    """Run Pass 2f once per package candidate.
+    """Run Pass 2f once per frozen package case.
 
-    Turnover packages short-circuit: they are confirmed by deterministic
-    bundling, not by VLM image verification. They receive
-    ``verification_status = "confirmed_by_rule"`` to preserve trust semantics
-    (``"confirmed"`` continues to mean "VLM looked and said yes").
+    Production remains tolerant by default. Comparison callers can opt into
+    strict provider and response failures without changing production behavior.
     """
     from tools.scene_classifier_passes import run_pass_2f
 
+    prepared_cases, preparation_trace = prepare_pass_2f_cases(
+        package_candidates,
+        photo_key_to_path=photo_key_to_path,
+        max_images=max_images,
+    )
     verifications: Dict[str, Dict[str, Any]] = {}
     trace = {
         "ran": False,
@@ -2859,97 +2989,91 @@ async def run_pass_2f_batch(
         "rejected_count": 0,
         "uncertain_count": 0,
         "no_image_count": 0,
+        "preparation": preparation_trace,
     }
-    from tools.scene_classifier_passes import PASS_2F_ROOM_PROMPTS
 
-    for package in package_candidates or []:
-        package_id = str(package.get("package_id") or "")
+    for case in prepared_cases:
+        package = case["source_package"]
+        package_id = str(case.get("package_id") or "")
+        package_type = str(case.get("package_type") or "")
+        prepared_input = case["prepared_input"]
+        evaluation_kind = case.get("evaluation_kind")
 
-        if package.get("package_category") == PACKAGE_CATEGORY_TURNOVER:
-            supporting_issue_ids = list(package.get("supporting_issue_ids") or [])
+        if evaluation_kind == "rule_confirmed":
+            rule = dict(case.get("rule_confirmation") or {})
             verifications[package_id] = {
                 "package_id": package_id,
-                "package_type": package.get("package_type"),
-                "verification_status": PACKAGE_VERIFICATION_CONFIRMED_BY_RULE,
-                "confirmed_issue_ids": supporting_issue_ids,
-                "rejected_issue_ids": [],
-                "evidence_summary": (
-                    "Turnover bundling rule fired; deterministic confirmation without VLM review."
+                "package_type": package_type,
+                **rule,
+                "review_photo_keys": list(
+                    prepared_input.get("review_photo_keys") or []
                 ),
-                "review_source": "turnover_rule_based",
-                "review_photo_keys": list(package.get("review_photo_keys") or []),
                 "review_image_paths": [],
             }
             trace["confirmed_by_rule_count"] += 1
             continue
 
-        room = str(package.get("room") or "").lower()
-        if room not in PASS_2F_ROOM_PROMPTS:
-            trace["uncertain_count"] += 1
+        if evaluation_kind == "not_evaluated":
+            reason = str(case.get("not_evaluated_reason") or "")
+            room = str(case.get("room") or "")
+            image_keys = list(prepared_input.get("review_photo_keys") or [])
+            image_paths = list(prepared_input.get("review_image_paths") or [])
+            if reason == "no_review_images":
+                trace["no_image_count"] += 1
+                summary = (
+                    f"No representative {room} images were available for "
+                    "package verification."
+                )
+                image_keys = []
+                image_paths = []
+            elif reason == "no_reviewed_issue_ids":
+                trace["uncertain_count"] += 1
+                summary = (
+                    "Pass 2f skipped: selected review photos had no matching "
+                    "package evidence."
+                )
+            else:
+                trace["uncertain_count"] += 1
+                summary = (
+                    "Pass 2f skipped: no prompt template registered for "
+                    f"room={room or 'unknown'!r}."
+                )
+                image_keys = []
+                image_paths = []
             verifications[package_id] = {
                 "package_id": package_id,
-                "package_type": package.get("package_type"),
+                "package_type": package_type,
                 "verification_status": PACKAGE_VERIFICATION_UNCERTAIN,
                 "confirmed_issue_ids": [],
                 "rejected_issue_ids": [],
-                "evidence_summary": (
-                    f"Pass 2f skipped: no prompt template registered for room={room or 'unknown'!r}."
-                ),
-                "review_photo_keys": [],
-                "review_image_paths": [],
+                "evidence_summary": summary,
+                "review_photo_keys": image_keys,
+                "review_image_paths": image_paths,
+                "reviewed_issue_ids": [],
             }
             continue
 
-        image_keys, image_paths = select_package_review_image_paths(
-            package,
-            photo_key_to_path,
-            max_images=max_images,
-        )
-        evidence_items, reviewed_issue_ids = _filter_evidence_items_for_review(
-            list(package.get("evidence_items") or []),
-            image_keys,
-        )
-        if not image_paths:
-            trace["no_image_count"] += 1
-            verifications[package_id] = {
-                "package_id": package_id,
-                "package_type": package.get("package_type"),
-                "verification_status": PACKAGE_VERIFICATION_UNCERTAIN,
-                "confirmed_issue_ids": [],
-                "rejected_issue_ids": [],
-                "evidence_summary": f"No representative {room} images were available for package verification.",
-                "review_photo_keys": [],
-                "review_image_paths": [],
-                "reviewed_issue_ids": [],
-            }
-            continue
-        if not reviewed_issue_ids:
-            trace["uncertain_count"] += 1
-            verifications[package_id] = {
-                "package_id": package_id,
-                "package_type": package.get("package_type"),
-                "verification_status": PACKAGE_VERIFICATION_UNCERTAIN,
-                "confirmed_issue_ids": [],
-                "rejected_issue_ids": [],
-                "evidence_summary": (
-                    "Pass 2f skipped: selected review photos had no matching package evidence."
-                ),
-                "review_photo_keys": image_keys,
-                "review_image_paths": [str(path) for path in image_paths],
-                "reviewed_issue_ids": [],
-            }
-            continue
         trace["ran"] = True
         trace["attempted_count"] += 1
+        room = str(case.get("room") or "")
+        image_keys = list(prepared_input.get("review_photo_keys") or [])
+        image_paths = [
+            Path(path) for path in (prepared_input.get("review_image_paths") or [])
+        ]
+        evidence_items = list(prepared_input.get("evidence_items") or [])
+        reviewed_issue_ids = list(
+            prepared_input.get("reviewed_issue_ids") or []
+        )
         result = await run_pass_2f(
             image_paths=image_paths,
             vlm_client=vlm_client,
             model_config=model_config,
             room=room,
             package_id=package_id,
-            package_type=str(package.get("package_type") or ""),
+            package_type=package_type,
             evidence_items=evidence_items,
-            package_label=_package_vlm_label(package),
+            package_label=str(case.get("package_label") or "Renovation package"),
+            strict=strict,
         )
         record = {
             "package_id": result.package_id,
@@ -2965,7 +3089,9 @@ async def run_pass_2f_batch(
         }
         if room == ROOM_BATHROOM:
             record["visible_room_count"] = result.visible_room_count
-            record["visible_room_count_evidence"] = result.visible_room_count_evidence
+            record["visible_room_count_evidence"] = (
+                result.visible_room_count_evidence
+            )
         verifications[package_id] = record
         key = f"{result.verification_status}_count"
         if key in trace:

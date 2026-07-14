@@ -20,6 +20,7 @@ Pass 2f: Visual package verification (multi-image; per-room prompts for
 """
 
 from tools.llm_json import extract_json_object
+import hashlib
 import json
 import logging
 import re
@@ -391,6 +392,17 @@ class Pass2dResult:
 class Pass2fInvalidResponseError(ValueError):
     """Raised when Pass 2f returns no parseable or actionable JSON decision."""
 
+    def __init__(
+        self,
+        message: str,
+        *,
+        raw_response: Optional[str] = None,
+        parsed_response: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        super().__init__(message)
+        self.raw_response = raw_response
+        self.parsed_response = parsed_response
+
 
 @dataclass
 class Pass2fResult:
@@ -404,6 +416,7 @@ class Pass2fResult:
     visible_room_count: str = "unclear"
     visible_room_count_evidence: str = ""
     raw_response: Optional[str] = None
+    parsed_response: Optional[Dict[str, Any]] = None
 
 
 def evaluate_kind_routing(description: str, kind: str) -> KindRoutingDecision:
@@ -1939,8 +1952,51 @@ PASS_2F_ROOM_PROMPTS = {
     "living":   (PASS_2F_LIVING_SYSTEM_PROMPT,   PASS_2F_LIVING_USER_PROMPT),
 }
 
+PASS_2F_PROMPT_VERSION = "pass_2f_package_v1"
+PASS_2F_PROMPT_SHA256 = hashlib.sha256(
+    json.dumps(
+        {
+            "version": PASS_2F_PROMPT_VERSION,
+            "rooms": {
+                room: {"system": prompts[0], "user": prompts[1]}
+                for room, prompts in PASS_2F_ROOM_PROMPTS.items()
+            },
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+).hexdigest()
+
 PASS_2F_VALID_STATUSES = {"confirmed", "rejected", "uncertain"}
 PASS_2F_ROOM_COUNT_VALUES = {"one_room", "multiple_rooms", "unclear"}
+
+
+def _validate_pass_2f_schema(raw: Dict[str, Any], *, room: str) -> None:
+    status = raw.get("verification_status")
+    if not isinstance(status, str) or status not in PASS_2F_VALID_STATUSES:
+        raise ValueError(
+            "verification_status must be confirmed, rejected, or uncertain"
+        )
+    for key in ("confirmed_issue_ids", "rejected_issue_ids"):
+        value = raw.get(key)
+        if not isinstance(value, list) or any(
+            not isinstance(issue_id, str) for issue_id in value
+        ):
+            raise ValueError(f"{key} must be an array of strings")
+    if not isinstance(raw.get("evidence_summary"), str):
+        raise ValueError("evidence_summary must be a string")
+    if str(room or "").lower() == "bathroom":
+        count = raw.get("visible_room_count")
+        if (
+            not isinstance(count, str)
+            or count not in PASS_2F_ROOM_COUNT_VALUES
+        ):
+            raise ValueError(
+                "visible_room_count must be one_room, multiple_rooms, or unclear"
+            )
+        if not isinstance(raw.get("visible_room_count_evidence"), str):
+            raise ValueError("visible_room_count_evidence must be a string")
 
 
 def _normalize_issue_id_list(value: Any, valid_issue_ids: set) -> List[str]:
@@ -2007,6 +2063,7 @@ async def run_pass_2f(
     package_type: str,
     evidence_items: List[Dict[str, Any]],
     package_label: str = "Renovation package",
+    strict: bool = False,
 ) -> Pass2fResult:
     """
     Pass 2f visual package verification.
@@ -2043,7 +2100,6 @@ async def run_pass_2f(
     )
 
     logger.debug("Pass 2f: reviewing %s (room=%s) with %d images", package_id, room, len(image_paths or []))
-
     try:
         if hasattr(vlm_client, "analyze_images"):
             response = await vlm_client.analyze_images(
@@ -2061,23 +2117,56 @@ async def run_pass_2f(
                 user_prompt=user_prompt,
                 **_with_analysis_pass(model_config, "Pass 2f (package verification)"),
             )
-        parsed = extract_json_object(response)
-        if not isinstance(parsed, dict) or not parsed:
-            raise ValueError("missing JSON object")
-        result = _coerce_pass_2f(
-            parsed,
-            package_id=package_id,
-            package_type=package_type,
-            valid_issue_ids=valid_issue_ids,
-            room=room,
-        )
-        result.raw_response = response
-        return result
-    except Exception as e:
-        logger.error("Pass 2f: error reviewing %s: %s", package_id, e)
+    except Exception as exc:
+        logger.error("Pass 2f: provider error reviewing %s: %s", package_id, exc)
+        if strict:
+            raise
         return Pass2fResult(
             package_id=package_id,
             package_type=package_type,
             verification_status="uncertain",
-            evidence_summary=f"Pass 2f verification failed: {e}",
+            evidence_summary=f"Pass 2f verification failed: {exc}",
         )
+
+    parsed: Optional[Dict[str, Any]] = None
+    try:
+        parsed_value = extract_json_object(response)
+        if not isinstance(parsed_value, dict) or not parsed_value:
+            raise ValueError("missing JSON object")
+        parsed = parsed_value
+        if strict:
+            _validate_pass_2f_schema(parsed, room=room)
+    except Exception as exc:
+        error = (
+            exc
+            if isinstance(exc, Pass2fInvalidResponseError)
+            else Pass2fInvalidResponseError(
+                f"invalid Pass 2f response: {exc}",
+                raw_response=response,
+                parsed_response=parsed,
+            )
+        )
+        logger.error("Pass 2f: invalid response for %s: %s", package_id, error)
+        if strict:
+            if error is exc:
+                raise
+            raise error from exc
+        return Pass2fResult(
+            package_id=package_id,
+            package_type=package_type,
+            verification_status="uncertain",
+            evidence_summary=f"Pass 2f verification failed: {error}",
+            raw_response=response,
+            parsed_response=parsed,
+        )
+
+    result = _coerce_pass_2f(
+        parsed,
+        package_id=package_id,
+        package_type=package_type,
+        valid_issue_ids=valid_issue_ids,
+        room=room,
+    )
+    result.raw_response = response
+    result.parsed_response = dict(parsed)
+    return result

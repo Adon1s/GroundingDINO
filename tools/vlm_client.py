@@ -714,6 +714,73 @@ class VLMClient:
             )
         return data["choices"][0]["message"]["content"]
 
+    async def _analyze_images_lmstudio(
+            self,
+            image_paths: List[Path],
+            system_prompt: str,
+            user_prompt: str,
+            url: str,
+            model: str,
+            timeout: int,
+            max_tokens: int,
+            temperature: float,
+    ) -> str:
+        """Analyze all supplied images in one LM Studio chat request."""
+        content = [{"type": "text", "text": user_prompt}]
+        for image_path in image_paths:
+            image_data, media_type = self._encode_image_base64(image_path)
+            content.append({
+                "type": "image_url",
+                "image_url": {
+                    "url": f"data:{media_type};base64,{image_data}",
+                },
+            })
+        payload = {
+            "model": model,
+            "messages": [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": content},
+            ],
+            "temperature": temperature,
+            "max_tokens": max_tokens,
+            "stream": False,
+        }
+        endpoint = f"{url.rstrip('/')}/v1/chat/completions"
+        response = await asyncio.get_event_loop().run_in_executor(
+            None,
+            lambda: requests.post(
+                endpoint,
+                json=payload,
+                headers={"Content-Type": "application/json"},
+                timeout=timeout,
+            ),
+        )
+        if response.status_code != 200:
+            error_text = response.text[:500]
+            logger.error(
+                "LM Studio API error: HTTP %s - %s",
+                response.status_code,
+                error_text,
+            )
+            raise RuntimeError(
+                f"LM Studio API error: HTTP {response.status_code}"
+            )
+        data = response.json()
+        if "choices" not in data:
+            logger.error("LM Studio response missing 'choices': %s", data)
+            raise RuntimeError(
+                "Unexpected LM Studio response format from LM Studio"
+            )
+        self._record_call()
+        usage = data.get("usage") or {}
+        if usage:
+            self._record_usage(
+                usage.get("prompt_tokens"),
+                usage.get("completion_tokens"),
+                usage.get("total_tokens"),
+            )
+        return data["choices"][0]["message"]["content"]
+
     async def _analyze_text_lmstudio(
             self,
             system_prompt: str,
@@ -904,11 +971,9 @@ class VLMClient:
         """
         Analyze multiple images together with a VLM.
 
-        OpenAI uses the Responses multi-image structure: one user content array
-        containing a single input_text block followed by one input_image block
-        per image. Other providers fall back to the first image so existing
-        local workflows keep running, but package verification should use
-        OpenAI/premium for true multi-image review.
+        OpenAI uses the Responses multi-image structure and LM Studio uses its
+        OpenAI-compatible chat content array. Providers without a native
+        multi-image helper retain the first-image fallback.
         """
         if max_tokens is None:
             mo = kwargs.get("max_output_tokens")
@@ -957,6 +1022,19 @@ class VLMClient:
                 response_schema_name=response_schema_name,
                 reasoning_effort=reasoning_effort,
                 verbosity=verbosity,
+            )
+        if provider == "lmstudio":
+            if not url:
+                raise ValueError("URL required for LM Studio provider")
+            return await self._analyze_images_lmstudio(
+                image_paths=image_paths,
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                url=url,
+                model=model,
+                timeout=timeout,
+                max_tokens=max_tokens,
+                temperature=temperature,
             )
 
         # Backward-compatible fallback for providers that do not currently have
