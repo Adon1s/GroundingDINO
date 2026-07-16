@@ -103,7 +103,7 @@ class ModelSpec:
 
 @dataclass(frozen=True)
 class RunSettings:
-    concurrency: int = 3
+    concurrency: int = 4
     judge_delay: float = 2.0
     skills: tuple[str, ...] = DEFAULT_SKILLS
     confirm_every: int = 0

@@ -78,30 +78,12 @@ LM_STUDIO_MODEL = os.environ.get(
 # API key (required for premium profile)
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 
-# GPT model configuration
-# Priority: GPT5_MODEL > GPT_MODEL > OPENAI_MODEL > default
-GPT_MODEL = (
-        os.environ.get("GPT5_MODEL")
-        or os.environ.get("GPT_MODEL")
-        or os.environ.get("OPENAI_MODEL")
-        or "gpt-5.6-terra"  #Need to stop relying on this and use env variables
-)
-
-# Alias for backward compatibility with vlm_client.py
-OPENAI_MODEL = GPT_MODEL
-
-# Optional: separate model for specific passes
-GPT_PASS_1B_MODEL = _env_any("OPENAI_PASS_1B_MODEL", "OPENAI_PASS1B_MODEL") or GPT_MODEL  # Pass 1b
-GPT_PASS_1C_MODEL = _env_any("OPENAI_PASS_1C_MODEL", "OPENAI_PASS1C_MODEL") or GPT_MODEL  # Pass 1c
-GPT_PASS_2A_MODEL = _env_any("OPENAI_PASS_2A_MODEL", "OPENAI_PASS2A_MODEL") or GPT_MODEL  # Pass 2a
-GPT_PASS_2B_MODEL = _env_any("OPENAI_PASS_2B_MODEL", "OPENAI_PASS2B_MODEL") or GPT_MODEL  # Pass 2b (if ever routed)
-GPT_PASS_2C_MODEL = _env_any("OPENAI_PASS_2C_MODEL", "OPENAI_PASS2C_MODEL") or GPT_MODEL  # Pass 2c
-GPT_PASS_2D_MODEL = _env_any("OPENAI_PASS_2D_MODEL", "OPENAI_PASS2D_MODEL") or GPT_MODEL  # Pass 2d
-
-# Optional: explicit Pass 4a/4b/4c models
-GPT_PASS_4A_MODEL = _env_any("OPENAI_PASS_4A_MODEL", "OPENAI_PASS4A_MODEL") or GPT_MODEL
-GPT_PASS_4B_MODEL = _env_any("OPENAI_PASS_4B_MODEL", "OPENAI_PASS4B_MODEL") or GPT_MODEL
-GPT_PASS_4C_MODEL = _env_any("OPENAI_PASS_4C_MODEL", "OPENAI_PASS4C_MODEL") or GPT_MODEL
+# OPENAI_MODEL is the single base-model source (Terra tier in production). Per-run
+# per-pass model names arrive via the analyzer's --model-map argument and override
+# this at runtime. There is intentionally NO hardcoded model fallback: a missing
+# OPENAI_MODEL fails loudly rather than silently using a stale default.
+# (Legacy GPT_MODEL / GPT5_MODEL aliases and GPT_PASS_*_MODEL were removed.)
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "")
 
 # =============================================================================
 # GOOGLE GEMINI SETTINGS (Cloud - for catalog_auditor)

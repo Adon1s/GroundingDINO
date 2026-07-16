@@ -357,7 +357,8 @@ def _process_job(
     if not isinstance(raw_overrides, dict):
         raw_overrides = {}
 
-    # Same allowlist as the TS side (lib/analysis/modelOverrides.ts).
+    # Same allowlist as the TS side (lib/analysis/modelOverrides.ts). Values are
+    # concrete OpenAI model names (incl. the allocated Pass 2f model).
     _ALLOWED_OVERRIDE_KEYS = {"1a", "1b", "1c", "2a", "2b", "2c", "2d", "2f"}
     filtered_overrides: Dict[str, str] = {}
     for k, v in raw_overrides.items():
@@ -368,31 +369,19 @@ def _process_job(
             continue
         if not v.strip():
             continue
-        filtered_overrides[k] = v
+        filtered_overrides[k] = v.strip()
 
-    # Family overrides: every overridden pass goes to gpt5 family (mirrors the
-    # `--model-{pass} gpt5` flags emitted by the spawn-per-job path).
-    family_overrides: Dict[str, str] = {k: "gpt5" for k in filtered_overrides.keys()}
-
-    # Build run options. model_overrides forces the family per pass.
+    # Per-run model names flow through run options (a supplied name routes that
+    # pass to OpenAI). There is NO global pipeline_config mutation: the persistent
+    # server processes many jobs back-to-back, so mutating module-global cfg per
+    # job (and restoring it) was both unnecessary and unsafe.
     options = SceneClassifierRunOptions.from_analysis_profile(
         analysis_profile=analysis_profile,
-        model_overrides=family_overrides if family_overrides else None,
+        model_overrides=filtered_overrides if filtered_overrides else None,
     )
 
-    # Snapshot current cfg.GPT_PASS_*_MODEL values so we can restore in finally.
-    # Using a sentinel so we know whether the attr existed at all (vs. being None).
-    _SENTINEL = object()
-    cfg_snapshot: Dict[str, Any] = {}
-    for pass_key, model_name in filtered_overrides.items():
-        attr = f"GPT_PASS_{pass_key.upper()}_MODEL"
-        cfg_snapshot[attr] = getattr(cfg, attr, _SENTINEL)
-        setattr(cfg, attr, model_name)
-
     if filtered_overrides:
-        logger.info(
-            f"[Job {ts_job_id}] modelOverrides applied (cfg mutated): {filtered_overrides}"
-        )
+        logger.info(f"[Job {ts_job_id}] modelOverrides (per-run): {filtered_overrides}")
 
     # Generate internal job ID and create artifacts directory
     internal_job_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
@@ -418,10 +407,9 @@ def _process_job(
             "total": len(image_paths),
         })
 
-    # Wrap the entire job body in try/finally so cfg.GPT_PASS_*_MODEL is always
-    # restored — critical because cfg is module-global and the persistent server
-    # processes many jobs back-to-back. Without this, an exception mid-job would
-    # leave the next job inheriting this job's overrides.
+    # Wrap the job body so checkpoint cleanup only runs on full success. (Model
+    # overrides no longer mutate module-global cfg, so there is nothing to restore
+    # between jobs.)
     try:
         # ─────────────────────────────────────────────────────────────────────
         # Per-image analysis loop
@@ -534,6 +522,7 @@ def _process_job(
             property_metadata=property_metadata,
         )
 
+        from tools.artifact_writers import Pass2fModelUnavailable
         try:
             photo_intel_path = write_photo_intel(
                 cfg=cfg,
@@ -542,14 +531,29 @@ def _process_job(
                 analysis_profile=analysis_profile,
                 use_pass_architecture=True,
                 pass_toggles={},
-                # Pass the resolved per-pass model names so run.model_overrides
-                # in photo_intel_debug.json reflects what was actually applied
-                # (e.g. {"2a": "gpt-5.4-mini", ...}). Empty dict if no overrides.
+                # Concrete per-pass model names (incl. the allocated Pass 2f model)
+                # so run.model_overrides and model_routing reflect what actually ran.
                 model_overrides=filtered_overrides,
                 gpt_config=gpt5_config,
                 issue_catalog=catalog,
                 vlm_client=vlm_client,
             )
+        except Pass2fModelUnavailable as exc:
+            # Pass 2f is OpenAI-only. Fail the job rather than silently degrade to
+            # Qwen. Leave the checkpoint intact so a fixed-config retry can resume.
+            logger.error(
+                f"[Job {ts_job_id}] Pass 2f model unavailable — failing job "
+                f"(no Qwen fallback): {exc}"
+            )
+            _emit({
+                "type": "result",
+                "jobId": ts_job_id,
+                "success": False,
+                "error": str(exc),
+                "property_key": property_key,
+            })
+            _emit({"type": "job_done", "jobId": ts_job_id})
+            return
         except Exception as exc:
             logger.error(f"Failed to write photo_intel: {exc}", exc_info=True)
             photo_intel_path = None
@@ -581,21 +585,9 @@ def _process_job(
         # outside the finally block.
         _clear_checkpoint(ckpt_dir)
     finally:
-        # Restore cfg.GPT_PASS_*_MODEL to its pre-job state. Always runs, even
-        # on exceptions — guarantees subsequent jobs in the persistent worker
-        # see clean defaults (or whatever cfg had before this job started).
-        if cfg_snapshot:
-            for attr, original in cfg_snapshot.items():
-                if original is _SENTINEL:
-                    # Attribute didn't exist before; remove it.
-                    if hasattr(cfg, attr):
-                        delattr(cfg, attr)
-                else:
-                    setattr(cfg, attr, original)
-            logger.info(
-                f"[Job {ts_job_id}] modelOverrides restored "
-                f"({len(cfg_snapshot)} cfg attr{'s' if len(cfg_snapshot) != 1 else ''})"
-            )
+        # Per-run model overrides flow through run options now, so there is no
+        # module-global cfg state to restore between jobs.
+        pass
 
 
 if __name__ == "__main__":

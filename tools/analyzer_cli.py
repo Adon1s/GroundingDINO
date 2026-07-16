@@ -86,24 +86,10 @@ STRING_OVERRIDE_KEYS = {
     "LM_STUDIO_URL",
     "LM_STUDIO_MODEL",
 
-    # OpenAI / GPT - support multiple naming conventions
+    # OpenAI (single base-model source; per-pass names come via --model-map)
     "OPENAI_API_KEY",
     "OPENAI_MODEL",
     "OPENAI_BASE_URL",
-    "OPENAI_PASS1B_MODEL",
-    "OPENAI_PASS2A_MODEL",
-    "OPENAI_PASS2C_MODEL",
-    "OPENAI_PASS2D_MODEL",
-    "OPENAI_PASS4_MODEL",
-    "OPENAI_PASS_1B_MODEL",
-    "OPENAI_PASS_2A_MODEL",
-    "OPENAI_PASS_2C_MODEL",
-    "OPENAI_PASS_2D_MODEL",
-    "OPENAI_PASS_4_MODEL",
-    # GPT naming alternatives (some apps use GPT5_ prefix)
-    "GPT_MODEL",
-    "GPT5_URL",
-    "GPT5_MODEL",
 
     # Detection backend
     "DETECTION_BACKEND",
@@ -151,43 +137,9 @@ def _apply_env_overrides() -> None:
             setattr(cfg, key, val)
             logger.debug("Override %s = %s", key, val)
 
-    # ✅ FIXED: Special handling for GPT model to handle multiple naming conventions
-    # Priority: GPT5_MODEL > GPT_MODEL > OPENAI_MODEL
-    gpt_model = (
-            os.environ.get("GPT5_MODEL") or
-            os.environ.get("GPT_MODEL") or
-            os.environ.get("OPENAI_MODEL")
-    )
-    if gpt_model:
-        setattr(cfg, "GPT_MODEL", gpt_model)
-        setattr(cfg, "GPT5_MODEL", gpt_model)
-        setattr(cfg, "OPENAI_MODEL", gpt_model)
-        logger.debug("GPT model unified to: %s", gpt_model)
-
-    # Ensure pass-specific GPT model vars are materialized on cfg
-    def _first(*keys: str) -> Optional[str]:
-        for k in keys:
-            v = os.environ.get(k)
-            if v:
-                return v
-        return None
-
-    p1b = _first("OPENAI_PASS_1B_MODEL", "OPENAI_PASS1B_MODEL")
-    p2a = _first("OPENAI_PASS_2A_MODEL", "OPENAI_PASS2A_MODEL")
-    p2c = _first("OPENAI_PASS_2C_MODEL", "OPENAI_PASS2C_MODEL")
-    p2d = _first("OPENAI_PASS_2D_MODEL", "OPENAI_PASS2D_MODEL")
-    p4  = _first("OPENAI_PASS_4_MODEL",  "OPENAI_PASS4_MODEL")
-
-    if p1b:
-        setattr(cfg, "GPT_PASS_1B_MODEL", p1b)
-    if p2a:
-        setattr(cfg, "GPT_PASS_2A_MODEL", p2a)
-    if p2c:
-        setattr(cfg, "GPT_PASS_2C_MODEL", p2c)
-    if p2d:
-        setattr(cfg, "GPT_PASS_2D_MODEL", p2d)
-    if p4:
-        setattr(cfg, "GPT_PASS_4_MODEL", p4)
+    # OPENAI_MODEL is handled by the generic string-override loop above (it is in
+    # STRING_OVERRIDE_KEYS). Per-pass model names arrive via --model-map, not env,
+    # so there is no GPT_MODEL / GPT_PASS_* materialization here anymore.
 
     # If premium summary model is set explicitly, honor it too
     prem_sum = os.environ.get("PREMIUM_SUMMARY_MODEL")
@@ -227,8 +179,8 @@ Pass Control Examples:
   # Disable specific passes for faster testing
   --disable-2d --disable-4
 
-  # Override model for a specific pass (dev/testing)
-  --model-2a gpt5 --model-2d qwen
+  # Override per-pass models with concrete OpenAI names (dev/testing)
+  --model-map '{"2f":"gpt-5.6-sol","2a":"gpt-5.4-mini"}'
 
   # Enable only scene classification (fast mode)
   --disable-1b --disable-2a --disable-2b --disable-2c --disable-2d --disable-2e --disable-4
@@ -332,20 +284,18 @@ Pass Control Examples:
         )
 
     # ─────────────────────────────────────────────────────────────────────────
-    # Per-pass model overrides (for development/testing)
+    # Per-pass model overrides — a single JSON map of concrete OpenAI model names.
+    # This is the sole model-override transport (replaces the old --model-{pass}
+    # gpt5|qwen flags + OPENAI_PASS_*_MODEL env vars).
     # ─────────────────────────────────────────────────────────────────────────
-    model_group = parser.add_argument_group(
-        'Model Overrides',
-        'Override model selection for specific passes (dev/testing)'
+    parser.add_argument(
+        "--model-map",
+        dest="model_map",
+        default=None,
+        help='JSON object of concrete per-pass OpenAI model names, e.g. '
+             '\'{"2f":"gpt-5.6-sol","2a":"gpt-5.4-mini"}\'. A supplied name routes '
+             'that pass to OpenAI.',
     )
-
-    for pass_key in ALL_PASSES:
-        model_group.add_argument(
-            f"--model-{pass_key}",
-            dest=f"model_{pass_key.replace('-', '_')}",
-            choices=["qwen", "gpt5"],
-            help=f"Override model for pass {pass_key}",
-        )
 
     return parser.parse_args()
 
@@ -369,16 +319,30 @@ def _build_pass_toggles(args: argparse.Namespace) -> Dict[str, bool]:
     return toggles
 
 
+# Passes whose model may be overridden via --model-map (mirrors the TS allowlist
+# in lib/analysis/modelOverrides.ts).
+_ALLOWED_MODEL_MAP_KEYS = {"1a", "1b", "1c", "2a", "2b", "2c", "2d", "2f"}
+
+
 def _build_model_overrides(args: argparse.Namespace) -> Dict[str, str]:
-    """Build model overrides dict from CLI arguments."""
-    overrides = {}
-
-    for pass_key in ALL_PASSES:
-        key = pass_key.replace('-', '_')
-        model = getattr(args, f"model_{key}", None)
-        if model:
-            overrides[pass_key] = model
-
+    """Parse and validate the --model-map JSON into {pass_key: model_name}."""
+    raw = getattr(args, "model_map", None)
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except (ValueError, TypeError) as exc:
+        raise SystemExit(f"--model-map is not valid JSON: {exc}")
+    if not isinstance(parsed, dict):
+        raise SystemExit("--model-map must be a JSON object of {pass: model_name}")
+    overrides: Dict[str, str] = {}
+    for k, v in parsed.items():
+        if not isinstance(k, str) or not isinstance(v, str) or not v.strip():
+            continue
+        if k not in _ALLOWED_MODEL_MAP_KEYS:
+            logger.warning("Ignoring unsupported --model-map pass key: %s", k)
+            continue
+        overrides[k] = v.strip()
     return overrides
 
 
@@ -615,14 +579,7 @@ def _log_config_summary() -> None:
     api_key = getattr(cfg, 'OPENAI_API_KEY', None) or os.environ.get('OPENAI_API_KEY', '')
     api_key_status = "SET" if api_key else "NOT SET"
     logger.info(f"OPENAI_API_KEY: {api_key_status}")
-    logger.info(f"GPT_MODEL: {getattr(cfg, 'GPT_MODEL', 'NOT SET')}")
-
-    # Pass-specific models
-    logger.info(f"GPT_PASS_1B_MODEL: {getattr(cfg, 'GPT_PASS_1B_MODEL', 'NOT SET')}")
-    logger.info(f"GPT_PASS_2A_MODEL: {getattr(cfg, 'GPT_PASS_2A_MODEL', 'NOT SET')}")
-    logger.info(f"GPT_PASS_2C_MODEL: {getattr(cfg, 'GPT_PASS_2C_MODEL', 'NOT SET')}")
-    logger.info(f"GPT_PASS_2D_MODEL: {getattr(cfg, 'GPT_PASS_2D_MODEL', 'NOT SET')}")
-    logger.info(f"GPT_PASS_4_MODEL:  {getattr(cfg, 'GPT_PASS_4_MODEL',  'NOT SET')}")
+    logger.info(f"OPENAI_MODEL: {getattr(cfg, 'OPENAI_MODEL', '') or 'NOT SET'}")
     logger.info(f"OPENAI_BASE_URL:   {getattr(cfg, 'OPENAI_BASE_URL', os.environ.get('OPENAI_BASE_URL', '')) or 'DEFAULT'}")
 
     # Token caps
@@ -685,7 +642,7 @@ def main() -> int:
     detection_backend = args.detection_backend or getattr(cfg, "DETECTION_BACKEND", "dinox")
 
     try:
-        from tools.artifact_writers import write_photo_intel, load_issue_catalog
+        from tools.artifact_writers import write_photo_intel, load_issue_catalog, Pass2fModelUnavailable
         from tools.scene_classifier_orchestrator import create_orchestrator_from_config
         from tools.vlm_client import get_model_configs_from_pipeline_config, create_vlm_client
     except Exception as exc:
@@ -862,22 +819,10 @@ def main() -> int:
         property_metadata=property_metadata,
     )
 
-    # Build a resolved view of overrides (model names, not just families) for
-    # the artifact's run.model_overrides field. This way the same shape appears
-    # whether the run came through this CLI path or the persistent worker:
-    # {"2a": "gpt-5.4-mini", ...} rather than {"2a": "gpt5", ...}.
-    # The model_routing array remains the canonical per-pass record.
-    resolved_model_overrides: Dict[str, str] = {}
-    for _pass_key, _family in (model_overrides or {}).items():
-        if _family == "gpt5":
-            _attr = f"GPT_PASS_{str(_pass_key).upper()}_MODEL"
-            _name = getattr(cfg, _attr, None) or getattr(cfg, "GPT_MODEL", "") or ""
-            if _name:
-                resolved_model_overrides[_pass_key] = _name
-        elif _family == "qwen":
-            _name = getattr(cfg, "LM_STUDIO_MODEL", "") or ""
-            if _name:
-                resolved_model_overrides[_pass_key] = _name
+    # model_overrides already carries concrete model names (from --model-map), so
+    # it IS the resolved view. The model_routing array remains the canonical
+    # per-pass record.
+    resolved_model_overrides: Dict[str, str] = dict(model_overrides or {})
 
     try:
         photo_intel_path = write_photo_intel(
@@ -892,6 +837,13 @@ def main() -> int:
             issue_catalog=catalog,
             vlm_client=vlm_client,
         )
+    except Pass2fModelUnavailable as exc:
+        # Pass 2f is OpenAI-only. Rather than silently fall back to Qwen, fail
+        # the whole run so the misconfiguration is visible.
+        logger.error(f"Pass 2f model unavailable — failing run (no Qwen fallback): {exc}")
+        summary = {"success": False, "error": str(exc), "property_key": args.property_key}
+        print(json.dumps(summary, ensure_ascii=False))
+        return 1
     except Exception as exc:
         logger.error(f"Failed to write photo_intel: {exc}", exc_info=True)
         photo_intel_path = None

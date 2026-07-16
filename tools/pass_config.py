@@ -128,28 +128,33 @@ class PassToggles:
 
 @dataclass
 class PassModelOverrides:
-    """Override model selection for specific passes (dev/testing)."""
-    model_1a: Optional[ModelName] = None
-    model_1b: Optional[ModelName] = None
-    model_1c: Optional[ModelName] = None
-    model_2a: Optional[ModelName] = None
-    model_2b: Optional[ModelName] = None
-    model_2c: Optional[ModelName] = None
-    model_2d: Optional[ModelName] = None
-    model_2e: Optional[ModelName] = None
-    model_2f: Optional[ModelName] = None
-    model_4: Optional[ModelName] = None
-    model_4a: Optional[ModelName] = None
-    model_4b: Optional[ModelName] = None
-    model_4c: Optional[ModelName] = None
+    """
+    Per-pass model overrides. Each value is a *concrete* OpenAI model name
+    (e.g. "gpt-5.6-sol") supplied per-run via the analyzer's model-map argument;
+    a supplied name routes that pass to OpenAI with that model. (The legacy
+    'qwen'/'gpt5' family labels are no longer used on the wire.)
+    """
+    model_1a: Optional[str] = None
+    model_1b: Optional[str] = None
+    model_1c: Optional[str] = None
+    model_2a: Optional[str] = None
+    model_2b: Optional[str] = None
+    model_2c: Optional[str] = None
+    model_2d: Optional[str] = None
+    model_2e: Optional[str] = None
+    model_2f: Optional[str] = None
+    model_4: Optional[str] = None
+    model_4a: Optional[str] = None
+    model_4b: Optional[str] = None
+    model_4c: Optional[str] = None
 
-    def __getitem__(self, key: PassKey) -> Optional[ModelName]:
+    def __getitem__(self, key: PassKey) -> Optional[str]:
         return getattr(self, f'model_{key}', None)  # default None for safety
 
-    def __setitem__(self, key: PassKey, value: Optional[ModelName]):
+    def __setitem__(self, key: PassKey, value: Optional[str]):
         setattr(self, f'model_{key}', value)
 
-    def to_dict(self) -> Dict[PassKey, Optional[ModelName]]:
+    def to_dict(self) -> Dict[PassKey, Optional[str]]:
         return {
             '1a': self.model_1a,
             '1b': self.model_1b,
@@ -171,9 +176,11 @@ class PassModelOverrides:
         if not d:
             return cls()
 
-        def to_model(v: Optional[str]) -> Optional[ModelName]:
-            if v in ('qwen', 'gpt5'):
-                return v  # type: ignore
+        def to_model(v: Optional[str]) -> Optional[str]:
+            # A concrete model name (e.g. "gpt-5.6-sol") routes that pass to
+            # OpenAI. Non-strings / blanks are ignored.
+            if isinstance(v, str) and v.strip():
+                return v.strip()
             return None
 
         return cls(
@@ -297,13 +304,12 @@ def pick_model_for_pass(
         overrides: Optional per-pass model overrides
 
     Returns:
-        'qwen' or 'gpt5'
+        'qwen' or 'gpt5' (the model *family*). A concrete per-run override name
+        always maps to 'gpt5' (OpenAI).
     """
-    # Check for explicit override first
-    if overrides:
-        override = overrides[pass_key]
-        if override:
-            return override
+    # A concrete per-run model name means OpenAI (gpt5 family).
+    if overrides and overrides[pass_key]:
+        return 'gpt5'
 
     # Use premium or standard mapping
     if premium:
@@ -330,6 +336,12 @@ def get_model_config_for_pass(
     Returns:
         The appropriate config dict
     """
+    # A concrete per-run override routes this pass to OpenAI with that exact
+    # model name (no dependence on cfg.GPT_PASS_* — those are gone).
+    override = options.model_overrides[pass_key] if options.model_overrides else None
+    if override:
+        return {**gpt5_config, 'model': override, 'provider': 'openai'}
+
     model = pick_model_for_pass(pass_key, options.premium, options.model_overrides)
     return gpt5_config if model == 'gpt5' else qwen_config
 

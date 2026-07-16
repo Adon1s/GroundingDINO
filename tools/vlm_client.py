@@ -1207,17 +1207,11 @@ def get_model_configs_from_pipeline_config(cfg: Any) -> Tuple[Dict[str, Any], Di
         'provider': 'lmstudio',
     }
 
-    # Support multiple naming conventions for GPT model
-    # Priority: GPT_MODEL > GPT5_MODEL > OPENAI_MODEL > default
-    gpt_model = (
-            getattr(cfg, 'GPT_MODEL', None) or
-            getattr(cfg, 'GPT5_MODEL', None) or
-            getattr(cfg, 'OPENAI_MODEL', None) or
-            os.environ.get('GPT_MODEL') or
-            os.environ.get('GPT5_MODEL') or
-            os.environ.get('OPENAI_MODEL') or
-            'gpt-5.4'
-    )
+    # OPENAI_MODEL is the single base-model source (Terra tier). No hardcoded
+    # fallback — a missing model surfaces as an empty name and fails at call time
+    # rather than silently using a wrong/stale default. Per-run per-pass names
+    # override this via the model-map.
+    gpt_model = getattr(cfg, 'OPENAI_MODEL', None) or os.environ.get('OPENAI_MODEL') or ''
 
     # Get API key from config or environment
     api_key = (
@@ -1259,24 +1253,6 @@ def get_gemini_config_from_pipeline_config(cfg: Any) -> Dict[str, Any]:
     }
 
 
-def get_pass_specific_gpt_config(cfg: Any, pass_key: str) -> Dict[str, Any]:
-    """
-    Get GPT config for a specific pass, allowing per-pass model overrides.
-
-    Args:
-        cfg: Pipeline config module
-        pass_key: Pass identifier ('1b', '2a', '4', etc.)
-
-    Returns:
-        Config dict for the specific pass
-    """
-    _, base_gpt_config = get_model_configs_from_pipeline_config(cfg)
-
-    # Check for pass-specific model override
-    pass_model_key = f'GPT_PASS_{pass_key.upper()}_MODEL'
-    pass_model = getattr(cfg, pass_model_key, None)
-
-    if pass_model:
-        return {**base_gpt_config, 'model': pass_model}
-
-    return base_gpt_config
+# NOTE: get_pass_specific_gpt_config() was removed. Per-pass model names now
+# arrive per-run via the analyzer's model-map (routed to OpenAI in
+# get_model_config_for_pass); there is no cfg.GPT_PASS_* layer.

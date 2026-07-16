@@ -2001,7 +2001,9 @@ class TestAuditBlock:
                 use_pass_architecture=True,
                 pass_toggles={"2f": True},
                 model_overrides={},
-                gpt_config={"model": "test-model"},
+                # Pass 2f is OpenAI-only now: a model + api_key are required
+                # (the VLM client is mocked below, so the key is never used).
+                gpt_config={"model": "test-model", "api_key": "test-key"},
                 issue_catalog=issue_catalog,
                 output_path=tmp_path / "photo_intel.json",
                 vlm_client=mock_vlm,

@@ -373,6 +373,14 @@ def _resolve_property_metadata(job: Any) -> Dict[str, Any]:
     return metadata
 
 
+class Pass2fModelUnavailable(RuntimeError):
+    """
+    Raised when Pass 2f is enabled but no OpenAI model / API key / VLM client is
+    available. Pass 2f is OpenAI-only — it must never silently fall back to Qwen,
+    so callers should treat this as a hard run failure.
+    """
+
+
 def write_photo_intel(
     *,
     cfg: Any,
@@ -782,6 +790,38 @@ def write_photo_intel(
         logger.error(f"Failed to compute summary_v1: {exc}", exc_info=True)
         photo_intel["summary_v1"] = None
 
+    # -- Resolve the Pass 2f model up-front (OpenAI-only, no Qwen fallback) --------
+    # Pass 2f (package visual verification) always runs on OpenAI. Resolve its
+    # model from the per-run override (the allocated Sol/Terra model) else
+    # OPENAI_MODEL. If 2f is enabled but no OpenAI model / API key / VLM client is
+    # available, FAIL here — BEFORE the estimate try below, whose broad `except`
+    # would otherwise swallow the error and silently drop the estimate.
+    pass_2f_enabled = pass_toggles.get("2f", True) if pass_toggles else True
+    pass_2f_model_config: Optional[Dict[str, Any]] = None
+    if pass_2f_enabled:
+        # Precedence: per-run override (allocated Sol/Terra) → base gpt_config model
+        # (which is OPENAI_MODEL) → cfg.OPENAI_MODEL.
+        pass_2f_model_name = (
+            (model_overrides or {}).get("2f")
+            or (gpt_config or {}).get("model")
+            or getattr(cfg, "OPENAI_MODEL", "")
+            or ""
+        )
+        pass_2f_api_key = (gpt_config or {}).get("api_key") or getattr(cfg, "OPENAI_API_KEY", "") or ""
+        if not vlm_client or not pass_2f_model_name or not pass_2f_api_key:
+            raise Pass2fModelUnavailable(
+                "Pass 2f requires an OpenAI model + API key (no Qwen fallback): "
+                f"model={pass_2f_model_name!r}, api_key_present={bool(pass_2f_api_key)}, "
+                f"vlm_client={bool(vlm_client)}. Set OPENAI_MODEL / OPENAI_API_KEY, "
+                "provide a 2f model in the model-map, or disable pass 2f."
+            )
+        pass_2f_model_config = {
+            **(gpt_config or {}),
+            "model": pass_2f_model_name,
+            "provider": "openai",
+            "api_key": pass_2f_api_key,
+        }
+
     # -- Compute renovation estimate (primary cost estimation engine) -------------
     try:
         # Lane choice follows the RAW canonical lane's existence; quarantine
@@ -791,46 +831,25 @@ def write_photo_intel(
             else product_issues_flat
         )
 
-        # Pass 2f is now package-level visual verification in v4.
+        # Pass 2f is package-level visual verification in v4; its model config was
+        # resolved up-front above (OpenAI-only). Build photo_key_to_path and record
+        # the model_routing[2f] entry from that same config so it can never diverge
+        # from the model actually called.
         reviewed_candidates = None
-        pass_2f_model_config = None
         photo_key_to_path: Dict[str, Path] = {}
-        pass_2f_enabled = pass_toggles.get("2f", True) if pass_toggles else True
-        if vlm_client and gpt_config and pass_2f_enabled:
-            try:
-                from tools.renovation_estimate import resolve_pass_2f_model_config
+        if pass_2f_model_config:
+            for res in job.results:
+                pk = Path(res.image_path).name
+                photo_key_to_path[pk] = Path(res.image_path)
 
-                for res in job.results:
-                    pk = Path(res.image_path).name
-                    photo_key_to_path[pk] = Path(res.image_path)
-                pass_2f_model_config = resolve_pass_2f_model_config(
-                    provider=pass_2f_provider,
-                    local_config=local_vlm_config,
-                    premium_config=gpt_config,
-                )
-
-                if pass_2f_model_config and "2f" not in {
-                    e.get("pass") for e in photo_intel.get("model_routing", [])
-                }:
-                    _2f_provider = pass_2f_model_config.get("provider")
-                    if _2f_provider is None and pass_2f_model_config.get("api_key"):
-                        _2f_provider = "openai"
-                    _2f_family = "gpt5" if _2f_provider == "openai" else "qwen"
-                    _2f_env_set = bool(os.environ.get("OPENAI_PASS_2F_MODEL"))
-                    if _2f_env_set and _2f_provider == "openai":
-                        _2f_source = "env_override"
-                    elif pass_2f_provider == "premium":
-                        _2f_source = "premium_default"
-                    else:
-                        _2f_source = "standard_default"
-                    photo_intel.setdefault("model_routing", []).append({
-                        "pass": "2f",
-                        "model_family": _2f_family,
-                        "model": str(pass_2f_model_config.get("model") or ""),
-                        "source": _2f_source,
-                    })
-            except Exception as exc_2f:
-                logger.error(f"Pass 2f setup failed (non-fatal): {exc_2f}", exc_info=True)
+            if "2f" not in {e.get("pass") for e in photo_intel.get("model_routing", [])}:
+                _2f_source = "run_override" if (model_overrides or {}).get("2f") else "openai_model_default"
+                photo_intel.setdefault("model_routing", []).append({
+                    "pass": "2f",
+                    "model_family": "gpt5",
+                    "model": str(pass_2f_model_config.get("model") or ""),
+                    "source": _2f_source,
+                })
 
         from tools.renovation_estimate_v4 import compute_renovation_estimate_v4
         v4_est = compute_renovation_estimate_v4(

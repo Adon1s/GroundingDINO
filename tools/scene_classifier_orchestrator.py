@@ -341,17 +341,8 @@ class SceneClassifierOrchestrator:
             gpt5_config=self.gpt5_config,
         )
 
-        # If this pass is routed to OpenAI, honor pass-specific model strings from cfg
-        provider = base.get("provider")
-        if provider is None and base.get("api_key"):
-            provider = "openai"
-
-        if provider == "openai" and cfg:
-            attr = f"GPT_PASS_{str(pass_key).upper()}_MODEL"
-            pass_model = getattr(cfg, attr, None)
-            if pass_model:
-                base = {**base, "model": pass_model}
-
+        # Per-run overrides already carry a concrete OpenAI model name (see
+        # get_model_config_for_pass); there is no cfg.GPT_PASS_* layer anymore.
         return self._attach_openai_token_cap(pass_key, base)
 
     def _get_model_name(
@@ -399,20 +390,11 @@ class SceneClassifierOrchestrator:
             pass_key, options.premium, options.model_overrides
         )
 
-        # Provider detection mirrors _get_model_config.
-        provider = model_config.get("provider")
-        if provider is None and model_config.get("api_key"):
-            provider = "openai"
-
         # Source resolution.
         source: str
         override_set = bool(options.model_overrides and options.model_overrides[pass_key])
         if override_set:
             source = "explicit_override"
-        elif provider == "openai" and os.environ.get(
-            f"OPENAI_PASS_{str(pass_key).upper()}_MODEL"
-        ):
-            source = "env_override"
         elif options.premium:
             source = "premium_default"
         else:
