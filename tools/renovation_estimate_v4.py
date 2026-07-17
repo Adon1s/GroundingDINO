@@ -61,6 +61,7 @@ from tools.renovation_estimate import (
 )
 from tools.estimate_units import bathroom_metadata_cap, build_estimate_units
 from tools.project_scopes import get_project_scope, get_project_scope_name
+from tools.rehab_evidence_projection import build_rehab_evidence_projection
 from tools.room_surrogates import build_room_surrogates
 
 logger = logging.getLogger(__name__)
@@ -282,6 +283,12 @@ def compute_renovation_estimate_v4(
     cost_factor, cost_factor_audit = resolve_property_cost_factor(property_metadata)
     scale_estimate_dollars(v4_estimate, cost_factor)
     v4_estimate["cost_adjustment"] = cost_factor_audit
+    # Consumer-safe evidence allocation. Must be built from the already-scaled
+    # ranges so photo_supported + needs_inspection reconciles with the headline
+    # exactly at each endpoint; provenance is stamped at artifact-write time.
+    v4_estimate["rehab_evidence_projection_v1"] = build_rehab_evidence_projection(
+        v4_estimate
+    )
     v4_estimate["sanity_flags"] = build_estimate_sanity_flags(
         v4_estimate,
         property_metadata,
@@ -301,6 +308,7 @@ def compute_renovation_estimate_v4(
             "package_subsumption",
             "reconciliation",
             "cost_adjustment",
+            "evidence_projection",
         ],
         "packages_enabled": True,
         "reconciliation_enabled": True,

@@ -27,6 +27,10 @@ from tools.pipeline_common import (
     safe_list,
 )
 
+from tools.rehab_evidence_projection import (
+    EVIDENCE_PROJECTION_POLICY_VERSION,
+    stamp_evidence_projection_provenance,
+)
 from tools.scene_classifier_service import scene_classifier_payload
 
 logger = logging.getLogger(__name__)
@@ -864,6 +868,25 @@ def write_photo_intel(
             pass_2f_provider=pass_2f_provider,
         )
         photo_intel["renovation_estimate_v4"] = v4_est
+        # Evidence-projection provenance shares the run's single completion
+        # timestamp (run.created_at) and identifies the artifact relatively —
+        # never by absolute path.
+        _evidence_projection = v4_est.get("rehab_evidence_projection_v1")
+        if isinstance(_evidence_projection, dict):
+            stamp_evidence_projection_provenance(
+                _evidence_projection,
+                run_id=job.job_id,
+                completed_at=created_at,
+                source_artifact=(
+                    f"{job.property_key}/{Path(job.artifacts_dir).name}/photo_intel.json"
+                ),
+                projection_status="native",
+                product_policy_version=PRODUCT_POLICY_VERSION,
+            )
+            photo_intel["evidence_projection_policy_version"] = (
+                EVIDENCE_PROJECTION_POLICY_VERSION
+            )
+            photo_intel["evidence_projection_status"] = "native"
         photo_intel["ui_priorities_v1"] = _build_ui_priorities_v1(
             issues_flat=renovation_issues_flat,
             issue_catalog=issue_catalog,

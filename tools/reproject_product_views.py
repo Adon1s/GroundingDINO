@@ -42,6 +42,11 @@ from tools.backfill_reno_v4 import _resolve_property_metadata_from_artifact
 from tools.costing import compute_scoring
 from tools.pipeline_common import PRODUCT_POLICY_VERSION
 from tools.property_summary_pass import build_property_summary_v1, load_catalog_index
+from tools.rehab_evidence_projection import (
+    EVIDENCE_PROJECTION_POLICY_VERSION,
+    SERVABLE_EVIDENCE_PROJECTION_STATUSES,
+    stamp_evidence_projection_provenance,
+)
 from tools.rehab_packages import PACKAGE_VERIFICATION_NOT_RUN
 from tools.renovation_estimate import (
     filter_product_issues,
@@ -195,9 +200,16 @@ def reproject_artifact(
     if not isinstance(artifact, dict):
         return {"status": "error", "reason": "artifact root must be a JSON object"}
 
+    # Evidence projection has its own policy/status: a quarantine-safe
+    # artifact that predates the evidence allocation is still reprojected
+    # (to gain it) without that implying anything about quarantine semantics.
     already_current = (
         artifact.get("product_policy_version") == PRODUCT_POLICY_VERSION
         and artifact.get("product_projection_status") in ("native", "reprojected")
+        and artifact.get("evidence_projection_policy_version")
+            == EVIDENCE_PROJECTION_POLICY_VERSION
+        and artifact.get("evidence_projection_status")
+            in SERVABLE_EVIDENCE_PROJECTION_STATUSES
     )
     if already_current and not force:
         return {
@@ -216,6 +228,8 @@ def reproject_artifact(
         artifact["product_policy_version"] = PRODUCT_POLICY_VERSION
         artifact["catalog_version"] = str(issue_catalog.get("version") or "")
         artifact["product_projection_status"] = "needs_reanalysis"
+        artifact.pop("evidence_projection_policy_version", None)
+        artifact.pop("evidence_projection_status", None)
         try:
             backup_path = _write_with_backup(artifact_path, artifact)
         except OSError as e:
@@ -276,6 +290,21 @@ def reproject_artifact(
     except Exception as e:
         return {"status": "error", "reason": f"reprojection failed: {e}"}
 
+    # Provenance keeps the ORIGINAL run completion timestamp (run.created_at):
+    # reprojection changes the projection, not when the run finished.
+    evidence_projection = v4_est.get("rehab_evidence_projection_v1")
+    if isinstance(evidence_projection, dict):
+        stamp_evidence_projection_provenance(
+            evidence_projection,
+            run_id=run_id,
+            completed_at=(artifact.get("run") or {}).get("created_at"),
+            source_artifact=(
+                f"{property_key}/{artifact_path.parent.name}/photo_intel.json"
+            ),
+            projection_status="reprojected",
+            product_policy_version=PRODUCT_POLICY_VERSION,
+        )
+
     new_total = _headline_total(v4_est)
     result = {
         "status": "dry_run" if dry_run else "reprojected",
@@ -288,6 +317,16 @@ def reproject_artifact(
         "tainted_packages": tainted,
         "old_total": old_total,
         "new_total": new_total,
+        "evidence_projection": (
+            {
+                "photo_supported": evidence_projection.get("photo_supported"),
+                "needs_inspection": evidence_projection.get("needs_inspection"),
+                "headline": evidence_projection.get("headline"),
+                "risk_exposure": evidence_projection.get("risk_exposure"),
+                "projection_id": evidence_projection.get("projection_id"),
+            }
+            if isinstance(evidence_projection, dict) else None
+        ),
     }
     if dry_run:
         return result
@@ -303,6 +342,14 @@ def reproject_artifact(
     artifact["product_policy_version"] = PRODUCT_POLICY_VERSION
     artifact["catalog_version"] = str(issue_catalog.get("version") or "")
     artifact["product_projection_status"] = "reprojected"
+    if isinstance(evidence_projection, dict):
+        artifact["evidence_projection_policy_version"] = (
+            EVIDENCE_PROJECTION_POLICY_VERSION
+        )
+        artifact["evidence_projection_status"] = "reprojected"
+    else:
+        artifact.pop("evidence_projection_policy_version", None)
+        artifact.pop("evidence_projection_status", None)
     artifact["product_reprojection"] = {
         "reprojected_at": datetime.now().isoformat(),
         "quarantined_display_issues": result["quarantined_display_issues"],
@@ -347,6 +394,15 @@ def _format_result(path: Path, result: Dict[str, Any]) -> str:
             " tainted=" + ",".join(t["package_id"] for t in tainted)
             if tainted else ""
         )
+        projection = result.get("evidence_projection")
+        projection_note = (
+            " evidence[photo=" + _fmt_range(projection.get("photo_supported") or {})
+            + " insp=" + _fmt_range(projection.get("needs_inspection") or {})
+            + " headline=" + _fmt_range(projection.get("headline") or {})
+            + " risk=" + _fmt_range(projection.get("risk_exposure") or {}) + "]"
+            if isinstance(projection, dict) and projection.get("headline")
+            else " evidence=none"
+        )
         return (
             f"{status}: {path} | quarantined_issues="
             f"{result['quarantined_display_issues']}d/"
@@ -354,6 +410,7 @@ def _format_result(path: Path, result: Dict[str, Any]) -> str:
             f"verifications_reused={result['verifications_reused']}"
             f"{tainted_note} "
             f"total={_fmt_range(result['old_total'])} -> {_fmt_range(result['new_total'])}"
+            f"{projection_note}"
         )
     if status == "skip_current":
         return f"skip_current: {path} ({result.get('projection_status')})"

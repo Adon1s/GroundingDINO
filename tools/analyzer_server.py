@@ -326,7 +326,7 @@ def _process_job(
     artifacts_root = Path(request["artifactsRoot"]).resolve()
     analysis_profile = request.get("analysisProfile", "standard")
     detection_backend = request.get("detectionBackend", "dinox")
-    concurrency = request.get("concurrency", int(os.environ.get("ANALYZER_CONCURRENCY", "3")))
+    concurrency = request.get("concurrency", int(os.environ.get("ANALYZER_CONCURRENCY", "4")))
 
     # Listing facts from the CSV funnel DB (frontend passes the Property row).
     # Feeds cost_factors / estimate_units / estimate_sanity via
