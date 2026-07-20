@@ -37,10 +37,13 @@ from tools.estimate_scope import apply_estimate_scope
 from tools.estimate_sanity import build_estimate_sanity_flags
 from tools.rehab_packages import (
     ACTIVE_PACKAGE_STATUSES,
+    PackageBuilderInputs,
     aggregate_whole_home_turnover,
     apply_package_verifications_to_candidates,
-    apply_same_unit_package_subsumption,
+    apply_physical_package_subsumption,
+    build_issue_disposition_audit,
     build_package_affinity,
+    dedupe_same_unit_modernizations,
     expand_bathroom_modernization_packages,
     finalize_package_candidates,
     infer_package_candidates,
@@ -159,6 +162,7 @@ def compute_renovation_estimate_v4(
         )
 
     suppressed_package_candidates: List[Dict[str, Any]] = []
+    builder_inputs: Dict[str, PackageBuilderInputs] = {}
     package_inference_candidates = v4_candidates + package_only_candidates
     package_candidates = infer_package_candidates(
         package_inference_candidates,
@@ -166,6 +170,7 @@ def compute_renovation_estimate_v4(
         issue_catalog,
         estimate_units=estimate_unit_resolution.get("estimate_units", []),
         suppressed_out=suppressed_package_candidates,
+        builder_inputs_out=builder_inputs,
     )
     pass_2f_trace = {
         "ran": False,
@@ -208,12 +213,19 @@ def compute_renovation_estimate_v4(
         package_candidates,
         package_verifications,
         require_confirmation=True,
+        builder_inputs=builder_inputs,
     )
 
-    # Must run before bathroom expansion (expanded packages lose their
-    # estimate_unit_id) and before whole-home turnover aggregation (which must
-    # only see surviving turnover packages).
-    packages, subsumption_audit = apply_same_unit_package_subsumption(packages)
+    # Pipeline order matters here:
+    #   1. dedupe duplicate same-unit modernizations, so the bathroom expander
+    #      sees a unique winner;
+    #   2. expand the merged bathroom modernization into per-surrogate,
+    #      individually re-priced packages;
+    #   3. THEN subsume on confirmed physical rooms — losers point directly at
+    #      final per-surrogate winners (no lineage redistribution);
+    #   4. aggregate whole-home turnover last, over surviving turnover
+    #      packages only (display-only, $0 toward totals).
+    packages, dedupe_records = dedupe_same_unit_modernizations(packages)
 
     bathroom_signal = _build_bathroom_room_count_signal(package_candidates_audit)
     bathroom_cap = bathroom_metadata_cap(property_metadata or {})
@@ -221,7 +233,19 @@ def compute_renovation_estimate_v4(
         packages,
         bathroom_room_count_signal=bathroom_signal,
         bathroom_metadata_cap=bathroom_cap,
+        builder_inputs=builder_inputs,
     )
+
+    packages, subsumption_audit = apply_physical_package_subsumption(
+        packages,
+        estimate_units=estimate_unit_resolution.get("estimate_units", []),
+        merge_decisions=estimate_unit_resolution.get("merge_decisions", []),
+    )
+    if dedupe_records:
+        subsumption_audit["subsumptions"] = (
+            dedupe_records + subsumption_audit["subsumptions"]
+        )
+        subsumption_audit["applied"] = True
 
     whole_home_turnover = aggregate_whole_home_turnover(packages)
     if whole_home_turnover is not None:
@@ -238,6 +262,24 @@ def compute_renovation_estimate_v4(
         v4_estimate.get("groups", []),
         packages,
     )
+
+    issue_disposition_audit = build_issue_disposition_audit(
+        package_candidates_audit,
+        packages,
+        v4_estimate.get("groups", []),
+    )
+    unpriced_confirmed = list(
+        issue_disposition_audit.get("confirmed_issues_without_priced_representation")
+        or []
+    )
+    if unpriced_confirmed:
+        reconciliation["reconciliation_warnings"].append({
+            "code": "confirmed_issues_without_priced_representation",
+            "issue_ids": unpriced_confirmed,
+        })
+        reconciliation["warnings"].append(
+            "confirmed_issues_without_priced_representation"
+        )
 
     v4_estimate["version"] = "renovation_estimate_v4"
     v4_estimate["room_surrogates"] = surrogate_records
@@ -257,6 +299,7 @@ def compute_renovation_estimate_v4(
     v4_estimate["bathroom_room_count_signal"] = bathroom_signal
     v4_estimate["bathroom_expansion_audit"] = bathroom_expansion_audit
     v4_estimate["package_subsumption_audit"] = subsumption_audit
+    v4_estimate["issue_disposition_audit"] = issue_disposition_audit
     v4_estimate["suppressed_package_candidates"] = suppressed_package_candidates
     v4_estimate["pass_2f_trace"] = pass_2f_trace
     v4_estimate["reconciliation"] = reconciliation
@@ -305,8 +348,12 @@ def compute_renovation_estimate_v4(
             "package_candidates",
             "pass_2f",
             "package_finalization",
+            "post_verification_retier",
+            "modernization_dedupe",
+            "bathroom_expansion",
             "package_subsumption",
             "reconciliation",
+            "issue_disposition_audit",
             "cost_adjustment",
             "evidence_projection",
         ],
@@ -431,8 +478,15 @@ def _extract_package_only_candidates(
 def _build_bathroom_room_count_signal(
     package_candidates_audit: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
+    """Vote on whether review photos show multiple physical bathrooms.
+
+    Only ACTIVE packages vote — in either direction. A rejected or uncertain
+    package must not veto expansion with a one_room vote any more than it may
+    trigger it with a multiple_rooms vote. Conflicting ACTIVE votes are an
+    explicit ambiguity (warned, no expansion), never a silent cold signal.
+    """
     multiple_package_ids: List[str] = []
-    one_count = 0
+    one_room_package_ids: List[str] = []
     unclear_count = 0
     for package in package_candidates_audit or []:
         if str(package.get("room") or "").lower() != "bathroom":
@@ -440,25 +494,37 @@ def _build_bathroom_room_count_signal(
         if "visible_room_count" not in package:
             continue
         value = str(package.get("visible_room_count") or "unclear").strip().lower()
+        status = str(package.get("verification_status") or "").strip().lower()
+        is_active = not status or status in ACTIVE_PACKAGE_STATUSES
+        package_id = str(package.get("package_id") or "")
         if value == "multiple_rooms":
-            status = str(package.get("verification_status") or "").strip().lower()
-            if status and status not in ACTIVE_PACKAGE_STATUSES:
-                continue
-            package_id = str(package.get("package_id") or "")
-            if package_id:
+            if is_active and package_id:
                 multiple_package_ids.append(package_id)
         elif value == "one_room":
-            one_count += 1
+            if is_active and package_id:
+                one_room_package_ids.append(package_id)
         else:
             unclear_count += 1
     multiple_count = len(multiple_package_ids)
+    one_count = len(one_room_package_ids)
+    conflicting = multiple_count >= 1 and one_count >= 1
     return {
         "likely_multiple_visible_bathrooms": multiple_count >= 1 and one_count == 0,
         "multiple_rooms_vote_count": multiple_count,
         "one_room_vote_count": one_count,
+        "active_one_room_vote_count": one_count,
         "unclear_vote_count": unclear_count,
         "supporting_package_ids": multiple_package_ids,
-        "basis": "requires_active_multiple_room_vote_no_one_room_votes",
+        "one_room_package_ids": one_room_package_ids,
+        "conflicting_active_votes": conflicting,
+        "warnings": (
+            ["conflicting_active_room_count_votes"] if conflicting else []
+        ),
+        "basis": (
+            "conflicting_active_votes_ambiguous_no_expansion"
+            if conflicting
+            else "requires_active_multiple_room_vote_no_one_room_votes"
+        ),
     }
 
 

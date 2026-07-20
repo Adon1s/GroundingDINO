@@ -978,6 +978,12 @@ def write_photo_intel(
 
     _strip_pass_2f_audit_rationale(slim.get("renovation_estimate_v4"))
 
+    # Strip the per-issue disposition audit (debug-only, can be large); the
+    # derived warning codes stay in reconciliation.warnings for the UI.
+    _v4_slim = slim.get("renovation_estimate_v4")
+    if isinstance(_v4_slim, dict):
+        _v4_slim.pop("issue_disposition_audit", None)
+
     # Strip per-photo debug fields (v3 schema)
     for _img_key, _photo in (slim.get("photos") or {}).items():
         _photo.pop("debug", None)

@@ -19,6 +19,7 @@ from __future__ import annotations
 import copy
 import json
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -35,6 +36,7 @@ from tools import cost_factors
 from tools.estimate_scope import (
     INSPECTION_RISK,
     MARKETABILITY_REHAB,
+    REQUIRED_REHAB,
     VALID_ESTIMATE_SCOPES,
     add_scope_amount,
     allocate_capped_scope_totals,
@@ -107,6 +109,30 @@ _VALID_CAP_BEHAVIORS = frozenset({
     CAP_BEHAVIOR_ALLOW_ABOVE_GROUP_CAP,
     CAP_BEHAVIOR_REPLACE_GROUP_CAP,
 })
+
+
+@dataclass
+class PackageBuilderInputs:
+    """Original builder inputs for a package candidate, kept OUT of the package
+    dict (never serialized). Registered per package_id so post-2f re-tiering and
+    bathroom expansion can re-run the pure pricing/strength/scope resolvers on a
+    confirmed-only candidate subset. The EstimateCandidate lists alias the live
+    pipeline objects — never mutate them here."""
+
+    package_type: str
+    unit_id: str
+    supporting_candidates: List[EstimateCandidate] = field(default_factory=list)
+    drivers: List[EstimateCandidate] = field(default_factory=list)
+    supports: List[EstimateCandidate] = field(default_factory=list)
+    catalog_lookup: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+    candidate_catalog_meta: Optional[Dict[int, Dict[str, Any]]] = None
+    trigger_reason: str = ""
+
+
+def _is_estimate_display_only(pkg: Dict[str, Any]) -> bool:
+    """True for packages shown in the UI but contributing $0 to estimate totals
+    (currently only the whole-home turnover aggregate)."""
+    return bool(pkg.get("estimate_display_only"))
 
 DISPLAY_CLASS_ESTIMATE_DRIVER = "estimate_driver"
 DISPLAY_CLASS_HIGH_CONCERN = "high_concern"
@@ -1012,6 +1038,16 @@ def _package_child_absorption_reason(
     if child.get("cost_model") == INSPECTION_ALLOWANCE:
         return None
 
+    # Required-scope work is never absorbed into a marketability package — for
+    # ANY reason, including an exact supporting-issue match. Absorbing it would
+    # move the dollars out of required_rehab into the marketability bundle
+    # (the tradeoff_note invariant). It stays a retained line item instead.
+    if (
+        pkg.get("estimate_scope") == MARKETABILITY_REHAB
+        and child.get("estimate_scope") == REQUIRED_REHAB
+    ):
+        return None
+
     child_issue_ids = set(child.get("issue_ids") or [])
     if child_issue_ids & supporting_issue_ids:
         return "supporting_issue"
@@ -1847,6 +1883,7 @@ def infer_package_candidates(
     *,
     estimate_units: Optional[List[Dict[str, Any]]] = None,
     suppressed_out: Optional[List[Dict[str, Any]]] = None,
+    builder_inputs_out: Optional[Dict[str, "PackageBuilderInputs"]] = None,
 ) -> List[Dict[str, Any]]:
     """Build package candidates from catalog-driven scene-aware affinity.
 
@@ -2030,6 +2067,17 @@ def infer_package_candidates(
             trigger_reason=trigger_reason,
             candidate_catalog_meta=candidate_catalog_meta,
         )
+        if builder_inputs_out is not None:
+            builder_inputs_out[str(package["package_id"])] = PackageBuilderInputs(
+                package_type=package_type,
+                unit_id=unit_id,
+                supporting_candidates=list(supporting),
+                drivers=list(drivers),
+                supports=list(supports),
+                catalog_lookup=catalog_lookup,
+                candidate_catalog_meta=candidate_catalog_meta,
+                trigger_reason=trigger_reason,
+            )
         # Audit note: ambient supports rode along as corroboration/cost on a
         # package that stood on its own anchor (driver or non-ambient supports).
         ambient_corroborating = sorted({
@@ -2152,13 +2200,221 @@ def _apply_verification_to_package(
     return pkg
 
 
+def _project_package_issue_ids_to_confirmed(pkg: Dict[str, Any]) -> None:
+    """Project an active reviewed package's supporting_issue_ids to confirmed-only.
+
+    2f-rejected issue IDs must never remain "supporting": they would still
+    index candidates as package-backed and still fire exact supporting-issue
+    absorption in reconciliation. The pre-review list is preserved under
+    supporting_issue_ids_original (also the idempotence guard).
+    """
+    if pkg.get("supporting_issue_ids_original") is not None:
+        return
+    if not (pkg.get("reviewed_issue_ids") or []):
+        return
+    original = list(pkg.get("supporting_issue_ids") or [])
+    confirmed = {str(i) for i in (pkg.get("confirmed_issue_ids") or [])}
+    pkg["supporting_issue_ids_original"] = original
+    pkg["supporting_issue_ids"] = [i for i in original if str(i) in confirmed]
+
+
+def _candidate_confirmed(candidate: EstimateCandidate, confirmed: set) -> bool:
+    return bool({str(i) for i in (candidate.issue_ids or [])} & confirmed)
+
+
+def _retier_package_from_confirmed_evidence(
+    pkg: Dict[str, Any],
+    inputs: Optional[PackageBuilderInputs],
+) -> None:
+    """Recompute tier, cost, strength, scope, and evidence from confirmed-only
+    evidence after Pass 2f. Mutates the finalized package copy in place.
+
+    The finalized dict is a SHALLOW copy of the pre-finalize candidate dict
+    (see _apply_verification_to_package), so nested lists are always replaced,
+    never mutated in place. An active package left with zero confirmed
+    eligible evidence is demoted to audit-only — pre-2f tier and price must
+    never survive as truth once 2f has rejected the evidence behind them.
+    """
+    if str(pkg.get("verification_status") or "") not in ACTIVE_PACKAGE_STATUSES:
+        pkg["retier_audit"] = {"applied": False, "reason": "status_not_active"}
+        return
+    if (pkg.get("retier_audit") or {}).get("applied"):
+        return
+    if not (pkg.get("reviewed_issue_ids") or []):
+        pkg["retier_audit"] = {"applied": False, "reason": "no_reviewed_issue_ids"}
+        return
+    if inputs is None:
+        logger.warning(
+            "Re-tier skipped: no builder inputs registered for package_id=%s — "
+            "pre-2f tier/cost retained.",
+            pkg.get("package_id"),
+        )
+        pkg["retier_audit"] = {"applied": False, "reason": "missing_builder_inputs"}
+        return
+
+    confirmed = {str(i) for i in (pkg.get("confirmed_issue_ids") or [])}
+    kept_supporting = [
+        c for c in inputs.supporting_candidates if _candidate_confirmed(c, confirmed)
+    ]
+    kept_drivers = [c for c in inputs.drivers if _candidate_confirmed(c, confirmed)]
+    kept_supports = [c for c in inputs.supports if _candidate_confirmed(c, confirmed)]
+
+    previous = {
+        "pricing_tier": pkg.get("pricing_tier"),
+        "pricing_profile": pkg.get("pricing_profile"),
+        "cost_low": pkg.get("cost_low"),
+        "cost_high": pkg.get("cost_high"),
+        "package_strength": pkg.get("package_strength"),
+        "estimate_scope": pkg.get("estimate_scope"),
+        "supporting_issue_count": len(pkg.get("supporting_issue_ids") or []),
+    }
+    dropped_catalog_ids = _unique_in_order([
+        c.catalog_item_id
+        for c in inputs.supporting_candidates
+        if c.catalog_item_id and not _candidate_confirmed(c, confirmed)
+    ])
+
+    if not confirmed or not kept_supporting:
+        pkg["estimate_eligible"] = False
+        pkg["ui_eligible"] = False
+        pkg["audit_only"] = True
+        pkg["demotion_reason"] = "active_status_without_confirmed_evidence"
+        pkg["level_decision_notes"] = list(pkg.get("level_decision_notes") or []) + [
+            "demoted_no_confirmed_evidence_after_pass_2f"
+        ]
+        pkg["retier_audit"] = {
+            "applied": True,
+            "demoted": True,
+            "previous": previous,
+            "dropped_candidate_catalog_ids": dropped_catalog_ids,
+            "confirmed_candidate_count": 0,
+        }
+        return
+
+    spec, _, _notes = _resolve_pricing_profile(
+        str(pkg.get("package_type") or ""),
+        kept_supporting,
+        kept_drivers,
+        kept_supports,
+    )
+    escalated_spec, escalation_note = _escalate_pricing_tier_if_undercut(
+        spec, kept_drivers, inputs.catalog_lookup,
+    )
+    if escalation_note:
+        spec = escalated_spec
+    pricing_profile, cost_low, cost_high = spec
+
+    package_strength = compute_package_strength(
+        kept_drivers, kept_supports, inputs.candidate_catalog_meta,
+    )
+    estimate_scope, estimate_scope_reason = classify_package_scope(
+        pricing_profile,
+        kept_supporting,
+        str(pkg.get("trigger_reason") or inputs.trigger_reason or ""),
+        package_category=str(pkg.get("package_category") or ""),
+        package_strength=package_strength,
+    )
+
+    # Rebuild evidence from the kept candidates, pruned to confirmed refs.
+    # The pre-re-tier evidence is preserved verbatim for audit.
+    if pkg.get("evidence_items_original") is None:
+        pkg["evidence_items_original"] = pkg.get("evidence_items") or []
+    evidence_items: List[Dict[str, Any]] = []
+    supporting_issue_ids: List[str] = []
+    cat_ids: List[str] = []
+    photo_keys: List[str] = []
+    for candidate in kept_supporting:
+        cat_item = (
+            (inputs.candidate_catalog_meta or {}).get(id(candidate))
+            or inputs.catalog_lookup.get(candidate.catalog_item_id or "", {})
+        )
+        item = _candidate_evidence_item(candidate, cat_item)
+        kept_refs = [
+            ref for ref in (item.get("issue_refs") or [])
+            if str(ref.get("issue_id") or "") in confirmed
+        ]
+        kept_ids = [i for i in (item.get("issue_ids") or []) if str(i) in confirmed]
+        if not kept_ids:
+            continue
+        item["issue_refs"] = kept_refs
+        item["issue_ids"] = kept_ids
+        ref_photo_keys = _unique_in_order([
+            str(r.get("photo_key") or "") for r in kept_refs if r.get("photo_key")
+        ])
+        if ref_photo_keys:
+            item["photo_keys"] = ref_photo_keys
+            item["supporting_photo_count"] = len(ref_photo_keys)
+        evidence_items.append(item)
+        supporting_issue_ids.extend(kept_ids)
+        photo_keys.extend(item.get("photo_keys") or [])
+        if candidate.catalog_item_id:
+            cat_ids.append(candidate.catalog_item_id)
+
+    supporting_issue_ids = _unique_in_order(supporting_issue_ids)
+    photo_keys = _unique_in_order(photo_keys)
+
+    pkg["pricing_profile"] = pricing_profile
+    pkg["pricing_tier"] = pricing_profile.split("_", 1)[1]
+    pkg["candidate_cost_low"] = cost_low
+    pkg["candidate_cost_high"] = cost_high
+    pkg["cost_low"] = cost_low
+    pkg["cost_high"] = cost_high
+    pkg["cost_midpoint"] = (cost_low + cost_high) // 2
+    pkg["package_strength"] = package_strength
+    pkg["confidence_score"] = compute_post_verification_score(
+        initial_score=compute_initial_confidence_score(package_strength),
+        confirmed_count=len(pkg.get("confirmed_issue_ids") or []),
+        rejected_count=len(pkg.get("rejected_issue_ids") or []),
+        supporting_count=max(len(supporting_issue_ids), 1),
+    )
+    pkg["absorption_scope"] = _package_absorption_scope(pricing_profile)
+    pkg["estimate_scope"] = estimate_scope
+    pkg["estimate_scope_reason"] = estimate_scope_reason
+    pkg["evidence_items"] = evidence_items
+    pkg["supporting_issue_ids"] = supporting_issue_ids
+    pkg["supporting_catalog_item_ids"] = _unique_in_order(cat_ids)
+    pkg["driver_issue_ids"] = _unique_in_order([
+        str(i) for c in kept_drivers for i in (c.issue_ids or []) if str(i) in confirmed
+    ])
+    pkg["support_issue_ids"] = _unique_in_order([
+        str(i) for c in kept_supports for i in (c.issue_ids or []) if str(i) in confirmed
+    ])
+    pkg["supporting_photo_count"] = len(photo_keys)
+    if not (pkg.get("review_photo_keys") or []):
+        pkg["review_photo_keys"] = photo_keys[:3]
+    notes: List[str] = []
+    if escalation_note:
+        notes.append(escalation_note)
+    if previous["pricing_profile"] != pricing_profile:
+        notes.append(
+            f"retiered_{previous['pricing_profile']}_to_{pricing_profile}_after_pass_2f"
+        )
+    if notes:
+        pkg["level_decision_notes"] = list(pkg.get("level_decision_notes") or []) + notes
+    pkg["retier_audit"] = {
+        "applied": True,
+        "demoted": False,
+        "previous": previous,
+        "dropped_candidate_catalog_ids": dropped_catalog_ids,
+        "confirmed_candidate_count": len(kept_supporting),
+    }
+
+
 def finalize_package_candidates(
     package_candidates: List[Dict[str, Any]],
     package_verifications: Any = None,
     *,
     require_confirmation: bool = True,
+    builder_inputs: Optional[Dict[str, PackageBuilderInputs]] = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
-    """Apply package verification and return (estimate_packages, audit_packages)."""
+    """Apply package verification and return (estimate_packages, audit_packages).
+
+    Active reviewed packages get their supporting_issue_ids projected to
+    confirmed-only, and — when `builder_inputs` is provided — are re-tiered
+    from confirmed-only evidence (tier, cost, strength, scope, evidence). A
+    re-tier that finds zero confirmed evidence demotes the package to
+    audit-only, which excludes it from the returned estimate list.
+    """
     verification_by_id = _verification_lookup(package_verifications)
     audit_packages: List[Dict[str, Any]] = []
     estimate_packages: List[Dict[str, Any]] = []
@@ -2168,16 +2424,23 @@ def finalize_package_candidates(
             package,
             verification_by_id.get(package_id),
         )
+        if finalized.get("verification_status") in ACTIVE_PACKAGE_STATUSES:
+            _project_package_issue_ids_to_confirmed(finalized)
+            if builder_inputs is not None:
+                _retier_package_from_confirmed_evidence(
+                    finalized,
+                    builder_inputs.get(package_id),
+                )
         audit_packages.append(finalized)
         final_status = finalized.get("verification_status")
         if require_confirmation and final_status not in ACTIVE_PACKAGE_STATUSES:
             continue
-        if final_status in ACTIVE_PACKAGE_STATUSES:
+        if final_status in ACTIVE_PACKAGE_STATUSES and not finalized.get("audit_only"):
             estimate_packages.append(finalized)
     return estimate_packages, audit_packages
 
 
-# ─── Same-unit package subsumption ────────────────────────────────────────────
+# ─── Package subsumption on physical-room identity ───────────────────────────
 #
 # infer_package_candidates groups by (estimate_unit_id, package_type), so one
 # room can emit a modernization AND a repair AND a turnover package at once.
@@ -2186,11 +2449,18 @@ def finalize_package_candidates(
 # bathroom_repair_heavy both price, yet a gut rehab subsumes the repair work.
 # This pass drops the subsumed bundles after finalization. Dropping (rather
 # than transferring supporting_issue_ids to the winner) keeps required-scope
-# children out of marketability-scoped packages: supporting-issue absorption
-# bypasses scope checks, so a transferred plumbing leak would vanish from
-# required_rehab. Dropped packages' children instead get broad-absorbed by the
-# modernization where its absorption_scope covers them, or retained as line
-# items in their own scope.
+# children out of marketability-scoped packages. Dropped packages' children
+# instead get broad-absorbed by the modernization where its absorption_scope
+# covers them, or retained as line items in their own scope.
+#
+# Subsumption is decided on CONFIRMED PHYSICAL ROOMS, not estimate-unit ids:
+# estimate units like bathroom_primary can be conservative/default merges of
+# several physical bathrooms, so unit-id equality is not proof that two
+# packages cover the same room. A repair is only dropped when every confirmed
+# room it covers is also confirmed for a subsuming-tier modernization whose
+# absorption scope covers the repair's confirmed components; otherwise it is
+# retained and the retention is audited. Runs AFTER bathroom expansion so the
+# winners are the final per-surrogate packages.
 
 _MODERNIZATION_TIER_RANK = {"refresh": 0, "partial_rehab": 1, "full_rehab": 2}
 
@@ -2229,14 +2499,21 @@ def _drop_subsumed_package(
     _apply_verification_to_package). The mutation is deliberately in place:
     finalize_package_candidates aliases the same dict into the
     package_candidates audit list, which therefore stays consistent for free.
+    Idempotent: re-applying the same drop never duplicates notes or lineage.
     """
+    winner_id = str(winner.get("package_id") or "")
+    loser_id = str(loser.get("package_id") or "")
+    if loser.get(ref_field) == winner_id and note in (loser.get("level_decision_notes") or []):
+        return
     loser["estimate_eligible"] = False
     loser["ui_eligible"] = False
     loser["audit_only"] = True
-    loser[ref_field] = str(winner.get("package_id") or "")
-    loser["level_decision_notes"] = list(loser.get("level_decision_notes") or []) + [note]
+    loser[ref_field] = winner_id
+    if note not in (loser.get("level_decision_notes") or []):
+        loser["level_decision_notes"] = list(loser.get("level_decision_notes") or []) + [note]
     winner_list = list(winner.get(winner_list_field) or [])
-    winner_list.append(str(loser.get("package_id") or ""))
+    if loser_id not in winner_list:
+        winner_list.append(loser_id)
     winner[winner_list_field] = winner_list
 
 
@@ -2246,12 +2523,16 @@ def _downgrade_turnover_to_light(
 ) -> Optional[Dict[str, Any]]:
     """Downgrade a turnover_std package to its light tier in place.
 
-    Returns the audit record, or None when the profile has no light mapping.
+    Returns the audit record, or None when the profile has no light mapping
+    or the package was already downgraded (idempotence).
     """
+    if turnover.get("turnover_downgraded"):
+        return None
     from_profile = str(turnover.get("pricing_profile") or "")
     light_spec = _TURNOVER_STD_TO_LIGHT.get(from_profile)
     if light_spec is None:
         return None
+    turnover["turnover_downgraded"] = True
     to_profile, cost_low, cost_high = light_spec
     turnover["pricing_profile"] = to_profile
     turnover["pricing_tier"] = "turnover_light"
@@ -2273,34 +2554,19 @@ def _downgrade_turnover_to_light(
     }
 
 
-def apply_same_unit_package_subsumption(
+def dedupe_same_unit_modernizations(
     packages: List[Dict[str, Any]],
-) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
-    """Drop same-unit packages whose scope a modernization package subsumes.
+) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+    """Keep one modernization per (estimate unit, room); demote the rest.
 
-    Within one estimate unit (room_surrogate_id fallback for unit-less
-    packages):
-      - modernization at partial_rehab/full_rehab subsumes the repair
-        packages — a gut rehab includes the repair work;
-      - modernization at ANY tier (incl. refresh) suppresses the turnover
-        packages — even a refresh covers paint + flooring + finish, and both
-        land in marketability_rehab;
-      - repair alone never suppresses turnover (scopes barely overlap), but a
-        repair_heavy downgrades a coexisting turnover_std to its light tier.
-
-    Returns (active_packages, subsumption_audit): drops removed from the list
-    (order otherwise preserved — Phase B absorption is first-come-first-
-    absorbed in list order), dropped dicts mutated in place for the aliased
-    package_candidates audit list.
+    Runs BEFORE bathroom expansion so the expander sees a unique winner.
+    Exact-unit-key equality is valid here (unlike subsumption): same unit id +
+    same room + same category is the same package claim twice, not a
+    physical-identity inference. Winner = highest tier, then confidence, then
+    package_id. Returns (active_packages, dedupe_records) with records shaped
+    like subsumption entries (rule "modernization_dedupe_highest_tier").
     """
-    audit: Dict[str, Any] = {
-        "applied": False,
-        "subsumptions": [],
-        "downgrades": [],
-        "tradeoff_note": _SUBSUMPTION_TRADEOFF_NOTE,
-    }
-
-    by_unit: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+    by_unit: Dict[Tuple[str, str], List[Dict[str, Any]]] = {}
     for pkg in packages or []:
         if not isinstance(pkg, dict):
             continue
@@ -2308,96 +2574,475 @@ def apply_same_unit_package_subsumption(
             continue
         if pkg.get("package_level") != PACKAGE_LEVEL_ROOM:
             continue
+        if str(pkg.get("package_category") or "") != PACKAGE_CATEGORY_MODERNIZATION:
+            continue
         unit_key = (
             str(pkg.get("estimate_unit_id") or "")
             or str(pkg.get("room_surrogate_id") or "")
         )
         if not unit_key:
             continue
-        category = str(pkg.get("package_category") or "")
-        if category not in (
-            PACKAGE_CATEGORY_MODERNIZATION,
-            PACKAGE_CATEGORY_REPAIR,
-            PACKAGE_CATEGORY_TURNOVER,
+        by_unit.setdefault((unit_key, str(pkg.get("room") or "")), []).append(pkg)
+
+    records: List[Dict[str, Any]] = []
+    dropped: set = set()
+    for (unit_key, _room), group in by_unit.items():
+        if len(group) < 2:
+            continue
+        ranked = sorted(
+            group,
+            key=lambda p: (
+                -_MODERNIZATION_TIER_RANK.get(str(p.get("pricing_tier") or ""), -1),
+                -float(p.get("confidence_score") or 0.0),
+                str(p.get("package_id") or ""),
+            ),
+        )
+        winner = ranked[0]
+        for loser in ranked[1:]:
+            _drop_subsumed_package(
+                loser,
+                winner,
+                ref_field="subsumed_by_package_id",
+                note="deduped_same_unit_modernization",
+                winner_list_field="subsumed_package_ids",
+            )
+            dropped.add(id(loser))
+            records.append({
+                "unit": unit_key,
+                "winner_package_id": str(winner.get("package_id") or ""),
+                "loser_package_id": str(loser.get("package_id") or ""),
+                "rule": "modernization_dedupe_highest_tier",
+            })
+
+    active = [pkg for pkg in packages or [] if id(pkg) not in dropped]
+    return active, records
+
+
+def _package_confirmed_surrogates(pkg: Dict[str, Any]) -> Tuple[set, str]:
+    """Resolve the set of physical rooms with 2f-confirmed evidence.
+
+    Preferred basis is per-ref surrogate ids on confirmed issue refs. When the
+    refs carry no surrogate ids but confirmed evidence exists, fall back to the
+    package's source_room_surrogate_ids — data sparsity must not read as "no
+    confirmed rooms" and trigger mass retention. The basis string is recorded
+    in every audit record so the weaker inference stays visible.
+    """
+    grouped = _group_confirmed_refs_by_surrogate(pkg)
+    if grouped:
+        return set(grouped.keys()), "confirmed_refs"
+    if pkg.get("confirmed_issue_ids"):
+        source = {
+            str(s) for s in (pkg.get("source_room_surrogate_ids") or []) if str(s)
+        }
+        if source:
+            return source, "package_source_rooms"
+    return set(), "none"
+
+
+def _confirmed_evidence_components(
+    pkg: Dict[str, Any],
+    surrogate_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Confirmed evidence items (optionally restricted to one physical room),
+    each classified for coverage checks."""
+    confirmed = {str(i) for i in (pkg.get("confirmed_issue_ids") or [])}
+    out: List[Dict[str, Any]] = []
+    for item in pkg.get("evidence_items") or []:
+        matched = False
+        for ref in item.get("issue_refs") or []:
+            if not isinstance(ref, dict):
+                continue
+            issue_id = str(ref.get("issue_id") or "")
+            ref_surrogate = str(ref.get("room_surrogate_id") or "").strip()
+            if issue_id not in confirmed:
+                continue
+            if surrogate_id is not None and ref_surrogate != surrogate_id:
+                continue
+            matched = True
+            break
+        if not matched and surrogate_id is None:
+            # Refs may be absent on stub/legacy evidence — fall back to item ids.
+            if {str(i) for i in (item.get("issue_ids") or [])} & confirmed:
+                matched = True
+        if matched:
+            out.append({
+                "component": classify_component(item),
+                "trade_bucket": str(item.get("trade_bucket") or ""),
+                "catalog_item_id": str(item.get("catalog_item_id") or ""),
+            })
+    return out
+
+
+def _winner_scope_covers_components(
+    winner: Dict[str, Any],
+    components: List[Dict[str, Any]],
+) -> Tuple[bool, List[str]]:
+    """True when the winner's absorption scope covers every component; also
+    returns the uncovered labels for the audit."""
+    scope = winner.get("absorption_scope") or {}
+    scope_components = set(scope.get("components") or [])
+    scope_trades = set(scope.get("trade_buckets") or [])
+    uncovered: List[str] = []
+    for entry in components:
+        component = entry.get("component")
+        trade = entry.get("trade_bucket") or ""
+        if (component is not None and component in scope_components) or (
+            trade and trade in scope_trades
         ):
             continue
-        by_unit.setdefault(unit_key, {}).setdefault(category, []).append(pkg)
+        label = entry.get("catalog_item_id") or component or trade or "unknown"
+        if label not in uncovered:
+            uncovered.append(label)
+    return (not uncovered), uncovered
+
+
+def _unit_merge_info(
+    pkg: Dict[str, Any],
+    estimate_units: Optional[List[Dict[str, Any]]],
+    merge_decisions: Optional[List[Dict[str, Any]]],
+) -> Dict[str, Any]:
+    unit_id = str(pkg.get("estimate_unit_id") or "")
+    unit = next(
+        (
+            u for u in (estimate_units or [])
+            if isinstance(u, dict) and str(u.get("estimate_unit_id") or "") == unit_id
+        ),
+        {},
+    )
+    decision = next(
+        (
+            d for d in (merge_decisions or [])
+            if isinstance(d, dict) and str(d.get("to") or "") == unit_id
+        ),
+        {},
+    )
+    return {
+        "unit": unit_id,
+        "confidence": unit.get("confidence") or decision.get("confidence"),
+        "reason": unit.get("merge_reason") or decision.get("reason"),
+    }
+
+
+def _cost_range(pkg: Dict[str, Any]) -> Dict[str, int]:
+    return {
+        "low": int(pkg.get("cost_low") or 0),
+        "high": int(pkg.get("cost_high") or 0),
+    }
+
+
+def apply_physical_package_subsumption(
+    packages: List[Dict[str, Any]],
+    *,
+    estimate_units: Optional[List[Dict[str, Any]]] = None,
+    merge_decisions: Optional[List[Dict[str, Any]]] = None,
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Drop packages whose confirmed physical rooms a modernization covers.
+
+    Rules (all decided on confirmed surrogate sets, never unit-id equality):
+      - a repair is subsumed only when EVERY confirmed repair room is covered
+        by some same-room modernization at partial_rehab/full_rehab whose
+        absorption scope covers that room's confirmed components; a repair
+        with no provable rooms, an uncovered room, or an uncovered component
+        is RETAINED and audited;
+      - a turnover is suppressed when every confirmed turnover room is covered
+        by some same-room modernization at ANY tier (no component check —
+        paint/flooring/finish is within any modernization);
+      - a retained repair_heavy still downgrades a retained turnover_std with
+        overlapping confirmed rooms to its light tier.
+
+    Returns (active_packages, subsumption_audit). Dropped dicts are mutated in
+    place for the aliased package_candidates audit list.
+    """
+    audit: Dict[str, Any] = {
+        "applied": False,
+        "subsumptions": [],
+        "downgrades": [],
+        "retained_repairs": [],
+        "retained_turnovers": [],
+        "tradeoff_note": _SUBSUMPTION_TRADEOFF_NOTE,
+    }
+
+    active_room: List[Dict[str, Any]] = [
+        pkg for pkg in packages or []
+        if isinstance(pkg, dict)
+        and str(pkg.get("verification_status") or "") in ACTIVE_PACKAGE_STATUSES
+        and pkg.get("package_level") == PACKAGE_LEVEL_ROOM
+        and not pkg.get("audit_only")
+    ]
+    modernizations = [
+        p for p in active_room
+        if str(p.get("package_category") or "") == PACKAGE_CATEGORY_MODERNIZATION
+    ]
+    repairs = [
+        p for p in active_room
+        if str(p.get("package_category") or "") == PACKAGE_CATEGORY_REPAIR
+    ]
+    turnovers = [
+        p for p in active_room
+        if str(p.get("package_category") or "") == PACKAGE_CATEGORY_TURNOVER
+    ]
+
+    mod_infos: List[Dict[str, Any]] = []
+    for mod in modernizations:
+        surrogates, basis = _package_confirmed_surrogates(mod)
+        mod_infos.append({
+            "pkg": mod,
+            "surrogates": surrogates,
+            "basis": basis,
+            "tier": str(mod.get("pricing_tier") or ""),
+            "room": str(mod.get("room") or ""),
+        })
+
+    def _legacy_unit(pkg: Dict[str, Any]) -> str:
+        return (
+            str(pkg.get("estimate_unit_id") or "")
+            or str(pkg.get("room_surrogate_id") or "")
+        )
 
     dropped: set = set()
-    for unit_key, by_category in by_unit.items():
-        modernizations = by_category.get(PACKAGE_CATEGORY_MODERNIZATION) or []
-        repairs = by_category.get(PACKAGE_CATEGORY_REPAIR) or []
-        turnovers = by_category.get(PACKAGE_CATEGORY_TURNOVER) or []
 
-        if modernizations:
-            # max() keeps the first maximal element, so ties break by list order.
-            winner = max(
-                modernizations,
-                key=lambda p: _MODERNIZATION_TIER_RANK.get(
-                    str(p.get("pricing_tier") or ""), -1
-                ),
+    for repair in repairs:
+        loser_surrogates, basis = _package_confirmed_surrogates(repair)
+        base_record = {
+            "unit": _legacy_unit(repair),
+            "loser_confirmed_surrogates": sorted(loser_surrogates),
+            "surrogate_basis": basis,
+            "loser_cost": _cost_range(repair),
+            "unit_merge": _unit_merge_info(repair, estimate_units, merge_decisions),
+        }
+        if not loser_surrogates:
+            audit["retained_repairs"].append({
+                **base_record,
+                "retained_package_id": str(repair.get("package_id") or ""),
+                "retention_reason": "loser_no_confirmed_surrogates",
+            })
+            continue
+
+        winners_by_surrogate: Dict[str, Dict[str, Any]] = {}
+        uncovered_surrogates: List[str] = []
+        uncovered_components: List[str] = []
+        coverage_failed_somewhere = False
+        for surrogate in sorted(loser_surrogates):
+            # With per-ref surrogate data, coverage is checked against only
+            # that room's confirmed components; the source-rooms fallback has
+            # no per-room refs, so it checks all confirmed components.
+            component_surrogate = surrogate if basis == "confirmed_refs" else None
+            loser_components = _confirmed_evidence_components(
+                repair, component_surrogate,
             )
-            winner_tier = str(winner.get("pricing_tier") or "")
-            if winner_tier in _REPAIR_SUBSUMING_MODERNIZATION_TIERS:
-                for repair_pkg in repairs:
-                    _drop_subsumed_package(
-                        repair_pkg,
-                        winner,
-                        ref_field="subsumed_by_package_id",
-                        note="subsumed_by_same_unit_modernization",
-                        winner_list_field="subsumed_package_ids",
-                    )
-                    dropped.add(id(repair_pkg))
-                    audit["subsumptions"].append({
-                        "unit": unit_key,
-                        "winner_package_id": str(winner.get("package_id") or ""),
-                        "loser_package_id": str(repair_pkg.get("package_id") or ""),
-                        "rule": "modernization_subsumes_repair",
-                    })
-            for turnover_pkg in turnovers:
-                _drop_subsumed_package(
-                    turnover_pkg,
-                    winner,
-                    ref_field="suppressed_by_package_id",
-                    note="suppressed_by_same_unit_modernization",
-                    winner_list_field="suppressed_package_ids",
+            winner_pkg: Optional[Dict[str, Any]] = None
+            surrogate_had_tier_match = False
+            surrogate_uncovered: List[str] = []
+            for info in mod_infos:
+                if info["room"] != str(repair.get("room") or ""):
+                    continue
+                if info["tier"] not in _REPAIR_SUBSUMING_MODERNIZATION_TIERS:
+                    continue
+                if surrogate not in info["surrogates"]:
+                    continue
+                surrogate_had_tier_match = True
+                covered, uncovered = _winner_scope_covers_components(
+                    info["pkg"], loser_components,
                 )
-                dropped.add(id(turnover_pkg))
-                audit["subsumptions"].append({
-                    "unit": unit_key,
-                    "winner_package_id": str(winner.get("package_id") or ""),
-                    "loser_package_id": str(turnover_pkg.get("package_id") or ""),
-                    "rule": "modernization_suppresses_turnover",
-                })
-        elif repairs and turnovers:
-            heavy_repair = next(
+                if covered:
+                    winner_pkg = info["pkg"]
+                    break
+                surrogate_uncovered = uncovered
+            if winner_pkg is not None:
+                winners_by_surrogate[surrogate] = winner_pkg
+            else:
+                uncovered_surrogates.append(surrogate)
+                if surrogate_had_tier_match:
+                    coverage_failed_somewhere = True
+                    uncovered_components.extend(
+                        u for u in surrogate_uncovered
+                        if u not in uncovered_components
+                    )
+
+        if uncovered_surrogates:
+            audit["retained_repairs"].append({
+                **base_record,
+                "retained_package_id": str(repair.get("package_id") or ""),
+                "retention_reason": (
+                    "components_not_covered"
+                    if coverage_failed_somewhere
+                    else "loser_surrogates_not_covered"
+                ),
+                "uncovered_surrogates": uncovered_surrogates,
+                "uncovered_components": uncovered_components,
+            })
+            continue
+
+        winner_ids = _unique_in_order([
+            str(winners_by_surrogate[s].get("package_id") or "")
+            for s in sorted(winners_by_surrogate)
+        ])
+        primary = winners_by_surrogate[sorted(winners_by_surrogate)[0]]
+        for winner in {id(w): w for w in winners_by_surrogate.values()}.values():
+            _drop_subsumed_package(
+                repair,
+                winner,
+                ref_field="subsumed_by_package_id",
+                note="subsumed_by_same_unit_modernization",
+                winner_list_field="subsumed_package_ids",
+            )
+        # _drop_subsumed_package leaves the single-valued pointer at the LAST
+        # winner applied; pin it to the primary and record the full list.
+        repair["subsumed_by_package_id"] = str(primary.get("package_id") or "")
+        repair["subsumed_by_package_ids"] = winner_ids
+        dropped.add(id(repair))
+        audit["subsumptions"].append({
+            **base_record,
+            "winner_package_id": str(primary.get("package_id") or ""),
+            "winner_package_ids": winner_ids,
+            "loser_package_id": str(repair.get("package_id") or ""),
+            "rule": "modernization_subsumes_repair",
+            "surrogate_winners": {
+                s: str(w.get("package_id") or "")
+                for s, w in winners_by_surrogate.items()
+            },
+            "winner_confirmed_surrogates": sorted({
+                s
+                for info in mod_infos
+                if info["pkg"] in winners_by_surrogate.values()
+                for s in info["surrogates"]
+            }),
+            "component_coverage": "covered",
+            "winner_cost": _cost_range(primary),
+        })
+
+    for turnover in turnovers:
+        t_surrogates, t_basis = _package_confirmed_surrogates(turnover)
+        base_record = {
+            "unit": _legacy_unit(turnover),
+            "loser_confirmed_surrogates": sorted(t_surrogates),
+            "surrogate_basis": t_basis,
+            "loser_cost": _cost_range(turnover),
+            "unit_merge": _unit_merge_info(turnover, estimate_units, merge_decisions),
+        }
+        if not t_surrogates:
+            audit["retained_turnovers"].append({
+                **base_record,
+                "retained_package_id": str(turnover.get("package_id") or ""),
+                "retention_reason": "loser_no_confirmed_surrogates",
+            })
+            continue
+        winners_by_surrogate = {}
+        uncovered_surrogates = []
+        for surrogate in sorted(t_surrogates):
+            winner_pkg = next(
                 (
-                    r for r in repairs
-                    if str(r.get("pricing_tier") or "") == "repair_heavy"
+                    info["pkg"] for info in mod_infos
+                    if info["room"] == str(turnover.get("room") or "")
+                    and surrogate in info["surrogates"]
                 ),
                 None,
             )
-            if heavy_repair is not None:
-                for turnover_pkg in turnovers:
-                    if str(turnover_pkg.get("pricing_tier") or "") != "turnover_std":
-                        continue
-                    record = _downgrade_turnover_to_light(turnover_pkg, heavy_repair)
-                    if record is not None:
-                        audit["downgrades"].append(record)
+            if winner_pkg is not None:
+                winners_by_surrogate[surrogate] = winner_pkg
+            else:
+                uncovered_surrogates.append(surrogate)
+        if uncovered_surrogates:
+            audit["retained_turnovers"].append({
+                **base_record,
+                "retained_package_id": str(turnover.get("package_id") or ""),
+                "retention_reason": "loser_surrogates_not_covered",
+                "uncovered_surrogates": uncovered_surrogates,
+            })
+            continue
+        winner_ids = _unique_in_order([
+            str(winners_by_surrogate[s].get("package_id") or "")
+            for s in sorted(winners_by_surrogate)
+        ])
+        primary = winners_by_surrogate[sorted(winners_by_surrogate)[0]]
+        for winner in {id(w): w for w in winners_by_surrogate.values()}.values():
+            _drop_subsumed_package(
+                turnover,
+                winner,
+                ref_field="suppressed_by_package_id",
+                note="suppressed_by_same_unit_modernization",
+                winner_list_field="suppressed_package_ids",
+            )
+        turnover["suppressed_by_package_id"] = str(primary.get("package_id") or "")
+        turnover["suppressed_by_package_ids"] = winner_ids
+        dropped.add(id(turnover))
+        audit["subsumptions"].append({
+            **base_record,
+            "winner_package_id": str(primary.get("package_id") or ""),
+            "winner_package_ids": winner_ids,
+            "loser_package_id": str(turnover.get("package_id") or ""),
+            "rule": "modernization_suppresses_turnover",
+            "surrogate_winners": {
+                s: str(w.get("package_id") or "")
+                for s, w in winners_by_surrogate.items()
+            },
+            "winner_confirmed_surrogates": sorted({
+                s
+                for info in mod_infos
+                if info["pkg"] in winners_by_surrogate.values()
+                for s in info["surrogates"]
+            }),
+            "winner_cost": _cost_range(primary),
+        })
+
+    # Retained repair_heavy downgrades a retained, room-overlapping
+    # turnover_std — the heavy repair already covers flooring.
+    retained_heavy = [
+        r for r in repairs
+        if id(r) not in dropped and str(r.get("pricing_tier") or "") == "repair_heavy"
+    ]
+    retained_std_turnovers = [
+        t for t in turnovers
+        if id(t) not in dropped and str(t.get("pricing_tier") or "") == "turnover_std"
+    ]
+    for turnover in retained_std_turnovers:
+        t_surrogates, _basis = _package_confirmed_surrogates(turnover)
+        for repair in retained_heavy:
+            if str(repair.get("room") or "") != str(turnover.get("room") or ""):
+                continue
+            r_surrogates, _r_basis = _package_confirmed_surrogates(repair)
+            if t_surrogates and r_surrogates and not (t_surrogates & r_surrogates):
+                continue
+            record = _downgrade_turnover_to_light(turnover, repair)
+            if record is not None:
+                audit["downgrades"].append(record)
+            break
 
     audit["applied"] = bool(audit["subsumptions"] or audit["downgrades"])
-    active = [pkg for pkg in packages or [] if id(pkg) not in dropped]
+    active = [
+        pkg for pkg in packages or []
+        if id(pkg) not in dropped
+        and not (
+            isinstance(pkg, dict)
+            and pkg.get("audit_only")
+            and (
+                pkg.get("subsumed_by_package_id")
+                or pkg.get("suppressed_by_package_id")
+            )
+        )
+    ]
     return active, audit
 
 
-def _group_confirmed_refs_by_surrogate(
-    package: Dict[str, Any],
-) -> Dict[str, List[Dict[str, Any]]]:
-    """Group a package's confirmed issue refs by their room_surrogate_id.
+def apply_same_unit_package_subsumption(
+    packages: List[Dict[str, Any]],
+) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
+    """Deprecated alias — subsumption is now decided on confirmed physical
+    rooms. Kept for callers/tests importing the old name."""
+    return apply_physical_package_subsumption(packages)
 
-    Only refs whose issue_id is in the package's confirmed_issue_ids and whose
-    room_surrogate_id is non-empty are considered. Reviewed-but-not-confirmed,
-    rejected, and unreviewed refs are filtered out.
+
+def _group_refs_by_surrogate(
+    package: Dict[str, Any],
+    *,
+    only_confirmed: bool,
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Group a package's issue refs by their room_surrogate_id.
+
+    With only_confirmed=True, refs whose issue_id is not in the package's
+    confirmed_issue_ids are filtered out (reviewed-but-not-confirmed, rejected,
+    and unreviewed refs excluded). Refs with an empty surrogate id are always
+    excluded.
     """
     confirmed_ids = {str(i) for i in (package.get("confirmed_issue_ids") or [])}
     by_surrogate: Dict[str, List[Dict[str, Any]]] = {}
@@ -2409,29 +3054,51 @@ def _group_confirmed_refs_by_surrogate(
             surrogate_id = str(ref.get("room_surrogate_id") or "").strip()
             if not issue_id or not surrogate_id:
                 continue
-            if issue_id not in confirmed_ids:
+            if only_confirmed and issue_id not in confirmed_ids:
                 continue
             by_surrogate.setdefault(surrogate_id, []).append(ref)
     return by_surrogate
+
+
+def _group_confirmed_refs_by_surrogate(
+    package: Dict[str, Any],
+) -> Dict[str, List[Dict[str, Any]]]:
+    """Confirmed-only view of _group_refs_by_surrogate."""
+    return _group_refs_by_surrogate(package, only_confirmed=True)
 
 
 def _build_expanded_bathroom_package(
     original: Dict[str, Any],
     surrogate_id: str,
     confirmed_refs_for_surrogate: List[Dict[str, Any]],
+    *,
+    all_refs_for_surrogate: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """Build one per-surrogate copy of a confirmed bathroom_modernization package.
 
     Restricts evidence and issue lists to the given surrogate's confirmed refs,
     clears estimate_unit_id so reconciliation absorbs by room_surrogate_id, and
     rewrites package_id to {package_type}__{estimate_unit_id}__{surrogate_id}.
+
+    Every evidence-derived field is rebuilt from THIS surrogate's refs —
+    reviewed/rejected/driver/support ids, catalog ids, review photos, photo
+    count — so a clone never displays another bathroom's evidence. Lineage
+    lists start empty (expansion runs before subsumption) and re-tier state is
+    cleared so the per-clone re-price can run fresh.
     """
     pkg = copy.deepcopy(original)
     confirmed_ids = {str(i) for i in (original.get("confirmed_issue_ids") or [])}
     surrogate_confirmed_ids = {str(r.get("issue_id") or "") for r in confirmed_refs_for_surrogate}
     surrogate_confirmed_ids.discard("")
+    surrogate_all_ids = {
+        str(r.get("issue_id") or "")
+        for r in (all_refs_for_surrogate or confirmed_refs_for_surrogate)
+    }
+    surrogate_all_ids.discard("")
 
     new_evidence_items: List[Dict[str, Any]] = []
+    kept_photo_keys: List[str] = []
+    kept_catalog_ids: List[str] = []
     for evidence in pkg.get("evidence_items") or []:
         kept_refs = [
             ref for ref in (evidence.get("issue_refs") or [])
@@ -2450,7 +3117,11 @@ def _build_expanded_bathroom_package(
         item["supporting_photo_count"] = len(item["photo_keys"])
         item["room_surrogate_id"] = surrogate_id
         new_evidence_items.append(item)
+        kept_photo_keys.extend(item["photo_keys"])
+        if item.get("catalog_item_id"):
+            kept_catalog_ids.append(str(item["catalog_item_id"]))
     pkg["evidence_items"] = new_evidence_items
+    kept_photo_keys = _unique_in_order(kept_photo_keys)
 
     pkg["room_surrogate_id"] = surrogate_id
     original_estimate_unit_id = str(original.get("estimate_unit_id") or "")
@@ -2464,6 +3135,43 @@ def _build_expanded_bathroom_package(
         i for i in (original.get("supporting_issue_ids") or [])
         if str(i) in surrogate_confirmed_ids
     ]
+    # Per-surrogate projections of the property-wide review/driver metadata —
+    # inheriting them verbatim was the clone-integrity defect.
+    pkg["supporting_issue_ids_original"] = [
+        i
+        for i in (
+            original.get("supporting_issue_ids_original")
+            or original.get("supporting_issue_ids")
+            or []
+        )
+        if str(i) in surrogate_all_ids
+    ]
+    pkg["reviewed_issue_ids"] = [
+        i for i in (original.get("reviewed_issue_ids") or [])
+        if str(i) in surrogate_all_ids
+    ]
+    pkg["rejected_issue_ids"] = [
+        i for i in (original.get("rejected_issue_ids") or [])
+        if str(i) in surrogate_all_ids
+    ]
+    pkg["driver_issue_ids"] = [
+        i for i in (original.get("driver_issue_ids") or [])
+        if str(i) in surrogate_confirmed_ids
+    ]
+    pkg["support_issue_ids"] = [
+        i for i in (original.get("support_issue_ids") or [])
+        if str(i) in surrogate_confirmed_ids
+    ]
+    pkg["supporting_catalog_item_ids"] = _unique_in_order(kept_catalog_ids)
+    pkg["review_photo_keys"] = kept_photo_keys[:3]
+    pkg["review_image_paths"] = []
+    pkg["supporting_photo_count"] = len(kept_photo_keys)
+    pkg["subsumed_package_ids"] = []
+    pkg["suppressed_package_ids"] = []
+    pkg.pop("retier_audit", None)
+    pkg.pop("evidence_items_original", None)
+    pkg.pop("visible_room_count", None)
+    pkg.pop("visible_room_count_evidence", None)
 
     package_type = str(original.get("package_type") or "")
     pkg["package_id"] = (
@@ -2482,11 +3190,39 @@ def _build_expanded_bathroom_package(
     return pkg
 
 
+def _derive_surrogate_builder_inputs(
+    source: PackageBuilderInputs,
+    surrogate_id: str,
+    surrogate_confirmed_ids: set,
+    trigger_reason: str,
+) -> PackageBuilderInputs:
+    """Restrict a merged package's builder inputs to one physical bathroom."""
+
+    def _matches(candidate: EstimateCandidate) -> bool:
+        if str(getattr(candidate, "room_surrogate_id", "") or "") == surrogate_id:
+            return True
+        return bool(
+            {str(i) for i in (candidate.issue_ids or [])} & surrogate_confirmed_ids
+        )
+
+    return PackageBuilderInputs(
+        package_type=source.package_type,
+        unit_id=surrogate_id,
+        supporting_candidates=[c for c in source.supporting_candidates if _matches(c)],
+        drivers=[c for c in source.drivers if _matches(c)],
+        supports=[c for c in source.supports if _matches(c)],
+        catalog_lookup=source.catalog_lookup,
+        candidate_catalog_meta=source.candidate_catalog_meta,
+        trigger_reason=trigger_reason,
+    )
+
+
 def expand_bathroom_modernization_packages(
     packages: List[Dict[str, Any]],
     *,
     bathroom_room_count_signal: Optional[Dict[str, Any]],
     bathroom_metadata_cap: Optional[int],
+    builder_inputs: Optional[Dict[str, PackageBuilderInputs]] = None,
 ) -> Tuple[List[Dict[str, Any]], Dict[str, Any]]:
     """Split a merged bathroom_modernization package into one-per-surrogate copies.
 
@@ -2494,7 +3230,15 @@ def expand_bathroom_modernization_packages(
     reports `likely_multiple_visible_bathrooms`, the scraped metadata cap allows
     >=2 bathrooms, and confirmed issue refs map to multiple distinct surrogates.
     When expansion fires, the original merged package is REMOVED from the
-    returned list so totals are not double-counted.
+    returned list (and demoted in place for the aliased audit list, with
+    expanded_into_package_ids lineage) so totals are not double-counted.
+
+    Each clone is re-tiered/re-priced from only its bathroom's confirmed
+    evidence via the registered builder inputs. When `builder_inputs` is
+    provided but has no entry for the source package, expansion is SKIPPED
+    entirely — emitting clones that each carry the merged package's full price
+    is the defect this rework removes. `builder_inputs=None` (unit tests)
+    keeps the inherited pricing.
 
     Non-bathroom_modernization packages pass through untouched. Returns
     (new_packages, expansion_audit).
@@ -2505,6 +3249,8 @@ def expand_bathroom_modernization_packages(
         "produced_package_ids": [],
         "qualifying_surrogate_ids": [],
         "skipped_surrogate_ids_no_confirmed": [],
+        "skipped_surrogate_ids_no_candidates": [],
+        "per_surrogate": [],
         "bathroom_metadata_cap": bathroom_metadata_cap,
         "cap_applied": False,
         "signal_likely_multiple_visible_bathrooms": bool(
@@ -2523,6 +3269,8 @@ def expand_bathroom_modernization_packages(
         and str(p.get("package_type") or "") == PACKAGE_TYPE_BATHROOM_MODERNIZATION
         and str(p.get("room") or "") == ROOM_BATHROOM
         and str(p.get("verification_status") or "") in ACTIVE_PACKAGE_STATUSES
+        and not p.get("superseded_by_expansion")
+        and not p.get("expansion_source_package_id")
     ]
     if not candidates:
         audit["fallback_reason"] = "no_confirmed_bathroom_modernization_package"
@@ -2538,14 +3286,30 @@ def expand_bathroom_modernization_packages(
 
     # Only expand the first confirmed bathroom_modernization package — there is
     # at most one per house because infer_package_candidates groups by
-    # (estimate_unit_id, package_type) and bathroom_primary is one unit.
+    # (estimate_unit_id, package_type), bathroom_primary is one unit, and
+    # dedupe_same_unit_modernizations has already enforced uniqueness.
     original = candidates[0]
-    audit["source_package_id"] = str(original.get("package_id") or "")
+    original_id = str(original.get("package_id") or "")
+    audit["source_package_id"] = original_id
+
+    source_inputs: Optional[PackageBuilderInputs] = None
+    if builder_inputs is not None:
+        source_inputs = builder_inputs.get(original_id)
+        if source_inputs is None:
+            logger.warning(
+                "Bathroom expansion skipped: no builder inputs registered for "
+                "package_id=%s — clones cannot be re-priced per surrogate.",
+                original_id,
+            )
+            audit["fallback_reason"] = "missing_builder_inputs"
+            return list(packages), audit
 
     by_surrogate = _group_confirmed_refs_by_surrogate(original)
     if not by_surrogate:
         audit["fallback_reason"] = "no_confirmed_refs_with_surrogate"
         return list(packages), audit
+
+    all_refs_by_surrogate = _group_refs_by_surrogate(original, only_confirmed=False)
 
     sorted_surrogates = sorted(by_surrogate.keys())
     audit["qualifying_surrogate_ids"] = sorted_surrogates
@@ -2559,11 +3323,47 @@ def expand_bathroom_modernization_packages(
 
     expanded: List[Dict[str, Any]] = []
     for surrogate_id in capped_surrogates:
-        expanded.append(_build_expanded_bathroom_package(
+        clone = _build_expanded_bathroom_package(
             original,
             surrogate_id,
             by_surrogate[surrogate_id],
-        ))
+            all_refs_for_surrogate=all_refs_by_surrogate.get(surrogate_id),
+        )
+        if source_inputs is not None:
+            surrogate_confirmed_ids = {
+                str(i) for i in (clone.get("confirmed_issue_ids") or [])
+            }
+            derived = _derive_surrogate_builder_inputs(
+                source_inputs,
+                surrogate_id,
+                surrogate_confirmed_ids,
+                str(clone.get("trigger_reason") or ""),
+            )
+            if not derived.supporting_candidates:
+                audit["skipped_surrogate_ids_no_candidates"].append(surrogate_id)
+                continue
+            builder_inputs[str(clone["package_id"])] = derived
+            _retier_package_from_confirmed_evidence(clone, derived)
+            if clone.get("audit_only"):
+                # Re-tier demoted the clone (no confirmed evidence survived) —
+                # do not emit it as an active package.
+                audit["skipped_surrogate_ids_no_candidates"].append(surrogate_id)
+                continue
+        expanded.append(clone)
+        audit["per_surrogate"].append({
+            "surrogate_id": surrogate_id,
+            "package_id": str(clone.get("package_id") or ""),
+            "pricing_tier": clone.get("pricing_tier"),
+            "cost_low": int(clone.get("cost_low") or 0),
+            "cost_high": int(clone.get("cost_high") or 0),
+            "confirmed_issue_count": len(clone.get("confirmed_issue_ids") or []),
+        })
+
+    if len(expanded) < 2:
+        # Fewer than two viable per-room packages — keep the merged original.
+        audit["per_surrogate"] = []
+        audit["fallback_reason"] = "insufficient_viable_expanded_packages"
+        return list(packages), audit
 
     out: List[Dict[str, Any]] = []
     for pkg in packages:
@@ -2571,6 +3371,17 @@ def expand_bathroom_modernization_packages(
             out.extend(expanded)
             continue
         out.append(pkg)
+
+    # Demote the original in place: it aliases into package_candidates_audit,
+    # so the audit list shows the superseded merged package with its lineage.
+    original["expanded_into_package_ids"] = [p["package_id"] for p in expanded]
+    original["superseded_by_expansion"] = True
+    original["estimate_eligible"] = False
+    original["ui_eligible"] = False
+    original["audit_only"] = True
+    original["level_decision_notes"] = list(
+        original.get("level_decision_notes") or []
+    ) + ["expanded_into_per_surrogate_packages"]
 
     audit["expanded"] = True
     audit["produced_package_ids"] = [p["package_id"] for p in expanded]
@@ -2672,7 +3483,11 @@ def aggregate_whole_home_turnover(
         "confirmed_issue_ids": _unique_in_order(supporting_issue_ids),
         "rejected_issue_ids": [],
         "evidence_summary": "Aggregated from per-room turnover packages.",
-        "estimate_eligible": True,
+        # Display-only: the aggregate's range is the SUM of its still-active
+        # contributing packages, so it must contribute $0 to estimate totals —
+        # reconciliation and scope rollups skip it via estimate_display_only.
+        "estimate_display_only": True,
+        "estimate_eligible": False,
         "ui_eligible": True,
         "audit_only": False,
     }
@@ -2693,7 +3508,15 @@ def apply_package_verifications_to_candidates(
     )
     by_issue_id: Dict[str, Dict[str, Any]] = {}
     for package in audit_packages:
-        for issue_id in package.get("supporting_issue_ids") or []:
+        # Index the PRE-projection list so candidates backed only by rejected
+        # issue ids still find their parent package (and get invalidated below)
+        # instead of silently keeping their pre-2f validity.
+        issue_ids = (
+            package.get("supporting_issue_ids_original")
+            or package.get("supporting_issue_ids")
+            or []
+        )
+        for issue_id in issue_ids:
             by_issue_id[str(issue_id)] = package
 
     for candidate in candidates or []:
@@ -2712,6 +3535,16 @@ def apply_package_verifications_to_candidates(
         candidate.package_verification_source = f"pass_2f:{provider}" if status != PACKAGE_VERIFICATION_NOT_RUN else "pass_2f:not_run"
         candidate.review_source = candidate.package_verification_source
         if status in ACTIVE_PACKAGE_STATUSES:
+            rejected_ids = {str(i) for i in (package.get("rejected_issue_ids") or [])}
+            candidate_ids = {str(i) for i in (candidate.issue_ids or [])}
+            if candidate_ids and rejected_ids and candidate_ids <= rejected_ids:
+                # Package survived review, but every issue behind THIS candidate
+                # was rejected — the candidate must not stay a valid detection.
+                candidate.is_valid_detection = False
+                candidate.pass_2f_attempted = True
+                candidate.pass_2f_applied = False
+                candidate.pass_2f_fallback_reason = "issues_rejected_in_package_review"
+                continue
             candidate.is_valid_detection = True
             candidate.pass_2f_attempted = status == PACKAGE_VERIFICATION_CONFIRMED
             candidate.pass_2f_applied = status == PACKAGE_VERIFICATION_CONFIRMED
@@ -3103,6 +3936,123 @@ async def run_pass_2f_batch(
 # Reconciliation
 # ═══════════════════════════════════════════════════════════════════════════
 
+# Deterministic Phase B priority: room-level packages absorb before the
+# property level; within a level, repairs own their evidence before
+# modernizations broad-absorb it and turnovers come last; higher tiers first;
+# package_id is the stable tie-break. This is only the tie-break policy —
+# Pass 1's evidence-ownership rule is what makes assignment order-independent.
+_ABSORPTION_CATEGORY_PRIORITY = {
+    PACKAGE_CATEGORY_REPAIR: 0,
+    PACKAGE_CATEGORY_MODERNIZATION: 1,
+    PACKAGE_CATEGORY_TURNOVER: 2,
+}
+
+
+def _absorption_priority_key(pkg: Dict[str, Any]) -> Tuple[int, int, int, str]:
+    level = 1 if pkg.get("package_level") == PACKAGE_LEVEL_PROPERTY else 0
+    category = _ABSORPTION_CATEGORY_PRIORITY.get(
+        str(pkg.get("package_category") or ""), 3
+    )
+    tier_rank = _MODERNIZATION_TIER_RANK.get(str(pkg.get("pricing_tier") or ""), -1)
+    return (level, category, -tier_rank, str(pkg.get("package_id") or ""))
+
+
+def _package_child_join(pkg: Dict[str, Any], child: Dict[str, Any]) -> bool:
+    """True when the package and child refer to the same billable scope.
+
+    Packages with an estimate_unit_id join on unit-id equality. Expanded
+    per-surrogate packages (empty unit id) join on room_surrogate_id — plus a
+    verified-membership fallback for merged children that still carry an empty
+    surrogate with the package's room among their source_room_surrogate_ids.
+    """
+    pkg_estimate_unit_id = pkg.get("estimate_unit_id")
+    if pkg_estimate_unit_id:
+        return child.get("estimate_unit_id") == pkg_estimate_unit_id
+    pkg_room_id = pkg.get("room_surrogate_id")
+    if child.get("room_surrogate_id") == pkg_room_id:
+        return True
+    return bool(
+        pkg_room_id
+        and not child.get("room_surrogate_id")
+        and pkg_room_id in (child.get("source_room_surrogate_ids") or [])
+    )
+
+
+def _absorb_child(
+    pkg: Dict[str, Any],
+    child: Dict[str, Any],
+    absorption_reason: str,
+    groups_out: List[Dict[str, Any]],
+) -> None:
+    pkg_id = pkg.get("package_id")
+    child["absorbed_by_package_id"] = pkg_id
+    child["absorption_reason"] = absorption_reason
+    pkg["absorbed_unit_member_refs"].append({
+        "child_id": child["child_id"],
+        "parent_line_item_id": child["parent_line_item_id"],
+        "group": child.get("group"),
+        "catalog_item_id": child.get("catalog_item_id"),
+        "cost_model": child.get("cost_model"),
+        "cost_model_source": child.get("cost_model_source"),
+        "absorption_reason": absorption_reason,
+        "estimate_scope": child.get("estimate_scope"),
+        "estimate_scope_reason": child.get("estimate_scope_reason"),
+        "allocated_low": child["allocated_low"],
+        "allocated_high": child["allocated_high"],
+    })
+    pkg["absorbed_total_low"] += child["allocated_low"]
+    pkg["absorbed_total_high"] += child["allocated_high"]
+    _mark_parent_member_absorbed(groups_out, child, pkg_id)
+
+
+def _split_merged_children_for_expanded_packages(
+    children: List[Dict[str, Any]],
+    expanded_surrogates: set,
+) -> List[Dict[str, Any]]:
+    """Split multi-room merged children into per-surrogate sub-children.
+
+    A merged bathroom child (empty room_surrogate_id, several
+    source_room_surrogate_ids) can only ever join ONE expanded package via the
+    membership fallback, handing that bathroom the whole merged cost. Splitting
+    keeps each physical bathroom's absorbed/retained arithmetic balanced:
+    allocations split exactly via _split_integer (retained + absorbed still
+    equals the original), each sub-child is absorbed at most once, and each
+    carries its surrogate as a distinct physical_unit_key for per-unit caps.
+    issue_ids stay on every sub-child — the surrogate join gates first, so a
+    sibling package never sees another bathroom's sub-child.
+    """
+    out: List[Dict[str, Any]] = []
+    for child in children:
+        source_ids = [
+            str(s) for s in (child.get("source_room_surrogate_ids") or []) if str(s)
+        ]
+        if (
+            child.get("room_surrogate_id")
+            or len(source_ids) < 2
+            or not (set(source_ids) & expanded_surrogates)
+        ):
+            out.append(child)
+            continue
+        n = len(source_ids)
+        alloc_low = _split_integer(int(child.get("allocated_low") or 0), n)
+        alloc_high = _split_integer(int(child.get("allocated_high") or 0), n)
+        orig_low = _split_integer(int(child.get("original_low") or 0), n)
+        orig_high = _split_integer(int(child.get("original_high") or 0), n)
+        for i, surrogate_id in enumerate(source_ids):
+            sub = dict(child)
+            sub["child_id"] = f"{child['child_id']}::{surrogate_id}"
+            sub["split_from_child_id"] = child["child_id"]
+            sub["room_surrogate_id"] = surrogate_id
+            sub["source_room_surrogate_ids"] = [surrogate_id]
+            sub["physical_unit_key"] = surrogate_id
+            sub["allocated_low"] = alloc_low[i]
+            sub["allocated_high"] = alloc_high[i]
+            sub["original_low"] = orig_low[i]
+            sub["original_high"] = orig_high[i]
+            out.append(sub)
+    return out
+
+
 def reconcile_packages_and_estimate_units(
     groups_out: List[Dict[str, Any]],
     packages: List[Dict[str, Any]],
@@ -3118,13 +4068,29 @@ def reconcile_packages_and_estimate_units(
 
     Returns audit dict with totals, warnings, and explicit estimate buckets.
     """
-    # Phase A: normalize line items into child records, indexed by group
+    # Phase A: normalize line items into child records, indexed by group.
+    # Children spanning several physical rooms that expanded per-surrogate
+    # packages target are split into per-surrogate sub-children first, so each
+    # bathroom's package absorbs exactly its own share and the per-unit cap
+    # keys stay distinct.
+    expanded_surrogates = {
+        str(p.get("room_surrogate_id") or "")
+        for p in packages or []
+        if isinstance(p, dict)
+        and p.get("expansion_source_package_id")
+        and not p.get("estimate_unit_id")
+    }
+    expanded_surrogates.discard("")
     children_by_group: Dict[str, List[Dict[str, Any]]] = {}
     for group in groups_out or []:
         group_name = group.get("group", "other")
         group_children: List[Dict[str, Any]] = []
         for line_item in group.get("line_items", []) or []:
             children = _normalize_line_item(line_item, group_name)
+            if expanded_surrogates:
+                children = _split_merged_children_for_expanded_packages(
+                    children, expanded_surrogates,
+                )
             line_item["unit_member_allocations"] = children
             group_children.extend(children)
         children_by_group.setdefault(group_name, []).extend(group_children)
@@ -3133,7 +4099,7 @@ def reconcile_packages_and_estimate_units(
     warnings: List[Dict[str, Any]] = []
     _append_invalid_cost_model_warnings(all_children, warnings)
 
-    # Phase B: absorb children into packages (first-come-first-absorbed)
+    # Phase B0: validate packages and reset absorption bookkeeping.
     for pkg in packages or []:
         pkg.setdefault("cost_model", PACKAGE_ALLOWANCE)
         pkg.setdefault("cost_model_source", COST_MODEL_SOURCE_DERIVED_PACKAGE)
@@ -3159,44 +4125,75 @@ def reconcile_packages_and_estimate_units(
         pkg.setdefault("absorbed_unit_member_refs", [])
         pkg["absorbed_total_low"] = 0
         pkg["absorbed_total_high"] = 0
-        pkg_supporting_issue_ids = set(pkg.get("supporting_issue_ids") or [])
-        pkg_room_id = pkg.get("room_surrogate_id")
-        pkg_estimate_unit_id = pkg.get("estimate_unit_id")
-        pkg_id = pkg.get("package_id")
 
-        for child in all_children:
-            if child.get("absorbed_by_package_id") is not None:
+    # Phase B: absorb children into packages in two passes. Pass 1 gives each
+    # child to the package that holds its issue as CONFIRMED direct evidence —
+    # ownership by evidence, not by package list order. Pass 2 lets packages
+    # broad-absorb the remainder by absorption scope. Both passes iterate
+    # packages in an explicit deterministic priority order (room-level before
+    # property-level, repair < modernization < turnover, higher tier first,
+    # package_id as the stable tie-break), so shuffling the input list can
+    # never change an assignment. Display-only packages absorb nothing.
+    billable_packages = [
+        pkg for pkg in packages or [] if not _is_estimate_display_only(pkg)
+    ]
+    ordered_packages = sorted(billable_packages, key=_absorption_priority_key)
+    supporting_by_pkg: Dict[int, set] = {}
+    rejected_by_pkg: Dict[int, set] = {}
+    for pkg in ordered_packages:
+        rejected = {str(i) for i in (pkg.get("rejected_issue_ids") or [])}
+        rejected_by_pkg[id(pkg)] = rejected
+        # Rejected ids must never provide an absorption reason, even for
+        # stub/test packages that bypassed the finalize-time projection.
+        supporting_by_pkg[id(pkg)] = {
+            str(i) for i in (pkg.get("supporting_issue_ids") or [])
+        } - rejected
+
+    for child in all_children:
+        if child.get("absorbed_by_package_id") is not None:
+            continue
+        child_issue_ids = {str(i) for i in (child.get("issue_ids") or [])}
+        if not child_issue_ids:
+            continue
+        for pkg in ordered_packages:
+            if not _package_child_join(pkg, child):
                 continue
-            if pkg_estimate_unit_id:
-                if child.get("estimate_unit_id") != pkg_estimate_unit_id:
-                    continue
-            elif child.get("room_surrogate_id") != pkg_room_id:
+            rejected = rejected_by_pkg[id(pkg)]
+            if rejected and child_issue_ids <= rejected:
+                continue
+            if not (child_issue_ids & supporting_by_pkg[id(pkg)]):
                 continue
             absorption_reason = _package_child_absorption_reason(
                 pkg,
                 child,
-                pkg_supporting_issue_ids,
-                allow_broad=bool(pkg_estimate_unit_id),
+                supporting_by_pkg[id(pkg)],
+                allow_broad=False,
             )
-            if not absorption_reason:
+            if absorption_reason:
+                _absorb_child(pkg, child, absorption_reason, groups_out)
+                break
+
+    for pkg in ordered_packages:
+        allow_broad = bool(pkg.get("estimate_unit_id"))
+        if not allow_broad:
+            continue
+        rejected = rejected_by_pkg[id(pkg)]
+        for child in all_children:
+            if child.get("absorbed_by_package_id") is not None:
                 continue
-            child["absorbed_by_package_id"] = pkg_id
-            child["absorption_reason"] = absorption_reason
-            pkg["absorbed_unit_member_refs"].append({
-                "child_id": child["child_id"],
-                "parent_line_item_id": child["parent_line_item_id"],
-                "catalog_item_id": child.get("catalog_item_id"),
-                "cost_model": child.get("cost_model"),
-                "cost_model_source": child.get("cost_model_source"),
-                "absorption_reason": absorption_reason,
-                "estimate_scope": child.get("estimate_scope"),
-                "estimate_scope_reason": child.get("estimate_scope_reason"),
-                "allocated_low": child["allocated_low"],
-                "allocated_high": child["allocated_high"],
-            })
-            pkg["absorbed_total_low"] += child["allocated_low"]
-            pkg["absorbed_total_high"] += child["allocated_high"]
-            _mark_parent_member_absorbed(groups_out, child, pkg_id)
+            if not _package_child_join(pkg, child):
+                continue
+            child_issue_ids = {str(i) for i in (child.get("issue_ids") or [])}
+            if rejected and child_issue_ids and child_issue_ids <= rejected:
+                continue
+            absorption_reason = _package_child_absorption_reason(
+                pkg,
+                child,
+                supporting_by_pkg[id(pkg)],
+                allow_broad=True,
+            )
+            if absorption_reason:
+                _absorb_child(pkg, child, absorption_reason, groups_out)
 
     # Phase C: per-package replacement_delta + warnings
     for pkg in packages or []:
@@ -3210,6 +4207,11 @@ def reconcile_packages_and_estimate_units(
             })
             raw_cap_behavior = CAP_BEHAVIOR_RESPECT_GROUP_CAP
         pkg["cap_behavior"] = raw_cap_behavior
+        if _is_estimate_display_only(pkg):
+            # Display-only packages carry no estimate cost: no floor, no delta.
+            pkg["replacement_delta_low"] = 0
+            pkg["replacement_delta_high"] = 0
+            continue
         # Floor: a package's cost can never undercut what it absorbed. Tier dispatch
         # picks a cost range without seeing absorbed totals (those are only known
         # here in Phase C). If a sub-tier package absorbed a costly catalog item,
@@ -3246,17 +4248,26 @@ def reconcile_packages_and_estimate_units(
             c for c in group_children
             if c.get("absorbed_by_package_id") is None and _is_visible_rehab_child(c)
         ]
-        rt_low, rt_high = _recompute_retained_group(group_name, retained_children)
-        retained_group_totals.append({"group": group_name, "low": rt_low, "high": rt_high})
+        rt_low, rt_high, rt_per_unit = _recompute_retained_group_detailed(
+            group_name, retained_children,
+        )
+        retained_group_totals.append({
+            "group": group_name,
+            "low": rt_low,
+            "high": rt_high,
+            "unit_count": len(rt_per_unit),
+            "per_unit": rt_per_unit,
+        })
         retained_total_low += rt_low
         retained_total_high += rt_high
 
-    # Phase E: assemble explicit rehab/exposure buckets
-    package_total_low = sum(int(pkg.get("cost_low") or 0) for pkg in packages or [])
-    package_total_high = sum(int(pkg.get("cost_high") or 0) for pkg in packages or [])
-    absorbed_total_low = sum(int(pkg.get("absorbed_total_low") or 0) for pkg in packages or [])
-    absorbed_total_high = sum(int(pkg.get("absorbed_total_high") or 0) for pkg in packages or [])
-    absorbed_member_count = sum(len(pkg.get("absorbed_unit_member_refs") or []) for pkg in packages or [])
+    # Phase E: assemble explicit rehab/exposure buckets. Display-only packages
+    # (whole-home turnover aggregate) are excluded from every dollar total.
+    package_total_low = sum(int(pkg.get("cost_low") or 0) for pkg in billable_packages)
+    package_total_high = sum(int(pkg.get("cost_high") or 0) for pkg in billable_packages)
+    absorbed_total_low = sum(int(pkg.get("absorbed_total_low") or 0) for pkg in billable_packages)
+    absorbed_total_high = sum(int(pkg.get("absorbed_total_high") or 0) for pkg in billable_packages)
+    absorbed_member_count = sum(len(pkg.get("absorbed_unit_member_refs") or []) for pkg in billable_packages)
     package_group_reconciliation = _build_package_group_reconciliation(
         groups_out or [],
         children_by_group,
@@ -3631,6 +4642,10 @@ def _build_scope_rollups(
         scope = pkg.get("estimate_scope")
         if scope == INSPECTION_RISK:
             continue
+        if _is_estimate_display_only(pkg):
+            # The whole-home aggregate mirrors its contributors' summed range —
+            # adding its net here is exactly the double count being prevented.
+            continue
         group_name = pkg.get("estimate_group") or "other"
         group_totals = raw_by_group.setdefault(group_name, empty_scope_totals())
         net_low = max(
@@ -3695,9 +4710,17 @@ def _build_package_group_reconciliation(
         if group_name not in group_names:
             group_names.append(group_name)
     packages_by_group: Dict[str, List[Dict[str, Any]]] = {}
+    display_only_by_group: Dict[str, List[str]] = {}
     for pkg in packages or []:
         group_name = pkg.get("estimate_group") or "other"
-        packages_by_group.setdefault(group_name, []).append(pkg)
+        if _is_estimate_display_only(pkg):
+            # Display-only packages contribute $0 — kept out of every sum and
+            # out of cap-behavior resolution, listed on the record for audit.
+            display_only_by_group.setdefault(group_name, []).append(
+                str(pkg.get("package_id") or "")
+            )
+        else:
+            packages_by_group.setdefault(group_name, []).append(pkg)
         if group_name not in group_names:
             group_names.append(group_name)
 
@@ -3721,17 +4744,54 @@ def _build_package_group_reconciliation(
         pre_low = original_capped_low + net_low
         pre_high = original_capped_high + net_high
 
+        # Selected-package floor: the group's final contribution must never
+        # fall below the sum of its selected (estimate-eligible) packages'
+        # verified, re-tiered ranges — neither via the group cap nor via
+        # net-delta arithmetic when absorbed exceeds the capped originals.
+        # Dollars a package absorbed from OTHER groups are already priced in
+        # those groups' totals, so they are netted out of this group's floor
+        # (an absolute floor would double-count cross-group absorption).
+        selected_packages = [
+            pkg for pkg in group_packages if pkg.get("estimate_eligible", True)
+        ]
+        selected_package_low = sum(
+            int(pkg.get("cost_low") or 0) for pkg in selected_packages
+        )
+        selected_package_high = sum(
+            int(pkg.get("cost_high") or 0) for pkg in selected_packages
+        )
+        absorbed_out_low = 0
+        absorbed_out_high = 0
+        for pkg in selected_packages:
+            for ref in pkg.get("absorbed_unit_member_refs") or []:
+                if str(ref.get("group") or group_name) != group_name:
+                    absorbed_out_low += int(ref.get("allocated_low") or 0)
+                    absorbed_out_high += int(ref.get("allocated_high") or 0)
+        package_floor_low = max(0, selected_package_low - absorbed_out_low)
+        package_floor_high = max(0, selected_package_high - absorbed_out_high)
+        unit_count = len({
+            (
+                str(pkg.get("estimate_unit_id") or "")
+                or str(pkg.get("room_surrogate_id") or "")
+            )
+            for pkg in group_packages
+        }) if group_packages else 0
+
         cap_behavior = _dominant_cap_behavior(group_packages)
         cap_override = cap_behavior != CAP_BEHAVIOR_RESPECT_GROUP_CAP
         has_group_cap = _has_group_cap(group_name, group, group_children, group_packages)
-        post_low, post_high, cap_applied = _apply_post_package_group_cap(
-            group_name=group_name,
-            pre_low=pre_low,
-            pre_high=pre_high,
-            original_capped_high=original_capped_high,
-            package_high=package_high,
-            cap_behavior=cap_behavior,
-            has_group_cap=has_group_cap,
+        post_low, post_high, cap_applied, package_floor_applied = (
+            _apply_post_package_group_cap(
+                group_name=group_name,
+                pre_low=pre_low,
+                pre_high=pre_high,
+                original_capped_high=original_capped_high,
+                package_high=package_high,
+                cap_behavior=cap_behavior,
+                has_group_cap=has_group_cap,
+                package_floor_low=package_floor_low,
+                package_floor_high=package_floor_high,
+            )
         )
 
         if cap_behavior == CAP_BEHAVIOR_ALLOW_ABOVE_GROUP_CAP and group_packages:
@@ -3746,7 +4806,7 @@ def _build_package_group_reconciliation(
                 "group_cap_high": _group_cap_high(group_name),
             })
 
-        out.append({
+        record = {
             "group": group_name,
             "original_group_raw": {"low": original_raw_low, "high": original_raw_high},
             "original_group_capped": {
@@ -3760,7 +4820,24 @@ def _build_package_group_reconciliation(
             "post_cap_package_adjusted": {"low": post_low, "high": post_high},
             "cap_applied_after_packages": cap_applied,
             "cap_override": cap_override,
-        })
+            "selected_package_floor": {
+                "low": package_floor_low,
+                "high": package_floor_high,
+            },
+            "selected_package_total": {
+                "low": selected_package_low,
+                "high": selected_package_high,
+            },
+            "absorbed_out_of_group": {
+                "low": absorbed_out_low,
+                "high": absorbed_out_high,
+            },
+            "package_floor_applied": package_floor_applied,
+            "unit_count": unit_count,
+        }
+        if display_only_by_group.get(group_name):
+            record["display_only_package_ids"] = display_only_by_group[group_name]
+        out.append(record)
     return out
 
 
@@ -3849,13 +4926,35 @@ def _apply_post_package_group_cap(
     package_high: int,
     cap_behavior: str,
     has_group_cap: bool,
-) -> Tuple[int, int, bool]:
+    package_floor_low: int = 0,
+    package_floor_high: int = 0,
+) -> Tuple[int, int, bool, bool]:
+    """Cap the package-adjusted group total, then apply the selected-package
+    floor so the result can never fall below the selected packages' verified
+    range sum (net of what they absorbed from other groups — those dollars
+    are priced there). The floor is applied AFTER the clamp on EVERY path,
+    including the no-cap/allow-above early paths: net-delta arithmetic alone
+    can push pre_high below the package sum when in-group absorbed exceeds
+    the capped originals. Returns (post_low, post_high, cap_applied,
+    floor_applied).
+    """
+
+    def _with_floor(low: int, high: int, cap_applied: bool) -> Tuple[int, int, bool, bool]:
+        floored_high = max(high, package_floor_high)
+        floored_low = max(low, min(package_floor_low, floored_high))
+        return (
+            floored_low,
+            floored_high,
+            cap_applied and floored_high < pre_high,
+            floored_high > high or floored_low > low,
+        )
+
     if not has_group_cap or cap_behavior == CAP_BEHAVIOR_ALLOW_ABOVE_GROUP_CAP:
-        return (min(pre_low, pre_high), pre_high, False)
+        return _with_floor(min(pre_low, pre_high), pre_high, False)
 
     group_cap_high = _group_cap_high(group_name)
     if group_cap_high is None:
-        return (min(pre_low, pre_high), pre_high, False)
+        return _with_floor(min(pre_low, pre_high), pre_high, False)
 
     cap_high = max(group_cap_high, original_capped_high)
     if cap_behavior == CAP_BEHAVIOR_REPLACE_GROUP_CAP:
@@ -3863,7 +4962,7 @@ def _apply_post_package_group_cap(
 
     post_high = min(pre_high, cap_high)
     post_low = min(pre_low, post_high)
-    return (post_low, post_high, post_high < pre_high)
+    return _with_floor(post_low, post_high, post_high < pre_high)
 
 
 def _normalize_line_item(line_item: Dict[str, Any], group_name: str) -> List[Dict[str, Any]]:
@@ -3893,6 +4992,14 @@ def _normalize_line_item(line_item: Dict[str, Any], group_name: str) -> List[Dic
             "estimate_unit_id": line_item.get("billable_estimate_unit_id") or line_item.get("estimate_unit_id") or "",
             "room_surrogate_id": line_item.get("room_surrogate_id") or "",
             "source_room_surrogate_ids": list(line_item.get("source_room_surrogate_ids") or []),
+            "physical_unit_key": (
+                str(line_item.get("room_surrogate_id") or "")
+                or str(
+                    line_item.get("billable_estimate_unit_id")
+                    or line_item.get("estimate_unit_id")
+                    or ""
+                )
+            ),
             "issue_ids": list(line_item.get("source_issue_ids") or []),
             "scope_keys": [],
             "estimate_scope": line_item.get("estimate_scope"),
@@ -3942,6 +5049,10 @@ def _normalize_line_item(line_item: Dict[str, Any], group_name: str) -> List[Dic
                 or member.get("room_surrogate_ids")
                 or []
             ),
+            "physical_unit_key": (
+                str(member.get("room_surrogate_id") or "")
+                or str(member.get("estimate_unit_id") or unit_key or "")
+            ),
             "issue_ids": list(member.get("issue_ids") or []),
             "scope_keys": list(member.get("estimate_scope_keys") or []),
             "estimate_scope": (
@@ -3982,10 +5093,19 @@ def _mark_parent_member_absorbed(
     child: Dict[str, Any],
     package_id: str,
 ) -> None:
-    """Mirror absorbed_by_package_id onto the matching parent unit_member."""
+    """Mirror absorbed_by_package_id onto the matching parent unit_member.
+
+    Split sub-children (see _split_merged_children_for_expanded_packages) are
+    partial absorptions of one member: different siblings may go to different
+    packages, so the single-valued member field would misrepresent them. Those
+    append to the additive absorbed_by_package_ids list instead.
+    """
     parent_id = child["parent_line_item_id"]
-    child_id = child["child_id"]
-    member_unit_key = child_id.split("::", 1)[-1] if "::" in child_id else None
+    split_from = child.get("split_from_child_id")
+    base_child_id = str(split_from or child["child_id"])
+    member_unit_key = (
+        base_child_id.split("::", 1)[-1] if "::" in base_child_id else None
+    )
     if not member_unit_key or member_unit_key == "__synthetic__":
         return
     for group in groups_out or []:
@@ -3993,37 +5113,254 @@ def _mark_parent_member_absorbed(
             if li.get("estimate_unit_id") != parent_id:
                 continue
             for m in li.get("unit_members", []) or []:
-                if m.get("unit_key") == member_unit_key:
-                    m["absorbed_by_package_id"] = package_id
-                    m["cost_model"] = child.get("cost_model")
-                    m["cost_model_source"] = child.get("cost_model_source")
-                    m.setdefault("estimate_scope", child.get("estimate_scope"))
-                    m.setdefault(
-                        "estimate_scope_reason",
-                        child.get("estimate_scope_reason"),
-                    )
+                if m.get("unit_key") != member_unit_key:
+                    continue
+                if split_from:
+                    absorbed_ids = list(m.get("absorbed_by_package_ids") or [])
+                    if package_id not in absorbed_ids:
+                        absorbed_ids.append(package_id)
+                    m["absorbed_by_package_ids"] = absorbed_ids
+                    continue
+                m["absorbed_by_package_id"] = package_id
+                m["cost_model"] = child.get("cost_model")
+                m["cost_model_source"] = child.get("cost_model_source")
+                m.setdefault("estimate_scope", child.get("estimate_scope"))
+                m.setdefault(
+                    "estimate_scope_reason",
+                    child.get("estimate_scope_reason"),
+                )
             return
+
+
+def _apply_group_stack_rule(
+    group_name: str,
+    children: List[Dict[str, Any]],
+) -> Tuple[int, int, bool]:
+    """v3's stack-behavior rule over one set of children.
+
+    Returns (low, high, cap_applied).
+    """
+    if not children:
+        return (0, 0, False)
+    raw_low = sum(c["allocated_low"] for c in children)
+    raw_high = sum(c["allocated_high"] for c in children)
+    behaviors = {c.get("stack_behavior") or "sum" for c in children}
+    if "max_only" in behaviors:
+        best = max(children, key=lambda c: c["allocated_high"])
+        return (best["allocated_low"], best["allocated_high"], False)
+    if "group_cap" in behaviors:
+        cap_low, cap_high = GROUP_BUDGET_CAPS.get(group_name, (200, 5_000))
+        capped_low = min(raw_low, cap_low)
+        capped_high = min(raw_high, cap_high)
+        best = max(children, key=lambda c: c["allocated_high"])
+        capped_low = max(capped_low, best["allocated_low"])
+        capped_high = max(capped_high, best["allocated_high"])
+        return (capped_low, capped_high, capped_high < raw_high)
+    return (raw_low, raw_high, False)
+
+
+def _recompute_retained_group_detailed(
+    group_name: str,
+    retained_children: List[Dict[str, Any]],
+) -> Tuple[int, int, List[Dict[str, Any]]]:
+    """Apply v3's stack-behavior rule PER PHYSICAL UNIT and sum the units.
+
+    The legacy flat group cap treated three physical bathrooms as one budget,
+    erasing multiplicity. Partitioning by physical_unit_key applies the cap to
+    each real room separately; groups with a single unit (the common case)
+    behave exactly as before. Returns (low, high, per_unit records).
+    """
+    if not retained_children:
+        return (0, 0, [])
+    partitions: Dict[str, List[Dict[str, Any]]] = {}
+    for child in retained_children:
+        key = str(
+            child.get("physical_unit_key")
+            or child.get("room_surrogate_id")
+            or child.get("estimate_unit_id")
+            or ""
+        )
+        partitions.setdefault(key, []).append(child)
+    per_unit: List[Dict[str, Any]] = []
+    total_low = 0
+    total_high = 0
+    for key in sorted(partitions):
+        low, high, cap_applied = _apply_group_stack_rule(group_name, partitions[key])
+        per_unit.append({
+            "unit_key": key,
+            "low": low,
+            "high": high,
+            "cap_applied": cap_applied,
+        })
+        total_low += low
+        total_high += high
+    return (total_low, total_high, per_unit)
 
 
 def _recompute_retained_group(
     group_name: str,
     retained_children: List[Dict[str, Any]],
 ) -> Tuple[int, int]:
-    """Apply v3's stack-behavior rule to retained children only."""
-    if not retained_children:
-        return (0, 0)
-    raw_low = sum(c["allocated_low"] for c in retained_children)
-    raw_high = sum(c["allocated_high"] for c in retained_children)
-    behaviors = {c.get("stack_behavior") or "sum" for c in retained_children}
-    if "max_only" in behaviors:
-        best = max(retained_children, key=lambda c: c["allocated_high"])
-        return (best["allocated_low"], best["allocated_high"])
-    if "group_cap" in behaviors:
-        cap_low, cap_high = GROUP_BUDGET_CAPS.get(group_name, (200, 5_000))
-        capped_low = min(raw_low, cap_low)
-        capped_high = min(raw_high, cap_high)
-        best = max(retained_children, key=lambda c: c["allocated_high"])
-        capped_low = max(capped_low, best["allocated_low"])
-        capped_high = max(capped_high, best["allocated_high"])
-        return (capped_low, capped_high)
-    return (raw_low, raw_high)
+    low, high, _per_unit = _recompute_retained_group_detailed(
+        group_name, retained_children,
+    )
+    return (low, high)
+
+
+# ─── Issue-level final disposition audit ─────────────────────────────────────
+
+def build_issue_disposition_audit(
+    package_candidates_audit: List[Dict[str, Any]],
+    packages: List[Dict[str, Any]],
+    groups_out: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Map every package-reviewed issue id to its final priced representation.
+
+    Runs after reconciliation. For each issue id seen in any package's
+    reviewed/confirmed/rejected/supporting sets, resolves where its dollars
+    ended up: priced inside a surviving package, absorbed as a line-item
+    child, retained as a line item, covered by a subsuming winner, or —
+    the defect this audit exists to catch — nowhere ("unpriced"). Confirmed
+    issues resolving to "unpriced" are listed in
+    confirmed_issues_without_priced_representation for a pipeline warning.
+    """
+    confirmed_issues: set = set()
+    rejected_issues: set = set()
+    all_issue_ids: set = set()
+    for pkg in package_candidates_audit or []:
+        if not isinstance(pkg, dict):
+            continue
+        confirmed_issues.update(str(i) for i in (pkg.get("confirmed_issue_ids") or []))
+        rejected_issues.update(str(i) for i in (pkg.get("rejected_issue_ids") or []))
+        for key in (
+            "reviewed_issue_ids",
+            "confirmed_issue_ids",
+            "rejected_issue_ids",
+            "supporting_issue_ids_original",
+            "supporting_issue_ids",
+        ):
+            all_issue_ids.update(str(i) for i in (pkg.get(key) or []))
+
+    final_packages = [
+        pkg for pkg in packages or []
+        if isinstance(pkg, dict)
+        and pkg.get("estimate_eligible")
+        and not _is_estimate_display_only(pkg)
+    ]
+
+    children: List[Dict[str, Any]] = []
+    for group in groups_out or []:
+        for line_item in group.get("line_items", []) or []:
+            children.extend(line_item.get("unit_member_allocations") or [])
+
+    def _confirmed_in_package(issue_id: str) -> Optional[Dict[str, Any]]:
+        for pkg in final_packages:
+            if issue_id in {str(i) for i in (pkg.get("confirmed_issue_ids") or [])}:
+                return pkg
+        return None
+
+    def _supporting_in_package(issue_id: str) -> Optional[Dict[str, Any]]:
+        for pkg in final_packages:
+            if issue_id in {str(i) for i in (pkg.get("supporting_issue_ids") or [])}:
+                return pkg
+        return None
+
+    def _child_holding(issue_id: str, *, absorbed: bool) -> Optional[Dict[str, Any]]:
+        for child in children:
+            if issue_id not in {str(i) for i in (child.get("issue_ids") or [])}:
+                continue
+            child_absorbed = child.get("absorbed_by_package_id") is not None
+            if child_absorbed != absorbed:
+                continue
+            if not absorbed and not _is_visible_rehab_child(child):
+                continue
+            return child
+        return None
+
+    def _dropped_package_holding(issue_id: str) -> Optional[Dict[str, Any]]:
+        for pkg in package_candidates_audit or []:
+            if not isinstance(pkg, dict) or not pkg.get("audit_only"):
+                continue
+            if issue_id not in {str(i) for i in (pkg.get("confirmed_issue_ids") or [])}:
+                continue
+            if (
+                pkg.get("subsumed_by_package_id")
+                or pkg.get("suppressed_by_package_id")
+                or pkg.get("superseded_by_expansion")
+                or pkg.get("demotion_reason")
+            ):
+                return pkg
+        return None
+
+    issues: List[Dict[str, Any]] = []
+    unpriced_confirmed: List[str] = []
+    for issue_id in sorted(all_issue_ids):
+        if issue_id in confirmed_issues:
+            review_status = "confirmed"
+        elif issue_id in rejected_issues:
+            review_status = "rejected"
+        else:
+            review_status = "unreviewed"
+
+        record: Dict[str, Any] = {
+            "issue_id": issue_id,
+            "review_status": review_status,
+            "final_package_id": None,
+            "disposition": "unpriced",
+        }
+        if review_status == "rejected":
+            record["disposition"] = "rejected"
+            issues.append(record)
+            continue
+
+        pkg = (
+            _confirmed_in_package(issue_id)
+            if review_status == "confirmed"
+            else _supporting_in_package(issue_id)
+        )
+        if pkg is not None:
+            record["disposition"] = "priced_in_package"
+            record["final_package_id"] = str(pkg.get("package_id") or "")
+            issues.append(record)
+            continue
+        absorbed_child = _child_holding(issue_id, absorbed=True)
+        if absorbed_child is not None:
+            record["disposition"] = "absorbed_child"
+            record["final_package_id"] = str(
+                absorbed_child.get("absorbed_by_package_id") or ""
+            )
+            record["child_id"] = absorbed_child.get("child_id")
+            issues.append(record)
+            continue
+        retained_child = _child_holding(issue_id, absorbed=False)
+        if retained_child is not None:
+            record["disposition"] = "retained_line_item"
+            record["child_id"] = retained_child.get("child_id")
+            issues.append(record)
+            continue
+        dropped = _dropped_package_holding(issue_id)
+        if dropped is not None:
+            winner_id = str(
+                dropped.get("subsumed_by_package_id")
+                or dropped.get("suppressed_by_package_id")
+                or ""
+            )
+            if winner_id:
+                record["disposition"] = "dropped_with_subsumed_package"
+                record["final_package_id"] = winner_id
+            else:
+                record["disposition"] = "dropped_with_demoted_package"
+            issues.append(record)
+            if not winner_id and review_status == "confirmed":
+                # Demoted with no covering winner and no surviving line item —
+                # the confirmed issue has genuinely lost its priced form.
+                unpriced_confirmed.append(issue_id)
+            continue
+        issues.append(record)
+        if review_status == "confirmed":
+            unpriced_confirmed.append(issue_id)
+
+    return {
+        "issues": issues,
+        "confirmed_issues_without_priced_representation": unpriced_confirmed,
+    }
