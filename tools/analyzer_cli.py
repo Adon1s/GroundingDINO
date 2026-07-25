@@ -669,6 +669,10 @@ def main() -> int:
                 trust_remote_code=getattr(cfg, "EMBEDDINGS_TRUST_REMOTE_CODE", False),
                 default_topk=getattr(cfg, "EMBEDDINGS_TOPK", 10),
                 guardrails=build_guardrails_from_catalog(catalog),
+                backend=getattr(cfg, "EMBEDDINGS_BACKEND", "openai_compatible"),
+                base_url=getattr(cfg, "EMBEDDINGS_BASE_URL", "http://127.0.0.1:8081/v1"),
+                st_model_name=getattr(cfg, "EMBEDDINGS_ST_MODEL_NAME", "jinaai/jina-embeddings-v3"),
+                embedding_dimension=getattr(cfg, "EMBEDDINGS_DIMENSION", 1024),
             )
 
             def candidate_provider(observation_text: str, context: dict) -> list:

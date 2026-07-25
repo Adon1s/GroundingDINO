@@ -21,6 +21,182 @@ except Exception:
     _ST_OK = False
 
 
+# =============================================================================
+# Embeddings backends
+# -----------------------------------------------------------------------------
+# The retriever encodes catalog items and observations through a pluggable
+# encoder. Two backends are provided:
+#   - OpenAICompatibleEncoder  (default) — a local llama-server sidecar serving
+#     the Q8_0 GGUF text-matching model over /v1/embeddings.
+#   - SentenceTransformerEncoder — the legacy in-process path, kept for tests
+#     and one-flag rollback.
+# Every encoder returns an (n, dimension) L2-normalized float32 ndarray so the
+# existing dot-product cosine retrieval is unchanged.
+# =============================================================================
+
+# Local llama-server needs no auth, but the OpenAI SDK still requires a key.
+_LOCAL_API_KEY_PLACEHOLDER = "local-no-auth-placeholder"
+_HTTP_BATCH_SIZE = 32
+_HTTP_TIMEOUT_SECONDS = 60.0
+
+
+class EmbeddingsRuntimeError(RuntimeError):
+    """Raised when an embeddings backend is unavailable or returns malformed output."""
+
+
+class SentenceTransformerEncoder:
+    """In-process SentenceTransformer encoder (legacy backend + tests/rollback)."""
+
+    def __init__(self, model_name: str, device: str = "cpu", trust_remote_code: bool = False):
+        if not _ST_OK:
+            raise EmbeddingsRuntimeError(
+                "sentence-transformers not available. Install: pip install sentence-transformers"
+            )
+        self.model_name = model_name
+        self.device = (device or "cpu").strip()
+        try:
+            self._st = SentenceTransformer(
+                model_name, trust_remote_code=trust_remote_code, device=self.device
+            )
+        except TypeError:
+            self._st = SentenceTransformer(model_name, trust_remote_code=trust_remote_code)
+        try:
+            self._st.to(self.device)
+        except Exception as e:
+            logger.warning(f"Could not move embeddings model to {self.device}: {e}")
+        self.dimension = int(getattr(self._st, "get_sentence_embedding_dimension", lambda: 384)())
+
+    def encode(self, texts: Sequence[str]) -> np.ndarray:
+        texts = list(texts)
+        if not texts:
+            return np.zeros((0, self.dimension), dtype=np.float32)
+        vecs = self._st.encode(
+            texts,
+            normalize_embeddings=True,
+            convert_to_numpy=True,
+            batch_size=64,
+            show_progress_bar=False,
+        )
+        return np.asarray(vecs, dtype=np.float32)
+
+
+class OpenAICompatibleEncoder:
+    """Encoder backed by a local OpenAI-compatible /v1/embeddings server (llama-server).
+
+    Catalog and observation text are encoded identically (no query/document prefix).
+    Response order is restored via each result's ``index``; outputs are converted to
+    float32, required to be exactly ``dimension`` finite non-zero values, and
+    L2-normalized before being handed to the existing dot-product scoring.
+    """
+
+    def __init__(
+        self,
+        base_url: str,
+        model_name: str,
+        dimension: int = 1024,
+        api_key: str = _LOCAL_API_KEY_PLACEHOLDER,
+        batch_size: int = _HTTP_BATCH_SIZE,
+        timeout: float = _HTTP_TIMEOUT_SECONDS,
+    ):
+        try:
+            from openai import OpenAI
+        except Exception as exc:  # pragma: no cover - import guard
+            raise EmbeddingsRuntimeError(
+                f"openai package not available for the openai_compatible backend: {exc}"
+            ) from exc
+        self.model_name = model_name
+        self.dimension = int(dimension)
+        self.batch_size = max(1, int(batch_size))
+        # Local server does not require auth; api_key is a placeholder the SDK expects.
+        # max_retries=0: a local sidecar is either up or not — fail fast and clearly
+        # instead of the SDK silently retrying a refused connection for ~9s.
+        self._client = OpenAI(
+            base_url=base_url, api_key=api_key, timeout=timeout, max_retries=0
+        )
+
+    def encode(self, texts: Sequence[str]) -> np.ndarray:
+        texts = list(texts)
+        if not texts:
+            return np.zeros((0, self.dimension), dtype=np.float32)
+
+        out = np.empty((len(texts), self.dimension), dtype=np.float32)
+        for start in range(0, len(texts), self.batch_size):
+            batch = texts[start:start + self.batch_size]
+            try:
+                resp = self._client.embeddings.create(model=self.model_name, input=batch)
+            except Exception as exc:
+                # Connection errors, timeouts, HTTP errors, etc.
+                raise EmbeddingsRuntimeError(
+                    f"embeddings request failed (model={self.model_name}): {exc}"
+                ) from exc
+
+            data = getattr(resp, "data", None)
+            if data is None or len(data) != len(batch):
+                got = 0 if data is None else len(data)
+                raise EmbeddingsRuntimeError(
+                    f"embeddings response returned {got} vectors for {len(batch)} inputs"
+                )
+
+            seen: Set[int] = set()
+            for item in data:
+                idx = getattr(item, "index", None)
+                if not isinstance(idx, int) or idx < 0 or idx >= len(batch):
+                    raise EmbeddingsRuntimeError(
+                        f"embeddings response has invalid index {idx!r} for batch of {len(batch)}"
+                    )
+                if idx in seen:
+                    raise EmbeddingsRuntimeError(f"embeddings response has duplicate index {idx}")
+                seen.add(idx)
+
+                vec = np.asarray(getattr(item, "embedding", []), dtype=np.float32)
+                if vec.shape != (self.dimension,):
+                    raise EmbeddingsRuntimeError(
+                        f"embeddings vector has shape {tuple(vec.shape)}, "
+                        f"expected ({self.dimension},)"
+                    )
+                if not np.all(np.isfinite(vec)):
+                    raise EmbeddingsRuntimeError("embeddings vector contains NaN or Infinity")
+                norm = float(np.linalg.norm(vec))
+                if norm == 0.0 or not np.isfinite(norm):
+                    raise EmbeddingsRuntimeError(
+                        "embeddings vector is zero or has a non-finite norm"
+                    )
+                out[start + idx] = vec / norm
+
+        return out
+
+
+def _build_encoder(
+    *,
+    backend: str,
+    model_name: str,
+    base_url: Optional[str],
+    device: str,
+    trust_remote_code: bool,
+    st_model_name: Optional[str],
+    embedding_dimension: int,
+):
+    """Construct the encoder for the requested backend. Never silently falls back."""
+    b = (backend or "").strip().lower()
+    if b in ("openai_compatible", "openai", "http", "llama_server", "llama-server"):
+        if not base_url:
+            raise EmbeddingsRuntimeError(
+                "base_url (EMBEDDINGS_BASE_URL) is required for the openai_compatible backend"
+            )
+        return OpenAICompatibleEncoder(
+            base_url=base_url,
+            model_name=model_name,
+            dimension=embedding_dimension,
+        )
+    if b in ("sentence_transformer", "sentence-transformers", "st", "sbert"):
+        return SentenceTransformerEncoder(
+            model_name=st_model_name or model_name,
+            device=device,
+            trust_remote_code=trust_remote_code,
+        )
+    raise EmbeddingsRuntimeError(f"Unknown embeddings backend: {backend!r}")
+
+
 def _norm(s: str) -> str:
     return " ".join((s or "").strip().split())
 
@@ -124,31 +300,34 @@ class CatalogEmbeddingsRetriever:
         default_topk: int = 10,
         # Optional: lexical guardrails keyed by item_id
         guardrails: Optional[Dict[str, Dict[str, List[str]]]] = None,
+        *,
+        backend: str = "openai_compatible",
+        base_url: Optional[str] = None,
+        st_model_name: Optional[str] = None,
+        embedding_dimension: int = 1024,
+        encoder: Optional[Any] = None,
     ):
-        if not _ST_OK:
-            raise RuntimeError("sentence-transformers not available. Install: pip install sentence-transformers")
-
         self.model_name = model_name
         self.device = (device or "cpu").strip()
         self.default_topk = max(1, int(default_topk))
         self.guardrails = guardrails or {}
 
-        # Load model
-        try:
-            self._st = SentenceTransformer(
-                self.model_name,
-                trust_remote_code=trust_remote_code,
+        # Build the encoder backend. Tests may inject a deterministic fake via `encoder`.
+        if encoder is not None:
+            self._encoder = encoder
+        else:
+            self._encoder = _build_encoder(
+                backend=backend,
+                model_name=model_name,
+                base_url=base_url,
                 device=self.device,
+                trust_remote_code=trust_remote_code,
+                st_model_name=st_model_name,
+                embedding_dimension=embedding_dimension,
             )
-        except TypeError:
-            self._st = SentenceTransformer(self.model_name, trust_remote_code=trust_remote_code)
 
-        try:
-            self._st.to(self.device)
-        except Exception as e:
-            logger.warning(f"Could not move embeddings model to {self.device}: {e}")
-
-        # Build index
+        # Build index. For the HTTP backend, embedding the catalog here doubles as the
+        # server-availability + output-shape check (raises EmbeddingsRuntimeError on failure).
         items = catalog_v2.get("items") or []
         self._items: List[CatalogItemMeta] = self._build_items(items)
         self._mat: np.ndarray = self._embed_items(self._items)
@@ -253,18 +432,10 @@ class CatalogEmbeddingsRetriever:
         return out
 
     def _embed_items(self, items: List[CatalogItemMeta]) -> np.ndarray:
-        dim = int(getattr(self._st, "get_sentence_embedding_dimension", lambda: 384)())
         if not items:
-            return np.zeros((0, dim), dtype=np.float32)
+            return np.zeros((0, int(self._encoder.dimension)), dtype=np.float32)
         texts = [m.text for m in items]
-        vecs = self._st.encode(
-            texts,
-            normalize_embeddings=True,
-            convert_to_numpy=True,
-            batch_size=64,
-            show_progress_bar=False,
-        )
-        return vecs.astype(np.float32)
+        return self._encoder.encode(texts)
 
     def _passes_guardrails(self, text: str, item_id: str) -> bool:
         g = self.guardrails.get(item_id)
@@ -280,15 +451,8 @@ class CatalogEmbeddingsRetriever:
         return True
 
     def _encode_queries(self, texts: Sequence[str]) -> np.ndarray:
-        texts = [_norm(t) for t in texts]
-        vecs = self._st.encode(
-            list(texts),
-            normalize_embeddings=True,
-            convert_to_numpy=True,
-            batch_size=64,
-            show_progress_bar=False,
-        )
-        return vecs.astype(np.float32)
+        normed = [_norm(t) for t in texts]
+        return self._encoder.encode(normed)
 
     def retrieve_candidates(
         self,

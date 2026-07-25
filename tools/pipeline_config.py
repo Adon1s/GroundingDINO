@@ -95,7 +95,25 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-pro-preview")
 # Embeddings-based catalog matching
 # =============================================================================
 USE_EMBEDDINGS_CATALOG = True
-EMBEDDINGS_MODEL_NAME = "jinaai/jina-embeddings-v3"
+
+# Backend transport for catalog embeddings.
+#   "openai_compatible" (default) → local llama-server sidecar serving the Q8_0
+#       GGUF text-matching model over /v1/embeddings. Start it first with
+#       scripts/start-embeddings-server.ps1 (no v3 fallback if unavailable).
+#   "sentence_transformer" → in-process SentenceTransformer using
+#       EMBEDDINGS_ST_MODEL_NAME (rollback / tests). Flip EMBEDDINGS_BACKEND only.
+EMBEDDINGS_BACKEND = os.environ.get("EMBEDDINGS_BACKEND", "openai_compatible")
+EMBEDDINGS_BASE_URL = os.environ.get("EMBEDDINGS_BASE_URL", "http://127.0.0.1:8081/v1")
+
+# HTTP backend: the served model id (also the llama-server alias). Recorded in artifacts.
+EMBEDDINGS_MODEL_NAME = os.environ.get(
+    "EMBEDDINGS_MODEL_NAME",
+    "jinaai/jina-embeddings-v5-text-small-text-matching-GGUF:Q8_0",
+)
+# SentenceTransformer backend model (a GGUF id cannot be loaded by SentenceTransformer()).
+EMBEDDINGS_ST_MODEL_NAME = os.environ.get("EMBEDDINGS_ST_MODEL_NAME", "jinaai/jina-embeddings-v3")
+EMBEDDINGS_DIMENSION = int(os.environ.get("EMBEDDINGS_DIMENSION", "1024"))
+
 EMBEDDINGS_TRUST_REMOTE_CODE = True
 EMBEDDINGS_TOPK = 5
 EMBEDDINGS_THRESHOLD_DEFECT = 0.58
@@ -174,7 +192,7 @@ PREMIUM_MAX_KEYWORDS = int(os.environ.get("PREMIUM_MAX_KEYWORDS", "30"))
 # =============================================================================
 # OPENAI TOKEN CAPS
 # =============================================================================
-OPENAI_DEFAULT_MAX_TOKENS = int(os.environ.get("OPENAI_DEFAULT_MAX_TOKENS", "600"))
+OPENAI_DEFAULT_MAX_TOKENS = int(os.environ.get("OPENAI_DEFAULT_MAX_TOKENS", "2000"))
 
 # Optional per-pass caps (leave None if unset)
 OPENAI_PASS_1B_MAX_TOKENS = _to_int_or_none(os.environ.get("OPENAI_PASS_1B_MAX_TOKENS"))
