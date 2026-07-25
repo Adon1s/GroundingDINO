@@ -400,6 +400,7 @@ def write_photo_intel(
     vlm_client: Any = None,
     local_vlm_config: Optional[Dict[str, Any]] = None,
     pass_2f_provider: str = "premium",
+    reasoning_efforts: Optional[Dict[str, str]] = None,
 ) -> Path:
     """Persist per-photo intelligence (including scene classifier fields)."""
     created_at = datetime.utcnow().isoformat() + "Z"
@@ -711,6 +712,7 @@ def write_photo_intel(
             "used_pass_architecture": use_pass_architecture,
             "pass_toggles":        pass_toggles if pass_toggles else None,
             "model_overrides":     model_overrides if model_overrides else None,
+            "reasoning_efforts":   reasoning_efforts if reasoning_efforts else None,
             # Default/base model configuration. With per-pass overrides in play,
             # individual passes may use different models — see top-level
             # `model_routing` array for the per-pass ground truth. These two fields
@@ -825,6 +827,9 @@ def write_photo_intel(
             "provider": "openai",
             "api_key": pass_2f_api_key,
         }
+        pass_2f_reasoning_effort = (reasoning_efforts or {}).get("2f")
+        if pass_2f_reasoning_effort:
+            pass_2f_model_config["reasoning_effort"] = pass_2f_reasoning_effort
 
     # -- Compute renovation estimate (primary cost estimation engine) -------------
     try:
@@ -848,12 +853,17 @@ def write_photo_intel(
 
             if "2f" not in {e.get("pass") for e in photo_intel.get("model_routing", [])}:
                 _2f_source = "run_override" if (model_overrides or {}).get("2f") else "openai_model_default"
-                photo_intel.setdefault("model_routing", []).append({
+                routing_entry = {
                     "pass": "2f",
                     "model_family": "gpt5",
                     "model": str(pass_2f_model_config.get("model") or ""),
                     "source": _2f_source,
-                })
+                }
+                if pass_2f_model_config.get("reasoning_effort") is not None:
+                    routing_entry["reasoning_effort"] = str(
+                        pass_2f_model_config["reasoning_effort"]
+                    )
+                photo_intel.setdefault("model_routing", []).append(routing_entry)
 
         from tools.renovation_estimate_v4 import compute_renovation_estimate_v4
         v4_est = compute_renovation_estimate_v4(

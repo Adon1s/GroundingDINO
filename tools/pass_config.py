@@ -27,9 +27,38 @@ from typing import Any, Dict, List, Literal, Optional, TypeAlias
 # Type definitions
 PassKey: TypeAlias = Literal['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f', '4', '4a', '4b', '4c']
 ModelName = Literal['qwen', 'gpt5']
+ReasoningEffort: TypeAlias = Literal['none', 'low', 'medium', 'high', 'xhigh', 'max']
 
 # All valid pass keys (in execution order)
 ALL_PASSES: tuple[PassKey, ...] = ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f', '4', '4a', '4b', '4c')
+ALLOWED_REASONING_EFFORTS: frozenset[str] = frozenset(
+    {'none', 'low', 'medium', 'high', 'xhigh', 'max'}
+)
+REASONING_PASS_KEYS: frozenset[str] = frozenset(
+    {'1a', '1b', '1c', '2a', '2b', '2c', '2d', '2f'}
+)
+
+
+def normalize_reasoning_efforts(
+        raw: Optional[Dict[str, str]],
+) -> Dict[PassKey, ReasoningEffort]:
+    """Validate and normalize a per-pass Responses API reasoning-effort map."""
+    if not raw:
+        return {}
+    if not isinstance(raw, dict):
+        raise ValueError("reasoning efforts must be an object of {pass: effort}")
+
+    normalized: Dict[PassKey, ReasoningEffort] = {}
+    for pass_key, effort in raw.items():
+        if pass_key not in REASONING_PASS_KEYS:
+            raise ValueError(f"unsupported reasoning-effort pass key: {pass_key!r}")
+        if not isinstance(effort, str) or effort.strip().lower() not in ALLOWED_REASONING_EFFORTS:
+            raise ValueError(
+                f"unsupported reasoning effort for pass {pass_key}: {effort!r}; "
+                f"expected one of {sorted(ALLOWED_REASONING_EFFORTS)}"
+            )
+        normalized[pass_key] = effort.strip().lower()  # type: ignore[assignment]
+    return normalized
 
 
 @dataclass
@@ -206,6 +235,7 @@ class SceneClassifierRunOptions:
     premium: bool = False
     toggles: PassToggles = field(default_factory=PassToggles)
     model_overrides: PassModelOverrides = field(default_factory=PassModelOverrides)
+    reasoning_efforts: Dict[PassKey, ReasoningEffort] = field(default_factory=dict)
     # Runtime metadata (run_id, property_key, photo_key, etc.)
     # Used by the orchestrator to build deterministic issue_ids per image.
     meta: Dict[str, Any] = field(default_factory=dict)
@@ -218,6 +248,7 @@ class SceneClassifierRunOptions:
             premium=self.premium,
             toggles=self.toggles,
             model_overrides=self.model_overrides,
+            reasoning_efforts=self.reasoning_efforts,
             meta=m,
         )
 
@@ -227,12 +258,14 @@ class SceneClassifierRunOptions:
             analysis_profile: str,
             toggles: Optional[Dict[str, bool]] = None,
             model_overrides: Optional[Dict[str, str]] = None,
+            reasoning_efforts: Optional[Dict[str, str]] = None,
     ) -> 'SceneClassifierRunOptions':
         """Create options from analysis profile string."""
         return cls(
             premium=(analysis_profile == 'premium'),
             toggles=PassToggles.from_dict(toggles),
             model_overrides=PassModelOverrides.from_dict(model_overrides),
+            reasoning_efforts=normalize_reasoning_efforts(reasoning_efforts),
         )
 
 
@@ -340,10 +373,15 @@ def get_model_config_for_pass(
     # model name (no dependence on cfg.GPT_PASS_* — those are gone).
     override = options.model_overrides[pass_key] if options.model_overrides else None
     if override:
-        return {**gpt5_config, 'model': override, 'provider': 'openai'}
+        model_config = {**gpt5_config, 'model': override, 'provider': 'openai'}
+    else:
+        model = pick_model_for_pass(pass_key, options.premium, options.model_overrides)
+        model_config = gpt5_config if model == 'gpt5' else qwen_config
 
-    model = pick_model_for_pass(pass_key, options.premium, options.model_overrides)
-    return gpt5_config if model == 'gpt5' else qwen_config
+    reasoning_effort = options.reasoning_efforts.get(pass_key)
+    if reasoning_effort:
+        model_config = {**model_config, 'reasoning_effort': reasoning_effort}
+    return model_config
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

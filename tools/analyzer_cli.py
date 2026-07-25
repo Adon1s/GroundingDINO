@@ -240,6 +240,13 @@ Pass Control Examples:
         choices=["standard", "premium"],
         help="Analysis profile: standard (all Qwen) or premium (GPT-5 for 2a, 2d)",
     )
+    parser.add_argument(
+        "--model-routing-profile",
+        dest="model_routing_profile",
+        choices=["standard", "premium"],
+        default=None,
+        help="Optional model-family routing profile independent of analysis metadata",
+    )
 
     # Force legacy scene classifier (skip orchestrator)
     parser.add_argument(
@@ -296,6 +303,13 @@ Pass Control Examples:
              '\'{"2f":"gpt-5.6-sol","2a":"gpt-5.4-mini"}\'. A supplied name routes '
              'that pass to OpenAI.',
     )
+    parser.add_argument(
+        "--reasoning-map",
+        dest="reasoning_map",
+        default=None,
+        help='JSON object of explicit GPT-5.6 reasoning efforts by pass, e.g. '
+             '\'{"1a":"none","2f":"medium"}\'.',
+    )
 
     return parser.parse_args()
 
@@ -344,6 +358,34 @@ def _build_model_overrides(args: argparse.Namespace) -> Dict[str, str]:
             continue
         overrides[k] = v.strip()
     return overrides
+
+
+_ALLOWED_REASONING_EFFORTS = {"none", "low", "medium", "high", "xhigh", "max"}
+
+
+def _build_reasoning_efforts(args: argparse.Namespace) -> Dict[str, str]:
+    """Parse and strictly validate the --reasoning-map JSON."""
+    raw = getattr(args, "reasoning_map", None)
+    if not raw:
+        return {}
+    try:
+        parsed = json.loads(raw)
+    except (ValueError, TypeError) as exc:
+        raise SystemExit(f"--reasoning-map is not valid JSON: {exc}")
+    if not isinstance(parsed, dict):
+        raise SystemExit("--reasoning-map must be a JSON object of {pass: effort}")
+
+    efforts: Dict[str, str] = {}
+    for key, value in parsed.items():
+        if key not in _ALLOWED_MODEL_MAP_KEYS:
+            raise SystemExit(f"--reasoning-map contains unsupported pass key: {key!r}")
+        if not isinstance(value, str) or value.strip().lower() not in _ALLOWED_REASONING_EFFORTS:
+            raise SystemExit(
+                f"--reasoning-map contains unsupported effort for pass {key}: {value!r}; "
+                f"expected one of {sorted(_ALLOWED_REASONING_EFFORTS)}"
+            )
+        efforts[key] = value.strip().lower()
+    return efforts
 
 
 def _compute_timing_stats(
@@ -623,6 +665,7 @@ def main() -> int:
     # Build pass configuration from CLI args
     pass_toggles = _build_pass_toggles(args)
     model_overrides = _build_model_overrides(args)
+    reasoning_efforts = _build_reasoning_efforts(args)
 
     # Log configuration
     logger.info(f"Property: {args.property_key}")
@@ -634,11 +677,14 @@ def main() -> int:
         logger.info(f"Pass Toggles: {pass_toggles}")
     if model_overrides:
         logger.info(f"Model Overrides: {model_overrides}")
+    if reasoning_efforts:
+        logger.info(f"Reasoning Efforts: {reasoning_efforts}")
 
     # ─────────────────────────────────────────────────────────────────────────
     # Set up orchestrator pipeline
     # ─────────────────────────────────────────────────────────────────────────
     analysis_profile = args.analysis_profile or getattr(cfg, "ANALYSIS_PROFILE", "standard")
+    model_routing_profile = args.model_routing_profile or analysis_profile
     detection_backend = args.detection_backend or getattr(cfg, "DETECTION_BACKEND", "dinox")
 
     try:
@@ -716,9 +762,10 @@ def main() -> int:
 
     # Build run options from CLI args + profile
     options = SceneClassifierRunOptions.from_analysis_profile(
-        analysis_profile=analysis_profile,
+        analysis_profile=model_routing_profile,
         toggles=pass_toggles if pass_toggles else None,
         model_overrides=model_overrides if model_overrides else None,
+        reasoning_efforts=reasoning_efforts if reasoning_efforts else None,
     )
 
     # Get GPT config for artifact writing (Pass 2f, etc.)
@@ -840,6 +887,7 @@ def main() -> int:
             gpt_config=gpt5_config,
             issue_catalog=catalog,
             vlm_client=vlm_client,
+            reasoning_efforts=reasoning_efforts,
         )
     except Pass2fModelUnavailable as exc:
         # Pass 2f is OpenAI-only. Rather than silently fall back to Qwen, fail

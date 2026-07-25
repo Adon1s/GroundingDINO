@@ -19,6 +19,7 @@ Protocol:
 """
 
 import asyncio
+import hashlib
 import json
 import logging
 import os
@@ -58,7 +59,12 @@ from tools.analyzer_cli import (
 
 # Optional: import pass config if available
 try:
-    from tools.pass_config import PassToggles, PassModelOverrides, SceneClassifierRunOptions
+    from tools.pass_config import (
+        PassToggles,
+        PassModelOverrides,
+        SceneClassifierRunOptions,
+        normalize_reasoning_efforts,
+    )
     PASS_CONFIG_AVAILABLE = True
 except ImportError:
     PASS_CONFIG_AVAILABLE = False
@@ -262,6 +268,50 @@ def _ckpt_key(p: Path) -> tuple:
     return (p.parent.name, p.name)
 
 
+def _checkpoint_policy_fingerprint(
+    model_overrides: Dict[str, str],
+    reasoning_efforts: Dict[str, str],
+) -> str:
+    """Hash only non-secret routing inputs that affect reusable image results."""
+    payload = json.dumps(
+        {
+            "model_overrides": model_overrides,
+            "reasoning_efforts": reasoning_efforts,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _prepare_checkpoint_dir(ckpt_dir: Path, policy_fingerprint: str) -> None:
+    """Reset stale checkpoints, then atomically persist the current policy hash."""
+    manifest_path = ckpt_dir / "policy.json"
+    existing_fingerprint: Optional[str] = None
+    if manifest_path.is_file():
+        try:
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            existing_fingerprint = manifest.get("policy_fingerprint")
+        except (OSError, ValueError, TypeError):
+            existing_fingerprint = None
+
+    has_images = ckpt_dir.is_dir() and any(ckpt_dir.glob("image_*.json"))
+    if has_images and existing_fingerprint != policy_fingerprint:
+        logger.warning(
+            "Discarding incompatible image checkpoints: routing policy changed "
+            f"({existing_fingerprint or 'legacy/missing'} -> {policy_fingerprint})"
+        )
+        shutil.rmtree(ckpt_dir, ignore_errors=True)
+
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    tmp = manifest_path.with_suffix(".json.tmp")
+    tmp.write_text(
+        json.dumps({"policy_fingerprint": policy_fingerprint}, sort_keys=True),
+        encoding="utf-8",
+    )
+    os.replace(tmp, manifest_path)
+
+
 def _load_checkpoint(
     ckpt_dir: Path,
     n_images: int,
@@ -329,6 +379,9 @@ def _process_job(
     image_paths = [Path(p).resolve() for p in request["images"]]
     artifacts_root = Path(request["artifactsRoot"]).resolve()
     analysis_profile = request.get("analysisProfile", "standard")
+    model_routing_profile = request.get("modelRoutingProfile", analysis_profile)
+    if model_routing_profile not in {"standard", "premium"}:
+        raise ValueError(f"unsupported modelRoutingProfile: {model_routing_profile!r}")
     detection_backend = request.get("detectionBackend", "dinox")
     concurrency = request.get("concurrency", int(os.environ.get("ANALYZER_CONCURRENCY", "4")))
 
@@ -375,17 +428,25 @@ def _process_job(
             continue
         filtered_overrides[k] = v.strip()
 
+    raw_reasoning_efforts = request.get("reasoningEfforts") or {}
+    filtered_reasoning_efforts = normalize_reasoning_efforts(raw_reasoning_efforts)
+
     # Per-run model names flow through run options (a supplied name routes that
     # pass to OpenAI). There is NO global pipeline_config mutation: the persistent
     # server processes many jobs back-to-back, so mutating module-global cfg per
     # job (and restoring it) was both unnecessary and unsafe.
     options = SceneClassifierRunOptions.from_analysis_profile(
-        analysis_profile=analysis_profile,
+        analysis_profile=model_routing_profile,
         model_overrides=filtered_overrides if filtered_overrides else None,
+        reasoning_efforts=filtered_reasoning_efforts if filtered_reasoning_efforts else None,
     )
 
     if filtered_overrides:
         logger.info(f"[Job {ts_job_id}] modelOverrides (per-run): {filtered_overrides}")
+    if filtered_reasoning_efforts:
+        logger.info(
+            f"[Job {ts_job_id}] reasoningEfforts (per-run): {filtered_reasoning_efforts}"
+        )
 
     # Generate internal job ID and create artifacts directory
     internal_job_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
@@ -396,6 +457,11 @@ def _process_job(
     # stable across retries so re-attempts of the same AnalysisRun resume from
     # disk; a fresh "Re-analyze" generates a new runId and starts clean.
     ckpt_dir = artifacts_root / property_key / ".checkpoints" / run_id
+    policy_fingerprint = _checkpoint_policy_fingerprint(
+        filtered_overrides,
+        filtered_reasoning_efforts,
+    )
+    _prepare_checkpoint_dir(ckpt_dir, policy_fingerprint)
     cached_results: Dict[int, ImageResult] = _load_checkpoint(
         ckpt_dir, len(image_paths), image_paths
     )
@@ -541,6 +607,7 @@ def _process_job(
                 gpt_config=gpt5_config,
                 issue_catalog=catalog,
                 vlm_client=vlm_client,
+                reasoning_efforts=filtered_reasoning_efforts,
             )
         except Pass2fModelUnavailable as exc:
             # Pass 2f is OpenAI-only. Fail the job rather than silently degrade to

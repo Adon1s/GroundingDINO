@@ -400,12 +400,16 @@ class SceneClassifierOrchestrator:
         else:
             source = "standard_default"
 
-        result.model_routing.append({
+        routing_entry = {
             "pass": str(pass_key),
             "model_family": str(model_family),
             "model": str(model_config.get("model") or ""),
             "source": source,
-        })
+        }
+        reasoning_effort = model_config.get("reasoning_effort")
+        if reasoning_effort is not None:
+            routing_entry["reasoning_effort"] = str(reasoning_effort)
+        result.model_routing.append(routing_entry)
 
     async def analyze_image(
         self,
