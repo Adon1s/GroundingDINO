@@ -388,134 +388,250 @@ def _build_reasoning_efforts(args: argparse.Namespace) -> Dict[str, str]:
     return efforts
 
 
+_TIMING_PASS_ORDER = ['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f']
+_STATE_PRIORITY = {'failed': 5, 'executed': 4, 'rule_based': 3, 'stubbed': 2, 'skipped': 1}
+
+
 def _compute_timing_stats(
     results: List["ImageResult"],
-    total_wall_clock: float,
+    total_wall_clock: Optional[float] = None,
     usage_stats: Optional[Dict[str, Any]] = None,
+    *,
+    phase_timings: Optional[Dict[str, Any]] = None,
+    attempt_results: Optional[List["ImageResult"]] = None,
+    requested_photo_count: Optional[int] = None,
+    reused_photo_count: int = 0,
+    configured_concurrency: Optional[int] = None,
+    status: str = "complete",
+    failed_phase: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Compute aggregate timing statistics from per-image results."""
-    photo_times = []
+    """Build scope-aligned timing schema v2 plus compatibility aliases."""
+    phases_in = dict(phase_timings or {})
+    legacy_wall = float(total_wall_clock or 0.0)
+    photo_wall = float(phases_in.get("photo_analysis_sec", legacy_wall) or 0.0)
+    post_wall = float(phases_in.get("postprocessing_sec", 0.0) or 0.0)
+    pass_2f_wall = float(phases_in.get("pass_2f_sec", 0.0) or 0.0)
+    end_to_end = float(
+        phases_in.get("end_to_end_sec", legacy_wall or (photo_wall + post_wall)) or 0.0
+    )
+
+    current_results = list(results if attempt_results is None else attempt_results)
+    successful_all = [res for res in results if not res.error]
+    failed_all = [res for res in results if res.error]
+    successful_current = [res for res in current_results if not res.error]
+    failed_current = [res for res in current_results if res.error]
+    requested = int(requested_photo_count if requested_photo_count is not None else len(results))
+
     pass_totals: Dict[str, float] = {}
-    passes_actually_run: set = set()
-
-    for res in results:
-        if res.error:
-            continue
-        photo_times.append(res.processing_time)
+    pass_units: Dict[str, int] = {}
+    observed_states: Dict[str, set] = {}
+    photo_latencies: List[float] = []
+    for res in successful_current:
+        photo_latencies.append(float(res.processing_time or 0.0))
         data = res.scene_data or res.scene_classifier or {}
-        pass_timings = data.get("pass_timings", {})
-        for pass_key, secs in pass_timings.items():
-            pass_totals[pass_key] = pass_totals.get(pass_key, 0.0) + secs
-        # Track which passes actually executed (vs skipped)
-        for p in data.get("passes_run", []):
-            passes_actually_run.add(p)
+        timings = data.get("pass_timings", {}) or {}
+        for pass_key, seconds in timings.items():
+            key = str(pass_key)
+            pass_totals[key] = pass_totals.get(key, 0.0) + float(seconds or 0.0)
+            pass_units[key] = pass_units.get(key, 0) + 1
+        states = data.get("pass_states", {}) or {}
+        if states:
+            for pass_key, pass_state in states.items():
+                observed_states.setdefault(str(pass_key), set()).add(str(pass_state))
+        else:
+            ran = {str(value) for value in (data.get("passes_run", []) or [])}
+            for pass_key in timings:
+                observed_states.setdefault(str(pass_key), set()).add(
+                    "executed" if str(pass_key) in ran else "skipped"
+                )
 
-    def _with_usage(d: Dict[str, Any]) -> Dict[str, Any]:
-        if usage_stats:
-            metered_calls = usage_stats.get("metered_calls")
-            if metered_calls is None:
-                metered_calls = usage_stats.get("calls", 0)
-            d["input_tokens"] = int(usage_stats.get("input_tokens", 0) or 0)
-            d["output_tokens"] = int(usage_stats.get("output_tokens", 0) or 0)
-            d["total_tokens"] = int(usage_stats.get("total_tokens", 0) or 0)
-            d["llm_calls"] = int(usage_stats.get("calls", 0) or 0)
-            d["metered_llm_calls"] = int(metered_calls or 0)
-        return d
+    usage = dict(usage_stats or {})
+    usage_by_pass = usage.get("per_pass", {}) or {}
+    pass_keys = set(_TIMING_PASS_ORDER) | set(pass_totals) | set(observed_states) | set(usage_by_pass)
+    if pass_2f_wall > 0:
+        pass_keys.add("2f")
+    ordered_passes = [key for key in _TIMING_PASS_ORDER if key in pass_keys]
+    ordered_passes += sorted(key for key in pass_keys if key not in ordered_passes)
 
-    n = len(photo_times)
-    if n == 0:
-        return _with_usage({"photo_count": 0, "total_wall_clock_sec": round(total_wall_clock, 2)})
+    passes: Dict[str, Dict[str, Any]] = {}
+    for pass_key in ordered_passes:
+        pass_usage = dict(usage_by_pass.get(pass_key, {}) or {})
+        states = set(observed_states.get(pass_key, set()))
+        if pass_key == "2f":
+            work_sec = pass_2f_wall
+            units = int(pass_usage.get("attempted_calls", 0) or 0)
+            if units or work_sec > 0:
+                states.add("executed")
+        else:
+            work_sec = float(pass_totals.get(pass_key, 0.0) or 0.0)
+            units = int(pass_units.get(pass_key, 0) or 0)
+        failed_calls = int(pass_usage.get("failed_calls", 0) or 0)
+        successful_calls = int(pass_usage.get("calls", 0) or 0)
+        if failed_calls:
+            states.add("failed")
+        state = max(states or {"skipped"}, key=lambda value: _STATE_PRIORITY.get(value, 0))
+        passes[pass_key] = {
+            "state": state,
+            "work_sec": round(work_sec, 3),
+            "api_work_sec": round(float(pass_usage.get("api_duration_sec", 0.0) or 0.0), 3),
+            "units": units,
+            "avg_unit_sec": round(work_sec / units, 3) if units else 0.0,
+            "attempted_calls": int(pass_usage.get("attempted_calls", 0) or 0),
+            "successful_calls": successful_calls,
+            "failed_calls": failed_calls,
+            "metered_calls": int(pass_usage.get("metered_calls", 0) or 0),
+            "input_tokens": int(pass_usage.get("input_tokens", 0) or 0),
+            "output_tokens": int(pass_usage.get("output_tokens", 0) or 0),
+            "total_tokens": int(pass_usage.get("total_tokens", 0) or 0),
+        }
 
-    # Sort pass keys in logical order
-    pass_order = ['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f', '4', '4a', '4b', '4c']
-    sorted_passes = [p for p in pass_order if p in pass_totals]
-    # Include any extra passes not in the predefined order
-    sorted_passes += [p for p in sorted(pass_totals) if p not in sorted_passes]
+    photo_pass_work = sum(pass_totals.values())
+    llm_api_work = float(usage.get("api_duration_sec", 0.0) or 0.0)
+    avg_latency = sum(photo_latencies) / len(photo_latencies) if photo_latencies else 0.0
+    throughput_sec = photo_wall / len(successful_current) if successful_current else 0.0
+    photo_throughput = len(successful_current) / photo_wall if photo_wall > 0 else 0.0
+    effective_parallelism = photo_pass_work / photo_wall if photo_wall > 0 else 0.0
+    total_tokens = int(usage.get("total_tokens", 0) or 0)
 
-    # Separate skipped passes from actually-run passes
-    skipped = [p for p in sorted_passes if p not in passes_actually_run]
-    llm_work = sum(pass_totals[p] for p in sorted_passes if p not in skipped)
+    stats: Dict[str, Any] = {
+        "schema_version": 2,
+        "status": {"state": status, "failed_phase": failed_phase},
+        "phases": {
+            "end_to_end_sec": round(end_to_end, 3),
+            "photo_analysis_sec": round(photo_wall, 3),
+            "postprocessing_sec": round(post_wall, 3),
+            "pass_2f_sec": round(pass_2f_wall, 3),
+            "other_postprocessing_sec": round(max(0.0, post_wall - pass_2f_wall), 3),
+        },
+        "photos": {
+            "requested": requested,
+            "processed_this_attempt": len(current_results),
+            "reused_from_checkpoint": int(reused_photo_count or 0),
+            "successful_total": len(successful_all),
+            "failed_total": len(failed_all),
+            "successful_this_attempt": len(successful_current),
+            "failed_this_attempt": len(failed_current),
+            "avg_latency_sec": round(avg_latency, 3),
+            "min_latency_sec": round(min(photo_latencies), 3) if photo_latencies else 0.0,
+            "max_latency_sec": round(max(photo_latencies), 3) if photo_latencies else 0.0,
+            "throughput_sec_per_photo": round(throughput_sec, 3),
+            "throughput_photos_per_sec": round(photo_throughput, 3),
+            "configured_concurrency": configured_concurrency,
+            "effective_parallelism": round(effective_parallelism, 3),
+            "cumulative_pass_work_sec": round(photo_pass_work, 3),
+        },
+        "passes": passes,
+        "usage": {
+            "attempted_calls": int(usage.get("attempted_calls", usage.get("calls", 0)) or 0),
+            "successful_calls": int(usage.get("calls", 0) or 0),
+            "failed_calls": int(usage.get("failed_calls", 0) or 0),
+            "metered_calls": int(usage.get("metered_calls", 0) or 0),
+            "input_tokens": int(usage.get("input_tokens", 0) or 0),
+            "output_tokens": int(usage.get("output_tokens", 0) or 0),
+            "total_tokens": total_tokens,
+            "api_work_sec": round(llm_api_work, 3),
+            "job_tokens_per_sec": round(total_tokens / end_to_end, 3) if end_to_end > 0 else 0.0,
+        },
+    }
 
-    return _with_usage({
-        "photo_count": n,
-        "total_wall_clock_sec": round(total_wall_clock, 2),
-        "total_llm_work_sec": round(llm_work, 2),
-        "parallelism_ratio": round(llm_work / total_wall_clock, 2) if total_wall_clock > 0 else 0,
-        "avg_photo_sec": round(sum(photo_times) / n, 2),
-        "min_photo_sec": round(min(photo_times), 2),
-        "max_photo_sec": round(max(photo_times), 2),
-        "per_pass_total_sec": {p: round(pass_totals[p], 2) for p in sorted_passes},
-        "per_pass_avg_sec": {p: round(pass_totals[p] / n, 2) for p in sorted_passes},
-        "passes_run": [p for p in sorted_passes if p not in skipped],
-        "passes_skipped": skipped,
+    # Compatibility aliases. Their v2 meanings are intentionally explicit:
+    # total wall is end-to-end; LLM work is provider-call duration.
+    stats.update({
+        "photo_count": len(successful_all),
+        "total_wall_clock_sec": round(end_to_end, 2),
+        "total_llm_work_sec": round(llm_api_work, 2),
+        "parallelism_ratio": round(effective_parallelism, 2),
+        "avg_photo_sec": round(avg_latency, 2),
+        "min_photo_sec": round(min(photo_latencies), 2) if photo_latencies else 0.0,
+        "max_photo_sec": round(max(photo_latencies), 2) if photo_latencies else 0.0,
+        "per_pass_total_sec": {key: value["work_sec"] for key, value in passes.items()},
+        "per_pass_avg_sec": {key: value["avg_unit_sec"] for key, value in passes.items()},
+        "passes_run": [key for key, value in passes.items() if value["state"] in {"executed", "rule_based"}],
+        "passes_skipped": [key for key, value in passes.items() if value["state"] in {"skipped", "stubbed"}],
+        "input_tokens": stats["usage"]["input_tokens"],
+        "output_tokens": stats["usage"]["output_tokens"],
+        "total_tokens": total_tokens,
+        "llm_calls": stats["usage"]["successful_calls"],
+        "metered_llm_calls": stats["usage"]["metered_calls"],
     })
+    return stats
 
 
 def _log_timing_stats(stats: Dict[str, Any], property_key: str) -> None:
-    """Log a formatted timing table to stderr."""
-    n = stats.get("photo_count", 0)
-    wall = stats.get("total_wall_clock_sec", 0)
+    """Log schema-v2 phase wall time and non-additive pass work separately."""
+    phases = stats.get("phases", {}) or {}
+    photos = stats.get("photos", {}) or {}
+    usage = stats.get("usage", {}) or {}
+    passes = stats.get("passes", {}) or {}
+    state = (stats.get("status", {}) or {}).get("state", "complete")
+    total = float(phases.get("end_to_end_sec", 0.0) or 0.0)
 
-    logger.info("=" * 55)
-    logger.info(f"TIMING STATS: {property_key} ({n} photos, {wall:.1f}s)")
-    logger.info("=" * 55)
-
-    if n == 0:
-        logger.info("  No successful photos to report.")
-        logger.info("=" * 55)
-        return
-
-    per_pass_total = stats.get("per_pass_total_sec", {})
-    per_pass_avg = stats.get("per_pass_avg_sec", {})
-    skipped = set(stats.get("passes_skipped", []))
-    all_passes = stats.get("passes_run", []) + stats.get("passes_skipped", [])
-    # Re-sort combined list in canonical order
-    pass_order = ['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f', '4', '4a', '4b', '4c']
-    all_passes_sorted = [p for p in pass_order if p in all_passes]
-    all_passes_sorted += [p for p in all_passes if p not in all_passes_sorted]
-
-    llm_total = float(stats.get("total_llm_work_sec") or 0)
-    if llm_total <= 0:
-        llm_total = sum(v for p, v in per_pass_total.items() if p not in skipped)
-
-    logger.info("  Pass timings are cumulative work across photos; wall time is elapsed job time.")
-    logger.info(f"  {'Pass':<8} {'Work(s)':>9} {'Avg/photo':>9} {'% work':>10}")
-    logger.info(f"  {'--------':8} {'---------':9} {'---------':9} {'----------':10}")
-
-    for p in all_passes_sorted:
-        if p in skipped:
-            logger.info(f"  {p:<8} {'--':>9} {'--':>9} {'skipped':>10}")
+    logger.info("=" * 76)
+    logger.info(
+        "TIMING STATS v2: %s (%s, %d photos, %.1fs end-to-end)",
+        property_key,
+        state,
+        int(photos.get("requested", 0) or 0),
+        total,
+    )
+    logger.info("=" * 76)
+    logger.info("  PHASE WALL TIME (additive; Pass 2f is nested in postprocessing)")
+    logger.info("  %-24s %10.2f", "Photo analysis", float(phases.get("photo_analysis_sec", 0) or 0))
+    logger.info("  %-24s %10.2f", "Postprocessing/artifacts", float(phases.get("postprocessing_sec", 0) or 0))
+    logger.info("  %-24s %10.2f", "  of which Pass 2f", float(phases.get("pass_2f_sec", 0) or 0))
+    logger.info("  %-24s %10.2f", "End-to-end", total)
+    logger.info("")
+    logger.info("  PASS WORK (cumulative; concurrent work can exceed wall time)")
+    logger.info("  %-6s %-11s %9s %9s %7s %10s", "Pass", "State", "Work(s)", "API(s)", "Calls", "Tokens")
+    logger.info("  %-6s %-11s %9s %9s %7s %10s", "------", "-----------", "---------", "---------", "-------", "----------")
+    for pass_key in _TIMING_PASS_ORDER + sorted(key for key in passes if key not in _TIMING_PASS_ORDER):
+        if pass_key not in passes:
             continue
-        t = per_pass_total.get(p, 0)
-        a = per_pass_avg.get(p, 0)
-        pct = (t / llm_total * 100) if llm_total > 0 else 0
-        logger.info(f"  {p:<8} {t:>9.2f} {a:>9.2f} {pct:>9.1f}%")
-
-    logger.info(f"  {'--------':8} {'---------':9} {'---------':9} {'----------':10}")
-    logger.info(f"  {'LLM work':<8} {llm_total:>9.2f} {llm_total / n:>9.2f} {'100.0%':>10}")
-    logger.info(f"  {'Wall':<8} {wall:>9.2f} {wall / n:>9.2f}")
-    speedup = float(stats.get("parallelism_ratio") or 0)
-    if speedup <= 0:
-        speedup = llm_total / wall if wall > 0 else 0
-    logger.info(f"  Parallelism ratio: {speedup:.1f}x")
-
-    total_tokens = int(stats.get("total_tokens", 0) or 0)
-    if total_tokens > 0:
-        in_tok = int(stats.get("input_tokens", 0) or 0)
-        out_tok = int(stats.get("output_tokens", 0) or 0)
-        calls = int(stats.get("llm_calls", 0) or 0)
-        metered_calls = int(stats.get("metered_llm_calls", calls) or 0)
-        tps = (total_tokens / wall) if wall > 0 else 0.0
-        if calls > metered_calls > 0:
-            call_text = f"{metered_calls:,} metered / {calls:,} calls"
-            token_rate_label = "Metered tokens/sec"
-        else:
-            call_text = f"{calls:,} calls"
-            token_rate_label = "Tokens/sec"
-        logger.info(f"  Tokens:     {total_tokens:,} ({in_tok:,} in / {out_tok:,} out, {call_text})")
-        logger.info(f"  {token_rate_label}: {tps:,.1f}")
-
-    logger.info("=" * 55)
+        row = passes[pass_key]
+        logger.info(
+            "  %-6s %-11s %9.2f %9.2f %7d %10s",
+            pass_key,
+            row.get("state", "skipped"),
+            float(row.get("work_sec", 0) or 0),
+            float(row.get("api_work_sec", 0) or 0),
+            int(row.get("attempted_calls", 0) or 0),
+            f'{int(row.get("total_tokens", 0) or 0):,}',
+        )
+    logger.info("")
+    logger.info(
+        "  Photos: requested=%d processed=%d reused=%d successful=%d failed=%d",
+        int(photos.get("requested", 0) or 0),
+        int(photos.get("processed_this_attempt", 0) or 0),
+        int(photos.get("reused_from_checkpoint", 0) or 0),
+        int(photos.get("successful_total", 0) or 0),
+        int(photos.get("failed_total", 0) or 0),
+    )
+    logger.info(
+        "  Photo latency avg: %.2fs | throughput: %.3f photos/sec (%.2fs/photo) | effective parallelism: %.2fx (configured=%s)",
+        float(photos.get("avg_latency_sec", 0) or 0),
+        float(photos.get("throughput_photos_per_sec", 0) or 0),
+        float(photos.get("throughput_sec_per_photo", 0) or 0),
+        float(photos.get("effective_parallelism", 0) or 0),
+        photos.get("configured_concurrency") if photos.get("configured_concurrency") is not None else "unknown",
+    )
+    logger.info(
+        "  API calls: %d attempted / %d successful / %d failed / %d metered",
+        int(usage.get("attempted_calls", 0) or 0),
+        int(usage.get("successful_calls", 0) or 0),
+        int(usage.get("failed_calls", 0) or 0),
+        int(usage.get("metered_calls", 0) or 0),
+    )
+    logger.info(
+        "  Tokens: %s (%s in / %s out) | Job token throughput: %.1f tokens/sec",
+        f'{int(usage.get("total_tokens", 0) or 0):,}',
+        f'{int(usage.get("input_tokens", 0) or 0):,}',
+        f'{int(usage.get("output_tokens", 0) or 0):,}',
+        float(usage.get("job_tokens_per_sec", 0) or 0),
+    )
+    failed_phase = (stats.get("status", {}) or {}).get("failed_phase")
+    if failed_phase:
+        logger.info("  Incomplete phase: %s", failed_phase)
+    logger.info("=" * 76)
 
 
 def _build_summary(
@@ -753,11 +869,17 @@ def main() -> int:
             logger.warning(f"Could not initialize embeddings retriever for Pass 2d: {exc}. Pass 2d will be skipped.")
             candidate_provider = None
 
+    # One shared client supplies both photo-pass and Pass 2f telemetry.
+    _, gpt5_config = get_model_configs_from_pipeline_config(cfg)
+    vlm_client = create_vlm_client()
+    vlm_client.reset_usage_stats()
+
     # Create orchestrator
     orchestrator = create_orchestrator_from_config(
         cfg,
         candidate_provider=candidate_provider,
         catalog_items=catalog.get("items"),
+        vlm_client=vlm_client,
     )
 
     # Build run options from CLI args + profile
@@ -768,10 +890,6 @@ def main() -> int:
         reasoning_efforts=reasoning_efforts if reasoning_efforts else None,
     )
 
-    # Get GPT config for artifact writing (Pass 2f, etc.)
-    _, gpt5_config = get_model_configs_from_pipeline_config(cfg)
-    vlm_client = create_vlm_client()
-
     # Generate job ID and create artifacts directory
     job_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
     job_dir = artifacts_root / args.property_key / job_id
@@ -781,7 +899,8 @@ def main() -> int:
     # Per-image analysis loop
     # ─────────────────────────────────────────────────────────────────────────
     results: List[ImageResult] = []
-    total_start = time.time()
+    total_start = time.perf_counter()
+    job_started = total_start
 
     async def _analyze_all():
         sem = asyncio.Semaphore(args.concurrency)
@@ -790,7 +909,7 @@ def main() -> int:
         async def _analyze_one(idx, image_path):
             nonlocal completed
             async with sem:
-                img_start = time.time()
+                img_start = time.perf_counter()
                 logger.info(f"[start] Analyzing: {image_path.name} ({idx + 1}/{len(images)})")
 
                 try:
@@ -803,7 +922,7 @@ def main() -> int:
                         image_path=image_path,
                         options=img_options,
                     )
-                    elapsed = time.time() - img_start
+                    elapsed = time.perf_counter() - img_start
 
                     img_result = ImageResult(
                         image_path=str(image_path),
@@ -811,22 +930,10 @@ def main() -> int:
                         scene=analysis.scene or "unknown",
                         processing_time=elapsed,
                     )
-                    # Aggregate tok/s accounting for concurrency:
-                    # (avg tokens per image / this image's wall time) × concurrency.
-                    # Uses the avg instead of a per-image delta so concurrent completions
-                    # don't pollute one image's bucket.
-                    tok_total = int(getattr(vlm_client, "usage_stats", {}).get("total_tokens", 0) or 0)
-                    done_so_far = completed + 1  # this image counts; `completed` is incremented below
-                    if tok_total > 0 and elapsed > 0 and done_so_far > 0:
-                        per_image_rate = (tok_total / done_so_far) / elapsed
-                        tps = per_image_rate * args.concurrency
-                        tps_suffix = f", {tps:,.0f} tok/s"
-                    else:
-                        tps_suffix = ""
-                    logger.info(f"  ✅ {image_path.name} → {analysis.scene} ({elapsed:.1f}s{tps_suffix})")
+                    logger.info(f"  {image_path.name} -> {analysis.scene} ({elapsed:.1f}s)")
 
                 except Exception as exc:
-                    elapsed = time.time() - img_start
+                    elapsed = time.perf_counter() - img_start
                     logger.error(f"  ❌ {image_path.name} failed: {exc}", exc_info=args.debug)
                     img_result = ImageResult(
                         image_path=str(image_path),
@@ -844,7 +951,9 @@ def main() -> int:
 
     asyncio.run(_analyze_all())
 
-    total_time = time.time() - total_start
+    total_time = time.perf_counter() - total_start
+    phase_timings = {"photo_analysis_sec": total_time, "pass_2f_sec": 0.0}
+    postprocessing_started = job_started + total_time
 
     # ─────────────────────────────────────────────────────────────────────────
     # Build job and write artifacts
@@ -875,6 +984,9 @@ def main() -> int:
     # per-pass record.
     resolved_model_overrides: Dict[str, str] = dict(model_overrides or {})
 
+    fatal_error = None
+    failed_phase = None
+
     try:
         photo_intel_path = write_photo_intel(
             cfg=cfg,
@@ -888,23 +1000,53 @@ def main() -> int:
             issue_catalog=catalog,
             vlm_client=vlm_client,
             reasoning_efforts=reasoning_efforts,
+            timing_recorder=phase_timings,
         )
     except Pass2fModelUnavailable as exc:
         # Pass 2f is OpenAI-only. Rather than silently fall back to Qwen, fail
         # the whole run so the misconfiguration is visible.
         logger.error(f"Pass 2f model unavailable — failing run (no Qwen fallback): {exc}")
-        summary = {"success": False, "error": str(exc), "property_key": args.property_key}
-        print(json.dumps(summary, ensure_ascii=False))
-        return 1
+        photo_intel_path = None
+        fatal_error = exc
+        failed_phase = "pass_2f"
     except Exception as exc:
         logger.error(f"Failed to write photo_intel: {exc}", exc_info=True)
         photo_intel_path = None
+        fatal_error = exc
+        failed_phase = "postprocessing"
+
+    if not failed_phase:
+        failed_phase = phase_timings.get("failed_phase")
+
+    phase_timings["postprocessing_sec"] = time.perf_counter() - postprocessing_started
+    phase_timings["end_to_end_sec"] = time.perf_counter() - job_started
 
     # ─────────────────────────────────────────────────────────────────────────
     # Compute and log timing statistics
     # ─────────────────────────────────────────────────────────────────────────
-    timing_stats = _compute_timing_stats(results, total_time, usage_stats=vlm_client.usage_stats)
+    timing_stats = _compute_timing_stats(
+        results,
+        phase_timings["end_to_end_sec"],
+        usage_stats=vlm_client.usage_stats,
+        phase_timings=phase_timings,
+        attempt_results=results,
+        requested_photo_count=len(images),
+        reused_photo_count=0,
+        configured_concurrency=args.concurrency,
+        status="failed" if fatal_error else ("partial" if failed_phase else "complete"),
+        failed_phase=failed_phase,
+    )
     _log_timing_stats(timing_stats, args.property_key)
+
+    if fatal_error is not None:
+        summary = {
+            "success": False,
+            "error": str(fatal_error),
+            "property_key": args.property_key,
+            "timing_stats": timing_stats,
+        }
+        print(json.dumps(summary, ensure_ascii=False))
+        return 1
 
     # ─────────────────────────────────────────────────────────────────────────
     # Build summary for Node.js caller

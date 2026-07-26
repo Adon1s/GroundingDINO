@@ -28,6 +28,7 @@ import copy
 import asyncio
 import concurrent.futures
 import logging
+import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -104,6 +105,7 @@ def compute_renovation_estimate_v4(
     pass_2f_model_config: Optional[Dict[str, Any]] = None,
     photo_key_to_path: Optional[Dict[str, Path]] = None,
     pass_2f_provider: str = "premium",
+    timing_recorder: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     """Compute the v4 (room-aware) renovation estimate.
 
@@ -181,6 +183,7 @@ def compute_renovation_estimate_v4(
         "rejected_count": 0,
         "uncertain_count": 0,
         "no_image_count": 0,
+        "wall_sec": 0.0,
     }
     if (
         package_candidates
@@ -188,13 +191,20 @@ def compute_renovation_estimate_v4(
         and pass_2f_vlm_client is not None
         and pass_2f_model_config
     ):
-        package_verifications, pass_2f_trace = _run_pass_2f_sync(
-            package_candidates,
-            vlm_client=pass_2f_vlm_client,
-            model_config=pass_2f_model_config,
-            photo_key_to_path=photo_key_to_path or {},
-            provider=pass_2f_provider,
-        )
+        pass_2f_started = time.perf_counter()
+        try:
+            package_verifications, pass_2f_trace = _run_pass_2f_sync(
+                package_candidates,
+                vlm_client=pass_2f_vlm_client,
+                model_config=pass_2f_model_config,
+                photo_key_to_path=photo_key_to_path or {},
+                provider=pass_2f_provider,
+            )
+        finally:
+            pass_2f_wall = time.perf_counter() - pass_2f_started
+            if timing_recorder is not None:
+                timing_recorder["pass_2f_sec"] = pass_2f_wall
+        pass_2f_trace["wall_sec"] = pass_2f_wall
     elif package_verifications is not None:
         pass_2f_trace = {
             **pass_2f_trace,

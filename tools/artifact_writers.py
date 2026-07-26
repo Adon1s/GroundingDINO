@@ -401,6 +401,7 @@ def write_photo_intel(
     local_vlm_config: Optional[Dict[str, Any]] = None,
     pass_2f_provider: str = "premium",
     reasoning_efforts: Optional[Dict[str, str]] = None,
+    timing_recorder: Optional[Dict[str, Any]] = None,
 ) -> Path:
     """Persist per-photo intelligence (including scene classifier fields)."""
     created_at = datetime.utcnow().isoformat() + "Z"
@@ -832,6 +833,7 @@ def write_photo_intel(
             pass_2f_model_config["reasoning_effort"] = pass_2f_reasoning_effort
 
     # -- Compute renovation estimate (primary cost estimation engine) -------------
+    v4_est = None
     try:
         # Lane choice follows the RAW canonical lane's existence; quarantine
         # filtering must never switch which lane feeds the estimate.
@@ -876,8 +878,13 @@ def write_photo_intel(
             pass_2f_model_config=pass_2f_model_config,
             photo_key_to_path=photo_key_to_path,
             pass_2f_provider=pass_2f_provider,
+            timing_recorder=timing_recorder,
         )
         photo_intel["renovation_estimate_v4"] = v4_est
+        if timing_recorder is not None:
+            timing_recorder["pass_2f_sec"] = float(
+                (v4_est.get("pass_2f_trace") or {}).get("wall_sec") or 0.0
+            )
         # Evidence-projection provenance shares the run's single completion
         # timestamp (run.created_at) and identifies the artifact relatively —
         # never by absolute path.
@@ -935,6 +942,12 @@ def write_photo_intel(
     except Exception as exc:
         logger.error(f"Failed to compute renovation estimate: {exc}", exc_info=True)
         photo_intel["renovation_estimate_v4"] = None
+        if timing_recorder is not None:
+            timing_recorder["failed_phase"] = (
+                "pass_2f"
+                if v4_est is None and float(timing_recorder.get("pass_2f_sec") or 0.0) > 0
+                else "postprocessing"
+            )
 
     # -- Build defect events, work items, and search index ----------------------
     # NOTE: if this layer is revived, it consumes raw per-photo issues and MUST

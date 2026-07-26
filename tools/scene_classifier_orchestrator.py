@@ -145,6 +145,7 @@ class ImageAnalysisResult:
 
     # Metadata
     passes_run: List[str] = field(default_factory=list)
+    pass_states: Dict[str, str] = field(default_factory=dict)
     passes: Dict[str, Any] = field(default_factory=dict)   # per-pass structured output (mirrors direct-path schema)
     models_used: Dict[str, str] = field(default_factory=dict)
     pass_timings: Dict[str, float] = field(default_factory=dict)
@@ -189,6 +190,7 @@ class ImageAnalysisResult:
             "display_issues": self.display_issues,
 
             "passes_run": self.passes_run,
+            "pass_states": self.pass_states,
             "passes": self.passes,
             "models_used": self.models_used,
             "pass_timings": self.pass_timings,
@@ -427,7 +429,7 @@ class SceneClassifierOrchestrator:
             ImageAnalysisResult with all pass results
         """
         import time
-        start_time = time.time()
+        start_time = time.perf_counter()
 
         options = options or SceneClassifierRunOptions()
         toggles = options.toggles
@@ -448,13 +450,13 @@ class SceneClassifierOrchestrator:
             self._record_model_routing('1a', options, model_config, result)
 
             logger.debug(f"Running Pass 1a with {model_name}")
-            t0 = time.time()
+            t0 = time.perf_counter()
             result.pass_1a = await run_pass_1a_scene_type(
                 image_path=image_path,
                 vlm_client=self.vlm_client,
                 model_config=model_config,
             )
-            result.pass_timings['1a'] = round(time.time() - t0, 3)
+            result.pass_timings['1a'] = time.perf_counter() - t0
 
             result.scene = result.pass_1a.scene
             context['scene'] = result.scene
@@ -507,14 +509,14 @@ class SceneClassifierOrchestrator:
             self._record_model_routing('2a', options, model_config, result)
 
             logger.debug(f"Running Pass 2a with {model_name}")
-            t0 = time.time()
+            t0 = time.perf_counter()
             result.pass_2a = await run_pass_2a(
                 image_path=image_path,
                 vlm_client=self.vlm_client,
                 model_config=model_config,
                 context=context,
             )
-            result.pass_timings['2a'] = round(time.time() - t0, 3)
+            result.pass_timings['2a'] = time.perf_counter() - t0
 
             observations_freeform = result.pass_2a.observations_freeform
             result.observations_freeform = observations_freeform
@@ -530,13 +532,13 @@ class SceneClassifierOrchestrator:
             self._record_model_routing('2b', options, model_config, result)
 
             logger.debug(f"Running Pass 2b with {model_name}")
-            t0 = time.time()
+            t0 = time.perf_counter()
             result.pass_2b = await run_pass_2b(
                 vlm_client=self.vlm_client,
                 model_config=model_config,
                 observations_freeform=observations_freeform,
             )
-            result.pass_timings['2b'] = round(time.time() - t0, 3)
+            result.pass_timings['2b'] = time.perf_counter() - t0
 
             observations_list = result.pass_2b.observations or []
             result.observations_struct = {"observations": observations_list}
@@ -558,14 +560,14 @@ class SceneClassifierOrchestrator:
                 observations_in = result.observations_struct.get("observations") or []
 
             logger.debug(f"Running Pass 2c with {model_name}")
-            t0 = time.time()
+            t0 = time.perf_counter()
             result.pass_2c = await run_pass_2c(
                 vlm_client=self.vlm_client,
                 model_config=model_config,
                 observations=observations_in,
                 scene=result.scene or "other",
             )
-            result.pass_timings['2c'] = round(time.time() - t0, 3)
+            result.pass_timings['2c'] = time.perf_counter() - t0
 
             result.labeled_debug = result.pass_2c.labeled_debug or []
             result.labeled_forward = result.pass_2c.labeled_forward or []
@@ -831,7 +833,7 @@ class SceneClassifierOrchestrator:
             self._record_model_routing('2d', options, model_config, result)
 
             logger.debug(f"Running Pass 2d with {model_name} for {len(to_resolve_all)} observations")
-            t0 = time.time()
+            t0 = time.perf_counter()
 
             pass_2d_results: List[Pass2dResult] = []
             resolved_items: List[Dict[str, Any]] = []    # unified list (defects + upgrades)
@@ -980,7 +982,7 @@ class SceneClassifierOrchestrator:
                 }
                 resolved_items.append(row)
 
-            result.pass_timings['2d'] = round(time.time() - t0, 3)
+            result.pass_timings['2d'] = time.perf_counter() - t0
             result.pass_2d = pass_2d_results
             result.resolved_items = resolved_items
             result.passes_run.append('2d')
@@ -1055,7 +1057,7 @@ class SceneClassifierOrchestrator:
                 context["catalog_meta_by_id"] = self.catalog_meta_by_id
             context["policy"] = {"include_optional": False, "mode": "renovator_strict"}
 
-            t0 = time.time()
+            t0 = time.perf_counter()
             try:
                 pass_2e_result = await run_pass_2e(
                     vlm_client=self.vlm_client,
@@ -1134,7 +1136,7 @@ class SceneClassifierOrchestrator:
                 result.display_issues = result.verified_issues
                 result.passes["2e"] = {"error": str(exc)}
                 result.debug["pass_2e_summary"] = {"error": str(exc)}
-            result.pass_timings['2e'] = round(time.time() - t0, 3)
+            result.pass_timings['2e'] = time.perf_counter() - t0
         else:
             # 2e skipped — promote labeled_forward to verified_issues with minimal normalization
             # so downstream always gets a valid kind regardless of which path ran.
@@ -1155,8 +1157,21 @@ class SceneClassifierOrchestrator:
             result.passes["2e"] = {"skipped": True}
             result.debug["pass_2e_summary"] = {"skipped": True}
 
-        result.total_pass_time = round(sum(result.pass_timings.values()), 3)
-        result.processing_time = time.time() - start_time
+        for pass_key in ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e'):
+            pass_payload = result.passes.get(pass_key) or {}
+            if isinstance(pass_payload, dict) and pass_payload.get("error"):
+                result.pass_states[pass_key] = "failed"
+            elif pass_key not in result.passes_run:
+                result.pass_states[pass_key] = "skipped"
+            elif result.models_used.get(pass_key) == "none":
+                result.pass_states[pass_key] = "stubbed"
+            elif pass_key == "2e":
+                result.pass_states[pass_key] = "rule_based"
+            else:
+                result.pass_states[pass_key] = "executed"
+
+        result.total_pass_time = sum(result.pass_timings.values())
+        result.processing_time = time.perf_counter() - start_time
         logger.info(
             f"Completed {image_path.name}: scene={result.scene}, "
             f"forward_obs={len(result.labeled_forward)}, "
@@ -1173,6 +1188,7 @@ def create_orchestrator_from_config(
     config: Any,
     candidate_provider: Optional[Callable[[str, Dict[str, Any]], List[Dict[str, Any]]]] = None,
     catalog_items: Optional[List[Dict[str, Any]]] = None,
+    vlm_client: Any = None,
 ) -> SceneClassifierOrchestrator:
     """
     Create an orchestrator from a pipeline_config module.
@@ -1191,7 +1207,7 @@ def create_orchestrator_from_config(
     )
 
     qwen_config, gpt5_config = get_model_configs_from_pipeline_config(config)
-    vlm_client = create_vlm_client()
+    vlm_client = vlm_client or create_vlm_client()
 
     return SceneClassifierOrchestrator(
         qwen_config=qwen_config,

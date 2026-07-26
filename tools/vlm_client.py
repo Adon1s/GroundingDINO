@@ -40,7 +40,10 @@ import base64
 import json
 import logging
 import os
+import re
 import threading
+import time
+from contextvars import ContextVar
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Literal
 
@@ -102,27 +105,98 @@ class VLMClient:
         # Token usage accumulator — shared across provider calls.
         # Calls run in run_in_executor threads, so guard with a lock.
         self._usage_lock = threading.Lock()
-        self.usage_stats: Dict[str, int] = {
+        self._active_pass_key: ContextVar[str] = ContextVar(
+            f"vlm_active_pass_{id(self)}", default="unattributed"
+        )
+        self._telemetry_depth: ContextVar[int] = ContextVar(
+            f"vlm_telemetry_depth_{id(self)}", default=0
+        )
+        self.usage_stats: Dict[str, Any] = self._empty_usage_stats()
+
+    @staticmethod
+    def _empty_pass_usage() -> Dict[str, Any]:
+        return {
+            "attempted_calls": 0,
+            "calls": 0,
+            "failed_calls": 0,
+            "metered_calls": 0,
             "input_tokens": 0,
             "output_tokens": 0,
             "total_tokens": 0,
+            "api_duration_sec": 0.0,
+        }
+
+    @classmethod
+    def _empty_usage_stats(cls) -> Dict[str, Any]:
+        return {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "attempted_calls": 0,
             "calls": 0,
+            "failed_calls": 0,
             "metered_calls": 0,
+            "api_duration_sec": 0.0,
+            "per_pass": {},
         }
 
     def reset_usage_stats(self) -> None:
         """Zero out the accumulated token counters. Call between jobs."""
         with self._usage_lock:
-            self.usage_stats["input_tokens"] = 0
-            self.usage_stats["output_tokens"] = 0
-            self.usage_stats["total_tokens"] = 0
-            self.usage_stats["calls"] = 0
-            self.usage_stats["metered_calls"] = 0
+            self.usage_stats.clear()
+            self.usage_stats.update(self._empty_usage_stats())
+
+    @staticmethod
+    def _canonical_pass_key(label: Optional[str]) -> str:
+        match = re.search(r"\bpass\s+([0-9]+[a-z]?)\b", str(label or ""), re.IGNORECASE)
+        return match.group(1).lower() if match else "unattributed"
+
+    def _pass_usage_locked(self, pass_key: Optional[str] = None) -> Dict[str, Any]:
+        key = pass_key or self._active_pass_key.get()
+        per_pass = self.usage_stats.setdefault("per_pass", {})
+        return per_pass.setdefault(key, self._empty_pass_usage())
+
+    def _record_attempt(self, pass_key: str) -> None:
+        with self._usage_lock:
+            self.usage_stats["attempted_calls"] += 1
+            self._pass_usage_locked(pass_key)["attempted_calls"] += 1
+
+    def _record_failure(self, pass_key: str) -> None:
+        with self._usage_lock:
+            self.usage_stats["failed_calls"] += 1
+            self._pass_usage_locked(pass_key)["failed_calls"] += 1
+
+    def _record_api_duration(self, pass_key: str, duration_sec: float) -> None:
+        duration = max(0.0, float(duration_sec or 0.0))
+        with self._usage_lock:
+            self.usage_stats["api_duration_sec"] += duration
+            self._pass_usage_locked(pass_key)["api_duration_sec"] += duration
+
+    async def _run_with_telemetry(self, pass_label: Optional[str], operation: Any) -> str:
+        """Run one logical provider request with task-local pass attribution."""
+        depth = self._telemetry_depth.get()
+        if depth > 0:
+            return await operation
+        pass_key = self._canonical_pass_key(pass_label)
+        pass_token = self._active_pass_key.set(pass_key)
+        depth_token = self._telemetry_depth.set(depth + 1)
+        started = time.perf_counter()
+        self._record_attempt(pass_key)
+        try:
+            return await operation
+        except Exception:
+            self._record_failure(pass_key)
+            raise
+        finally:
+            self._record_api_duration(pass_key, time.perf_counter() - started)
+            self._telemetry_depth.reset(depth_token)
+            self._active_pass_key.reset(pass_token)
 
     def _record_call(self) -> None:
         """Count one successful provider call, even if the provider omits token usage."""
         with self._usage_lock:
             self.usage_stats["calls"] += 1
+            self._pass_usage_locked()["calls"] += 1
 
     def _record_usage(
             self,
@@ -142,6 +216,11 @@ class VLMClient:
             self.usage_stats["output_tokens"] += o
             self.usage_stats["total_tokens"] += t
             self.usage_stats["metered_calls"] += 1
+            pass_usage = self._pass_usage_locked()
+            pass_usage["input_tokens"] += i
+            pass_usage["output_tokens"] += o
+            pass_usage["total_tokens"] += t
+            pass_usage["metered_calls"] += 1
 
     @staticmethod
     def _analysis_pass_label(kwargs: Dict[str, Any]) -> Optional[str]:
@@ -395,7 +474,6 @@ class VLMClient:
             return client.responses.create(**request)
 
         response = await asyncio.get_event_loop().run_in_executor(None, _call)
-        self._record_call()
         usage = getattr(response, "usage", None)
         if usage is not None:
             self._record_usage(
@@ -403,7 +481,9 @@ class VLMClient:
                 getattr(usage, "output_tokens", None),
                 getattr(usage, "total_tokens", None),
             )
-        return self._extract_openai_output_text(response)
+        output_text = self._extract_openai_output_text(response)
+        self._record_call()
+        return output_text
 
     async def _analyze_images_openai(
             self,
@@ -467,7 +547,6 @@ class VLMClient:
             return client.responses.create(**request)
 
         response = await asyncio.get_event_loop().run_in_executor(None, _call)
-        self._record_call()
         usage = getattr(response, "usage", None)
         if usage is not None:
             self._record_usage(
@@ -475,7 +554,9 @@ class VLMClient:
                 getattr(usage, "output_tokens", None),
                 getattr(usage, "total_tokens", None),
             )
-        return self._extract_openai_output_text(response)
+        output_text = self._extract_openai_output_text(response)
+        self._record_call()
+        return output_text
 
     async def _analyze_text_openai(
             self,
@@ -526,8 +607,6 @@ class VLMClient:
             None,
             _call,
         )
-        self._record_call()
-
         usage = getattr(response, "usage", None)
         if usage is not None:
             self._record_usage(
@@ -535,7 +614,9 @@ class VLMClient:
                 getattr(usage, "output_tokens", None),
                 getattr(usage, "total_tokens", None),
             )
-        return self._extract_openai_output_text(response)
+        output_text = self._extract_openai_output_text(response)
+        self._record_call()
+        return output_text
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Google Gemini Methods (using google-genai)
@@ -590,7 +671,6 @@ class VLMClient:
             )
 
         response = await asyncio.get_event_loop().run_in_executor(None, _call)
-        self._record_call()
         usage = getattr(response, "usage_metadata", None)
         if usage is not None:
             self._record_usage(
@@ -598,7 +678,9 @@ class VLMClient:
                 getattr(usage, "candidates_token_count", None),
                 getattr(usage, "total_token_count", None),
             )
-        return response.text
+        output_text = response.text
+        self._record_call()
+        return output_text
 
     async def _analyze_text_gemini(
             self,
@@ -624,7 +706,6 @@ class VLMClient:
             )
 
         response = await asyncio.get_event_loop().run_in_executor(None, _call)
-        self._record_call()
         usage = getattr(response, "usage_metadata", None)
         if usage is not None:
             self._record_usage(
@@ -632,7 +713,9 @@ class VLMClient:
                 getattr(usage, "candidates_token_count", None),
                 getattr(usage, "total_token_count", None),
             )
-        return response.text
+        output_text = response.text
+        self._record_call()
+        return output_text
 
     # ═══════════════════════════════════════════════════════════════════════════
     # LM Studio Methods (using requests)
@@ -704,7 +787,6 @@ class VLMClient:
             logger.error(f"LM Studio response missing 'choices': {data}")
             raise RuntimeError(f"Unexpected LM Studio response format from LM Studio")
 
-        self._record_call()
         usage = data.get("usage") or {}
         if usage:
             self._record_usage(
@@ -712,7 +794,9 @@ class VLMClient:
                 usage.get("completion_tokens"),
                 usage.get("total_tokens"),
             )
-        return data["choices"][0]["message"]["content"]
+        output_text = data["choices"][0]["message"]["content"]
+        self._record_call()
+        return output_text
 
     async def _analyze_images_lmstudio(
             self,
@@ -771,7 +855,6 @@ class VLMClient:
             raise RuntimeError(
                 "Unexpected LM Studio response format from LM Studio"
             )
-        self._record_call()
         usage = data.get("usage") or {}
         if usage:
             self._record_usage(
@@ -779,7 +862,9 @@ class VLMClient:
                 usage.get("completion_tokens"),
                 usage.get("total_tokens"),
             )
-        return data["choices"][0]["message"]["content"]
+        output_text = data["choices"][0]["message"]["content"]
+        self._record_call()
+        return output_text
 
     async def _analyze_text_lmstudio(
             self,
@@ -833,7 +918,6 @@ class VLMClient:
             logger.error(f"LM Studio response missing 'choices': {data}")
             raise RuntimeError(f"Unexpected LM Studio response format from LM Studio")
 
-        self._record_call()
         usage = data.get("usage") or {}
         if usage:
             self._record_usage(
@@ -841,7 +925,9 @@ class VLMClient:
                 usage.get("completion_tokens"),
                 usage.get("total_tokens"),
             )
-        return data["choices"][0]["message"]["content"]
+        output_text = data["choices"][0]["message"]["content"]
+        self._record_call()
+        return output_text
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Public API
@@ -916,7 +1002,7 @@ class VLMClient:
         if provider == "openai":
             # If api_key is provided explicitly, use it.
             # Otherwise rely on OpenAI() reading OPENAI_API_KEY from env.
-            return await self._analyze_image_openai(
+            return await self._run_with_telemetry(pass_label, self._analyze_image_openai(
                 image_path=image_path,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
@@ -927,23 +1013,23 @@ class VLMClient:
                 response_schema_name=response_schema_name,
                 reasoning_effort=reasoning_effort,
                 verbosity=verbosity,
-            )
+            ))
 
         elif provider == "gemini":
-            return await self._analyze_image_gemini(
+            return await self._run_with_telemetry(pass_label, self._analyze_image_gemini(
                 image_path=image_path,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 model=model,
                 api_key=api_key,
                 max_tokens=max_tokens,
-            )
+            ))
 
         else:  # lmstudio
             if not url:
                 raise ValueError("URL required for LM Studio provider")
 
-            return await self._analyze_image_lmstudio(
+            return await self._run_with_telemetry(pass_label, self._analyze_image_lmstudio(
                 image_path=image_path,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
@@ -952,7 +1038,7 @@ class VLMClient:
                 timeout=timeout,
                 max_tokens=max_tokens,
                 temperature=temperature,
-            )
+            ))
 
     async def analyze_images(
             self,
@@ -1011,7 +1097,7 @@ class VLMClient:
             logger.info("Analyzing %d images with %s/%s", len(image_paths), provider, model)
 
         if provider == "openai":
-            return await self._analyze_images_openai(
+            return await self._run_with_telemetry(pass_label, self._analyze_images_openai(
                 image_paths=image_paths,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
@@ -1022,11 +1108,11 @@ class VLMClient:
                 response_schema_name=response_schema_name,
                 reasoning_effort=reasoning_effort,
                 verbosity=verbosity,
-            )
+            ))
         if provider == "lmstudio":
             if not url:
                 raise ValueError("URL required for LM Studio provider")
-            return await self._analyze_images_lmstudio(
+            return await self._run_with_telemetry(pass_label, self._analyze_images_lmstudio(
                 image_paths=image_paths,
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
@@ -1035,7 +1121,7 @@ class VLMClient:
                 timeout=timeout,
                 max_tokens=max_tokens,
                 temperature=temperature,
-            )
+            ))
 
         # Backward-compatible fallback for providers that do not currently have
         # a native multi-image helper in this client.
@@ -1121,7 +1207,7 @@ class VLMClient:
         if provider == "openai":
             # If api_key is provided explicitly, use it.
             # Otherwise rely on OpenAI() reading OPENAI_API_KEY from env.
-            return await self._analyze_text_openai(
+            return await self._run_with_telemetry(pass_label, self._analyze_text_openai(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 model=model,
@@ -1131,22 +1217,22 @@ class VLMClient:
                 response_schema_name=response_schema_name,
                 reasoning_effort=reasoning_effort,
                 verbosity=verbosity,
-            )
+            ))
 
         elif provider == "gemini":
-            return await self._analyze_text_gemini(
+            return await self._run_with_telemetry(pass_label, self._analyze_text_gemini(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 model=model,
                 api_key=api_key,
                 max_tokens=max_tokens,
-            )
+            ))
 
         else:  # lmstudio
             if not url:
                 raise ValueError("URL required for LM Studio provider")
 
-            return await self._analyze_text_lmstudio(
+            return await self._run_with_telemetry(pass_label, self._analyze_text_lmstudio(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 url=url,
@@ -1154,7 +1240,7 @@ class VLMClient:
                 timeout=timeout,
                 max_tokens=max_tokens,
                 temperature=temperature,
-            )
+            ))
 
     # Sync wrappers for non-async code
     def analyze_image_sync(self, **kwargs) -> str:

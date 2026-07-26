@@ -182,16 +182,17 @@ def main() -> int:
             logger.warning(f"Could not initialize embeddings retriever: {exc}. Pass 2d will be skipped.")
             candidate_provider = None
 
+    # One shared client supplies both photo-pass and Pass 2f telemetry.
+    _, gpt5_config = get_model_configs_from_pipeline_config(cfg)
+    vlm_client = create_vlm_client()
+
     # Create orchestrator (reused across all jobs)
     orchestrator = create_orchestrator_from_config(
         cfg,
         candidate_provider=candidate_provider,
         catalog_items=catalog.get("items"),
+        vlm_client=vlm_client,
     )
-
-    # Get GPT config and VLM client (reused across all jobs)
-    _, gpt5_config = get_model_configs_from_pipeline_config(cfg)
-    vlm_client = create_vlm_client()
 
     logger.info("All models loaded. Server ready.")
     _emit({"type": "ready"})
@@ -485,8 +486,10 @@ def _process_job(
         # Per-image analysis loop
         # ─────────────────────────────────────────────────────────────────────
         results: List[ImageResult] = []
+        attempt_results: List[ImageResult] = []
         total_images = len(image_paths)
-        total_start = time.time()
+        total_start = time.perf_counter()
+        job_started = total_start
 
         async def _analyze_all():
             sem = asyncio.Semaphore(concurrency)
@@ -509,7 +512,7 @@ def _process_job(
                     return cached_results[idx]
 
                 async with sem:
-                    img_start = time.time()
+                    img_start = time.perf_counter()
                     logger.info(f"  [start] Analyzing: {image_path.name} ({idx + 1}/{total_images})")
 
                     try:
@@ -522,7 +525,7 @@ def _process_job(
                             image_path=image_path,
                             options=img_options,
                         )
-                        elapsed = time.time() - img_start
+                        elapsed = time.perf_counter() - img_start
 
                         img_result = ImageResult(
                             image_path=str(image_path),
@@ -530,22 +533,10 @@ def _process_job(
                             scene=analysis.scene or "unknown",
                             processing_time=elapsed,
                         )
-                        # Aggregate tok/s accounting for concurrency:
-                        # (avg tokens per image / this image's wall time) × concurrency.
-                        # Uses the avg instead of a per-image delta so concurrent completions
-                        # don't pollute one image's bucket.
-                        tok_total = int(getattr(vlm_client, "usage_stats", {}).get("total_tokens", 0) or 0)
-                        done_so_far = completed + 1  # this image counts; `completed` is incremented below
-                        if tok_total > 0 and elapsed > 0 and done_so_far > 0:
-                            per_image_rate = (tok_total / done_so_far) / elapsed
-                            tps = per_image_rate * concurrency
-                            tps_suffix = f", {tps:,.0f} tok/s"
-                        else:
-                            tps_suffix = ""
-                        logger.info(f"    ✅ {image_path.name} → {analysis.scene} ({elapsed:.1f}s{tps_suffix})")
+                        logger.info(f"    {image_path.name} -> {analysis.scene} ({elapsed:.1f}s)")
 
                     except Exception as exc:
-                        elapsed = time.time() - img_start
+                        elapsed = time.perf_counter() - img_start
                         logger.error(f"    ❌ {image_path.name} failed: {exc}", exc_info=True)
                         img_result = ImageResult(
                             image_path=str(image_path),
@@ -562,6 +553,7 @@ def _process_job(
                         except OSError as exc:
                             logger.warning(f"  Checkpoint save failed for image {idx}: {exc}")
 
+                    attempt_results.append(img_result)
                     completed += 1
                     _emit({
                         "type": "progress",
@@ -577,7 +569,9 @@ def _process_job(
 
         asyncio.run(_analyze_all())
 
-        total_time = time.time() - total_start
+        total_time = time.perf_counter() - total_start
+        phase_timings = {"photo_analysis_sec": total_time, "pass_2f_sec": 0.0}
+        postprocessing_started = job_started + total_time
 
         # ─────────────────────────────────────────────────────────────────────
         # Build job and write artifacts
@@ -593,6 +587,9 @@ def _process_job(
         )
 
         from tools.artifact_writers import Pass2fModelUnavailable
+        fatal_error = None
+        failed_phase = None
+
         try:
             photo_intel_path = write_photo_intel(
                 cfg=cfg,
@@ -608,6 +605,7 @@ def _process_job(
                 issue_catalog=catalog,
                 vlm_client=vlm_client,
                 reasoning_efforts=filtered_reasoning_efforts,
+                timing_recorder=phase_timings,
             )
         except Pass2fModelUnavailable as exc:
             # Pass 2f is OpenAI-only. Fail the job rather than silently degrade to
@@ -616,24 +614,44 @@ def _process_job(
                 f"[Job {ts_job_id}] Pass 2f model unavailable — failing job "
                 f"(no Qwen fallback): {exc}"
             )
-            _emit({
-                "type": "result",
-                "jobId": ts_job_id,
-                "success": False,
-                "error": str(exc),
-                "property_key": property_key,
-            })
-            _emit({"type": "job_done", "jobId": ts_job_id})
-            return
+            photo_intel_path = None
+            fatal_error = exc
+            failed_phase = "pass_2f"
         except Exception as exc:
             logger.error(f"Failed to write photo_intel: {exc}", exc_info=True)
             photo_intel_path = None
+            fatal_error = exc
+            failed_phase = "postprocessing"
+
+        if not failed_phase:
+            failed_phase = phase_timings.get("failed_phase")
+
+        phase_timings["postprocessing_sec"] = time.perf_counter() - postprocessing_started
+        phase_timings["end_to_end_sec"] = time.perf_counter() - job_started
 
         # Compute and log timing statistics
         timing_stats = _compute_timing_stats(
-            results, total_time, usage_stats=getattr(vlm_client, "usage_stats", None)
+            results,
+            phase_timings["end_to_end_sec"],
+            usage_stats=getattr(vlm_client, "usage_stats", None),
+            phase_timings=phase_timings,
+            attempt_results=attempt_results,
+            requested_photo_count=total_images,
+            reused_photo_count=len(cached_results),
+            configured_concurrency=concurrency,
+            status="failed" if fatal_error else ("partial" if failed_phase else "complete"),
+            failed_phase=failed_phase,
         )
         _log_timing_stats(timing_stats, property_key)
+
+        if fatal_error is not None:
+            _emit({
+                "type": "result", "jobId": ts_job_id, "success": False,
+                "error": str(fatal_error), "property_key": property_key,
+                "timing_stats": timing_stats,
+            })
+            _emit({"type": "job_done", "jobId": ts_job_id})
+            return
 
         # Build summary (same format as analyzer_cli)
         summary = _build_summary(
@@ -645,7 +663,10 @@ def _process_job(
             timing_stats=timing_stats,
         )
 
-        logger.info(f"[Job {ts_job_id}] Complete: {property_key} ({total_time:.1f}s)")
+        logger.info(
+            f"[Job {ts_job_id}] Complete: {property_key} "
+            f"({phase_timings['end_to_end_sec']:.1f}s)"
+        )
 
         # Emit result and job_done marker
         _emit({"type": "result", "jobId": ts_job_id, **summary})
