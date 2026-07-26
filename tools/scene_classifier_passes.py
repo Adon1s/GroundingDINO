@@ -1040,7 +1040,7 @@ Rules:
 Return JSON only:
 {
   "labeled": [
-    { "description": "...", "label": "defect_or_damage|safety|upgrade_candidate|good_condition|generic_presence|other" }
+    { "description": "...", "label": "defect_or_damage|upgrade_candidate|good_condition|generic_presence|other" }
   ]
 }
 """
@@ -1064,7 +1064,12 @@ def _coerce_labeled_2c(x: Any) -> List[Dict[str, str]]:
         if not desc:
             continue
         label = str(it.get("label") or "").strip().lower()
-        if label not in VALID_LABELS:
+        if label == "safety":
+            # Deprecated label: visible hazards belong under defect_or_damage.
+            # Log so model drift stays observable instead of silently suppressed.
+            logger.warning("Pass 2c: deprecated 'safety' label coerced to 'other': %s", desc)
+            label = "other"
+        elif label not in VALID_LABELS:
             label = "other"
         out.append({
             "description": desc,
