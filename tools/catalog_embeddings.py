@@ -7,11 +7,12 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Set
 import logging
 import numpy as np
 
+from tools.pipeline_common import SCENE_GROUPS_UI
+
 logger = logging.getLogger(__name__)
 
 # All known scene groups — used as the fallback when a catalog item has no scene_groups field.
-# Keep in sync with SCENE_GROUPS_UI in pipeline_common.py.
-_ALL_SCENE_GROUPS = ("kitchen", "bathroom", "bedroom", "living_areas", "utility", "exterior", "other")
+_ALL_SCENE_GROUPS = tuple(SCENE_GROUPS_UI)
 
 try:
     from sentence_transformers import SentenceTransformer

@@ -39,6 +39,8 @@ except ImportError:
     create_vlm_client = None
     VLM_CLIENT_AVAILABLE = False
 
+from tools.pipeline_common import SCENE_GROUPS_UI, SCENE_TO_GROUP_UI
+
 # Console encoding safety (Windows)
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
@@ -63,26 +65,10 @@ logger = logging.getLogger(__name__)
 # ── Constants ────────────────────────────────────────────────────────────────
 SUMMARY_VERSION = "v1"
 
-# Scene type groupings for summarization
-SCENE_GROUPS = {
-    "kitchen": ["kitchen", "pantry"],
-    "bathroom": ["bathroom"],
-    "bedroom": ["bedroom", "closet"],
-    "living_areas": ["living_room", "dining_room", "home_office", "hallway", "stairway"],
-    "utility": ["laundry_room", "basement", "attic", "garage"],
-    "exterior": [
-        "exterior_front", "exterior_back", "exterior_side",
-        "yard", "patio", "deck", "balcony", "driveway",
-        "pool", "garden", "hvac"
-    ],
-    "other": ["floor_plan", "aerial_view", "street_view", "unknown"]
-}
-
-# Reverse lookup: scene -> group
-SCENE_TO_GROUP = {}
-for group_name, scenes in SCENE_GROUPS.items():
-    for scene in scenes:
-        SCENE_TO_GROUP[scene] = group_name
+# Scene type groupings for summarization. Shared with the rest of the pipeline;
+# this module previously kept a drifted copy that filed `hvac` under exterior.
+SCENE_GROUPS = SCENE_GROUPS_UI
+SCENE_TO_GROUP = SCENE_TO_GROUP_UI
 
 
 # ── Data Classes ─────────────────────────────────────────────────────────────

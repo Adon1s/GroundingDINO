@@ -1969,16 +1969,6 @@ def infer_package_candidates(
         has_multiphoto_opportunity = _has_multiphoto_opportunity_corroboration(
             opportunity_drivers
         )
-        has_legacy_flat_opportunity_driver = (
-            any(
-                bool(getattr(candidate, "estimate_unit_id", ""))
-                and (candidate_catalog_meta.get(id(candidate)) or {}).get(
-                    "package_affinity"
-                ) is None
-                for candidate in opportunity_drivers
-            )
-        )
-
         # Ambient (recurring cross-room) supports still corroborate and are
         # costed, but do not count toward the driverless emit gate below.
         non_ambient_supports = [
@@ -1998,11 +1988,6 @@ def infer_package_candidates(
             drivers = list(opportunity_drivers)
             supporting = drivers + supports
             trigger_reason = "opportunity_driver_with_multiphoto_corroboration"
-        elif opportunity_drivers and has_legacy_flat_opportunity_driver:
-            drivers = list(opportunity_drivers)
-            supporting = drivers + supports
-            trigger_reason = "legacy_flat_package_driver"
-
         elif len(non_ambient_supports) >= 2:
             drivers = []
             supporting = supports

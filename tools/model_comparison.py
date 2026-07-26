@@ -70,6 +70,9 @@ from vlm_client import (
     create_vlm_client,
 )
 from catalog_embeddings import CatalogEmbeddingsRetriever, MatchCandidate, build_guardrails_from_catalog
+# Package-qualified on purpose: a bare `from pipeline_common import ...` would
+# bind a second module object distinct from tools.pipeline_common.
+from tools.pipeline_common import SCENE_TO_GROUP_UI
 from scene_classifier_passes import (
     evaluate_kind_routing,
     prioritize_resolution_candidates,
@@ -93,20 +96,7 @@ DEFAULT_FIXTURE_CACHE_DIR = Path("outputs/model_comparison_cache")
 FIXTURE_CACHE_SCHEMA_VERSION = 1
 FIXTURE_PIPELINE_VERSION = "phase0_pass2a_2b_2c_v1"
 
-SCENE_TO_GROUP: Dict[str, str] = {
-    "kitchen": "kitchen", "pantry": "kitchen",
-    "bathroom": "bathroom",
-    "bedroom": "bedroom", "closet": "bedroom",
-    "living_room": "living_areas", "dining_room": "living_areas",
-    "home_office": "living_areas", "hallway": "living_areas", "stairway": "living_areas",
-    "laundry_room": "utility", "basement": "utility", "attic": "utility",
-    "garage": "utility", "hvac": "utility",
-    "exterior_front": "exterior", "exterior_back": "exterior", "exterior_side": "exterior",
-    "yard": "exterior", "patio": "exterior", "deck": "exterior", "balcony": "exterior",
-    "driveway": "exterior", "pool": "exterior", "garden": "exterior",
-    "roof": "other", "other": "other", "unknown": "other",
-    "floor_plan": "other", "aerial_view": "other", "street_view": "other",
-}
+SCENE_TO_GROUP: Dict[str, str] = SCENE_TO_GROUP_UI
 
 MAX_FREEFORM_CHARS = 3000  # truncation cap for freeform before feeding to 2b
 

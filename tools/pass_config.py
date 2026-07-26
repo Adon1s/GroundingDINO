@@ -13,11 +13,6 @@ Pass Overview:
 - 2d: Resolve defect_id from candidates (GPT-5 when premium, optional)
 - 2e: Normalize / filter / deduplicate issues (rule-based, no LLM)
 - 2f: Package visual verification (GPT-5 when premium, post-processing)
-Legacy passes (not currently executed by orchestrator but still supported):
-- 4:  Property summary (legacy)
-- 4a: Room summaries
-- 4b: Renovation intel - scopes + work items
-- 4c: Final narrative / verdict / priorities
 """
 
 import os
@@ -25,20 +20,22 @@ from dataclasses import dataclass, field, replace
 from typing import Any, Dict, Literal, Optional, TypeAlias
 
 # Type definitions
-PassKey: TypeAlias = Literal['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f', '4', '4a', '4b', '4c']
+PassKey: TypeAlias = Literal['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f']
 ModelName = Literal['qwen', 'gpt5']
 ReasoningEffort: TypeAlias = Literal['none', 'low', 'medium', 'high', 'xhigh', 'max']
 FailureMode: TypeAlias = Literal['strict', 'collect']
 ALLOWED_FAILURE_MODES: frozenset[str] = frozenset({'strict', 'collect'})
 
-# All valid pass keys (in execution order)
-ALL_PASSES: tuple[PassKey, ...] = ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f', '4', '4a', '4b', '4c')
+# All valid pass keys (in execution order). Every pass here is enabled by
+# default; there is no dormant/legacy tier.
+ALL_PASSES: tuple[PassKey, ...] = ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f')
 ALLOWED_REASONING_EFFORTS: frozenset[str] = frozenset(
     {'none', 'low', 'medium', 'high', 'xhigh', 'max'}
 )
 REASONING_PASS_KEYS: frozenset[str] = frozenset(
     {'1a', '1b', '1c', '2a', '2b', '2c', '2d', '2f'}
 )
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OpenAI invocation policy
@@ -190,10 +187,6 @@ class PassToggles:
     pass_2d: bool = True   # Resolve defect_id from candidates (requires candidate_provider)
     pass_2e: bool = True   # Normalize / filter / dedupe verified issues (rule-based, no LLM)
     pass_2f: bool = True   # Package visual verification (post-processing, requires package candidates + VLM)
-    pass_4: bool = False   # Property summary (legacy, not executed by current orchestrator)
-    pass_4a: bool = False  # Room summaries (legacy, not executed by current orchestrator)
-    pass_4b: bool = False  # Renovation intel (legacy, not executed by current orchestrator)
-    pass_4c: bool = False  # Final narrative (legacy, not executed by current orchestrator)
 
     def __getitem__(self, key: PassKey) -> bool:
         return getattr(self, f'pass_{key}', False)  # default False for safety
@@ -202,41 +195,26 @@ class PassToggles:
         setattr(self, f'pass_{key}', value)
 
     def to_dict(self) -> Dict[PassKey, bool]:
-        return {
-            '1a': self.pass_1a,
-            '1b': self.pass_1b,
-            '1c': self.pass_1c,
-            '2a': self.pass_2a,
-            '2b': self.pass_2b,
-            '2c': self.pass_2c,
-            '2d': self.pass_2d,
-            '2e': self.pass_2e,
-            '2f': self.pass_2f,
-            '4': self.pass_4,
-            '4a': self.pass_4a,
-            '4b': self.pass_4b,
-            '4c': self.pass_4c,
-        }
+        return {key: self[key] for key in ALL_PASSES}
 
     @classmethod
     def from_dict(cls, d: Optional[Dict[str, bool]]) -> 'PassToggles':
         if not d:
             return cls()
-        return cls(
-            pass_1a=d.get('1a', True),
-            pass_1b=d.get('1b', True),
-            pass_1c=d.get('1c', True),
-            pass_2a=d.get('2a', True),
-            pass_2b=d.get('2b', True),
-            pass_2c=d.get('2c', True),
-            pass_2d=d.get('2d', True),
-            pass_2e=d.get('2e', True),
-            pass_2f=d.get('2f', True),
-            pass_4=d.get('4', False),
-            pass_4a=d.get('4a', False),
-            pass_4b=d.get('4b', False),
-            pass_4c=d.get('4c', False),
-        )
+        return cls(**{
+            f'pass_{key}': d.get(key, True)
+            for key in ALL_PASSES
+        })
+
+
+def _to_model_name(v: Any) -> Optional[str]:
+    """A concrete model name (e.g. "gpt-5.6-sol") routes that pass to OpenAI.
+
+    Non-strings and blanks are ignored.
+    """
+    if isinstance(v, str) and v.strip():
+        return v.strip()
+    return None
 
 
 @dataclass
@@ -256,10 +234,6 @@ class PassModelOverrides:
     model_2d: Optional[str] = None
     model_2e: Optional[str] = None
     model_2f: Optional[str] = None
-    model_4: Optional[str] = None
-    model_4a: Optional[str] = None
-    model_4b: Optional[str] = None
-    model_4c: Optional[str] = None
 
     def __getitem__(self, key: PassKey) -> Optional[str]:
         return getattr(self, f'model_{key}', None)  # default None for safety
@@ -268,49 +242,16 @@ class PassModelOverrides:
         setattr(self, f'model_{key}', value)
 
     def to_dict(self) -> Dict[PassKey, Optional[str]]:
-        return {
-            '1a': self.model_1a,
-            '1b': self.model_1b,
-            '1c': self.model_1c,
-            '2a': self.model_2a,
-            '2b': self.model_2b,
-            '2c': self.model_2c,
-            '2d': self.model_2d,
-            '2e': self.model_2e,
-            '2f': self.model_2f,
-            '4': self.model_4,
-            '4a': self.model_4a,
-            '4b': self.model_4b,
-            '4c': self.model_4c,
-        }
+        return {key: self[key] for key in ALL_PASSES}
 
     @classmethod
     def from_dict(cls, d: Optional[Dict[str, str]]) -> 'PassModelOverrides':
         if not d:
             return cls()
-
-        def to_model(v: Optional[str]) -> Optional[str]:
-            # A concrete model name (e.g. "gpt-5.6-sol") routes that pass to
-            # OpenAI. Non-strings / blanks are ignored.
-            if isinstance(v, str) and v.strip():
-                return v.strip()
-            return None
-
-        return cls(
-            model_1a=to_model(d.get('1a')),
-            model_1b=to_model(d.get('1b')),
-            model_1c=to_model(d.get('1c')),
-            model_2a=to_model(d.get('2a')),
-            model_2b=to_model(d.get('2b')),
-            model_2c=to_model(d.get('2c')),
-            model_2d=to_model(d.get('2d')),
-            model_2e=to_model(d.get('2e')),
-            model_2f=to_model(d.get('2f')),
-            model_4=to_model(d.get('4')),
-            model_4a=to_model(d.get('4a')),
-            model_4b=to_model(d.get('4b')),
-            model_4c=to_model(d.get('4c')),
-        )
+        return cls(**{
+            f'model_{key}': _to_model_name(d.get(key))
+            for key in ALL_PASSES
+        })
 
 
 @dataclass
@@ -375,7 +316,6 @@ class SceneClassifierRunOptions:
 # - 2d stays Qwen (resolver uses local model)
 # - 2e stays Qwen (rule-based normalizer, no LLM call)
 # - 2f uses GPT-5 (big-ticket review needs strong vision for posture decisions)
-# - 4/4a/4b/4c stay Qwen (legacy, may be deprecated)
 
 PREMIUM_MODEL_MAP: Dict[PassKey, ModelName] = {
     '1a': 'qwen',
@@ -387,27 +327,10 @@ PREMIUM_MODEL_MAP: Dict[PassKey, ModelName] = {
     '2d': 'qwen',   # resolver uses local model
     '2e': 'qwen',   # rule-based normalizer, no LLM call
     '2f': 'gpt5',   # big-ticket review benefits from strong vision
-    '4': 'qwen',
-    '4a': 'qwen',
-    '4b': 'qwen',
-    '4c': 'qwen',
 }
 
-STANDARD_MODEL_MAP: Dict[PassKey, ModelName] = {
-    '1a': 'qwen',
-    '1b': 'qwen',
-    '1c': 'qwen',
-    '2a': 'qwen',
-    '2b': 'qwen',
-    '2c': 'qwen',
-    '2d': 'qwen',
-    '2e': 'qwen',
-    '2f': 'qwen',
-    '4': 'qwen',
-    '4a': 'qwen',
-    '4b': 'qwen',
-    '4c': 'qwen',
-}
+# Standard profile keeps every pass on the local model.
+STANDARD_MODEL_MAP: Dict[PassKey, ModelName] = {key: 'qwen' for key in ALL_PASSES}
 
 
 def pick_model_for_pass(
@@ -424,7 +347,7 @@ def pick_model_for_pass(
     3. Standard mapping (always Qwen)
 
     Args:
-        pass_key: Which pass ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '3', etc.)
+        pass_key: Which pass ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f')
         premium: Whether premium analysis is enabled
         overrides: Optional per-pass model overrides
 
@@ -491,10 +414,6 @@ PASS_DESCRIPTIONS: Dict[PassKey, str] = {
     '2d': 'Resolve defect_id from candidates',
     '2e': 'Normalize / Filter / Deduplicate Issues',
     '2f': 'Package Visual Verification (Pass 2f)',
-    '4': 'Property Summary (legacy)',
-    '4a': 'Room Summaries (legacy)',
-    '4b': 'Renovation Intel (legacy)',
-    '4c': 'Final Narrative (legacy)',
 }
 
 

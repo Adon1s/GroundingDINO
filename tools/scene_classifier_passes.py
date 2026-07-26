@@ -20,6 +20,7 @@ Pass 2f: Visual package verification (multi-image; per-room prompts for
 """
 
 from tools.llm_json import extract_json_object
+from tools.pipeline_common import PASS_1A_SCENE_IDS, normalize_scene_id
 import hashlib
 import json
 import logging
@@ -283,7 +284,6 @@ def _analyze_visible_condition_signal(text: str) -> Tuple[Tuple[str, ...], Tuple
 class Pass1aResult:
     """Result from Pass 1a: Scene Type Classification."""
     scene: str
-    confidence: Optional[float] = None
     reasoning: Optional[str] = None
     raw_response: Optional[str] = None
 
@@ -663,32 +663,20 @@ def evaluate_pass_2c_shadow_candidate(
 # Pass 1a: Scene Type Classification
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_1A_SYSTEM_PROMPT = """You are a real estate image classifier. Your task is to identify the scene type shown in a property photo.
-
-Classify the image into exactly ONE of these categories:
-- exterior_front
-- exterior_back
-- exterior_side
-- living_room
-- kitchen
-- bedroom
-- closet
-- bathroom
-- dining_room
-- basement
-- attic
-- garage
-- yard
-- pool
-- roof
-- hvac
-- other
-
-Respond with ONLY a JSON object:
-{
-  "scene": "<category>",
-  "reasoning": "<brief explanation>"
-}"""
+# Categories come from the canonical scene table so the prompt, the downstream
+# scene→group map, and room-surrogate clustering can never drift apart.
+PASS_1A_SYSTEM_PROMPT = (
+    "You are a real estate image classifier. Your task is to identify the scene type shown in a property photo.\n"
+    "\n"
+    "Classify the image into exactly ONE of these categories:\n"
+    + "".join(f"- {scene}\n" for scene in PASS_1A_SCENE_IDS)
+    + "\n"
+    "Respond with ONLY a JSON object:\n"
+    "{\n"
+    '  "scene": "<category>",\n'
+    '  "reasoning": "<brief explanation>"\n'
+    "}"
+)
 
 PASS_1A_USER_PROMPT = "Classify the scene type in this real estate photo."
 
@@ -732,16 +720,8 @@ async def run_pass_1a_scene_type(
         logger.error(f"Pass 1a: Unparseable scene response: {e}")
         raise _pass_failure('1a', 'parse', e, model_config) from e
 
-    conf = None
-    try:
-        if result.get("confidence") is not None:
-            conf = float(result.get("confidence"))
-    except (TypeError, ValueError):
-        conf = None
-
     return Pass1aResult(
-        scene=str(result.get("scene", "other")).strip() or "other",
-        confidence=conf,
+        scene=normalize_scene_id(result.get("scene")),
         reasoning=result.get("reasoning"),
         raw_response=response,
     )

@@ -119,12 +119,8 @@ EMBEDDINGS_DIMENSION = int(os.environ.get("EMBEDDINGS_DIMENSION", "1024"))
 
 EMBEDDINGS_TRUST_REMOTE_CODE = True
 EMBEDDINGS_TOPK = 5
-EMBEDDINGS_THRESHOLD_DEFECT = 0.58
-EMBEDDINGS_THRESHOLD_OPPORTUNITY = 0.56
-EMBEDDINGS_ROUTE_BY_ROUGH_CATEGORY = True
-EMBEDDINGS_OVERRIDE_EXISTING_FLAGS = True
-EMBEDDINGS_ATTACH_CANDIDATES = True
 EMBEDDINGS_DEVICE = "cpu"
+# Retrieval match thresholds live with their only consumer, catalog_auditor.py.
 PASS_2D_SHORTCUT_MIN_SCORE = float(os.environ.get("PASS_2D_SHORTCUT_MIN_SCORE", "0.72"))
 PASS_2D_SHORTCUT_MIN_MARGIN = float(os.environ.get("PASS_2D_SHORTCUT_MIN_MARGIN", "0.03"))
 PASS_2D_ROUTING_NEGATION_PATTERNS = [
@@ -190,14 +186,6 @@ OPENAI_DEFAULT_MAX_TOKENS = int(os.environ.get("OPENAI_DEFAULT_MAX_TOKENS", "200
 OPENAI_PASS_1B_MAX_TOKENS = _to_int_or_none(os.environ.get("OPENAI_PASS_1B_MAX_TOKENS"))
 OPENAI_PASS_1C_MAX_TOKENS = _to_int_or_none(os.environ.get("OPENAI_PASS_1C_MAX_TOKENS"))
 OPENAI_PASS_2A_MAX_TOKENS = _to_int_or_none(os.environ.get("OPENAI_PASS_2A_MAX_TOKENS"))
-
-# Legacy Pass 4 cap (kept for compatibility)
-OPENAI_PASS_4_MAX_TOKENS = _to_int_or_none(os.environ.get("OPENAI_PASS_4_MAX_TOKENS"))
-
-# Optional: Pass 4a/4b/4c caps
-OPENAI_PASS_4A_MAX_TOKENS = _to_int_or_none(os.environ.get("OPENAI_PASS_4A_MAX_TOKENS"))
-OPENAI_PASS_4B_MAX_TOKENS = _to_int_or_none(os.environ.get("OPENAI_PASS_4B_MAX_TOKENS"))
-OPENAI_PASS_4C_MAX_TOKENS = _to_int_or_none(os.environ.get("OPENAI_PASS_4C_MAX_TOKENS"))
 
 # =============================================================================
 # DINO-X Configuration Variables

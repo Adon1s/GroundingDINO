@@ -57,17 +57,10 @@ from tools.analyzer_cli import (
     install_payload_redactor,
 )
 
-# Optional: import pass config if available
-try:
-    from tools.pass_config import (
-        PassToggles,
-        PassModelOverrides,
-        SceneClassifierRunOptions,
-        normalize_reasoning_efforts,
-    )
-    PASS_CONFIG_AVAILABLE = True
-except ImportError:
-    PASS_CONFIG_AVAILABLE = False
+from tools.pass_config import (
+    SceneClassifierRunOptions,
+    normalize_reasoning_efforts,
+)
 
 logger = logging.getLogger(__name__)
 

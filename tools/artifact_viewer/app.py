@@ -1,42 +1,27 @@
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 import streamlit as st
 from PIL import Image
 
+ROOT = Path(__file__).resolve().parents[2]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 # =============================================================================
-# Prompt constants (copied from your scene_classifier_passes.py)
+# Prompt constants
+# -----------------------------------------------------------------------------
+# Imported from the real pass modules, not copied. A copy here drifts silently
+# and makes the viewer show a prompt the run never used.
 # =============================================================================
 
-PASS_1A_SYSTEM_PROMPT = """You are a real estate image classifier. Your task is to identify the scene type shown in a property photo.
-
-Classify the image into exactly ONE of these categories:
-- exterior_front: Front view of the property
-- exterior_back: Back/rear view of the property
-- exterior_side: Side view of the property
-- living_room: Living room or family room
-- kitchen: Kitchen area
-- bedroom: Bedroom
-- bathroom: Bathroom (full or half)
-- dining_room: Dining room or eating area
-- basement: Basement or cellar
-- attic: Attic space
-- garage: Garage (interior or exterior)
-- yard: Yard, garden, or outdoor space
-- pool: Pool or spa area
-- roof: Roof view
-- hvac: HVAC equipment, water heater, electrical panel
-- other: Any other space not listed
-
-Respond with ONLY a JSON object:
-{
-  "scene": "<category>",
-  "confidence": <0.0-1.0>,
-  "reasoning": "<brief explanation>"
-}"""
-PASS_1A_USER_PROMPT = "Classify the scene type in this real estate photo."
+from tools.scene_classifier_passes import (  # noqa: E402
+    PASS_1A_SYSTEM_PROMPT,
+    PASS_1A_USER_PROMPT,
+)
 
 PASS_1B_SYSTEM_PROMPT = (
     "What positive features or upgrades do you see in this photo that a realtor might want to highlight? "
@@ -148,68 +133,6 @@ Output JSON only:
 """
 PASS_3_USER_PROMPT = "Generate detection keywords."
 
-PASS_4_SYSTEM_PROMPT = """You are a real estate investment analyst synthesizing property photo notes.
-
-You will be given:
-- POSITIVES NOTES: freeform positives/inventory notes from multiple photos
-- ISSUES NOTES: freeform issues/concerns notes from multiple photos
-
-Rules:
-- Use ONLY what is explicitly stated in the notes. Do not add new features, issues, or assumptions.
-- Keep it balanced: strengths + risks.
-- Be conservative; avoid strong claims unless clearly supported by the notes.
-
-Respond with ONLY a JSON object:
-{
-  "property_summary": "<2-3 sentence investment-focused summary grounded in the notes>",
-  "investment_considerations": ["<fact-based point1>", "<fact-based point2>", ...],
-  "estimated_condition": "excellent|good|fair|poor",
-  "confidence": <0.0-1.0>
-}
-"""
-
-PASS_4A_SYSTEM_PROMPT = """You generate conservative room-group summaries for a property photo analysis.
-
-You will receive per-photo extracted facts (scene, positives, issues).
-Rules:
-- Be factual, conservative, and brief.
-- Do NOT add new issues or features.
-- If there is no evidence for a room group, output an empty string for that group.
-
-Return ONLY JSON:
-{
-  "room_summaries": {
-    "kitchen": "<1-3 sentences or ''>",
-    "bathroom": "<1-3 sentences or ''>",
-    "bedroom": "<1-3 sentences or ''>",
-    "living_areas": "<1-3 sentences or ''>",
-    "utility": "<1-3 sentences or ''>",
-    "exterior": "<1-3 sentences or ''>",
-    "other": "<1-3 sentences or ''>"
-  }
-}
-"""
-
-PASS_4B_SYSTEM_PROMPT = """You generate concise UI card fields for a property analysis.
-
-Rules:
-- Conservative, buyer/investor-friendly.
-- Use ONLY what is provided. Do not invent issues/features.
-- Keep it short.
-
-Return ONLY JSON:
-{
-  "overall_condition": "excellent|good|fair|poor",
-  "overall_summary": "<Provide about a paragraph summarizng the >",
-  "investment_verdict": "buy|maybe|pass",
-  "investment_rationale": "<1-3 sentences>",
-  "renovation_scope": "light|moderate|heavy",
-  "renovation_priorities": ["<short>", "..."],
-  "risk_flags": ["<short>", "..."],
-  "deferred_maintenance": ["<short>", "..."]
-}
-"""
-
 # =============================================================================
 # Helpers
 # =============================================================================
@@ -220,7 +143,7 @@ KNOWN_META_KEYS = {
     "model_overrides", "model", "gpt_model", "default_local_model", "default_gpt_model",
     "prompt_version", "scene_policy_version",
 }
-PROPERTY_SECTION_KEYS = {"property_pass4", "property_pass4a", "property_pass4b", "property_summary", "renovation_needs"}
+PROPERTY_SECTION_KEYS = {"property_summary", "renovation_needs"}
 
 
 @st.cache_data(show_spinner=False)
@@ -352,100 +275,6 @@ def render_prompts_for_pass(
         )
         return sys, PASS_3_USER_PROMPT, ""
 
-    # property-level “passes”
-    if pass_id == "4":
-        # Best-effort: reconstruct from photo_intel photos in key order
-        photo_keys = sorted(list((run.get("photos") or {}).keys()))
-        positives_blocks = []
-        issues_blocks = []
-        for k in photo_keys[:20]:
-            p = (run.get("photos") or {}).get(k) or {}
-            scene = get_scene(p)
-            pos = (p.get("positives_notes") or "").strip()
-            neg = (p.get("issues_notes") or "").strip()
-            if pos:
-                positives_blocks.append(f"- {k} ({scene}): {pos}")
-            if neg:
-                issues_blocks.append(f"- {k} ({scene}): {neg}")
-
-        user = (
-            "POSITIVES NOTES:\n---\n"
-            + "\n".join(positives_blocks)
-            + "\n---\n\nISSUES NOTES:\n---\n"
-            + "\n".join(issues_blocks)
-            + "\n---\n"
-            + f"\nTotal images analyzed: {len(run.get('photos') or {})}"
-        )
-        notes.append("Reconstructed prompt: ordering may differ from runtime (dict/list ordering).")
-        return PASS_4_SYSTEM_PROMPT, user, " ".join(notes)
-
-    if pass_id == "4a":
-        # Reconstruct the user payload that your pass4a builds
-        SCENE_GROUPS_UI = {
-            "kitchen": ["kitchen", "pantry"],
-            "bathroom": ["bathroom"],
-            "bedroom": ["bedroom", "closet"],
-            "living_areas": ["living_room", "dining_room", "home_office", "hallway", "stairway"],
-            "utility": ["laundry_room", "basement", "attic", "garage", "hvac"],
-            "exterior": ["exterior_front", "exterior_back", "exterior_side", "yard", "patio", "deck", "balcony", "driveway", "pool", "garden"],
-            "other": ["roof", "other", "unknown", "floor_plan", "aerial_view", "street_view"],
-        }
-        scene_to_group = {}
-        for g, scenes in SCENE_GROUPS_UI.items():
-            for s in scenes:
-                scene_to_group[s] = g
-
-        groups = {k: [] for k in SCENE_GROUPS_UI.keys()}
-        issues_by_category: Dict[str, int] = {}
-        total_issues_found = 0
-
-        for k in sorted(list((run.get("photos") or {}).keys())):
-            p = (run.get("photos") or {}).get(k) or {}
-            scene = str(p.get("scene") or "unknown").strip()
-            group = scene_to_group.get(scene, "other")
-
-            pos = str(p.get("positives_notes") or "").strip()
-            neg = str(p.get("issues_notes") or "").strip()
-
-            if pos:
-                groups[group].append(f"- {k} ({scene}) POS: {pos}")
-            if neg:
-                groups[group].append(f"- {k} ({scene}) ISSUES: {neg}")
-
-            # deterministic counts from issues_natural_language
-            for it in get_issues_nl(p):
-                total_issues_found += 1
-                cat = str(it.get("rough_category") or "other").strip() or "other"
-                issues_by_category[cat] = issues_by_category.get(cat, 0) + 1
-
-        for g in groups:
-            groups[g] = groups[g][:30]
-
-        user_payload = {
-            "scene_counts": {},  # not in artifact unless you store it; safe empty
-            "grouped_notes": groups,
-            "total_images_analyzed": len(run.get("photos") or {}),
-            "total_issues_found": total_issues_found,
-            "issues_by_category": issues_by_category,
-        }
-        return PASS_4A_SYSTEM_PROMPT, json.dumps(user_payload, ensure_ascii=False), "Reconstructed payload; scene_counts omitted (not stored)."
-
-    if pass_id == "4b":
-        # Use what’s already in property_pass4a if present, else compute minimal
-        p4a = run.get("property_pass4a") or {}
-        room_summaries = p4a.get("room_summaries") or {}
-        issues_by_category = p4a.get("issues_by_category") or {}
-        total_issues_found = int(p4a.get("total_issues_found") or 0)
-        total_images = len(run.get("photos") or {})
-
-        user_payload = {
-            "room_summaries": room_summaries,
-            "total_issues_found": total_issues_found,
-            "total_images_analyzed": total_images,
-            "issues_by_category": issues_by_category,
-        }
-        return PASS_4B_SYSTEM_PROMPT, json.dumps(user_payload, ensure_ascii=False), ""
-
     return "", "", "Unknown pass id"
 
 
@@ -551,7 +380,7 @@ def main():
             st.json(get_catalog_flags(p))
 
         with tabs[1]:
-            pass_id = st.selectbox("Pass", ["1a", "1b", "1c", "2a", "2b", "3", "4", "4a", "4b"])
+            pass_id = st.selectbox("Pass", ["1a", "1b", "1c", "2a", "2b", "3"])
             sys_p, usr_p, recon_notes = render_prompts_for_pass(pass_id, run, sel, issue_catalog)
 
             st.markdown("### System prompt")
@@ -588,12 +417,6 @@ def main():
                     "keywords": p.get("keywords") or [],
                     "passes.3": (p.get("passes") or {}).get("3"),
                 })
-            elif pass_id == "4":
-                st.json(run.get("property_pass4") or run.get("property_summary") or {})
-            elif pass_id == "4a":
-                st.json(run.get("property_pass4a") or {})
-            elif pass_id == "4b":
-                st.json(run.get("property_pass4b") or {})
 
             if search:
                 blob = json.dumps(p, ensure_ascii=False, indent=2)

@@ -35,13 +35,7 @@ except Exception as exc:  # pragma: no cover - external dependency
     sys.exit(1)
 
 
-# Optional: import pass config if available
-try:
-    from tools.pass_config import PassToggles, PassModelOverrides, SceneClassifierRunOptions
-
-    PASS_CONFIG_AVAILABLE = True
-except ImportError:
-    PASS_CONFIG_AVAILABLE = False
+from tools.pass_config import ALL_PASSES, SceneClassifierRunOptions
 
 logger = logging.getLogger(__name__)
 
@@ -110,9 +104,6 @@ STRING_OVERRIDE_KEYS = {
     # Summary model
     "SUMMARY_MODEL",
 }
-
-# All passes for CLI argument generation
-ALL_PASSES = ['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f', '4', '4a', '4b', '4c']
 
 
 def _apply_env_overrides() -> None:
@@ -752,7 +743,6 @@ def _log_config_summary() -> None:
     logger.info(f"OPENAI_PASS_2A_MAX_TOKENS: {getattr(cfg, 'OPENAI_PASS_2A_MAX_TOKENS', os.environ.get('OPENAI_PASS_2A_MAX_TOKENS', '')) or 'NOT SET'}")
     logger.info(f"OPENAI_PASS_2C_MAX_TOKENS: {getattr(cfg, 'OPENAI_PASS_2C_MAX_TOKENS', os.environ.get('OPENAI_PASS_2C_MAX_TOKENS', '')) or 'NOT SET'}")
     logger.info(f"OPENAI_PASS_2D_MAX_TOKENS: {getattr(cfg, 'OPENAI_PASS_2D_MAX_TOKENS', os.environ.get('OPENAI_PASS_2D_MAX_TOKENS', '')) or 'NOT SET'}")
-    logger.info(f"OPENAI_PASS_4_MAX_TOKENS:  {getattr(cfg, 'OPENAI_PASS_4_MAX_TOKENS',  os.environ.get('OPENAI_PASS_4_MAX_TOKENS',  '')) or 'NOT SET'}")
 
     # Detection backend
     logger.info(f"DETECTION_BACKEND: {getattr(cfg, 'DETECTION_BACKEND', 'dinox')}")

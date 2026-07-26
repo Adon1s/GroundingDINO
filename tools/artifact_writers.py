@@ -427,7 +427,7 @@ def write_photo_intel(
     unmapped_issues: List[Dict[str, Any]] = []  # Issues with no catalog match (debug)
     # Per-pass model routing aggregated across all images. Routing is constant
     # across images for a given run, so we dedupe by pass key (first wins).
-    # Each entry: {"pass": "2a", "model_family": "gpt5", "model": "gpt-5.4-mini", "source": "env_override"}
+    # Each entry: {"pass": "2a", "model_family": "gpt5", "model": "gpt-5.4-mini", "source": "explicit_override"}
     aggregated_model_routing: List[Dict[str, Any]] = []
     seen_routing_passes: set = set()
 

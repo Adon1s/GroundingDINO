@@ -18,45 +18,12 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional
 
-from tools.pipeline_common import SCENE_TO_GROUP_UI
-
-
-BREAKING_SCENES = frozenset({
-    "kitchen",
-    "bathroom",
-    "bedroom",
-    "living_room",
-    "dining_room",
-    "laundry_room",
-    "garage",
-    "basement",
-    "home_office",
-    "attic",
-    "pantry",
-})
-
-NON_BREAKING_SCENES = frozenset({
-    "hallway",
-    "stairway",
-    "closet",
-    "yard",
-    "patio",
-    "deck",
-    "balcony",
-    "driveway",
-    "pool",
-    "garden",
-    "roof",
-    "floor_plan",
-    "aerial_view",
-    "street_view",
-    "unknown",
-    "other",
-    # hvac is a canonical Pass 1a label that the PR description omits; treat
-    # as non-breaking since it is typically equipment closeup inside another
-    # room (basement / garage / closet).
-    "hvac",
-})
+from tools.pipeline_common import (
+    ALL_SCENE_IDS,
+    BREAKING_SCENES,
+    NON_BREAKING_SCENES,
+    SCENE_TO_GROUP_UI,
+)
 
 CLUSTERING_METHOD = "single_active_surrogate_v1"
 
@@ -66,14 +33,8 @@ def _is_breaking(scene: str) -> bool:
 
 
 def _is_unrecognized(scene: str) -> bool:
-    """True when scene is non-falsy but not in any known set."""
-    if not scene:
-        return False
-    if scene in BREAKING_SCENES or scene in NON_BREAKING_SCENES:
-        return False
-    if scene.startswith("exterior_"):
-        return False
-    return True
+    """True when scene is non-falsy but not a canonical scene id."""
+    return bool(scene) and scene not in ALL_SCENE_IDS
 
 
 def _sort_key(item):

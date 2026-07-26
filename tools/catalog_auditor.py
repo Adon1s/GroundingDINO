@@ -51,6 +51,9 @@ from scene_classifier_passes import (
     run_pass_2c,
 )
 from llm_json import extract_json_object
+# Package-qualified on purpose: a bare `from pipeline_common import ...` would
+# bind a second module object distinct from tools.pipeline_common.
+from tools.pipeline_common import SCENE_TO_GROUP_UI
 
 logger = logging.getLogger("catalog_auditor")
 
@@ -97,20 +100,12 @@ def _truncate_freeform(text: str, cap: int) -> Tuple[str, bool]:
     return text[:cut].rstrip(), True
 
 
-SCENE_TO_GROUP: Dict[str, str] = {
-    "kitchen": "kitchen", "pantry": "kitchen",
-    "bathroom": "bathroom",
-    "bedroom": "bedroom", "closet": "bedroom",
-    "living_room": "living_areas", "dining_room": "living_areas",
-    "home_office": "living_areas", "hallway": "living_areas", "stairway": "living_areas",
-    "laundry_room": "utility", "basement": "utility", "attic": "utility",
-    "garage": "utility", "hvac": "utility",
-    "exterior_front": "exterior", "exterior_back": "exterior", "exterior_side": "exterior",
-    "yard": "exterior", "patio": "exterior", "deck": "exterior", "balcony": "exterior",
-    "driveway": "exterior", "pool": "exterior", "garden": "exterior",
-    "roof": "other", "other": "other", "unknown": "other",
-    "floor_plan": "other", "aerial_view": "other", "street_view": "other",
-}
+SCENE_TO_GROUP: Dict[str, str] = SCENE_TO_GROUP_UI
+
+# Retrieval match thresholds. Auditor-local: nothing else in the pipeline reads
+# them, and they are recorded in the audit artifact's meta.thresholds block.
+MATCH_THRESHOLD_DEFECT = 0.58
+MATCH_THRESHOLD_UPGRADE = 0.56
 
 # ---------------------------------------------------------------------------
 # Data classes
@@ -292,7 +287,7 @@ def _label_to_kind(label: str) -> str:
 
 
 def _classify_match(score: float, kind: str) -> str:
-    threshold = cfg.EMBEDDINGS_THRESHOLD_DEFECT if kind == "defect" else cfg.EMBEDDINGS_THRESHOLD_OPPORTUNITY
+    threshold = MATCH_THRESHOLD_DEFECT if kind == "defect" else MATCH_THRESHOLD_UPGRADE
     if score >= threshold:
         return "strong"
     elif score >= threshold - 0.10:
@@ -1228,8 +1223,8 @@ def _synthesize_report(
             "images_processed": len(image_results),
             "models": models_info,
             "thresholds": {
-                "defect": cfg.EMBEDDINGS_THRESHOLD_DEFECT,
-                "upgrade": cfg.EMBEDDINGS_THRESHOLD_OPPORTUNITY,
+                "defect": MATCH_THRESHOLD_DEFECT,
+                "upgrade": MATCH_THRESHOLD_UPGRADE,
             },
         },
         "summary": {

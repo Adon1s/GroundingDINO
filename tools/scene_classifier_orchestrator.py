@@ -21,6 +21,7 @@ Usage:
 """
 
 import hashlib
+import inspect
 import logging
 import os
 from collections import defaultdict
@@ -34,7 +35,7 @@ try:
 except ImportError:
     cfg = None
 
-from tools.catalog_embeddings import EmbeddingsRuntimeError
+from tools.pipeline_common import SCENE_TO_GROUP_UI
 
 from tools.pass_config import (
     PassKey,
@@ -86,6 +87,48 @@ def _photo_key_from_path(image_path: str) -> str:
         return Path(image_path).name
     except Exception:
         return str(image_path)
+
+
+PROVIDER_IGNORED_CONTEXT = (
+    "provider_ignored_context (signature lacks ctx; cannot control topk/kind)"
+)
+
+
+def _provider_accepts_context(provider: Any) -> bool:
+    """True when *provider* takes the ``(description, context)`` contract.
+
+    Decided by binding the signature rather than by calling and catching
+    TypeError: a provider that raises TypeError *internally* must surface as a
+    real failure, not be silently retried as a legacy one-argument provider.
+    Non-introspectable callables (builtins, C extensions) are assumed to take
+    the current two-argument contract.
+    """
+    try:
+        signature = inspect.signature(provider)
+    except (TypeError, ValueError):
+        return True
+    try:
+        signature.bind("", {})
+    except TypeError:
+        return False
+    return True
+
+
+def _retrieve_candidates(
+    provider: Callable[..., Any],
+    description: str,
+    context: Dict[str, Any],
+) -> tuple[Any, Optional[str]]:
+    """Call the candidate provider once, tolerating the legacy one-arg signature.
+
+    Returns ``(raw_result, legacy_note)``. Exceptions are deliberately *not*
+    swallowed — Pass 2d treats a retrieval failure as a dependency failure while
+    the shadow lane treats it as skippable, so each caller applies its own
+    policy.
+    """
+    if _provider_accepts_context(provider):
+        return provider(description, context), None
+    return provider(description), PROVIDER_IGNORED_CONTEXT
 
 
 def _stable_hash_id(*parts: str, length: int = 16) -> str:
@@ -156,7 +199,7 @@ class ImageAnalysisResult:
 
     # Per-pass routing record. One entry per LLM pass that ran, in execution order.
     # Each entry has shape:
-    #   {"pass": "2a", "model_family": "gpt5", "model": "gpt-5.4-mini", "source": "env_override"}
+    #   {"pass": "2a", "model_family": "gpt5", "model": "gpt-5.4-mini", "source": "explicit_override"}
     # Used to verify per-pass model selection without trusting the global meta.models block.
     model_routing: List[Dict[str, Any]] = field(default_factory=list)
 
@@ -329,11 +372,10 @@ class SceneClassifierOrchestrator:
         `meta.models` block (which only carries one GPT model name).
 
         ``source`` is the dominant reason this pass ended up with this exact
-        model, in priority order:
-          - "explicit_override": ``options.model_overrides`` set the family
-            (typically via ``--model-{pass}`` CLI flag or PassModelOverrides).
-          - "env_override": GPT family + ``OPENAI_PASS_{KEY}_MODEL`` env var
-            (the per-pass attr overrode the base GPT_MODEL).
+        model, in priority order. These three are the only values this method
+        can emit:
+          - "explicit_override": ``options.model_overrides`` named a concrete
+            model for this pass (per-run, via the analyzer's ``--model-map``).
           - "premium_default": premium profile mapping put this pass on its
             family.
           - "standard_default": standard profile mapping (the default path).
@@ -632,23 +674,8 @@ class SceneClassifierOrchestrator:
         def _label_to_kind(lbl: str) -> str:
             return "upgrade" if (lbl or "").strip().lower() in _UPGRADE_LABELS else "defect"
 
-        # Minimal scene→group map
-        _SCENE_TO_GROUP: Dict[str, str] = {
-            "kitchen": "kitchen", "pantry": "kitchen",
-            "bathroom": "bathroom",
-            "bedroom": "bedroom", "closet": "bedroom",
-            "living_room": "living_areas", "dining_room": "living_areas",
-            "home_office": "living_areas", "hallway": "living_areas", "stairway": "living_areas",
-            "laundry_room": "utility", "basement": "utility", "attic": "utility",
-            "garage": "utility", "hvac": "utility",
-            "exterior_front": "exterior", "exterior_back": "exterior", "exterior_side": "exterior",
-            "yard": "exterior", "patio": "exterior", "deck": "exterior", "balcony": "exterior",
-            "driveway": "exterior", "pool": "exterior", "garden": "exterior",
-            "roof": "other", "other": "other", "unknown": "other",
-            "floor_plan": "other", "aerial_view": "other", "street_view": "other",
-        }
         _scene_for_2d = result.scene or "unknown"
-        _scene_group_for_2d = _SCENE_TO_GROUP.get(_scene_for_2d, "other")
+        _scene_group_for_2d = SCENE_TO_GROUP_UI.get(_scene_for_2d, "other")
 
         # ─────────────────────────────────────────────────────────────────────
         # Pass 2c shadow lane (between Pass 2c and Pass 2d)
@@ -703,18 +730,13 @@ class SceneClassifierOrchestrator:
                     "allowed_kinds": ["defect", "upgrade"],
                 }
 
-                # Retrieve candidates via the same provider Pass 2d uses.
+                # Retrieve candidates via the same provider Pass 2d uses. This is
+                # a log-only audit lane, so a retrieval failure skips the
+                # observation instead of failing the run the way Pass 2d does.
                 try:
-                    _shadow_candidates = self.candidate_provider(_shadow_desc, _shadow_ctx)
-                except TypeError:
-                    try:
-                        _shadow_candidates = self.candidate_provider(_shadow_desc)
-                    except Exception as _shadow_e:
-                        logger.debug(
-                            "Shadow lane: candidate_provider failed for %r (%s)",
-                            _shadow_desc[:60], _shadow_e,
-                        )
-                        _shadow_candidates = []
+                    _shadow_candidates, _ = _retrieve_candidates(
+                        self.candidate_provider, _shadow_desc, _shadow_ctx,
+                    )
                 except Exception as _shadow_e:
                     logger.debug(
                         "Shadow lane: candidate_provider raised for %r (%s)",
@@ -907,15 +929,13 @@ class SceneClassifierOrchestrator:
                 # skipping it here would zero out this observation and read
                 # downstream as a photo with nothing to resolve.
                 try:
-                    candidates = self.candidate_provider(description, ctx_for_provider)
-                except EmbeddingsRuntimeError as exc:
+                    candidates, legacy_note = _retrieve_candidates(
+                        self.candidate_provider, description, ctx_for_provider,
+                    )
+                except Exception as exc:
                     raise _pass_failure('2d', 'dependency', exc, model_config) from exc
-                except TypeError:
-                    try:
-                        candidates = self.candidate_provider(description)
-                        debug_row["skipped_reason"] = "provider_ignored_context (signature lacks ctx; cannot control topk/kind)"
-                    except Exception as e2:
-                        raise _pass_failure('2d', 'dependency', e2, model_config) from e2
+                if legacy_note:
+                    debug_row["skipped_reason"] = legacy_note
 
                 # If provider is async by accident, this will reveal it cleanly in JSON
                 if hasattr(candidates, "__await__"):
@@ -968,8 +988,10 @@ class SceneClassifierOrchestrator:
                 # issue_id must be stamped during Pass 2c — if it's missing something went wrong upstream.
                 issue_id = (obs.get("issue_id") or "").strip()
                 if not issue_id:
+                    # debug_row is already in pass_2d_per_observation and this
+                    # mutates that same object — appending again would emit the
+                    # row twice for this observation.
                     debug_row["skipped_reason"] = "missing_issue_id (expected stamped in 2c)"
-                    result.debug["pass_2d_per_observation"].append(debug_row)
                     continue
                 photo_key = _photo_key_from_path(str(image_path))
                 row = {
