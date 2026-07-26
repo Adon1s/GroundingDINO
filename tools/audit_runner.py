@@ -49,80 +49,6 @@ AUDIT_RUNNER_VERSION = "1"
 RUN_ID_RE = re.compile(r"^\d{8}_\d{6}_[a-f0-9]+$", re.IGNORECASE)
 
 
-def _build_candidate_provider(catalog: Dict[str, Any]) -> Any:
-    """Mirror analyzer_cli's Pass 2d embeddings retriever setup.
-
-    Without this, Pass 2d cannot match observations to catalog items, so
-    no candidates flow into the renovation estimate and Pass 2f is skipped
-    with reason="no_package_candidates".
-    """
-    if not getattr(cfg, "USE_EMBEDDINGS_CATALOG", False):
-        return None
-    try:
-        from dataclasses import asdict
-
-        from tools.catalog_embeddings import (
-            CatalogEmbeddingsRetriever,
-            build_guardrails_from_catalog,
-        )
-        from tools.scene_classifier_passes import prioritize_resolution_candidates
-
-        retriever = CatalogEmbeddingsRetriever(
-            catalog_v2=catalog,
-            model_name=getattr(
-                cfg, "EMBEDDINGS_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2"
-            ),
-            device=getattr(cfg, "EMBEDDINGS_DEVICE", "cpu"),
-            trust_remote_code=getattr(cfg, "EMBEDDINGS_TRUST_REMOTE_CODE", False),
-            default_topk=getattr(cfg, "EMBEDDINGS_TOPK", 10),
-            guardrails=build_guardrails_from_catalog(catalog),
-            backend=getattr(cfg, "EMBEDDINGS_BACKEND", "openai_compatible"),
-            base_url=getattr(cfg, "EMBEDDINGS_BASE_URL", "http://127.0.0.1:8081/v1"),
-            st_model_name=getattr(cfg, "EMBEDDINGS_ST_MODEL_NAME", "jinaai/jina-embeddings-v3"),
-            embedding_dimension=getattr(cfg, "EMBEDDINGS_DIMENSION", 1024),
-        )
-
-        def candidate_provider(observation_text: str, context: dict) -> list:
-            kind = (context.get("kind") or "").strip().lower()
-            topk = context.get("top_k_candidates")
-            scene_group = context.get("scene_group")
-            allowed_groups = {scene_group} if scene_group else None
-            allowed_kinds_ctx = context.get("allowed_kinds")
-            if allowed_kinds_ctx:
-                allowed_kinds = {
-                    str(k).strip().lower()
-                    for k in allowed_kinds_ctx
-                    if str(k).strip().lower() in {"defect", "upgrade"}
-                }
-            else:
-                allowed_kinds = {kind} if kind in ("defect", "upgrade") else None
-            widened_routing = bool(allowed_kinds and len(allowed_kinds) > 1)
-            requested_topk = topk
-            if widened_routing and topk:
-                requested_topk = max(int(topk), int(topk) * 2)
-            matches = retriever.retrieve_candidates(
-                observation_text,
-                topk=requested_topk,
-                allowed_kinds=allowed_kinds,
-                allowed_groups=allowed_groups,
-            )
-            cands = [asdict(m) for m in matches]
-            return prioritize_resolution_candidates(cands, widened_routing=widened_routing)
-
-        logger.info(
-            "Pass 2d candidate_provider ready (model=%s, items=%d)",
-            retriever.model_name,
-            len(retriever._items),
-        )
-        return candidate_provider
-    except Exception as exc:
-        logger.warning(
-            "Could not initialize embeddings retriever for Pass 2d: %s. Pass 2d will be skipped.",
-            exc,
-        )
-        return None
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Source artifact resolution + filtering
 # ─────────────────────────────────────────────────────────────────────────────
@@ -441,7 +367,10 @@ async def _run_all(
     gpt5_config: Optional[Dict[str, Any]] = None
 
     if not dry_run:
-        candidate_provider = _build_candidate_provider(catalog)
+        # Fail-closed: an unavailable sidecar aborts the audit rather than
+        # producing artifacts with zero resolved catalog items.
+        from tools.catalog_embeddings import build_candidate_provider
+        candidate_provider = build_candidate_provider(catalog)
         orchestrator = create_orchestrator_from_config(
             cfg,
             candidate_provider=candidate_provider,

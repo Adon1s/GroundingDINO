@@ -159,12 +159,9 @@ def _apply_env_overrides() -> None:
     if os.environ.get("PREMIUM_MAX_KEYWORDS"):
         setattr(cfg, "PREMIUM_MAX_KEYWORDS", int(os.environ["PREMIUM_MAX_KEYWORDS"]))
 
-    if os.environ.get("OPENAI_DEFAULT_MAX_TOKENS"):
-        setattr(cfg, "OPENAI_DEFAULT_MAX_TOKENS", int(os.environ["OPENAI_DEFAULT_MAX_TOKENS"]))
-
-    for k in ("OPENAI_PASS_1B_MAX_TOKENS", "OPENAI_PASS_1C_MAX_TOKENS", "OPENAI_PASS_2A_MAX_TOKENS", "OPENAI_PASS_2C_MAX_TOKENS", "OPENAI_PASS_2D_MAX_TOKENS", "OPENAI_PASS_4_MAX_TOKENS"):
-        if os.environ.get(k) is not None:
-            setattr(cfg, k, _to_int_or_none(os.environ.get(k)))
+    # Token caps are resolved by pass_config.resolve_openai_invocation, which reads
+    # OPENAI_PASS_<KEY>_MAX_TOKENS / OPENAI_DEFAULT_MAX_TOKENS straight from the
+    # environment. Mirroring them onto cfg here is redundant.
 
 
 def _parse_args() -> argparse.Namespace:
@@ -309,6 +306,15 @@ Pass Control Examples:
         default=None,
         help='JSON object of explicit GPT-5.6 reasoning efforts by pass, e.g. '
              '\'{"1a":"none","2f":"medium"}\'.',
+    )
+    parser.add_argument(
+        "--failure-mode",
+        dest="failure_mode",
+        choices=("strict", "collect"),
+        default="strict",
+        help="strict (default): a failed pass fails the run and no artifact is "
+             "written. collect: record pass errors and keep going — for "
+             "diagnostics only, never for a run whose output will be used.",
     )
 
     return parser.parse_args()
@@ -816,58 +822,31 @@ def main() -> int:
     # Load issue catalog
     catalog = load_issue_catalog(cfg.ISSUE_CATALOG_PATH)
 
-    # Build candidate_provider for Pass 2d (embeddings-based catalog matching)
+    # Pass 2d preflight. The sidecar is a hard dependency when 2d is enabled:
+    # without it every observation resolves to nothing, which downstream reads as
+    # a property with no findings rather than as a broken run. Disabling 2d is the
+    # explicit way to run without embeddings.
     candidate_provider = None
-    if getattr(cfg, "USE_EMBEDDINGS_CATALOG", False):
+    embeddings_status = "disabled_by_pass_toggle"
+    if pass_toggles.get("2d", True):
+        from tools.catalog_embeddings import EmbeddingsRuntimeError, build_candidate_provider
         try:
-            from tools.catalog_embeddings import CatalogEmbeddingsRetriever, build_guardrails_from_catalog
-            from tools.scene_classifier_passes import prioritize_resolution_candidates
-            from dataclasses import asdict
-
-            retriever = CatalogEmbeddingsRetriever(
-                catalog_v2=catalog,
-                model_name=getattr(cfg, "EMBEDDINGS_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2"),
-                device=getattr(cfg, "EMBEDDINGS_DEVICE", "cpu"),
-                trust_remote_code=getattr(cfg, "EMBEDDINGS_TRUST_REMOTE_CODE", False),
-                default_topk=getattr(cfg, "EMBEDDINGS_TOPK", 10),
-                guardrails=build_guardrails_from_catalog(catalog),
-                backend=getattr(cfg, "EMBEDDINGS_BACKEND", "openai_compatible"),
-                base_url=getattr(cfg, "EMBEDDINGS_BASE_URL", "http://127.0.0.1:8081/v1"),
-                st_model_name=getattr(cfg, "EMBEDDINGS_ST_MODEL_NAME", "jinaai/jina-embeddings-v3"),
-                embedding_dimension=getattr(cfg, "EMBEDDINGS_DIMENSION", 1024),
+            candidate_provider = build_candidate_provider(catalog)
+            embeddings_status = "ready"
+        except EmbeddingsRuntimeError as exc:
+            logger.error(
+                f"Pass 2d embeddings retriever unavailable: {exc}. "
+                "Start the embeddings sidecar, or pass --disable-2d to run without it."
             )
-
-            def candidate_provider(observation_text: str, context: dict) -> list:
-                kind = (context.get("kind") or "").strip().lower()
-                topk = context.get("top_k_candidates")
-                scene_group = context.get("scene_group")
-                allowed_groups = {scene_group} if scene_group else None
-                allowed_kinds_ctx = context.get("allowed_kinds")
-                if allowed_kinds_ctx:
-                    allowed_kinds = {
-                        str(k).strip().lower()
-                        for k in allowed_kinds_ctx
-                        if str(k).strip().lower() in {"defect", "upgrade"}
-                    }
-                else:
-                    allowed_kinds = {kind} if kind in ("defect", "upgrade") else None
-                widened_routing = bool(allowed_kinds and len(allowed_kinds) > 1)
-                requested_topk = topk
-                if widened_routing and topk:
-                    requested_topk = max(int(topk), int(topk) * 2)
-                matches = retriever.retrieve_candidates(
-                    observation_text,
-                    topk=requested_topk,
-                    allowed_kinds=allowed_kinds,
-                    allowed_groups=allowed_groups,
-                )
-                candidates = [asdict(m) for m in matches]
-                return prioritize_resolution_candidates(candidates, widened_routing=widened_routing)
-
-            logger.info(f"Pass 2d candidate_provider ready (model={retriever.model_name}, items={len(retriever._items)})")
-        except Exception as exc:
-            logger.warning(f"Could not initialize embeddings retriever for Pass 2d: {exc}. Pass 2d will be skipped.")
-            candidate_provider = None
+            summary = {
+                "success": False,
+                "error": f"embeddings_init: {exc}",
+                "property_key": args.property_key,
+            }
+            print(json.dumps(summary, ensure_ascii=False))
+            return 1
+    else:
+        logger.info("Pass 2d disabled by toggle; skipping embeddings retriever init")
 
     # One shared client supplies both photo-pass and Pass 2f telemetry.
     _, gpt5_config = get_model_configs_from_pipeline_config(cfg)
@@ -883,11 +862,13 @@ def main() -> int:
     )
 
     # Build run options from CLI args + profile
+    failure_mode = getattr(args, "failure_mode", "strict")
     options = SceneClassifierRunOptions.from_analysis_profile(
         analysis_profile=model_routing_profile,
         toggles=pass_toggles if pass_toggles else None,
         model_overrides=model_overrides if model_overrides else None,
         reasoning_efforts=reasoning_efforts if reasoning_efforts else None,
+        failure_mode=failure_mode,
     )
 
     # Generate job ID and create artifacts directory
@@ -937,6 +918,10 @@ def main() -> int:
                     logger.error(f"  ❌ {image_path.name} failed: {exc}", exc_info=args.debug)
                     img_result = ImageResult(
                         image_path=str(image_path),
+                        # PassExecutionError carries the partial result so the
+                        # failed image's pass_states/pass_errors survive for
+                        # diagnostics in photo_intel_debug.json.
+                        scene_data=getattr(exc, "partial_result", None),
                         scene="unknown",
                         processing_time=elapsed,
                         error=str(exc),
@@ -987,21 +972,37 @@ def main() -> int:
     fatal_error = None
     failed_phase = None
 
-    try:
-        photo_intel_path = write_photo_intel(
-            cfg=cfg,
-            job=job,
-            detection_backend=detection_backend,
-            analysis_profile=analysis_profile,
-            use_pass_architecture=True,
-            pass_toggles=pass_toggles if pass_toggles else {},
-            model_overrides=resolved_model_overrides,
-            gpt_config=gpt5_config,
-            issue_catalog=catalog,
-            vlm_client=vlm_client,
-            reasoning_efforts=reasoning_efforts,
-            timing_recorder=phase_timings,
+    # An image that failed a pass produced no valid analysis. Publishing the
+    # remaining photos would present a partial property as a complete one, so
+    # under strict mode the run fails and no artifact is written. Other images
+    # were still processed so the failure summary covers the whole property.
+    failed_images = [r for r in results if getattr(r, "error", None)]
+    if failed_images and failure_mode == "strict":
+        fatal_error = RuntimeError(
+            f"{len(failed_images)} of {len(results)} images failed analysis: "
+            + "; ".join(f"{Path(r.image_path).name}: {r.error}" for r in failed_images[:5])
         )
+        failed_phase = "photo_analysis"
+        logger.error(str(fatal_error))
+
+    photo_intel_path = None
+    try:
+        if fatal_error is None:
+            photo_intel_path = write_photo_intel(
+                cfg=cfg,
+                job=job,
+                detection_backend=detection_backend,
+                analysis_profile=analysis_profile,
+                use_pass_architecture=True,
+                pass_toggles=pass_toggles if pass_toggles else {},
+                model_overrides=resolved_model_overrides,
+                gpt_config=gpt5_config,
+                issue_catalog=catalog,
+                vlm_client=vlm_client,
+                reasoning_efforts=reasoning_efforts,
+                timing_recorder=phase_timings,
+                dependency_status={"embeddings": embeddings_status},
+            )
     except Pass2fModelUnavailable as exc:
         # Pass 2f is OpenAI-only. Rather than silently fall back to Qwen, fail
         # the whole run so the misconfiguration is visible.

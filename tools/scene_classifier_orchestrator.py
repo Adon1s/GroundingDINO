@@ -34,6 +34,8 @@ try:
 except ImportError:
     cfg = None
 
+from tools.catalog_embeddings import EmbeddingsRuntimeError
+
 from tools.pass_config import (
     PassKey,
     PassToggles,
@@ -60,9 +62,9 @@ from tools.scene_classifier_passes import (
     evaluate_pass_2c_shadow_candidate,
     has_physical_condition_signal,
     prioritize_resolution_candidates,
+    PassExecutionError,
+    _pass_failure,
     run_pass_1a_scene_type,
-    run_pass_1b_feature_notes,
-    run_pass_1c_feature_structuring,
     run_pass_2a,
     run_pass_2b,
     run_pass_2c,
@@ -265,70 +267,28 @@ class SceneClassifierOrchestrator:
 
     @staticmethod
     def _t(toggles, key: str, default: bool = True) -> bool:
-        """Robustly read a pass toggle, handling dict/dataclass/object."""
+        """
+        Read a pass toggle, handling dict / PassToggles / bare object.
+
+        PassToggles.to_dict() is the canonical pass-key view. Guessing attribute
+        names instead ("2d", "p2d", "_2d") silently missed the real field name
+        (pass_2d), which made every CLI/server toggle a no-op here.
+        """
         if toggles is None:
             return default
         if isinstance(toggles, dict):
             return bool(toggles.get(key, default))
-        # dataclass / object: try exact, then common naming patterns
+        to_dict = getattr(toggles, "to_dict", None)
+        if callable(to_dict):
+            mapping = to_dict()
+            if key in mapping:
+                return bool(mapping[key])
+            return default
         k = key.replace("-", "_")
-        for name in (k, f"p{k}", f"_{k}"):
+        for name in (f"pass_{k}", k, f"p{k}", f"_{k}"):
             if hasattr(toggles, name):
                 return bool(getattr(toggles, name))
         return default
-
-    def _attach_openai_token_cap(self, pass_key: PassKey, model_config: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Only apply max_tokens for OpenAI calls.
-        Leave LM Studio/Qwen untouched.
-        """
-        # Harden provider detection: infer OpenAI if api_key present but provider missing
-        provider = model_config.get("provider")
-        if provider is None and model_config.get("api_key"):
-            provider = "openai"
-
-        if provider != "openai":
-            return model_config
-
-        key_map = {
-            "1b": "OPENAI_PASS_1B_MAX_TOKENS",
-            "1c": "OPENAI_PASS_1C_MAX_TOKENS",
-            "2a": "OPENAI_PASS_2A_MAX_TOKENS",
-            "2b": "OPENAI_PASS_2B_MAX_TOKENS",
-            "2c": "OPENAI_PASS_2C_MAX_TOKENS",
-            "2d": "OPENAI_PASS_2D_MAX_TOKENS",
-            "2e": "OPENAI_PASS_2E_MAX_TOKENS",
-        }
-
-        attr = key_map.get(str(pass_key))
-        cap = None
-
-        if attr:
-            if cfg:
-                cap = getattr(cfg, attr, None)
-            if cap is None:
-                cap = os.environ.get(attr)
-
-        if cap is None:
-            if cfg:
-                cap = getattr(cfg, "OPENAI_DEFAULT_MAX_TOKENS", None)
-            if cap is None:
-                cap = os.environ.get("OPENAI_DEFAULT_MAX_TOKENS")
-
-        if cap:
-            try:
-                cap_int = int(cap)
-                return {
-                    **model_config,
-                    # Keep this for any internal code that expects it
-                    "max_tokens": cap_int,
-                    # This matches the actual OpenAI Responses payload
-                    "max_output_tokens": cap_int,
-                }
-            except Exception:
-                logger.warning(f"Invalid OpenAI cap for pass {pass_key}: {cap}")
-
-        return model_config
 
     def _get_model_config(
         self,
@@ -336,16 +296,15 @@ class SceneClassifierOrchestrator:
         options: SceneClassifierRunOptions,
     ) -> Dict[str, Any]:
         """Get the model config for a specific pass."""
-        base = get_model_config_for_pass(
+        # get_model_config_for_pass applies the OpenAI token/reasoning policy via
+        # resolve_openai_invocation; per-run overrides already carry a concrete
+        # OpenAI model name, and there is no cfg.GPT_PASS_* layer anymore.
+        return get_model_config_for_pass(
             pass_key=pass_key,
             options=options,
             qwen_config=self.qwen_config,
             gpt5_config=self.gpt5_config,
         )
-
-        # Per-run overrides already carry a concrete OpenAI model name (see
-        # get_model_config_for_pass); there is no cfg.GPT_PASS_* layer anymore.
-        return self._attach_openai_token_cap(pass_key, base)
 
     def _get_model_name(
         self,
@@ -411,6 +370,9 @@ class SceneClassifierOrchestrator:
         reasoning_effort = model_config.get("reasoning_effort")
         if reasoning_effort is not None:
             routing_entry["reasoning_effort"] = str(reasoning_effort)
+        max_output_tokens = model_config.get("max_output_tokens")
+        if max_output_tokens is not None:
+            routing_entry["max_output_tokens"] = int(max_output_tokens)
         result.model_routing.append(routing_entry)
 
     async def analyze_image(
@@ -421,21 +383,77 @@ class SceneClassifierOrchestrator:
         """
         Run all enabled passes on a single image.
 
-        Args:
-            image_path: Path to the image file
-            options: Run options (premium, toggles, overrides)
+        Failure boundary for PassExecutionError. A failed pass leaves its
+        dependents without valid input, so the remaining passes are abandoned
+        rather than run on empty data -- continuing would just push the same
+        "looks like no findings" problem one level down.
 
-        Returns:
-            ImageAnalysisResult with all pass results
+        In 'strict' mode (the default, and always for paid runs) the error is
+        re-raised with the partial result attached for diagnostics. In 'collect'
+        mode the partial result is returned with the error recorded in
+        debug["pass_errors"] and pass_states[key] == "failed".
         """
         import time
         start_time = time.perf_counter()
 
         options = options or SceneClassifierRunOptions()
-        toggles = options.toggles
 
         result = ImageAnalysisResult(image_path=str(image_path))
         result.photo_key = image_path.name
+
+        try:
+            await self._run_passes(image_path, options, result)
+        except PassExecutionError as err:
+            logger.error("Image %s failed at pass %s: %s", image_path.name, err.pass_key, err.message)
+            result.passes[err.pass_key] = {"error": err.message}
+            result.debug.setdefault("pass_errors", []).append(err.to_dict())
+            self._finalize(result, image_path, start_time)
+            if options.failure_mode == "collect":
+                return result
+            err.partial_result = result.to_dict()
+            raise
+
+        self._finalize(result, image_path, start_time)
+        return result
+
+    def _finalize(
+        self,
+        result: ImageAnalysisResult,
+        image_path: Path,
+        start_time: float,
+    ) -> None:
+        """Derive pass_states and timings. Runs on both the success and failure paths."""
+        import time
+        for pass_key in ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e'):
+            pass_payload = result.passes.get(pass_key) or {}
+            if isinstance(pass_payload, dict) and pass_payload.get("error"):
+                result.pass_states[pass_key] = "failed"
+            elif pass_key not in result.passes_run:
+                result.pass_states[pass_key] = "skipped"
+            elif result.models_used.get(pass_key) == "none":
+                result.pass_states[pass_key] = "stubbed"
+            elif pass_key == "2e":
+                result.pass_states[pass_key] = "rule_based"
+            else:
+                result.pass_states[pass_key] = "executed"
+
+        result.total_pass_time = sum(result.pass_timings.values())
+        result.processing_time = time.perf_counter() - start_time
+        logger.info(
+            f"Completed {image_path.name}: scene={result.scene}, "
+            f"forward_obs={len(result.labeled_forward)}, "
+            f"time={result.processing_time:.1f}s (LLM={result.total_pass_time:.1f}s)"
+        )
+
+    async def _run_passes(
+        self,
+        image_path: Path,
+        options: SceneClassifierRunOptions,
+        result: ImageAnalysisResult,
+    ) -> None:
+        """Execute the enabled passes in order, mutating *result*."""
+        import time
+        toggles = options.toggles
         context: Dict[str, Any] = {}
 
         logger.info(f"Analyzing image: {image_path.name}")
@@ -884,17 +902,20 @@ class SceneClassifierOrchestrator:
                     "shortcut_reason": None,
                 }
 
-                # Retrieve candidates via provider (tolerant of signature variants)
+                # Retrieve candidates via provider (tolerant of signature variants).
+                # A retrieval failure is a dependency failure, not "no candidates":
+                # skipping it here would zero out this observation and read
+                # downstream as a photo with nothing to resolve.
                 try:
                     candidates = self.candidate_provider(description, ctx_for_provider)
+                except EmbeddingsRuntimeError as exc:
+                    raise _pass_failure('2d', 'dependency', exc, model_config) from exc
                 except TypeError:
                     try:
                         candidates = self.candidate_provider(description)
                         debug_row["skipped_reason"] = "provider_ignored_context (signature lacks ctx; cannot control topk/kind)"
                     except Exception as e2:
-                        debug_row["skipped_reason"] = f"candidate_provider_call_failed ({e2})"
-                        result.debug["pass_2d_per_observation"].append(debug_row)
-                        continue
+                        raise _pass_failure('2d', 'dependency', e2, model_config) from e2
 
                 # If provider is async by accident, this will reveal it cleanly in JSON
                 if hasattr(candidates, "__await__"):
@@ -1007,6 +1028,15 @@ class SceneClassifierOrchestrator:
                 n_upgrades,
             )
         else:
+            if to_resolve_all and pass_2d_toggle and not pass_2d_provider_present:
+                # Entry points fail closed at preflight when 2d is enabled, so this
+                # should be unreachable; it is the assertion that keeps it that way.
+                raise PassExecutionError(
+                    '2d', 'dependency',
+                    f"Pass 2d is enabled with {len(to_resolve_all)} resolvable observations "
+                    "but no candidate provider was supplied",
+                    code="MissingCandidateProvider",
+                )
             if to_resolve_all and not pass_2d_provider_present:
                 logger.debug("Pass 2d: %d resolvable items but no candidate provider.", len(to_resolve_all))
             elif not to_resolve_all:
@@ -1157,28 +1187,6 @@ class SceneClassifierOrchestrator:
             result.passes["2e"] = {"skipped": True}
             result.debug["pass_2e_summary"] = {"skipped": True}
 
-        for pass_key in ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e'):
-            pass_payload = result.passes.get(pass_key) or {}
-            if isinstance(pass_payload, dict) and pass_payload.get("error"):
-                result.pass_states[pass_key] = "failed"
-            elif pass_key not in result.passes_run:
-                result.pass_states[pass_key] = "skipped"
-            elif result.models_used.get(pass_key) == "none":
-                result.pass_states[pass_key] = "stubbed"
-            elif pass_key == "2e":
-                result.pass_states[pass_key] = "rule_based"
-            else:
-                result.pass_states[pass_key] = "executed"
-
-        result.total_pass_time = sum(result.pass_timings.values())
-        result.processing_time = time.perf_counter() - start_time
-        logger.info(
-            f"Completed {image_path.name}: scene={result.scene}, "
-            f"forward_obs={len(result.labeled_forward)}, "
-            f"time={result.processing_time:.1f}s (LLM={result.total_pass_time:.1f}s)"
-        )
-
-        return result
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Factory function for easy instantiation

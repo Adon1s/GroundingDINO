@@ -28,6 +28,7 @@ from tools.artifact_writers import (
 )
 from tools.backfill_reno_v4 import _resolve_property_metadata_from_artifact
 from tools.renovation_estimate_v4 import compute_renovation_estimate_v4
+from tools.pass_config import resolve_openai_invocation
 from tools.rehab_packages import infer_package_candidates
 from tools.vlm_client import create_vlm_client, get_model_configs_from_pipeline_config
 from tools.pass_2f_artifact_inputs import (
@@ -68,6 +69,15 @@ def _resolve_model_config(
         if require_api_key and not model_config.get("api_key"):
             return None, None, "missing OpenAI API key for premium provider"
         model_config["provider"] = "openai"
+        # Same token/reasoning policy the production 2f path applies (see
+        # artifact_writers.write_photo_intel). Without this the replay silently
+        # inherits VLMClient.default_max_tokens and ignores
+        # OPENAI_PASS_2F_MAX_TOKENS, so a replay would not reproduce the run it
+        # is meant to be comparable to.
+        try:
+            model_config = resolve_openai_invocation("2f", model_config)
+        except ValueError as exc:
+            return None, None, str(exc)
         return model_config, source, None
 
     if provider == "local":
@@ -79,7 +89,8 @@ def _resolve_model_config(
         if not model_config.get("model"):
             return None, None, "missing local model config"
         model_config["provider"] = model_config.get("provider") or "lmstudio"
-        return model_config, source, None
+        # No-op for local providers, but keeps one policy entry point.
+        return resolve_openai_invocation("2f", model_config), source, None
 
     return None, None, f"unsupported provider: {provider}"
 

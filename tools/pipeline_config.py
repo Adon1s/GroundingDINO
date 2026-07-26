@@ -94,7 +94,10 @@ GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.1-pro-preview")
 # =============================================================================
 # Embeddings-based catalog matching
 # =============================================================================
-USE_EMBEDDINGS_CATALOG = True
+# (A USE_EMBEDDINGS_CATALOG flag was removed: it was hardcoded True with no env
+# override, and it gated only the *attempt* to build the retriever, never its
+# success. The Pass 2d toggle is now the single switch -- disable 2d to run
+# without embeddings.)
 
 # Backend transport for catalog embeddings.
 #   "openai_compatible" (default) → local llama-server sidecar serving the Q8_0
@@ -164,21 +167,10 @@ SHADOW_LANE_MIN_SPECIFIC_OVER_GENERIC = float(
 # =============================================================================
 # PASS TOGGLE SETTINGS
 # =============================================================================
-# Comma-separated list of passes to SKIP (disable).
-# Valid keys: 1a, 1b, 1c, 2a, 2b, 2c, 2d, 2e, 2f, 4, 4a, 4b, 4c
-#
-# Examples:
-#   SKIP_PASSES=1a,1b,1c          # Skip all feature-extraction passes
-#   SKIP_PASSES=2d                # Skip resolver only
-#   SKIP_PASSES=                  # Skip nothing (all passes enabled)
-#
-# This is the easiest way to temporarily disable passes without touching code.
-# Downstream passes degrade gracefully when upstream passes are skipped.
-SKIP_PASSES = [
-    s.strip().lower()
-    for s in os.environ.get("SKIP_PASSES", "").split(",")
-    if s.strip()
-]
+# Pass toggles are set per-run via the analyzer CLI's --enable-<key>/--disable-<key>
+# flags (or the server's request payload), which is the only transport that reaches
+# photo_intel["run"]["pass_toggles"]. A previous SKIP_PASSES env var was removed:
+# it was parsed here but read by nothing, and it left no trace in run metadata.
 
 # =============================================================================
 # ANALYSIS PROFILE SETTINGS

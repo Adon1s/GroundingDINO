@@ -75,6 +75,28 @@ logger = logging.getLogger(__name__)
 ProviderType = Literal["openai", "lmstudio", "gemini", "auto"]
 
 
+class OpenAIIncompleteResponse(RuntimeError):
+    """Response stopped early — most often max_output_tokens was exhausted."""
+
+
+class OpenAIRefusal(RuntimeError):
+    """Model declined to answer."""
+
+
+class OpenAIEmptyResponse(RuntimeError):
+    """Response completed but carried no visible output text."""
+
+
+def model_supports_reasoning(model: Any) -> bool:
+    """
+    Whether *model* accepts the Responses API `reasoning`/`verbosity` knobs.
+
+    Only the GPT-5 family does. Sending either to anything else is a request
+    error, so both are omitted rather than passed through.
+    """
+    return str(model or "").lower().startswith("gpt-5")
+
+
 class VLMClient:
     """
     Unified client for Vision Language Model calls.
@@ -370,7 +392,7 @@ class VLMClient:
         if status == "incomplete":
             details = getattr(response, "incomplete_details", None)
             reason = getattr(details, "reason", None) if details is not None else None
-            raise RuntimeError(
+            raise OpenAIIncompleteResponse(
                 f"OpenAI response incomplete"
                 f"{f' ({reason})' if reason else ''}"
                 f"{f' [response_id={response_id}]' if response_id else ''}"
@@ -395,14 +417,14 @@ class VLMClient:
 
         if refusal_texts:
             snippet = " ".join(refusal_texts)[:300]
-            raise RuntimeError(
+            raise OpenAIRefusal(
                 f"OpenAI model refusal: {snippet}"
                 f"{f' [response_id={response_id}]' if response_id else ''}"
             )
         if fallback_texts:
             return "\n".join(fallback_texts).strip()
 
-        raise RuntimeError(
+        raise OpenAIEmptyResponse(
             f"OpenAI response had no output_text"
             f"{f' (status={status})' if status else ''}"
             f"{f' [response_id={response_id}]' if response_id else ''}"
@@ -441,7 +463,7 @@ class VLMClient:
         text_config = self._openai_text_config(
             response_json_schema,
             response_schema_name,
-            verbosity if str(model).lower().startswith("gpt-5") else None,
+            verbosity if model_supports_reasoning(model) else None,
         )
 
         def _call():
@@ -469,8 +491,14 @@ class VLMClient:
             }
             if text_config:
                 request["text"] = text_config
-            if reasoning_effort and str(model).lower().startswith("gpt-5"):
-                request["reasoning"] = {"effort": reasoning_effort}
+            if reasoning_effort:
+                if model_supports_reasoning(model):
+                    request["reasoning"] = {"effort": reasoning_effort}
+                else:
+                    logger.warning(
+                        "Dropping reasoning_effort=%s: model %s does not support it",
+                        reasoning_effort, model,
+                    )
             return client.responses.create(**request)
 
         response = await asyncio.get_event_loop().run_in_executor(None, _call)
@@ -522,7 +550,7 @@ class VLMClient:
         text_config = self._openai_text_config(
             response_json_schema,
             response_schema_name,
-            verbosity if str(model).lower().startswith("gpt-5") else None,
+            verbosity if model_supports_reasoning(model) else None,
         )
 
         def _call():
@@ -542,8 +570,14 @@ class VLMClient:
             }
             if text_config:
                 request["text"] = text_config
-            if reasoning_effort and str(model).lower().startswith("gpt-5"):
-                request["reasoning"] = {"effort": reasoning_effort}
+            if reasoning_effort:
+                if model_supports_reasoning(model):
+                    request["reasoning"] = {"effort": reasoning_effort}
+                else:
+                    logger.warning(
+                        "Dropping reasoning_effort=%s: model %s does not support it",
+                        reasoning_effort, model,
+                    )
             return client.responses.create(**request)
 
         response = await asyncio.get_event_loop().run_in_executor(None, _call)
@@ -579,7 +613,7 @@ class VLMClient:
         text_config = self._openai_text_config(
             response_json_schema,
             response_schema_name,
-            verbosity if str(model).lower().startswith("gpt-5") else None,
+            verbosity if model_supports_reasoning(model) else None,
         )
 
         def _call():
@@ -599,8 +633,14 @@ class VLMClient:
             }
             if text_config:
                 request["text"] = text_config
-            if reasoning_effort and str(model).lower().startswith("gpt-5"):
-                request["reasoning"] = {"effort": reasoning_effort}
+            if reasoning_effort:
+                if model_supports_reasoning(model):
+                    request["reasoning"] = {"effort": reasoning_effort}
+                else:
+                    logger.warning(
+                        "Dropping reasoning_effort=%s: model %s does not support it",
+                        reasoning_effort, model,
+                    )
             return client.responses.create(**request)
 
         response = await asyncio.get_event_loop().run_in_executor(

@@ -1182,46 +1182,61 @@ class TestRunPass2f:
         assert result.rejected_issue_ids == ["issue_1"]
         mock_vlm.analyze_image.assert_called_once()
 
-    def test_vlm_error_returns_uncertain_without_raising(self):
-        from tools.scene_classifier_passes import run_pass_2f
+    def test_vlm_error_raises_instead_of_reporting_uncertain(self):
+        """
+        A provider failure used to be recorded as verification_status="uncertain",
+        which is indistinguishable from the model genuinely being unsure about a
+        package. It must now fail the run.
+        """
+        from tools.scene_classifier_passes import PassExecutionError, run_pass_2f
 
         mock_vlm = MagicMock()
         mock_vlm.analyze_images = AsyncMock(side_effect=RuntimeError("API down"))
 
-        result = asyncio.get_event_loop().run_until_complete(
-            run_pass_2f(
-                image_paths=[Path("/fake/kitchen_1.jpg")],
-                vlm_client=mock_vlm,
-                model_config={"model": "test"},
-                room="kitchen",
-                package_id="pkg",
-                package_type="kitchen_modernization",
-                evidence_items=[{"issue_ids": ["issue_1"]}],
+        with pytest.raises(PassExecutionError) as excinfo:
+            asyncio.get_event_loop().run_until_complete(
+                run_pass_2f(
+                    image_paths=[Path("/fake/kitchen_1.jpg")],
+                    vlm_client=mock_vlm,
+                    model_config={"model": "test"},
+                    room="kitchen",
+                    package_id="pkg",
+                    package_type="kitchen_modernization",
+                    evidence_items=[{"issue_ids": ["issue_1"]}],
+                )
             )
-        )
+        assert excinfo.value.pass_key == "2f"
+        assert excinfo.value.stage == "request"
 
-        assert result.verification_status == "uncertain"
-        assert "verification failed" in result.evidence_summary.lower()
-
-    def test_missing_json_returns_uncertain_without_raising(self):
-        from tools.scene_classifier_passes import run_pass_2f
+    def test_missing_json_raises_invalid_response(self):
+        from tools.scene_classifier_passes import Pass2fInvalidResponseError, run_pass_2f
 
         mock_vlm = MagicMock()
         mock_vlm.analyze_images = AsyncMock(return_value="not json")
 
-        result = asyncio.get_event_loop().run_until_complete(
-            run_pass_2f(
-                image_paths=[Path("/fake/kitchen_1.jpg")],
-                vlm_client=mock_vlm,
-                model_config={"model": "test"},
-                room="kitchen",
-                package_id="pkg",
-                package_type="kitchen_modernization",
-                evidence_items=[{"issue_ids": ["issue_1"]}],
+        with pytest.raises(Pass2fInvalidResponseError):
+            asyncio.get_event_loop().run_until_complete(
+                run_pass_2f(
+                    image_paths=[Path("/fake/kitchen_1.jpg")],
+                    vlm_client=mock_vlm,
+                    model_config={"model": "test"},
+                    room="kitchen",
+                    package_id="pkg",
+                    package_type="kitchen_modernization",
+                    evidence_items=[{"issue_ids": ["issue_1"]}],
+                )
             )
-        )
 
-        assert result.verification_status == "uncertain"
+    def test_batch_can_opt_out_of_strict_for_diagnostics(self):
+        """
+        run_pass_2f_batch is where tolerance now lives, and it is strict by
+        default. Comparison/diagnostic callers opt out explicitly.
+        """
+        import inspect
+
+        from tools.rehab_packages import run_pass_2f_batch
+
+        assert inspect.signature(run_pass_2f_batch).parameters["strict"].default is True
 
 
 # Phase C: retired legacy run_pass_2f_batch compatibility shim

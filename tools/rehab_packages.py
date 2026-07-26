@@ -3796,14 +3796,18 @@ async def run_pass_2f_batch(
     photo_key_to_path: Dict[str, Path],
     provider: str = "premium",
     max_images: int = 3,
-    strict: bool = False,
+    strict: bool = True,
 ) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, Any]]:
     """Run Pass 2f once per frozen package case.
 
-    Production remains tolerant by default. Comparison callers can opt into
-    strict provider and response failures without changing production behavior.
+    This is the batch-level failure policy for 2f. Strict by default: a provider
+    or response failure fails the run rather than being recorded as an
+    "uncertain" verdict, which is indistinguishable from a genuine one.
+
+    Comparison and diagnostic callers may pass strict=False to collect a failed
+    package as uncertain and keep going.
     """
-    from tools.scene_classifier_passes import run_pass_2f
+    from tools.scene_classifier_passes import Pass2fResult, run_pass_2f
 
     prepared_cases, preparation_trace = prepare_pass_2f_cases(
         package_candidates,
@@ -3897,17 +3901,27 @@ async def run_pass_2f_batch(
         reviewed_issue_ids = list(
             prepared_input.get("reviewed_issue_ids") or []
         )
-        result = await run_pass_2f(
-            image_paths=image_paths,
-            vlm_client=vlm_client,
-            model_config=model_config,
-            room=room,
-            package_id=package_id,
-            package_type=package_type,
-            evidence_items=evidence_items,
-            package_label=str(case.get("package_label") or "Renovation package"),
-            strict=strict,
-        )
+        try:
+            result = await run_pass_2f(
+                image_paths=image_paths,
+                vlm_client=vlm_client,
+                model_config=model_config,
+                room=room,
+                package_id=package_id,
+                package_type=package_type,
+                evidence_items=evidence_items,
+                package_label=str(case.get("package_label") or "Renovation package"),
+            )
+        except Exception as exc:
+            if strict:
+                raise
+            logger.error("Pass 2f: %s failed, recording as uncertain: %s", package_id, exc)
+            result = Pass2fResult(
+                package_id=package_id,
+                package_type=package_type,
+                verification_status="uncertain",
+                evidence_summary=f"Pass 2f verification failed: {exc}",
+            )
         record = {
             "package_id": result.package_id,
             "package_type": result.package_type,

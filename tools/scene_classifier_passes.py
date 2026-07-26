@@ -389,6 +389,68 @@ class Pass2dResult:
     shortcut_reason: Optional[str] = None
 
 
+class PassExecutionError(RuntimeError):
+    """
+    An enabled pass could not produce a valid result.
+
+    Exists so a pass failure can never be mistaken for a pass that ran and found
+    nothing. Passes raise this instead of returning an empty result; the caller
+    decides whether to abort the run (strict) or record it and stop (collect).
+
+    stage:
+        dependency - a required input/service was unavailable (e.g. embeddings)
+        request    - the provider call itself failed, refused, or was truncated
+        response   - a response arrived but carried no usable content
+        parse      - content arrived but was not valid for this pass
+    """
+
+    def __init__(
+        self,
+        pass_key: str,
+        stage: str,
+        message: str,
+        *,
+        code: str = "",
+        provider: Optional[str] = None,
+        model: Optional[str] = None,
+    ) -> None:
+        super().__init__(f"Pass {pass_key} {stage} failure: {message}")
+        self.pass_key = pass_key
+        self.stage = stage
+        self.code = code
+        self.message = message
+        self.provider = provider
+        self.model = model
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "pass": self.pass_key,
+            "stage": self.stage,
+            "code": self.code,
+            "message": self.message,
+            "provider": self.provider,
+            "model": self.model,
+        }
+
+
+def _pass_failure(
+    pass_key: str,
+    stage: str,
+    exc: BaseException,
+    model_config: Optional[dict] = None,
+) -> PassExecutionError:
+    """Wrap a provider/parse exception as a PassExecutionError with routing context."""
+    cfg_ = model_config or {}
+    return PassExecutionError(
+        pass_key,
+        stage,
+        str(exc)[:300],
+        code=type(exc).__name__,
+        provider=cfg_.get("provider"),
+        model=cfg_.get("model"),
+    )
+
+
 class Pass2fInvalidResponseError(ValueError):
     """Raised when Pass 2f returns no parseable or actionable JSON decision."""
 
@@ -659,208 +721,40 @@ async def run_pass_1a_scene_type(
             user_prompt=PASS_1A_USER_PROMPT,
             **_with_analysis_pass(model_config, "Pass 1a (scene type)"),
         )
-
-        # Parse JSON response
-        result = extract_json_object(response) or {}
-
-        conf = None
-        try:
-            if result.get("confidence") is not None:
-                conf = float(result.get("confidence"))
-        except Exception:
-            conf = None
-
-        return Pass1aResult(
-            scene=str(result.get("scene", "other")).strip() or "other",
-            confidence=conf,
-            reasoning=result.get("reasoning"),
-            raw_response=response,
-        )
-
     except Exception as e:
         logger.error(f"Pass 1a: Error classifying scene: {e}")
-        return Pass1aResult(
-            scene="other",
-            reasoning=f"Error: {e}",
-        )
+        raise _pass_failure('1a', 'request', e, model_config) from e
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Pass 1b: Feature/Market Appeal Notes (FREEFORM)
-# ═══════════════════════════════════════════════════════════════════════════════
-
-PASS_1B_SYSTEM_PROMPT = "You are a real estate photo analyst."
-PASS_1B_USER_PROMPT_TEMPLATE = (
-    "This is a {scene} photo. List any clearly visible features or finishes worth noting "
-    "(materials, fixtures, appliances, amenities). Be factual and concise. "
-    "Do not mention issues, damage, or drawbacks. If none, reply: none"
-)
-
-
-async def run_pass_1b_feature_notes(
-        image_path: Path,
-        vlm_client: Any,
-        model_config: dict,
-        context: Optional[Dict[str, Any]] = None,
-) -> Pass1bResult:
-    """
-    Pass 1b: Extract freeform positive features from a property photo.
-
-    This pass asks a vision-language model to identify any clearly visible
-    positive features or upgrades that a realtor might want to highlight.
-    The output is intentionally unstructured, plain text and may be:
-      - a short list of features,
-      - a brief sentence or two, or
-      - the literal string "none" if no positives are visible.
-
-    No formatting, categorization, or inference is required or expected here.
-    All structuring and normalization is handled downstream in Pass 1c.
-
-    The scene type (from Pass 1a) may be provided for context, but this pass
-    does not enforce scene-specific formatting or content.
-
-    Args:
-        image_path: Path to the image file being analyzed.
-        vlm_client: Vision-language model client used to analyze the image.
-        model_config: Model configuration (provider, model name, token limits, etc.).
-        context: Optional context from earlier passes (e.g., {'scene': 'kitchen'}).
-
-    Returns:
-        Pass1bResult containing:
-            - feature_notes: Freeform text describing visible positive features,
-              or "none" if no positives are present.
-            - raw_response: The raw model response text.
-    """
-    scene = context.get("scene", "property") if context else "property"
-    user_prompt = PASS_1B_USER_PROMPT_TEMPLATE.format(scene=scene)
-
-    logger.debug(f"Pass 1b: Generating feature notes for {image_path.name} (scene: {scene})")
-
+    # Parse JSON response
     try:
-        response = await vlm_client.analyze_image(
-            image_path=image_path,
-            system_prompt=PASS_1B_SYSTEM_PROMPT,
-            user_prompt=user_prompt,
-            **_with_analysis_pass(model_config, "Pass 1b (feature notes)"),
-        )
-
-        notes = (response or "").strip()
-
-        return Pass1bResult(
-            feature_notes=notes,
-            raw_response=response,
-        )
-
-    except Exception as e:
-        logger.error(f"Pass 1b: Error generating feature notes: {e}")
-        return Pass1bResult(
-            feature_notes="",
-            raw_response=None,
-        )
-
-
-# ═══════════════════════════════════════════════════════════════════════════════
-# Pass 1c: Feature Notes → JSON Structuring
-# ═══════════════════════════════════════════════════════════════════════════════
-
-PASS_1C_SYSTEM_PROMPT_TEMPLATE = """You convert FREEFORM notes about visible features into STRICT JSON.
-
-INPUT NOTES:
----
-{notes}
----
-
-Rules:
-- Use ONLY what is stated in the notes. Do not add new features or claims.
-- Keep language conservative and factual.
-- If notes indicate none (e.g., "none"), output empty fields and [].
-- notable_features must be a list of short strings (2–10 words), deduplicated.
-
-Respond with ONLY a JSON object:
-{
-  "overall_impression": "...",
-  "image_summary": "...",
-  "notable_features": ["..."]
-}"""
-
-PASS_1C_USER_PROMPT = "Convert the notes into the JSON format."
-
-
-async def run_pass_1c_feature_structuring(
-        vlm_client: Any,
-        model_config: dict,
-        feature_notes: str,
-) -> Pass1cResult:
-    """
-    Pass 1c: Convert freeform feature notes to structured JSON.
-
-    This is a text-only pass that structures the freeform notes from Pass 1b.
-
-    Args:
-        vlm_client: VLM client instance
-        model_config: Model configuration
-        feature_notes: Freeform notes from Pass 1b
-
-    Returns:
-        Pass1cResult with structured feature data
-    """
-    logger.debug("Pass 1c: Converting feature notes to JSON")
-
-    if _is_effectively_empty_notes(feature_notes):
-        return Pass1cResult(
-            overall_impression="",
-            image_summary="",
-            notable_features=[],
-            raw_response=None,
-        )
-
-    system_prompt = safe_format_prompt(PASS_1C_SYSTEM_PROMPT_TEMPLATE, notes=feature_notes)
-
-    try:
-        response = await vlm_client.analyze_text(
-            system_prompt=system_prompt,
-            user_prompt=PASS_1C_USER_PROMPT,
-            **_with_analysis_pass(model_config, "Pass 1c (feature structuring)"),
-        )
-
         result = extract_json_object(response) or {}
-
-        # Parse overall_impression
-        oi = result.get("overall_impression") or ""
-        if not isinstance(oi, str):
-            oi = ""
-        oi = oi.strip()
-
-        # Parse image_summary
-        ims = result.get("image_summary") or ""
-        if not isinstance(ims, str):
-            ims = ""
-        ims = ims.strip()
-
-        # Parse notable_features
-        nf = result.get("notable_features") or []
-        if isinstance(nf, str):
-            nf = [nf]
-        elif not isinstance(nf, list):
-            nf = []
-        nf = [str(x).strip() for x in nf if str(x).strip()]
-        nf = list(dict.fromkeys(nf))  # preserve order, dedupe
-
-        return Pass1cResult(
-            overall_impression=oi,
-            image_summary=ims,
-            notable_features=nf,
-            raw_response=response,
-        )
-
     except Exception as e:
-        logger.error(f"Pass 1c: Error converting feature notes to JSON: {e}")
-        return Pass1cResult(
-            overall_impression="",
-            image_summary="",
-            notable_features=[],
-            raw_response=None,
-        )
+        logger.error(f"Pass 1a: Unparseable scene response: {e}")
+        raise _pass_failure('1a', 'parse', e, model_config) from e
+
+    conf = None
+    try:
+        if result.get("confidence") is not None:
+            conf = float(result.get("confidence"))
+    except (TypeError, ValueError):
+        conf = None
+
+    return Pass1aResult(
+        scene=str(result.get("scene", "other")).strip() or "other",
+        confidence=conf,
+        reasoning=result.get("reasoning"),
+        raw_response=response,
+    )
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Passes 1b/1c: REMOVED
+#
+# Their outputs were not consumed downstream. The orchestrator stubs both inline
+# (blank Pass1bResult/Pass1cResult, models_used="none") for artifact compat, so
+# the LLM-calling implementations were dead code. Pass1bResult/Pass1cResult are
+# still defined above because the stubs construct them.
+# ═══════════════════════════════════════════════════════════════════════════════
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -901,23 +795,19 @@ async def run_pass_2a(
             user_prompt=PASS_2A_USER_PROMPT,
             **_with_analysis_pass(model_config, "Pass 2a (observations freeform)"),
         )
-
-        # Do NOT parse JSON. Treat as freeform notes.
-        freeform = (response or "").strip()
-
-        logger.debug(f"Pass 2a freeform length: {len(freeform)} chars")
-
-        return Pass2aResult(
-            observations_freeform=freeform,
-            raw_response=response,
-        )
-
     except Exception as e:
         logger.error(f"Pass 2a: Error detecting observations: {e}")
-        return Pass2aResult(
-            observations_freeform="",
-            raw_response=None,
-        )
+        raise _pass_failure('2a', 'request', e, model_config) from e
+
+    # Do NOT parse JSON. Treat as freeform notes.
+    freeform = (response or "").strip()
+
+    logger.debug(f"Pass 2a freeform length: {len(freeform)} chars")
+
+    return Pass2aResult(
+        observations_freeform=freeform,
+        raw_response=response,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -999,21 +889,21 @@ async def run_pass_2b(
             user_prompt=PASS_2B_USER_PROMPT,
             **_with_analysis_pass(model_config, "Pass 2b (observations JSON)"),
         )
-
-        result = extract_json_object(response) or {}
-        observations = _coerce_observations_2b(result.get("observations"))
-
-        return Pass2bResult(
-            observations=observations,
-            raw_response=response,
-        )
-
     except Exception as e:
         logger.error(f"Pass 2b: Error converting observations to JSON: {e}")
-        return Pass2bResult(
-            observations=[],
-            raw_response=None,
-        )
+        raise _pass_failure('2b', 'request', e, model_config) from e
+
+    try:
+        result = extract_json_object(response) or {}
+        observations = _coerce_observations_2b(result.get("observations"))
+    except Exception as e:
+        logger.error(f"Pass 2b: Unparseable observations response: {e}")
+        raise _pass_failure('2b', 'parse', e, model_config) from e
+
+    return Pass2bResult(
+        observations=observations,
+        raw_response=response,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1112,32 +1002,32 @@ async def run_pass_2c(
             user_prompt=user_prompt,
             **_with_analysis_pass(model_config, "Pass 2c (label observations)"),
         )
+    except Exception as e:
+        logger.error(f"Pass 2c: Error labeling observations: {e}")
+        raise _pass_failure('2c', 'request', e, model_config) from e
+
+    try:
         result = extract_json_object(response) or {}
         labeled_debug = _coerce_labeled_2c(result.get("labeled"))
 
         # Override label → "other" for any observation that contains a room
         # dimension string (e.g. MLS floorplan overlays like "12'6 x 10'").
         labeled_debug = force_other_if_dimensions(labeled_debug)
-
-        # Split: labeled_forward = defect_or_damage + upgrade_candidate only
-        labeled_forward = [
-            x for x in labeled_debug
-            if x.get("label") in {"defect_or_damage", "upgrade_candidate"}
-        ]
-
-        return Pass2cResult(
-            labeled_debug=labeled_debug,
-            labeled_forward=labeled_forward,
-            raw_response=response,
-        )
-
     except Exception as e:
-        logger.error(f"Pass 2c: Error labeling observations: {e}")
-        return Pass2cResult(
-            labeled_debug=[],
-            labeled_forward=[],
-            raw_response=None,
-        )
+        logger.error(f"Pass 2c: Unparseable labeling response: {e}")
+        raise _pass_failure('2c', 'parse', e, model_config) from e
+
+    # Split: labeled_forward = defect_or_damage + upgrade_candidate only
+    labeled_forward = [
+        x for x in labeled_debug
+        if x.get("label") in {"defect_or_damage", "upgrade_candidate"}
+    ]
+
+    return Pass2cResult(
+        labeled_debug=labeled_debug,
+        labeled_forward=labeled_forward,
+        raw_response=response,
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -1344,6 +1234,11 @@ async def run_pass_2d(
             user_prompt=user_prompt,
             **_with_analysis_pass(model_config, "Pass 2d (catalog resolution)"),
         )
+    except Exception as e:
+        logger.error(f"Pass 2d: Error resolving catalog item: {e}")
+        raise _pass_failure('2d', 'request', e, model_config) from e
+
+    try:
         result = extract_json_object(response) or {}
         candidate_by_id = {
             _candidate_item_id(candidate): candidate
@@ -1358,33 +1253,27 @@ async def run_pass_2d(
             resolved_id = result.get("resolved_item_id") or result.get("resolved_defect_id") or result.get("resolved_upgrade_id")
             if resolved_id is not None:
                 resolved_id = str(resolved_id).strip() if resolved_id else None
-
-        # Validate resolved_id exists in the candidate list
-        if resolved_id:
-            valid_ids = {_candidate_item_id(c) for c in candidates}
-            if resolved_id not in valid_ids:
-                logger.warning("Pass 2d: hallucinated ID %r, setting to None", resolved_id)
-                resolved_id = None
-            else:
-                resolved_kind = _resolved_kind_for_candidate(candidate_by_id.get(resolved_id), kind)
-
-        return Pass2dResult(
-            observation=observation,
-            resolved_item_id=resolved_id,
-            resolved_kind=resolved_kind,
-            raw_response=response,
-            resolution_path="llm",
-        )
-
     except Exception as e:
-        logger.error(f"Pass 2d: Error resolving catalog item: {e}")
-        return Pass2dResult(
-            observation=observation,
-            resolved_item_id=None,
-            resolved_kind=kind,
-            raw_response=None,
-            resolution_path="llm",
-        )
+        logger.error(f"Pass 2d: Unparseable resolution response: {e}")
+        raise _pass_failure('2d', 'parse', e, model_config) from e
+
+    # Validate resolved_id exists in the candidate list. A hallucinated ID is a
+    # model mistake with a defined answer ("no match"), not a pass failure.
+    if resolved_id:
+        valid_ids = {_candidate_item_id(c) for c in candidates}
+        if resolved_id not in valid_ids:
+            logger.warning("Pass 2d: hallucinated ID %r, setting to None", resolved_id)
+            resolved_id = None
+        else:
+            resolved_kind = _resolved_kind_for_candidate(candidate_by_id.get(resolved_id), kind)
+
+    return Pass2dResult(
+        observation=observation,
+        resolved_item_id=resolved_id,
+        resolved_kind=resolved_kind,
+        raw_response=response,
+        resolution_path="llm",
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -2068,7 +1957,6 @@ async def run_pass_2f(
     package_type: str,
     evidence_items: List[Dict[str, Any]],
     package_label: str = "Renovation package",
-    strict: bool = False,
 ) -> Pass2fResult:
     """
     Pass 2f visual package verification.
@@ -2080,6 +1968,12 @@ async def run_pass_2f(
     The `room` argument selects a room-specific prompt template from
     PASS_2F_ROOM_PROMPTS. Each room template is self-contained (no cross-room
     vocabulary) to avoid attention bleed when verifying e.g. a bathroom package.
+
+    Always raises on provider or response failure. The former `strict` parameter
+    defaulted to False and production never passed it, so a truncated or refused
+    response silently became verification_status="uncertain" -- indistinguishable
+    from the model genuinely being unsure. Batch-level policy lives in
+    rehab_packages.run_pass_2f_batch.
     """
     try:
         system_prompt, user_prompt_template = PASS_2F_ROOM_PROMPTS[room]
@@ -2124,14 +2018,7 @@ async def run_pass_2f(
             )
     except Exception as exc:
         logger.error("Pass 2f: provider error reviewing %s: %s", package_id, exc)
-        if strict:
-            raise
-        return Pass2fResult(
-            package_id=package_id,
-            package_type=package_type,
-            verification_status="uncertain",
-            evidence_summary=f"Pass 2f verification failed: {exc}",
-        )
+        raise _pass_failure('2f', 'request', exc, model_config) from exc
 
     parsed: Optional[Dict[str, Any]] = None
     try:
@@ -2139,8 +2026,9 @@ async def run_pass_2f(
         if not isinstance(parsed_value, dict) or not parsed_value:
             raise ValueError("missing JSON object")
         parsed = parsed_value
-        if strict:
-            _validate_pass_2f_schema(parsed, room=room)
+        # Validation is unconditional. An unvalidated response can silently
+        # mis-assign confirmed_issue_ids / rejected_issue_ids.
+        _validate_pass_2f_schema(parsed, room=room)
     except Exception as exc:
         error = (
             exc
@@ -2152,18 +2040,9 @@ async def run_pass_2f(
             )
         )
         logger.error("Pass 2f: invalid response for %s: %s", package_id, error)
-        if strict:
-            if error is exc:
-                raise
-            raise error from exc
-        return Pass2fResult(
-            package_id=package_id,
-            package_type=package_type,
-            verification_status="uncertain",
-            evidence_summary=f"Pass 2f verification failed: {error}",
-            raw_response=response,
-            parsed_response=parsed,
-        )
+        if error is exc:
+            raise
+        raise error from exc
 
     result = _coerce_pass_2f(
         parsed,

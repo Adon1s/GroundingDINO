@@ -913,7 +913,6 @@ async def execute_comparison(
                     evidence_items=copy.deepcopy(
                         package["prepared_input"].get("evidence_items") or []
                     ),
-                    strict=True,
                 )
                 wall_time = time.perf_counter() - started
                 usage = _usage_delta(before, _usage_snapshot(client))

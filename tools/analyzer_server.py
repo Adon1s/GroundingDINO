@@ -129,58 +129,20 @@ def main() -> int:
     catalog = load_issue_catalog(cfg.ISSUE_CATALOG_PATH)
     logger.info(f"Issue catalog loaded ({len(catalog.get('items', []))} items)")
 
-    # Build embeddings retriever (the expensive SentenceTransformer load)
-    candidate_provider = None
-    if getattr(cfg, "USE_EMBEDDINGS_CATALOG", False):
-        try:
-            from tools.catalog_embeddings import CatalogEmbeddingsRetriever, build_guardrails_from_catalog
-            from tools.scene_classifier_passes import prioritize_resolution_candidates
-            from dataclasses import asdict
-
-            retriever = CatalogEmbeddingsRetriever(
-                catalog_v2=catalog,
-                model_name=getattr(cfg, "EMBEDDINGS_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2"),
-                device=getattr(cfg, "EMBEDDINGS_DEVICE", "cpu"),
-                trust_remote_code=getattr(cfg, "EMBEDDINGS_TRUST_REMOTE_CODE", False),
-                default_topk=getattr(cfg, "EMBEDDINGS_TOPK", 10),
-                guardrails=build_guardrails_from_catalog(catalog),
-                backend=getattr(cfg, "EMBEDDINGS_BACKEND", "openai_compatible"),
-                base_url=getattr(cfg, "EMBEDDINGS_BASE_URL", "http://127.0.0.1:8081/v1"),
-                st_model_name=getattr(cfg, "EMBEDDINGS_ST_MODEL_NAME", "jinaai/jina-embeddings-v3"),
-                embedding_dimension=getattr(cfg, "EMBEDDINGS_DIMENSION", 1024),
-            )
-
-            def candidate_provider(observation_text: str, context: dict) -> list:
-                kind = (context.get("kind") or "").strip().lower()
-                topk = context.get("top_k_candidates")
-                scene_group = context.get("scene_group")
-                allowed_groups = {scene_group} if scene_group else None
-                allowed_kinds_ctx = context.get("allowed_kinds")
-                if allowed_kinds_ctx:
-                    allowed_kinds = {
-                        str(k).strip().lower()
-                        for k in allowed_kinds_ctx
-                        if str(k).strip().lower() in {"defect", "upgrade"}
-                    }
-                else:
-                    allowed_kinds = {kind} if kind in ("defect", "upgrade") else None
-                widened_routing = bool(allowed_kinds and len(allowed_kinds) > 1)
-                requested_topk = topk
-                if widened_routing and topk:
-                    requested_topk = max(int(topk), int(topk) * 2)
-                matches = retriever.retrieve_candidates(
-                    observation_text,
-                    topk=requested_topk,
-                    allowed_kinds=allowed_kinds,
-                    allowed_groups=allowed_groups,
-                )
-                candidates = [asdict(m) for m in matches]
-                return prioritize_resolution_candidates(candidates, widened_routing=widened_routing)
-
-            logger.info(f"Embeddings retriever ready (model={retriever.model_name}, items={len(retriever._items)})")
-        except Exception as exc:
-            logger.warning(f"Could not initialize embeddings retriever: {exc}. Pass 2d will be skipped.")
-            candidate_provider = None
+    # Build embeddings retriever (the expensive model load).
+    #
+    # This is a hard startup dependency. The provider is built once and reused by
+    # every job, so tolerating a failure here would silently strip Pass 2d from
+    # every property this process ever handles. Refuse to signal ready instead.
+    # (Per-job toggles are not known yet; 2d is enabled by default. A job that
+    # disables 2d simply leaves the provider unused.)
+    from tools.catalog_embeddings import EmbeddingsRuntimeError, build_candidate_provider
+    try:
+        candidate_provider = build_candidate_provider(catalog)
+    except EmbeddingsRuntimeError as exc:
+        logger.error(f"Embeddings retriever unavailable: {exc}")
+        _emit({"type": "error", "stage": "embeddings_init", "error": str(exc)})
+        return 1
 
     # One shared client supplies both photo-pass and Pass 2f telemetry.
     _, gpt5_config = get_model_configs_from_pipeline_config(cfg)
@@ -195,7 +157,7 @@ def main() -> int:
     )
 
     logger.info("All models loaded. Server ready.")
-    _emit({"type": "ready"})
+    _emit({"type": "ready", "dependency_status": {"embeddings": "ready"}})
 
     # ─────────────────────────────────────────────────────────────────────────
     # Job loop: read JSON requests from stdin, process, emit results
@@ -269,15 +231,46 @@ def _ckpt_key(p: Path) -> tuple:
     return (p.parent.name, p.name)
 
 
+def _resolved_max_tokens() -> Dict[str, int]:
+    """
+    Effective OpenAI token cap per pass.
+
+    Caps resolve from env vars and the per-pass defaults table only, so this does
+    not depend on run options. Probes with a synthetic OpenAI config because the
+    resolver is a no-op for local providers.
+    """
+    from tools.pass_config import ALL_PASSES, resolve_openai_invocation
+    caps: Dict[str, int] = {}
+    for pass_key in ALL_PASSES:
+        resolved = resolve_openai_invocation(
+            pass_key, {"provider": "openai", "model": "gpt-5"}
+        )
+        cap = resolved.get("max_output_tokens")
+        if cap is not None:
+            caps[pass_key] = int(cap)
+    return caps
+
+
 def _checkpoint_policy_fingerprint(
     model_overrides: Dict[str, str],
     reasoning_efforts: Dict[str, str],
+    pass_toggles: Optional[Dict[str, bool]] = None,
+    max_tokens: Optional[Dict[str, int]] = None,
 ) -> str:
-    """Hash only non-secret routing inputs that affect reusable image results."""
+    """
+    Hash only non-secret routing inputs that affect reusable image results.
+
+    pass_toggles and max_tokens are part of the policy: checkpoints written with
+    Pass 2d disabled must not be reused by a run with 2d enabled (they contain no
+    resolved catalog items), and a changed token cap changes truncation, which
+    changes content.
+    """
     payload = json.dumps(
         {
             "model_overrides": model_overrides,
             "reasoning_efforts": reasoning_efforts,
+            "pass_toggles": pass_toggles or {},
+            "max_tokens": max_tokens or {},
         },
         sort_keys=True,
         separators=(",", ":"),
@@ -461,6 +454,8 @@ def _process_job(
     policy_fingerprint = _checkpoint_policy_fingerprint(
         filtered_overrides,
         filtered_reasoning_efforts,
+        options.toggles.to_dict(),
+        _resolved_max_tokens(),
     )
     _prepare_checkpoint_dir(ckpt_dir, policy_fingerprint)
     cached_results: Dict[int, ImageResult] = _load_checkpoint(
@@ -540,6 +535,9 @@ def _process_job(
                         logger.error(f"    ❌ {image_path.name} failed: {exc}", exc_info=True)
                         img_result = ImageResult(
                             image_path=str(image_path),
+                            # PassExecutionError carries the partial result so the
+                            # failed image's pass_states/pass_errors are retained.
+                            scene_data=getattr(exc, "partial_result", None),
                             scene="unknown",
                             processing_time=elapsed,
                             error=str(exc),
@@ -589,24 +587,42 @@ def _process_job(
         from tools.artifact_writers import Pass2fModelUnavailable
         fatal_error = None
         failed_phase = None
+        photo_intel_path = None
+
+        # A failed image produced no valid analysis. Publishing the rest would
+        # present a partial property as a complete one, so fail the job and write
+        # nothing. The checkpoint is left intact below so a retry resumes from the
+        # images that did succeed.
+        failed_images = [r for r in results if getattr(r, "error", None)]
+        if failed_images and options.failure_mode == "strict":
+            fatal_error = RuntimeError(
+                f"{len(failed_images)} of {len(results)} images failed analysis: "
+                + "; ".join(f"{Path(r.image_path).name}: {r.error}" for r in failed_images[:5])
+            )
+            failed_phase = "photo_analysis"
+            logger.error(f"[Job {ts_job_id}] {fatal_error}")
 
         try:
-            photo_intel_path = write_photo_intel(
-                cfg=cfg,
-                job=job,
-                detection_backend=detection_backend,
-                analysis_profile=analysis_profile,
-                use_pass_architecture=True,
-                pass_toggles={},
-                # Concrete per-pass model names (incl. the allocated Pass 2f model)
-                # so run.model_overrides and model_routing reflect what actually ran.
-                model_overrides=filtered_overrides,
-                gpt_config=gpt5_config,
-                issue_catalog=catalog,
-                vlm_client=vlm_client,
-                reasoning_efforts=filtered_reasoning_efforts,
-                timing_recorder=phase_timings,
-            )
+            if fatal_error is None:
+                photo_intel_path = write_photo_intel(
+                    cfg=cfg,
+                    job=job,
+                    detection_backend=detection_backend,
+                    analysis_profile=analysis_profile,
+                    use_pass_architecture=True,
+                    # Resolved toggles, not {} — the artifact must record which
+                    # passes actually ran.
+                    pass_toggles=options.toggles.to_dict(),
+                    # Concrete per-pass model names (incl. the allocated Pass 2f model)
+                    # so run.model_overrides and model_routing reflect what actually ran.
+                    model_overrides=filtered_overrides,
+                    gpt_config=gpt5_config,
+                    issue_catalog=catalog,
+                    vlm_client=vlm_client,
+                    reasoning_efforts=filtered_reasoning_efforts,
+                    timing_recorder=phase_timings,
+                    dependency_status={"embeddings": "ready"},
+                )
         except Pass2fModelUnavailable as exc:
             # Pass 2f is OpenAI-only. Fail the job rather than silently degrade to
             # Qwen. Leave the checkpoint intact so a fixed-config retry can resume.

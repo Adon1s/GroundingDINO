@@ -563,3 +563,69 @@ class CatalogEmbeddingsRetriever:
             allowed_kinds=self._upgrade_kinds,
             allowed_groups=allowed_groups,
         )
+
+
+def build_candidate_provider(catalog: Dict[str, Any]) -> Any:
+    """
+    Build the Pass 2d candidate provider backed by the embeddings sidecar.
+
+    Deliberately has no exception handling. The encoder is fail-fast by design
+    (max_retries=0, catalog embedding at construction doubles as an availability
+    and output-shape probe), and callers must let EmbeddingsRuntimeError reach
+    their preflight. Swallowing it yields a run that resolves zero catalog items
+    and reports success -- the exact failure this contract exists to prevent.
+
+    Callers that intend to run without Pass 2d must skip this entirely rather
+    than tolerate a failure from it.
+    """
+    from dataclasses import asdict
+
+    from tools import pipeline_config as cfg
+    from tools.scene_classifier_passes import prioritize_resolution_candidates
+
+    retriever = CatalogEmbeddingsRetriever(
+        catalog_v2=catalog,
+        model_name=getattr(cfg, "EMBEDDINGS_MODEL_NAME", "sentence-transformers/all-MiniLM-L6-v2"),
+        device=getattr(cfg, "EMBEDDINGS_DEVICE", "cpu"),
+        trust_remote_code=getattr(cfg, "EMBEDDINGS_TRUST_REMOTE_CODE", False),
+        default_topk=getattr(cfg, "EMBEDDINGS_TOPK", 10),
+        guardrails=build_guardrails_from_catalog(catalog),
+        backend=getattr(cfg, "EMBEDDINGS_BACKEND", "openai_compatible"),
+        base_url=getattr(cfg, "EMBEDDINGS_BASE_URL", "http://127.0.0.1:8081/v1"),
+        st_model_name=getattr(cfg, "EMBEDDINGS_ST_MODEL_NAME", "jinaai/jina-embeddings-v3"),
+        embedding_dimension=getattr(cfg, "EMBEDDINGS_DIMENSION", 1024),
+    )
+
+    def candidate_provider(observation_text: str, context: dict) -> list:
+        kind = (context.get("kind") or "").strip().lower()
+        topk = context.get("top_k_candidates")
+        scene_group = context.get("scene_group")
+        allowed_groups = {scene_group} if scene_group else None
+        allowed_kinds_ctx = context.get("allowed_kinds")
+        if allowed_kinds_ctx:
+            allowed_kinds = {
+                str(k).strip().lower()
+                for k in allowed_kinds_ctx
+                if str(k).strip().lower() in {"defect", "upgrade"}
+            }
+        else:
+            allowed_kinds = {kind} if kind in ("defect", "upgrade") else None
+        widened_routing = bool(allowed_kinds and len(allowed_kinds) > 1)
+        requested_topk = topk
+        if widened_routing and topk:
+            requested_topk = max(int(topk), int(topk) * 2)
+        matches = retriever.retrieve_candidates(
+            observation_text,
+            topk=requested_topk,
+            allowed_kinds=allowed_kinds,
+            allowed_groups=allowed_groups,
+        )
+        cands = [asdict(m) for m in matches]
+        return prioritize_resolution_candidates(cands, widened_routing=widened_routing)
+
+    logger.info(
+        "Pass 2d candidate_provider ready (model=%s, items=%d)",
+        retriever.model_name,
+        len(retriever._items),
+    )
+    return candidate_provider

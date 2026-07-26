@@ -36,6 +36,20 @@ from tools.scene_classifier_service import scene_classifier_payload
 logger = logging.getLogger(__name__)
 
 
+def _write_json_atomic(path: Path, payload: Any) -> None:
+    """
+    Write JSON via a temp file + os.replace.
+
+    Artifact "promotion" is implicit newest-run-wins, so a crash mid-write would
+    leave a truncated photo_intel.json that consumers treat as the latest good
+    run. Same pattern as _save_image_checkpoint / _patch_audit_meta.
+    """
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2, ensure_ascii=False)
+    os.replace(tmp, path)
+
+
 def _strip_pass_2f_audit_rationale(renovation_estimate: Any) -> None:
     """Remove debug-only Pass 2f audit fields from frontend-facing payloads."""
     if not isinstance(renovation_estimate, dict):
@@ -402,6 +416,7 @@ def write_photo_intel(
     pass_2f_provider: str = "premium",
     reasoning_efforts: Optional[Dict[str, str]] = None,
     timing_recorder: Optional[Dict[str, Any]] = None,
+    dependency_status: Optional[Dict[str, str]] = None,
 ) -> Path:
     """Persist per-photo intelligence (including scene classifier fields)."""
     created_at = datetime.utcnow().isoformat() + "Z"
@@ -586,6 +601,10 @@ def write_photo_intel(
             "is_staged": payload.get("is_staged"),
             "processing_time": res.processing_time,
             "error": res.error,
+            # Deliberately at photo top level, not under "debug" (which is stripped
+            # from the slim artifact): a reader must be able to tell "2d: skipped"
+            # from "2d: executed" from "2d: failed" without the debug file.
+            "pass_states": payload.get("pass_states", {}),
             "trace": trace,
             "debug": {
                 "labeled_debug":   safe_list(payload.get("labeled_debug")),
@@ -714,6 +733,10 @@ def write_photo_intel(
             "pass_toggles":        pass_toggles if pass_toggles else None,
             "model_overrides":     model_overrides if model_overrides else None,
             "reasoning_efforts":   reasoning_efforts if reasoning_efforts else None,
+            # Health of required external dependencies. Without this, a run with
+            # Pass 2d intentionally disabled is indistinguishable in the artifact
+            # from a run where 2d found nothing.
+            "dependency_status":   dependency_status if dependency_status else None,
             # Default/base model configuration. With per-pass overrides in play,
             # individual passes may use different models — see top-level
             # `model_routing` array for the per-pass ground truth. These two fields
@@ -822,15 +845,20 @@ def write_photo_intel(
                 f"vlm_client={bool(vlm_client)}. Set OPENAI_MODEL / OPENAI_API_KEY, "
                 "provide a 2f model in the model-map, or disable pass 2f."
             )
-        pass_2f_model_config = {
-            **(gpt_config or {}),
-            "model": pass_2f_model_name,
-            "provider": "openai",
-            "api_key": pass_2f_api_key,
-        }
-        pass_2f_reasoning_effort = (reasoning_efforts or {}).get("2f")
-        if pass_2f_reasoning_effort:
-            pass_2f_model_config["reasoning_effort"] = pass_2f_reasoning_effort
+        # Route 2f through the same policy resolver the orchestrator passes use.
+        # 2f does not go through the orchestrator, so without this it would fall
+        # back to VLMClient.default_max_tokens with no way to configure it.
+        from tools.pass_config import resolve_openai_invocation
+        pass_2f_model_config = resolve_openai_invocation(
+            "2f",
+            {
+                **(gpt_config or {}),
+                "model": pass_2f_model_name,
+                "provider": "openai",
+                "api_key": pass_2f_api_key,
+            },
+            (reasoning_efforts or {}).get("2f"),
+        )
 
     # -- Compute renovation estimate (primary cost estimation engine) -------------
     v4_est = None
@@ -864,6 +892,10 @@ def write_photo_intel(
                 if pass_2f_model_config.get("reasoning_effort") is not None:
                     routing_entry["reasoning_effort"] = str(
                         pass_2f_model_config["reasoning_effort"]
+                    )
+                if pass_2f_model_config.get("max_output_tokens") is not None:
+                    routing_entry["max_output_tokens"] = int(
+                        pass_2f_model_config["max_output_tokens"]
                     )
                 photo_intel.setdefault("model_routing", []).append(routing_entry)
 
@@ -981,17 +1013,18 @@ def write_photo_intel(
 
     # -- Write full debug file first (all pass outputs, intermediates, timings) --
     debug_path = output_path.parent / "photo_intel_debug.json"
-    with open(debug_path, "w", encoding="utf-8") as f:
-        json.dump(photo_intel, f, indent=2, ensure_ascii=False)
+    _write_json_atomic(debug_path, photo_intel)
     logger.info(f"Photo intel debug saved to: {debug_path}")
 
     # -- Build slim version for frontend consumption ----------------------------
     slim = copy.deepcopy(photo_intel)
 
-    # Strip run-level config fields the frontend doesn't read
+    # Strip run-level config fields the frontend doesn't read.
+    # pass_toggles is deliberately NOT stripped: a run with a pass disabled must
+    # be distinguishable from a run where that pass found nothing.
     _run = slim.get("run")
     if isinstance(_run, dict):
-        for _k in ("pass_toggles", "model_overrides", "used_pass_architecture",
+        for _k in ("model_overrides", "used_pass_architecture",
                     "model", "gpt_model", "default_local_model", "default_gpt_model"):
             _run.pop(_k, None)
 
@@ -1032,16 +1065,14 @@ def write_photo_intel(
                     if k in _FRONTEND_PASS_KEYS
                 }
 
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(slim, f, indent=2, ensure_ascii=False)
+    _write_json_atomic(output_path, slim)
     logger.info(f"Photo intel (slim) saved to: {output_path}")
 
     # -- Write summary_v1 to standalone property_summary.json -------------------
     if photo_intel.get("summary_v1") is not None:
         try:
             summary_path = output_path.parent / "property_summary.json"
-            with open(summary_path, "w", encoding="utf-8") as f:
-                json.dump(photo_intel["summary_v1"], f, indent=2, ensure_ascii=False)
+            _write_json_atomic(summary_path, photo_intel["summary_v1"])
             logger.info(f"Property summary (summary_v1) saved to: {summary_path}")
         except Exception as exc:
             logger.error(f"Failed to write property_summary.json: {exc}", exc_info=True)
