@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple, Set
 import logging
 import numpy as np
 
-from tools.pipeline_common import SCENE_GROUPS_UI
+from tools.pipeline_common import SCENE_GROUPS_UI, term_matches
 
 logger = logging.getLogger(__name__)
 
@@ -444,10 +444,10 @@ class CatalogEmbeddingsRetriever:
             return True
         t = text.lower()
         deny = g.get("deny_any", [])
-        if deny and any(x in t for x in deny):
+        if deny and any(term_matches(x, t) for x in deny):
             return False
         require = g.get("require_any", [])
-        if require and not any(x in t for x in require):
+        if require and not any(term_matches(x, t) for x in require):
             return False
         return True
 

@@ -908,7 +908,8 @@
         "damaged",
         "dated",
         "worn",
-        "water stain"
+        "water stain",
+        "outdated"
       ],
       "deny_any": [],
       "embed_text": "Damaged or outdated cabinets. Worn or dated cabinetry, damaged doors/drawers. Cabinet repair, refinish, or replacement.",
@@ -1159,7 +1160,8 @@
         "toilet",
         "stained",
         "chipped enamel",
-        "worn"
+        "worn",
+        "bathtub"
       ],
       "deny_any": [],
       "embed_text": "Stained or damaged bath fixtures. Worn finishes, staining, chipped enamel. Shower pan or base perimeter grime, staining at floor edges, worn bath enclosure edges. Fixture update or replacement.",
@@ -1783,7 +1785,8 @@
         "old fixture",
         "ceiling fan",
         "brass",
-        "builder grade"
+        "builder grade",
+        "outdated light"
       ],
       "deny_any": [],
       "embed_text": "Outdated lighting fixtures. Older, builder-grade, ornate, fluorescent, or visibly dated ceiling lights, fans, chandeliers, or sconces. Replace fixtures to modernize the space.",
@@ -1942,7 +1945,8 @@
         "patchy",
         "sparse",
         "lawn",
-        "grass"
+        "grass",
+        "backyard"
       ],
       "deny_any": [],
       "embed_text": "Landscape improvement. Yard cleanup, trimming, debris removal, refresh for curb appeal. Dirt or debris buildup around exterior areas, general site cleanup needed. Patchy, sparse, or bare lawn, thin turf, dormant grass areas needing overseeding or sod.",
@@ -2160,7 +2164,8 @@
         "stained",
         "dent",
         "dented",
-        "dings"
+        "dings",
+        "drywall"
       ],
       "deny_any": [
         "mold",
@@ -2429,7 +2434,8 @@
         "old tile",
         "retro tile",
         "tile pattern",
-        "vintage pattern"
+        "vintage pattern",
+        "outdated tile"
       ],
       "deny_any": [
         "cracked tile",
@@ -2581,7 +2587,8 @@
         "shower surround",
         "cracked tub",
         "chipped tub",
-        "damaged shower"
+        "damaged shower",
+        "bathtub"
       ],
       "deny_any": [],
       "embed_text": "Tub surround or shower pan damage. Cracked fiberglass tub, chipped enamel surface, separated tub surround panels, damaged shower base or pan, deteriorated shower walls, broken or warped shower kit. Tub or shower replacement or repair to restore waterproof envelope.",
@@ -3172,7 +3179,8 @@
         "bathroom",
         "tub",
         "shower",
-        "vanity"
+        "vanity",
+        "bathtub"
       ]
     },
     {
@@ -3432,7 +3440,8 @@
         "dated wallpaper",
         "busy wallpaper",
         "old wallpaper",
-        "patterned wallpaper"
+        "patterned wallpaper",
+        "outdated wallpaper"
       ],
       "deny_any": [
         "peeling paint",
@@ -3623,7 +3632,8 @@
         "overall decor",
         "dated style",
         "old-fashioned",
-        "tired decor"
+        "tired decor",
+        "outdated style"
       ],
       "deny_any": [
         "leaking",
@@ -3878,7 +3888,8 @@
         "rusted metal",
         "rust along seams",
         "metal roof seam",
-        "oxidation"
+        "oxidation",
+        "undercarport"
       ],
       "deny_any": [
         "roof shingle",
@@ -3899,7 +3910,8 @@
         "mode": "heuristic"
       },
       "require_any": [
-        "carport"
+        "carport",
+        "undercarport"
       ]
     },
     {
@@ -4610,7 +4622,8 @@
         "scuffed",
         "debris",
         "soiled",
-        "faded"
+        "faded",
+        "outdated"
       ],
       "deny_any": [
         "trip",
@@ -4715,7 +4728,8 @@
         "receptacle",
         "cover plate",
         "dated outlet",
-        "old switch"
+        "old switch",
+        "outdated outlet"
       ],
       "deny_any": [
         "exposed wire",
@@ -4815,7 +4829,8 @@
         "hardware",
         "knob",
         "lockset",
-        "deadbolt"
+        "deadbolt",
+        "doorknob"
       ],
       "embed_text": "Dated or basic interior doors. Hollow-core six-panel doors, basic builder-grade interior doors, dated wood interior doors, older painted interior doors, louvered closet doors, dated bifold closet doors, mismatched interior door styles, basic panel doors. Door replacement opportunity, not just hardware.",
       "kind": "upgrade",
@@ -4876,7 +4891,8 @@
         "lockset",
         "deadbolt",
         "lever",
-        "garage door"
+        "garage door",
+        "doorknob"
       ],
       "embed_text": "Dated entry or patio door. Front, storm, sliding glass, double, or patio door unit appears aged, worn, builder-grade, or stylistically dated. Door replacement opportunity, not just hardware.",
       "kind": "upgrade",
@@ -5043,7 +5059,9 @@
         "paint",
         "wall",
         "walls",
-        "ceiling"
+        "ceiling",
+        "drywall",
+        "repaint"
       ],
       "deny_any": [
         "peeling",

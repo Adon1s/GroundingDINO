@@ -20,7 +20,7 @@ Pass 2f: Visual package verification (multi-image; per-room prompts for
 """
 
 from tools.llm_json import extract_json_object
-from tools.pipeline_common import PASS_1A_SCENE_IDS, normalize_scene_id
+from tools.pipeline_common import PASS_1A_SCENE_IDS, normalize_scene_id, term_matches
 import hashlib
 import json
 import logging
@@ -103,10 +103,35 @@ _DIM_RE = re.compile(
 )
 
 
+# An overlay is a dimension plus a room name and nothing else. Anything longer
+# is a real observation that merely cites a size ("cracked 12 x 12 floor tiles").
+_DIM_OVERLAY_MAX_RESIDUE_CHARS = 15
+_DIM_OVERLAY_MAX_RESIDUE_WORDS = 2
+
+
+def _is_dimension_overlay(desc: str) -> bool:
+    """True only when the description is essentially *just* a dimension string.
+
+    Presence of a dimension is not enough: tile and framing sizes ("dated 4 x 4
+    tile backsplash", "water stain near the 2 x 4 framing") are real findings,
+    and dropping them here is silent because it happens before labeled_forward.
+    Two guards: what remains after removing the dimension must be short, and
+    concrete damage language always wins — overlays say "12' x 10'", never
+    "12' x 10' with water damage".
+    """
+    if not _DIM_RE.search(desc):
+        return False
+    if _has_high_signal_damage(desc.lower()):
+        return False
+    residue = " ".join(_DIM_RE.sub(" ", desc).split())
+    return (len(residue) <= _DIM_OVERLAY_MAX_RESIDUE_CHARS
+            or len(residue.split()) <= _DIM_OVERLAY_MAX_RESIDUE_WORDS)
+
+
 def force_other_if_dimensions(labeled: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """
-    Force label to 'other' for any observation whose description contains
-    a room-dimension string (e.g. "12'6 x 10'", "14 x 12", "10'x8'6\"").
+    Force label to 'other' for any observation that is a room-dimension overlay
+    (e.g. "Primary Bedroom 12'6 x 10'", "Living Room 14 x 12").
 
     MLS floorplan overlay text frequently gets OCR'd into photo descriptions.
     These are measurement artefacts, not real observations, and should never
@@ -117,7 +142,7 @@ def force_other_if_dimensions(labeled: List[Dict[str, Any]]) -> List[Dict[str, A
         desc = str(x.get("description") or "").strip()
         if not desc:
             continue
-        if _DIM_RE.search(desc) and x.get("label") in {"defect_or_damage", "upgrade_candidate"}:
+        if _is_dimension_overlay(desc) and x.get("label") in {"defect_or_damage", "upgrade_candidate"}:
             logger.debug(f"Pass 2c: Forcing label=other (dimension string) → {desc!r}")
             x2 = dict(x)
             x2["label"] = "other"
@@ -242,7 +267,7 @@ def _normalize_signal_text(text: str) -> str:
 def _collect_signal_hits(text_lower: str, patterns: Tuple[Tuple[str, str], ...]) -> Tuple[str, ...]:
     hits: List[str] = []
     for needle, canonical in patterns:
-        if re.search(r"\b" + re.escape(needle), text_lower):
+        if term_matches(needle, text_lower):
             hits.append(canonical)
     return _ordered_unique(hits)
 
@@ -1127,7 +1152,7 @@ def _resolve_candidate_via_lexical_shortcut(
 
     observation_lower = _normalize_signal_text(observation)
     support_terms = _candidate_support_terms(top_candidate)
-    if any(phrase and phrase in observation_lower for phrase in support_terms):
+    if any(term_matches(phrase, observation_lower) for phrase in support_terms):
         resolved_id = _candidate_item_id(top_candidate)
         return resolved_id, _resolved_kind_for_candidate(top_candidate, kind), "support_phrase_hit"
 
@@ -1381,10 +1406,7 @@ def _has_high_signal_damage(desc_lower: str) -> bool:
     Uses word-boundary prefix matching so "deteriorat" catches
     "deteriorated" and "deteriorating", etc.
     """
-    for token in _HIGH_SIGNAL_DAMAGE_TOKENS:
-        if re.search(r"\b" + re.escape(token), desc_lower):
-            return True
-    return False
+    return any(term_matches(token, desc_lower) for token in _HIGH_SIGNAL_DAMAGE_TOKENS)
 
 
 def _2e_policy_reason(

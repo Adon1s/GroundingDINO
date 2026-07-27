@@ -7,8 +7,10 @@ scene_classifier_service).
 from __future__ import annotations
 
 import hashlib
+import re
 from dataclasses import dataclass
-from typing import Any, Dict, FrozenSet, List, Optional, Tuple
+from functools import lru_cache
+from typing import Any, Dict, FrozenSet, List, Optional, Pattern, Tuple
 
 
 # =============================================================================
@@ -197,3 +199,32 @@ def maybe_backfill_planner_hints(cfg: Any, scene: str, planner_hints: Optional[D
 def safe_list(x) -> List[Any]:
     """Ensure x is a list."""
     return x if isinstance(x, list) else []
+
+
+# =============================================================================
+# Lexical term matching
+# -----------------------------------------------------------------------------
+# Single matcher for every catalog keyword list (deny_any / require_any /
+# support_any) and for the routing/damage token tables in the pass code.
+# Raw substring containment used to fire on cross-word collisions — "ding"
+# inside "siding", "aged" inside "damaged", "rat" inside "discoloration" —
+# which both blocked and force-resolved items that had nothing to do with the
+# observation.
+# =============================================================================
+
+@lru_cache(maxsize=4096)
+def _term_pattern(term: str) -> Pattern[str]:
+    return re.compile(r"\b" + re.escape(term))
+
+
+def term_matches(term: str, text_lower: str) -> bool:
+    """Word-start anchored containment for a lowercased term against lowered text.
+
+    Leading \\b only, so terms stay authorable as stems: "stain" still covers
+    "stained"/"stains" and "deteriorat" covers "deteriorating", while "ding" no
+    longer fires inside "siding". Multi-word phrases work unchanged because
+    re.escape preserves internal spaces. Patterns compile once per term.
+    """
+    if not term:
+        return False
+    return _term_pattern(term).search(text_lower) is not None

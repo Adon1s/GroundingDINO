@@ -144,3 +144,5 @@ grounding/version.py
 
 vis/
 tmp/
+# Benchmark run outputs. Datasets and accepted baselines are versioned; runs are not.
+benchmark-results/
