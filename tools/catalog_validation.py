@@ -27,7 +27,7 @@ from typing import Any, Dict, List, get_args
 
 from tools.catalog_cost_model import LINE_ITEM, ROOM_ALLOWANCE
 from tools.estimate_scope import VALID_ESTIMATE_SCOPES
-from tools.pipeline_common import SCENE_GROUPS_UI
+from tools.pipeline_common import SCENE_GROUPS_UI, TERM_WHOLE_WORD_MARKER
 from tools.rehab_packages import (
     PACKAGE_ROLE_DRIVER,
     PACKAGE_ROLE_IGNORE,
@@ -356,6 +356,17 @@ def _validate_field_types(item: Dict[str, Any], label: str,
     for field_name in _LIST_FIELDS:
         if field_name in item and not isinstance(item[field_name], list):
             result.errors.append(f"{label}: {field_name} must be a list")
+            continue
+        for term in item.get(field_name) or []:
+            # "$" opts a term in to a trailing word boundary (term_matches).
+            # It is only meaningful as the final character, and a lone "$"
+            # never matches — both are authoring typos, not intent.
+            text = str(term)
+            if TERM_WHOLE_WORD_MARKER in text[:-1] or text == TERM_WHOLE_WORD_MARKER:
+                result.errors.append(
+                    f"{label}: {field_name} term {text!r} may only carry "
+                    f"'{TERM_WHOLE_WORD_MARKER}' as a trailing whole-word marker"
+                )
 
 
 def _is_affinity_driver(item: Dict[str, Any]) -> bool:

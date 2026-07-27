@@ -53,7 +53,7 @@ from scene_classifier_passes import (
 from llm_json import extract_json_object
 # Package-qualified on purpose: a bare `from pipeline_common import ...` would
 # bind a second module object distinct from tools.pipeline_common.
-from tools.pipeline_common import SCENE_TO_GROUP_UI
+from tools.pipeline_common import SCENE_TO_GROUP_UI, strip_term_marker
 
 logger = logging.getLogger("catalog_auditor")
 
@@ -1162,7 +1162,10 @@ def _synthesize_report(
             "catalog_id": cid,
             "improvement_type": entries[0]["improvement_type"],
             "current_embed_text": item.get("embed_text", ""),
-            "current_keywords": item.get("support_any", []) + item.get("require_any", []),
+            "current_keywords": [
+                strip_term_marker(str(k))
+                for k in item.get("support_any", []) + item.get("require_any", [])
+            ],
             "suggested_fixes": [e.get("suggested_fix") for e in entries if e.get("suggested_fix")],
             "evidence_observations": [e["description"] for e in entries],
             "reason": entries[0].get("notes", ""),

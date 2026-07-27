@@ -210,10 +210,34 @@ def safe_list(x) -> List[Any]:
 # inside "siding", "aged" inside "damaged", "rat" inside "discoloration" —
 # which both blocked and force-resolved items that had nothing to do with the
 # observation.
+#
+# Leading \b alone cannot stop a term matching a longer word it *prefixes*, and
+# a global trailing \b is not an option: it drops require_any to zero for ~12
+# items whose terms are singular stems, and "stain" alone falls 616 -> 10
+# corpus hits. So the trailing boundary is opt-in per term, authored in the
+# data as a trailing "$" — the catalog stays authoritative and the matcher
+# stays dumb. Used today by "mold$" (else "crown molding" reads as mold in half
+# the corpus hits), "wall$" ("wallpaper"), "tub$" ("tube") and "rat$"
+# ("rather"). See docs/HANDOFF_catalog_term_hygiene.md.
 # =============================================================================
+
+TERM_WHOLE_WORD_MARKER = "$"
+
+
+def strip_term_marker(term: str) -> str:
+    """Return the human-readable term, without its whole-word marker.
+
+    Use anywhere a raw keyword is rendered for a person or a model — prompts,
+    reports — so the marker never leaks out of the matching layer.
+    """
+    text = str(term or "")
+    return text[:-1] if text.endswith(TERM_WHOLE_WORD_MARKER) else text
+
 
 @lru_cache(maxsize=4096)
 def _term_pattern(term: str) -> Pattern[str]:
+    if term.endswith(TERM_WHOLE_WORD_MARKER):
+        return re.compile(r"\b" + re.escape(term[:-1]) + r"\b")
     return re.compile(r"\b" + re.escape(term))
 
 
@@ -222,9 +246,11 @@ def term_matches(term: str, text_lower: str) -> bool:
 
     Leading \\b only, so terms stay authorable as stems: "stain" still covers
     "stained"/"stains" and "deteriorat" covers "deteriorating", while "ding" no
-    longer fires inside "siding". Multi-word phrases work unchanged because
-    re.escape preserves internal spaces. Patterns compile once per term.
+    longer fires inside "siding". A term ending in "$" opts in to a trailing
+    \\b as well, for stems whose prefix extensions are a different concept.
+    Multi-word phrases work unchanged because re.escape preserves internal
+    spaces. Patterns compile once per term.
     """
-    if not term:
+    if not term or term == TERM_WHOLE_WORD_MARKER:
         return False
     return _term_pattern(term).search(text_lower) is not None

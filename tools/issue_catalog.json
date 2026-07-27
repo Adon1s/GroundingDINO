@@ -203,7 +203,7 @@
       "work_item_code": "MOISTURE_REMEDIATION",
       "description": "Dark, fuzzy, or patchy growth on surfaces indicative of active or past moisture problems.",
       "support_any": [
-        "mold",
+        "mold$",
         "mildew",
         "fungus",
         "black spots",
@@ -1155,7 +1155,7 @@
       "work_item_code": "FIXTURES_UPDATE",
       "description": "Tubs/showers/toilets with heavy staining, chipped enamel, or worn finishes.",
       "support_any": [
-        "tub",
+        "tub$",
         "shower",
         "toilet",
         "stained",
@@ -1431,7 +1431,7 @@
         "pest",
         "rodent",
         "mouse",
-        "rat",
+        "rat$",
         "insect",
         "droppings",
         "nest",
@@ -1601,7 +1601,10 @@
         "vine",
         "vines",
         "ivy",
-        "climbing vegetation"
+        "climbing vegetation",
+        "shrub",
+        "bush",
+        "hedge"
       ]
     },
     {
@@ -2155,7 +2158,7 @@
       "work_item_code": "DRYWALL_PATCH",
       "description": "Walls show visible scuffs, stains, dents, or minor damage indicating heavy use or deferred maintenance.",
       "support_any": [
-        "wall",
+        "wall$",
         "walls",
         "scuff",
         "scuffed",
@@ -2168,7 +2171,7 @@
         "drywall"
       ],
       "deny_any": [
-        "mold",
+        "mold$",
         "mildew",
         "water stain"
       ],
@@ -2580,7 +2583,7 @@
       "work_item_code": "TUB_SHOWER_REPAIR",
       "description": "Cracked, chipped, or visibly damaged tub surround, shower pan, or shower base allowing potential moisture intrusion.",
       "support_any": [
-        "tub",
+        "tub$",
         "shower",
         "shower pan",
         "tub surround",
@@ -2798,7 +2801,7 @@
       "work_item_code": "MOISTURE_REMEDIATION",
       "description": "Visible mold or mildew growth in bathroom on tile, grout, caulk, ceiling, or drywall, suggesting persistent moisture or ventilation issues.",
       "support_any": [
-        "mold",
+        "mold$",
         "mildew",
         "black spots",
         "bathroom mold",
@@ -3177,7 +3180,7 @@
       },
       "require_any": [
         "bathroom",
-        "tub",
+        "tub$",
         "shower",
         "vanity",
         "bathtub"
@@ -3445,7 +3448,7 @@
       ],
       "deny_any": [
         "peeling paint",
-        "mold"
+        "mold$"
       ],
       "embed_text": "Dated wallpaper present. Old/patterned wallpaper. Remove and repaint walls.",
       "kind": "upgrade",
@@ -3637,7 +3640,7 @@
       ],
       "deny_any": [
         "leaking",
-        "mold"
+        "mold$"
       ],
       "embed_text": "Overall decor style appears dated. Multiple visible finishes, fixtures, trim, doors, built-ins, or decor choices read as older or stylistically tired. Targeted cosmetic modernization may improve appeal.",
       "kind": "upgrade",
@@ -4094,7 +4097,8 @@
         "compartmentalized",
         "closed floor plan",
         "choppy layout",
-        "cramped layout"
+        "cramped layout",
+        "layout"
       ],
       "display_class": "marketability",
       "package_role": "ignore"
@@ -4727,7 +4731,6 @@
         "switch",
         "receptacle",
         "cover plate",
-        "dated outlet",
         "old switch",
         "outdated outlet"
       ],
@@ -5057,7 +5060,7 @@
       ],
       "require_any": [
         "paint",
-        "wall",
+        "wall$",
         "walls",
         "ceiling",
         "drywall",
@@ -5069,7 +5072,7 @@
         "damaged",
         "stained",
         "stain",
-        "mold",
+        "mold$",
         "mildew"
       ],
       "embed_text": "Bathroom paint refresh recommended. Dated paint colors, dull or worn finish, beige or tan walls in need of a contemporary refresh. Wall paint refresh without underlying damage. Bathroom paint update.",

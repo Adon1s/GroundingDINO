@@ -20,7 +20,12 @@ Pass 2f: Visual package verification (multi-image; per-room prompts for
 """
 
 from tools.llm_json import extract_json_object
-from tools.pipeline_common import PASS_1A_SCENE_IDS, normalize_scene_id, term_matches
+from tools.pipeline_common import (
+    PASS_1A_SCENE_IDS,
+    normalize_scene_id,
+    strip_term_marker,
+    term_matches,
+)
 import hashlib
 import json
 import logging
@@ -1087,7 +1092,7 @@ def format_candidates_text(candidates: List[Dict[str, Any]]) -> str:
         support_any = c.get("support_any") or []
         if isinstance(support_any, str):
             support_any = [support_any]
-        support_text = ", ".join(str(x).strip() for x in support_any[:6] if str(x).strip())
+        support_text = ", ".join(strip_term_marker(str(x).strip()) for x in support_any[:6] if str(x).strip())
 
         parts = [f"- {item_id}", f"name={name}", f"trade={trade}", f"kind={kind}"]
         if desc:
@@ -1113,7 +1118,7 @@ def _candidate_name_and_support_signal_terms(candidate: Dict[str, Any]) -> Tuple
     raw_support = candidate.get("support_any") or []
     if isinstance(raw_support, str):
         raw_support = [raw_support]
-    support_text = " ".join(str(x).strip() for x in raw_support if str(x).strip())
+    support_text = " ".join(strip_term_marker(str(x).strip()) for x in raw_support if str(x).strip())
     signal_text = " ".join(filter(None, [str(candidate.get("name") or "").strip(), support_text]))
     return _extract_component_terms(signal_text), _extract_condition_terms(signal_text)
 
