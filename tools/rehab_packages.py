@@ -309,6 +309,20 @@ ACTIVE_PACKAGE_STATUSES = frozenset({
     PACKAGE_VERIFICATION_CONFIRMED_BY_RULE,
 })
 
+# 2f prompt versions whose per-issue lists are a judgment independent of the
+# package verdict. Anything older — or with no recorded version — only ranked
+# package sufficiency, so its confirmed ids cannot revive a line item out of a
+# rejected package. Add a version here when its prompt asks for both judgments.
+PASS_2F_ISSUE_INDEPENDENT_PROMPT_VERSIONS = frozenset({"pass_2f_package_v2"})
+
+
+def _issue_verdicts_are_independent(package: Dict[str, Any]) -> bool:
+    return (
+        str(package.get("prompt_template_version") or "")
+        in PASS_2F_ISSUE_INDEPENDENT_PROMPT_VERSIONS
+    )
+
+
 _PACKAGE_ABSORPTION_SCOPES: Dict[str, Dict[str, Any]] = {
     "kitchen_minor_repair": {
         "family": "kitchen",
@@ -990,16 +1004,19 @@ def compute_package_strength(
         return PACKAGE_STRENGTH_STRONG
 
     distinct_driver_ids = {c.catalog_item_id for c in drivers if c.catalog_item_id}
+    # Repeat observations of one support in one billable room corroborate; they
+    # are not two supports. Breadth is what the thresholds below are asking for.
+    distinct_supports = _distinct_billable_items(supports)
     if len(distinct_driver_ids) >= 2:
         return PACKAGE_STRENGTH_STRONG
-    if drivers and len(supports) >= 2:
+    if drivers and len(distinct_supports) >= 2:
         return PACKAGE_STRENGTH_STRONG
 
     if drivers:
         # Any catalog-tagged driver — even alone — meets the moderate bar.
         # Isolated supports do not, to honor the user's "weak signal" rule.
         return PACKAGE_STRENGTH_MODERATE
-    if len(supports) >= 2:
+    if len(distinct_supports) >= 2:
         return PACKAGE_STRENGTH_MODERATE
 
     return PACKAGE_STRENGTH_WEAK
@@ -1203,6 +1220,28 @@ def _candidate_unit_id(candidate: EstimateCandidate) -> str:
         getattr(candidate, "room_surrogate_id", "") or
         "property"
     )
+
+
+def _distinct_billable_items(
+    candidates: List[EstimateCandidate],
+) -> List[EstimateCandidate]:
+    """One entry per (billable unit, catalog item).
+
+    The same condition seen across several room surrogates that resolve to one
+    billable room is repeated EVIDENCE, not repeated work: it must not multiply
+    cost or widen scope. Distinct catalog items still add scope; a genuinely
+    second physical room is handled by package expansion, which clones and
+    re-prices per surrogate.
+    """
+    out: List[EstimateCandidate] = []
+    seen: set = set()
+    for candidate in candidates or []:
+        key = (_candidate_unit_id(candidate), candidate.catalog_item_id or "")
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(candidate)
+    return out
 
 
 def _source_room_ids_for_unit(
@@ -1439,7 +1478,7 @@ def _resolve_kitchen_turnover_profile(
     if "flooring" in components and "paint" in components:
         notes.append("paint_plus_flooring")
         return KITCHEN_TURNOVER_STD, "turnover_std", notes
-    if len(evidence) >= 3:
+    if len(_distinct_billable_items(evidence)) >= 3:
         notes.append("multi_signal_turnover")
         return KITCHEN_TURNOVER_STD, "turnover_std", notes
     notes.append("light_turnover_default")
@@ -1521,7 +1560,7 @@ def _resolve_bathroom_turnover_profile(
     if "flooring" in components and "paint" in components:
         notes.append("paint_plus_flooring")
         return BATHROOM_TURNOVER_STD, "turnover_std", notes
-    if len(evidence) >= 3:
+    if len(_distinct_billable_items(evidence)) >= 3:
         notes.append("multi_signal_turnover")
         return BATHROOM_TURNOVER_STD, "turnover_std", notes
     notes.append("light_turnover_default")
@@ -1598,7 +1637,7 @@ def _resolve_room_turnover_profile(
     if "flooring" in components and "paint" in components:
         notes.append("paint_plus_flooring")
         return std_tier, "turnover_std", notes
-    if len(evidence) >= 3:
+    if len(_distinct_billable_items(evidence)) >= 3:
         notes.append("multi_signal_turnover")
         return std_tier, "turnover_std", notes
     notes.append("light_turnover_default")
@@ -1680,11 +1719,12 @@ def _absorbed_cost_estimate(
     """Sum the catalog base cost range for drivers being absorbed by a package.
 
     Used by tier-escalation logic. Drivers that lack a catalog entry contribute
-    zero rather than blowing up.
+    zero rather than blowing up. Counted once per (billable unit, catalog item)
+    so a more observant model cannot escalate the tier on photo count alone.
     """
     low = 0
     high = 0
-    for driver in drivers or []:
+    for driver in _distinct_billable_items(drivers):
         cat = catalog_lookup.get(driver.catalog_item_id or "") or {}
         cost = cat.get("cost") or {}
         try:
@@ -1988,7 +2028,7 @@ def infer_package_candidates(
             drivers = list(opportunity_drivers)
             supporting = drivers + supports
             trigger_reason = "opportunity_driver_with_multiphoto_corroboration"
-        elif len(non_ambient_supports) >= 2:
+        elif len(_distinct_billable_items(non_ambient_supports)) >= 2:
             drivers = []
             supporting = supports
             trigger_reason = "multiple_package_support_same_estimate_unit"
@@ -1997,22 +2037,29 @@ def infer_package_candidates(
             if suppressed_out is not None:
                 # Distinguish a bucket killed *because* its supports were
                 # demoted as ambient (would have emitted under the old
-                # len(supports) >= 2 rule) from a genuinely weak bucket.
+                # len(supports) >= 2 rule), or because they were repeat
+                # observations of ONE item, from a genuinely weak bucket.
                 demotion_caused = (
                     not opportunity_drivers
                     and len(supports) >= 2
                     and len(non_ambient_supports) < 2
                 )
+                duplicate_collapse = (
+                    not opportunity_drivers
+                    and not demotion_caused
+                    and len(non_ambient_supports) >= 2
+                )
+                reason = "weak_no_qualifying_pattern"
+                if demotion_caused:
+                    reason = "weak_after_ambient_support_demotion"
+                elif duplicate_collapse:
+                    reason = "weak_after_duplicate_evidence_collapse"
                 record = _build_suppressed_candidate_record(
                     unit_id=unit_id,
                     package_type=package_type,
                     drivers=opportunity_drivers,
                     supports=supports,
-                    reason=(
-                        "weak_after_ambient_support_demotion"
-                        if demotion_caused
-                        else "weak_no_qualifying_pattern"
-                    ),
+                    reason=reason,
                 )
                 if demotion_caused:
                     record["ambient_demoted_catalog_item_ids"] = sorted({
@@ -2151,9 +2198,26 @@ def _apply_verification_to_package(
         rejected_issue_ids = [
             issue_id for issue_id in rejected_issue_ids if str(issue_id) in reviewed_set
         ]
+    # Explicit rejection wins over explicit confirmation. Provided/cached
+    # verifications bypass _coerce_pass_2f entirely, so this is the common
+    # ingestion boundary where an id in both lists must be resolved: candidate
+    # gating, re-tier, and the disposition audit all read the normalized lists
+    # from here.
+    rejected_set = {str(issue_id) for issue_id in rejected_issue_ids}
+    confirmed_issue_ids = [
+        issue_id for issue_id in confirmed_issue_ids
+        if str(issue_id) not in rejected_set
+    ]
     pkg["confirmed_issue_ids"] = confirmed_issue_ids
     pkg["rejected_issue_ids"] = rejected_issue_ids
     pkg["reviewed_issue_ids"] = reviewed_issue_ids
+    # Which prompt produced this verdict gates whether its confirmed ids are an
+    # independent per-issue judgment (see _issue_verdicts_are_independent).
+    pkg["prompt_template_version"] = str(
+        verification.get("prompt_template_version")
+        or pkg.get("prompt_template_version")
+        or ""
+    )
     pkg["evidence_summary"] = str(verification.get("evidence_summary") or pkg.get("evidence_summary") or "")
     pkg["raw_pass_2f_response"] = verification.get("raw_response") or pkg.get("raw_pass_2f_response")
     pkg["review_photo_keys"] = list(verification.get("review_photo_keys") or pkg.get("review_photo_keys") or [])
@@ -3519,9 +3583,10 @@ def apply_package_verifications_to_candidates(
         candidate.visual_verification_status = status
         candidate.package_verification_source = f"pass_2f:{provider}" if status != PACKAGE_VERIFICATION_NOT_RUN else "pass_2f:not_run"
         candidate.review_source = candidate.package_verification_source
+        rejected_ids = {str(i) for i in (package.get("rejected_issue_ids") or [])}
+        confirmed_ids = {str(i) for i in (package.get("confirmed_issue_ids") or [])}
+        candidate_ids = {str(i) for i in (candidate.issue_ids or [])}
         if status in ACTIVE_PACKAGE_STATUSES:
-            rejected_ids = {str(i) for i in (package.get("rejected_issue_ids") or [])}
-            candidate_ids = {str(i) for i in (candidate.issue_ids or [])}
             if candidate_ids and rejected_ids and candidate_ids <= rejected_ids:
                 # Package survived review, but every issue behind THIS candidate
                 # was rejected — the candidate must not stay a valid detection.
@@ -3537,6 +3602,31 @@ def apply_package_verifications_to_candidates(
                 None if status == PACKAGE_VERIFICATION_CONFIRMED
                 else f"package_{status}"
             )
+        elif (
+            status != PACKAGE_VERIFICATION_NOT_RUN
+            and (candidate_ids & confirmed_ids)
+            and _issue_verdicts_are_independent(package)
+        ):
+            # Package sufficiency and issue visibility are independent verdicts.
+            # 2f rejected the BUNDLE but confirmed this issue is visibly there,
+            # so the line item survives standalone at its own catalog price —
+            # only the package's tier allowance dies. package_id is cleared so
+            # nothing tries to absorb it into a package that no longer exists.
+            # Gated on the prompt version: older verdicts only ranked package
+            # sufficiency, so their confirmed ids are not an issue-level review.
+            candidate.package_id = None
+            candidate.package_type = None
+            candidate.is_valid_detection = True
+            candidate.pass_2f_attempted = True
+            candidate.pass_2f_applied = True
+            # Stays None: the contract is "None when applied", and this issue IS
+            # applied. The package verdict lives in visual_verification_status
+            # and the pairing is spelled out in package_verification_source.
+            candidate.pass_2f_fallback_reason = None
+            candidate.package_verification_source = (
+                f"pass_2f:{provider}:issue_confirmed_package_{status}"
+            )
+            candidate.review_source = candidate.package_verification_source
         else:
             candidate.is_valid_detection = False
             candidate.pass_2f_attempted = status != PACKAGE_VERIFICATION_NOT_RUN
@@ -3872,6 +3962,9 @@ async def run_pass_2f_batch(
                 "review_photo_keys": image_keys,
                 "review_image_paths": image_paths,
                 "reviewed_issue_ids": [],
+                "prompt_template_version": prepared_input.get(
+                    "prompt_template_version"
+                ) or "",
             }
             continue
 
@@ -3918,6 +4011,11 @@ async def run_pass_2f_batch(
             "review_photo_keys": image_keys,
             "review_image_paths": [str(path) for path in image_paths],
             "reviewed_issue_ids": reviewed_issue_ids,
+            # Sourced from the frozen case, so the recorded version is always the
+            # prompt that actually produced this verdict.
+            "prompt_template_version": prepared_input.get(
+                "prompt_template_version"
+            ) or "",
         }
         if room == ROOM_BATHROOM:
             record["visible_room_count"] = result.visible_room_count

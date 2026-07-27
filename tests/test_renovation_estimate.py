@@ -1068,8 +1068,44 @@ class TestCoercePass2f:
             package_type="kitchen_modernization",
             valid_issue_ids={"issue_1", "issue_2"},
         )
-        assert result.confirmed_issue_ids == ["issue_1", "issue_2"]
+        # issue_2 sits in both lists: explicit rejection wins, so it survives
+        # only in rejected_issue_ids.
+        assert result.confirmed_issue_ids == ["issue_1"]
         assert result.rejected_issue_ids == ["issue_2"]
+
+    def test_explicit_rejection_wins_over_explicit_confirmation(self):
+        raw = {
+            "verification_status": "confirmed",
+            "confirmed_issue_ids": ["issue_1", "issue_2"],
+            "rejected_issue_ids": ["issue_2"],
+        }
+        result = _coerce_pass_2f(
+            raw,
+            package_id="pkg",
+            package_type="kitchen_modernization",
+            valid_issue_ids={"issue_1", "issue_2"},
+        )
+        assert result.confirmed_issue_ids == ["issue_1"]
+        assert result.rejected_issue_ids == ["issue_2"]
+
+    def test_blanket_rejection_fallback_spares_explicitly_confirmed_ids(self):
+        # status=rejected with no rejected list synthesizes a blanket rejection.
+        # A SYNTHESIZED rejection must not override what the model explicitly
+        # confirmed — otherwise the package verdict silently erases the
+        # per-issue judgment it was asked to make independently.
+        raw = {
+            "verification_status": "rejected",
+            "confirmed_issue_ids": ["issue_a"],
+            "rejected_issue_ids": [],
+        }
+        result = _coerce_pass_2f(
+            raw,
+            package_id="pkg",
+            package_type="kitchen_modernization",
+            valid_issue_ids={"issue_a", "issue_b", "issue_c"},
+        )
+        assert result.confirmed_issue_ids == ["issue_a"]
+        assert result.rejected_issue_ids == ["issue_b", "issue_c"]
 
     def test_bathroom_room_count_values_are_coerced(self):
         result = _coerce_pass_2f(

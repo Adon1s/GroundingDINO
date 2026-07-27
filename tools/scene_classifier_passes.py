@@ -1669,6 +1669,9 @@ PASS_2F_SHARED_RULES = (
     "- Confirm only when the package-level pattern is visibly supported.\n"
     "- Reject when the proposed evidence is not visible or clearly contradicted.\n"
     "- Use uncertain when the images are insufficient, ambiguous, cropped, too distant, or mixed.\n"
+    "- The package verdict and the per-issue lists are independent decisions. Even when you "
+    "reject the package or mark it uncertain, put every issue ID that IS visibly present in "
+    "confirmed_issue_ids, and only the ones you cannot see in rejected_issue_ids.\n"
     "- Return only the requested JSON object.\n"
 )
 
@@ -1853,7 +1856,7 @@ PASS_2F_ROOM_PROMPTS = {
     "living":   (PASS_2F_LIVING_SYSTEM_PROMPT,   PASS_2F_LIVING_USER_PROMPT),
 }
 
-PASS_2F_PROMPT_VERSION = "pass_2f_package_v1"
+PASS_2F_PROMPT_VERSION = "pass_2f_package_v2"
 PASS_2F_PROMPT_SHA256 = hashlib.sha256(
     json.dumps(
         {
@@ -1931,8 +1934,16 @@ def _coerce_pass_2f(
         raw.get("rejected_issue_ids"),
         valid_issue_ids,
     )
+    # An id in both lists is model confusion — explicit rejection wins. But a
+    # SYNTHESIZED blanket rejection must not override an explicit confirmation,
+    # so the fallback below subtracts what the model actually confirmed.
+    explicit_rejected = set(rejected_issue_ids)
+    confirmed_issue_ids = [
+        issue_id for issue_id in confirmed_issue_ids
+        if issue_id not in explicit_rejected
+    ]
     if status == "rejected" and not rejected_issue_ids:
-        rejected_issue_ids = sorted(valid_issue_ids)
+        rejected_issue_ids = sorted(valid_issue_ids - set(confirmed_issue_ids))
     visible_room_count = "unclear"
     visible_room_count_evidence = ""
     if str(room or "").lower() == "bathroom":
