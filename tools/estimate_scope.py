@@ -10,6 +10,8 @@ import math
 from dataclasses import dataclass
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from tools.pipeline_common import strip_term_marker, term_matches
+
 
 REQUIRED_REHAB = "required_rehab"
 MARKETABILITY_REHAB = "marketability_rehab"
@@ -34,12 +36,16 @@ _STRUCTURAL_CATEGORIES = {
     "safety", "structure", "structural", "systems", "system",
     "moisture", "remediation", "foundation", "electrical", "plumbing",
 }
+# Scope terms are matched by `term_matches`: anchored at a word start, so a term
+# is a stem ("rotted" also reaches "rotting") but no longer fires inside a word
+# ("finish" no longer matches "unfinished"). A trailing `$` opts a term in to a
+# trailing boundary too -- `mold$` keeps "crown molding" out of required_rehab.
 _REQUIRED_TERMS = (
     "missing", "bare", "stripped", "exposed subfloor", "exposed framing",
     "exposed studs", "open framing", "stripped to studs", "boarded",
     "boarded-up", "boarded up", "nonfunctional", "not functional",
     "not working", "inoperable", "broken", "active leak", "water damage",
-    "water intrusion", "rotted", "rot ", "mold", "structural",
+    "water intrusion", "rotted", "rot ", "mold$", "structural",
     "sagging", "collapsed", "failure",
 )
 _VISIBLE_REQUIRED_CONDITION_TERMS = (
@@ -54,7 +60,7 @@ _VISIBLE_REQUIRED_CONDITION_TERMS = (
     "missing window", "missing door",
     # Visible water/moisture damage.
     "active leak", "water damage", "water intrusion", "moisture intrusion",
-    "moisture damage", "moisture-damaged", "visible mold", "mold",
+    "moisture damage", "moisture-damaged", "visible mold$", "mold$",
     "mildew", "rotted", "rot ", "wood rot", "saturated",
     # Visible structural damage.
     "structural damage", "structurally compromised", "compromised framing",
@@ -557,7 +563,11 @@ def _catalog_text(candidate: Any, catalog_item: Dict[str, Any]) -> str:
                 chunks.append(str(value))
         support_any = source.get("support_any")
         if isinstance(support_any, list):
-            chunks.extend(str(v) for v in support_any if v is not None)
+            # Retrieval terms may carry the whole-word marker (`mold$`); it is a
+            # matcher directive, not text, so it must not reach the scope terms.
+            chunks.extend(
+                strip_term_marker(str(v)) for v in support_any if v is not None
+            )
     for field_name in (
         "catalog_item_id", "catalog_item_name", "kind", "scope", "trade_bucket",
     ):
@@ -571,7 +581,7 @@ def _catalog_text(candidate: Any, catalog_item: Dict[str, Any]) -> str:
 
 
 def _contains_any(text: str, terms: Iterable[str]) -> bool:
-    return any(term in text for term in terms)
+    return any(term_matches(term, text) for term in terms)
 
 
 def _get(obj: Any, field_name: str, default: Any = None) -> Any:

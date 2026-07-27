@@ -1071,6 +1071,8 @@
       "embed_text": "Appliance damage or missing. Missing/broken/aged kitchen appliances. Replace appliances.",
       "kind": "defect",
       "id": "appliance_damage_or_missing",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_appliance_renewal_not_required",
       "scope": "replace",
       "defaultHidden": false,
       "scene_groups": [
@@ -1498,6 +1500,8 @@
       "embed_text": "Driveway or walkway cracking/settlement. Cracks, heaving, spalling. Uneven, settled, heaved, displaced, or cracked concrete, stone, paver, or flagstone surfaces at driveways, walkways, entry paths, or exterior transition areas. Concrete repair.",
       "kind": "defect",
       "id": "driveway_or_walkway_cracking",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_curb_appeal_paving_not_required",
       "scope": "repair",
       "defaultHidden": true,
       "scene_groups": [
@@ -1536,6 +1540,8 @@
       "embed_text": "Clogged or damaged gutters/downspouts. Sagging, clogged, disconnected gutters. Gutter repair/cleaning.",
       "kind": "defect",
       "id": "clogged_or_damaged_gutters",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_gutter_service_turnover",
       "scope": "service",
       "defaultHidden": true,
       "scene_groups": [
@@ -1573,6 +1579,8 @@
       "embed_text": "Trees or vegetation too close to structure. Overgrowth contacting siding/roof. Trim and clear vegetation.",
       "kind": "defect",
       "id": "trees_or_vegetation_too_close",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_landscape_trim_curb_appeal",
       "scope": "service",
       "defaultHidden": false,
       "scene_groups": [
@@ -3761,6 +3769,8 @@
       "embed_text": "Gutter maintenance needed. Gutters/downspouts likely need cleaning/inspection to ensure proper drainage.",
       "kind": "upgrade",
       "id": "gutter_maintenance_needed",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_gutter_service_turnover",
       "scope": "service",
       "defaultHidden": true,
       "scene_groups": [
@@ -3901,6 +3911,8 @@
       "embed_text": "Metal carport rust or corrosion. Rusted or corroded metal carport structure. Weathered, aged, or deteriorated carport or outbuilding. General wear and structural aging on carport or shed exterior. Repair, treat rust, or replace affected components.",
       "kind": "defect",
       "id": "metal_carport_rust_corrosion",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_surface_rust_curb_appeal",
       "scope": "repair",
       "defaultHidden": false,
       "scene_groups": [
@@ -3919,6 +3931,8 @@
     },
     {
       "id": "fence_damaged_or_weathered",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_weathered_fence_curb_appeal",
       "name": "Fence Damaged or Weathered",
       "kind": "defect",
       "severity": 2,
@@ -4289,6 +4303,8 @@
       "embed_text": "Brick weathering or mortar deterioration. Discolored brick or failing mortar joints. Clean, seal, or repoint masonry.",
       "kind": "defect",
       "id": "brick_weathering_or_mortar_deterioration",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_masonry_weathering_cosmetic",
       "scope": "repair",
       "defaultHidden": false,
       "scene_groups": [
@@ -4578,6 +4594,8 @@
       "embed_text": "Empty or deteriorated in-ground pool. Drained or neglected pool with visible deterioration or non-operational condition. Pool rehabilitation, repair, or secure removal/fill-in may be needed.",
       "kind": "defect",
       "id": "empty_or_deteriorated_inground_pool",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_pool_restoration_discretionary",
       "scope": "repair",
       "defaultHidden": false,
       "scene_groups": [
