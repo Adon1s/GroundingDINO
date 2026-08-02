@@ -36,6 +36,12 @@ except Exception as exc:  # pragma: no cover - external dependency
 
 
 from tools.pass_config import ALL_PASSES, SceneClassifierRunOptions
+from tools.failure_taxonomy import FailureDescriptor, classify_failure
+from tools.photo_pass_runner import (
+    ABORTED_ERROR_KIND,
+    ABORTED_MESSAGE,
+    run_photo_passes,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +58,13 @@ class ImageResult:
     scene: str = "unknown"
     processing_time: float = 0.0
     error: Optional[str] = None
+    # Why this image has no analysis. None for a real failure; "aborted" when the
+    # photo was never attempted because an earlier photo already failed the run.
+    # The distinction matters downstream: aborted photos are excluded from the
+    # failure occurrence tally, so one provider fault in a 40-photo property
+    # reports as one occurrence rather than 40 and cannot on its own trip the
+    # worker's circuit breaker.
+    error_kind: Optional[str] = None
     detection_count: int = 0
     verified_count: int = 0
 
@@ -873,58 +886,75 @@ def main() -> int:
     total_start = time.perf_counter()
     job_started = total_start
 
-    async def _analyze_all():
-        sem = asyncio.Semaphore(args.concurrency)
-        completed = 0
+    completed = 0
+    image_start_times: Dict[int, float] = {}
 
-        async def _analyze_one(idx, image_path):
-            nonlocal completed
-            async with sem:
-                img_start = time.perf_counter()
-                logger.info(f"[start] Analyzing: {image_path.name} ({idx + 1}/{len(images)})")
+    async def _analyze_one(idx, image_path):
+        image_start_times[idx] = time.perf_counter()
+        logger.info(f"[start] Analyzing: {image_path.name} ({idx + 1}/{len(images)})")
+        img_options = options.with_meta(
+            run_id=job_id,
+            photo_key=image_path.name,
+            property_key=args.property_key,
+        )
+        analysis = await orchestrator.analyze_image(
+            image_path=image_path,
+            options=img_options,
+        )
+        elapsed = time.perf_counter() - image_start_times[idx]
+        logger.info(f"  {image_path.name} -> {analysis.scene} ({elapsed:.1f}s)")
+        return ImageResult(
+            image_path=str(image_path),
+            scene_data=analysis.to_dict(),
+            scene=analysis.scene or "unknown",
+            processing_time=elapsed,
+        )
 
-                try:
-                    img_options = options.with_meta(
-                        run_id=job_id,
-                        photo_key=image_path.name,
-                        property_key=args.property_key,
-                    )
-                    analysis = await orchestrator.analyze_image(
-                        image_path=image_path,
-                        options=img_options,
-                    )
-                    elapsed = time.perf_counter() - img_start
+    def _make_failed(idx, image_path, exc):
+        elapsed = time.perf_counter() - image_start_times.get(idx, time.perf_counter())
+        logger.error(f"  ❌ {image_path.name} failed: {exc}", exc_info=args.debug)
+        return ImageResult(
+            image_path=str(image_path),
+            # PassExecutionError carries the partial result so the failed image's
+            # pass_states/pass_errors survive for diagnostics in
+            # photo_intel_debug.json.
+            scene_data=getattr(exc, "partial_result", None),
+            scene="unknown",
+            processing_time=elapsed,
+            error=str(exc),
+        )
 
-                    img_result = ImageResult(
-                        image_path=str(image_path),
-                        scene_data=analysis.to_dict(),
-                        scene=analysis.scene or "unknown",
-                        processing_time=elapsed,
-                    )
-                    logger.info(f"  {image_path.name} -> {analysis.scene} ({elapsed:.1f}s)")
+    def _make_aborted(idx, image_path):
+        logger.info(f"  [skipped] {image_path.name}: run already failed")
+        return ImageResult(
+            image_path=str(image_path),
+            scene="unknown",
+            error=ABORTED_MESSAGE,
+            error_kind=ABORTED_ERROR_KIND,
+        )
 
-                except Exception as exc:
-                    elapsed = time.perf_counter() - img_start
-                    logger.error(f"  ❌ {image_path.name} failed: {exc}", exc_info=args.debug)
-                    img_result = ImageResult(
-                        image_path=str(image_path),
-                        # PassExecutionError carries the partial result so the
-                        # failed image's pass_states/pass_errors survive for
-                        # diagnostics in photo_intel_debug.json.
-                        scene_data=getattr(exc, "partial_result", None),
-                        scene="unknown",
-                        processing_time=elapsed,
-                        error=str(exc),
-                    )
+    def _on_result(idx, img_result):
+        nonlocal completed
+        completed += 1
+        logger.info(f"  [{completed}/{len(images)}] images complete")
 
-                completed += 1
-                logger.info(f"  [{completed}/{len(images)}] images complete")
-                return img_result
-
-        tasks = [_analyze_one(i, img) for i, img in enumerate(images)]
-        results.extend(await asyncio.gather(*tasks))
-
-    asyncio.run(_analyze_all())
+    photo_outcome = asyncio.run(run_photo_passes(
+        images,
+        concurrency=args.concurrency,
+        analyze_one=_analyze_one,
+        make_failed=_make_failed,
+        make_aborted=_make_aborted,
+        on_result=_on_result,
+        # Collect mode must keep attempting every photo; only strict mode, the
+        # production default, stops at the first failure.
+        fail_fast=options.failure_mode == "strict",
+    ))
+    results.extend(photo_outcome.results)
+    if photo_outcome.skipped:
+        logger.warning(
+            f"Stopped early: {photo_outcome.attempted} attempted, "
+            f"{photo_outcome.skipped} skipped after first failure"
+        )
 
     total_time = time.perf_counter() - total_start
     phase_timings = {"photo_analysis_sec": total_time, "pass_2f_sec": 0.0}
@@ -961,18 +991,31 @@ def main() -> int:
 
     fatal_error = None
     failed_phase = None
+    failure_descriptor: Optional[FailureDescriptor] = None
+    failure_occurrences = 1
 
     # An image that failed a pass produced no valid analysis. Publishing the
     # remaining photos would present a partial property as a complete one, so
-    # under strict mode the run fails and no artifact is written. Other images
-    # were still processed so the failure summary covers the whole property.
-    failed_images = [r for r in results if getattr(r, "error", None)]
+    # under strict mode the run fails and no artifact is written.
+    #
+    # Aborted images are excluded: they were never attempted, so counting them
+    # would inflate one provider fault into dozens and let a single bad photo
+    # trip the worker's circuit breaker on its own.
+    failed_images = [
+        r for r in results
+        if getattr(r, "error", None) and getattr(r, "error_kind", None) != ABORTED_ERROR_KIND
+    ]
     if failed_images and failure_mode == "strict":
+        aborted_note = (
+            f" ({photo_outcome.skipped} not attempted)" if photo_outcome.skipped else ""
+        )
         fatal_error = RuntimeError(
-            f"{len(failed_images)} of {len(results)} images failed analysis: "
+            f"{len(failed_images)} of {len(images)} images failed analysis{aborted_note}: "
             + "; ".join(f"{Path(r.image_path).name}: {r.error}" for r in failed_images[:5])
         )
         failed_phase = "photo_analysis"
+        failure_descriptor = photo_outcome.first_failure
+        failure_occurrences = photo_outcome.occurrence_count or len(failed_images)
         logger.error(str(fatal_error))
 
     photo_intel_path = None
@@ -1000,11 +1043,13 @@ def main() -> int:
         photo_intel_path = None
         fatal_error = exc
         failed_phase = "pass_2f"
+        failure_descriptor = classify_failure(exc, pass_key="2f", stage="dependency")
     except Exception as exc:
         logger.error(f"Failed to write photo_intel: {exc}", exc_info=True)
         photo_intel_path = None
         fatal_error = exc
         failed_phase = "postprocessing"
+        failure_descriptor = classify_failure(exc, stage="postprocessing")
 
     if not failed_phase:
         failed_phase = phase_timings.get("failed_phase")
@@ -1030,10 +1075,24 @@ def main() -> int:
     _log_timing_stats(timing_stats, args.property_key)
 
     if fatal_error is not None:
+        # Same `failure` shape the persistent server emits. The TS worker routes
+        # both transports through one parser, so the two must stay identical.
+        if failure_descriptor is None:
+            failure_descriptor = classify_failure(fatal_error, stage=failed_phase)
         summary = {
             "success": False,
             "error": str(fatal_error),
             "property_key": args.property_key,
+            "failure": {
+                **failure_descriptor.to_wire(),
+                "occurrence_count": failure_occurrences,
+            },
+            "photo_failures": [
+                {"photo": Path(r.image_path).name, "error": r.error}
+                for r in failed_images[:10]
+            ],
+            "photos_attempted": photo_outcome.attempted,
+            "photos_skipped": photo_outcome.skipped,
             "timing_stats": timing_stats,
         }
         print(json.dumps(summary, ensure_ascii=False))

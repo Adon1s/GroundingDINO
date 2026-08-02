@@ -1179,15 +1179,25 @@ class SceneClassifierOrchestrator:
                     pass_2e_result.removed_count,
                     pass_2e_result.suppressed_reason_counts,
                 )
+            except PassExecutionError:
+                result.pass_timings['2e'] = time.perf_counter() - t0
+                raise
             except Exception as exc:
-                logger.warning(f"Pass 2e failed: {exc}")
-                # Fallback: pass labeled_forward through unchanged as verified_issues
-                result.verified_issues = list(result.labeled_forward or [])
-                result.matched_issues = list(result.labeled_forward or [])
-                result.canonical_issues = result.matched_issues
-                result.display_issues = result.verified_issues
+                # No passthrough fallback. 2e is what turns labeled observations
+                # into *verified* issues; promoting labeled_forward on failure
+                # published unverified findings as verified — precisely the class
+                # of error the fail-closed contract exists to prevent. Record the
+                # failure and fail the run instead.
+                logger.error(f"Pass 2e failed: {exc}", exc_info=True)
                 result.passes["2e"] = {"error": str(exc)}
                 result.debug["pass_2e_summary"] = {"error": str(exc)}
+                result.pass_timings['2e'] = time.perf_counter() - t0
+                # 2e is rule-based — no provider call — so a failure is a missing
+                # catalog input or a malformed issue payload, never a provider fault.
+                stage = "dependency" if isinstance(exc, (KeyError, LookupError)) else "parse"
+                raise PassExecutionError(
+                    "2e", stage, str(exc)[:300], code=type(exc).__name__
+                ) from exc
             result.pass_timings['2e'] = time.perf_counter() - t0
         else:
             # 2e skipped — promote labeled_forward to verified_issues with minimal normalization

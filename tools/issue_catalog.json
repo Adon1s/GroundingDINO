@@ -371,7 +371,23 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "cost": {
+        "mode": "allowance",
+        "base_low": 400,
+        "base_high": 3500,
+        "per_occurrence_low": 350,
+        "per_occurrence_high": 900,
+        "cap_low": 3500,
+        "cap_high": 9000,
+        "cost_source": "manual"
+      },
+      "package_affinity": {
+        "exterior": {
+          "package_type": "exterior_repair",
+          "package_role": "package_driver"
+        }
+      }
     },
     {
       "name": "Worn or Stained Carpet",
@@ -674,6 +690,12 @@
         "group": "exterior",
         "stack_behavior": "sum",
         "unit_policy": "per_area"
+      },
+      "package_affinity": {
+        "exterior": {
+          "package_type": "exterior_repair",
+          "package_role": "package_driver"
+        }
       }
     },
     {
@@ -760,6 +782,12 @@
         "cap_low": 8000,
         "cap_high": 20000,
         "cost_source": "manual"
+      },
+      "package_affinity": {
+        "exterior": {
+          "package_type": "exterior_repair",
+          "package_role": "package_driver"
+        }
       }
     },
     {
@@ -2297,27 +2325,104 @@
       }
     },
     {
-      "name": "Popcorn/Acoustic Ceiling Texture",
+      "name": "Popcorn Ceiling Texture",
       "category": "opportunity",
       "severity": 2,
       "trade_bucket": "paint_drywall",
       "work_item_code": "CEILING_TEXTURE_UPDATE",
-      "description": "Ceiling has popcorn/acoustic texture; smoothing or re-texturing modernizes the interior.",
+      "description": "Ceiling has a continuous sprayed or stippled popcorn texture; smoothing or re-texturing modernizes the interior.",
       "support_any": [
         "popcorn ceiling",
-        "acoustic texture",
+        "sprayed acoustic texture",
         "textured ceiling",
         "ceiling texture",
         "popcorn texture"
       ],
       "deny_any": [
         "water stain",
-        "sagging"
+        "sagging",
+        "drop ceiling",
+        "dropped ceiling",
+        "suspended ceiling",
+        "ceiling grid",
+        "ceiling tile",
+        "acoustic tile",
+        "lay-in tile",
+        "t-bar ceiling"
       ],
-      "embed_text": "Popcorn or acoustic ceiling texture. Stippled, spray-textured, acoustic, or heavy textured ceiling finish that appears dated. Modernize by smoothing or re-texturing.",
+      "embed_text": "Popcorn ceiling texture. Continuous stippled, sprayed acoustic, or heavy textured finish applied directly to a solid ceiling surface, without removable tiles or a visible grid. Modernize by smoothing or re-texturing.",
       "kind": "upgrade",
       "id": "popcorn_or_acoustic_ceiling_texture",
       "scope": "repair",
+      "defaultHidden": false,
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility",
+        "other"
+      ],
+      "tier": "work",
+      "drop_if_generic": false,
+      "cost": {
+        "mode": "heuristic"
+      },
+      "display_class": "marketability",
+      "package_role": "ignore",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        },
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_support"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_support"
+        }
+      }
+    },
+    {
+      "name": "Suspended/Drop Ceiling with Acoustic Tiles",
+      "category": "opportunity",
+      "severity": 2,
+      "trade_bucket": "paint_drywall",
+      "work_item_code": "DROP_CEILING_TO_DRYWALL",
+      "description": "A suspended acoustic-tile ceiling grid is installed. It appears dated and may reduce perceived ceiling height compared with a finished drywall ceiling.",
+      "support_any": [
+        "drop ceiling",
+        "dropped ceiling",
+        "suspended ceiling",
+        "acoustic ceiling tile",
+        "acoustic tile ceiling",
+        "ceiling grid",
+        "ceiling tiles",
+        "lay-in ceiling",
+        "t-bar ceiling"
+      ],
+      "require_any": [
+        "drop ceiling",
+        "dropped ceiling",
+        "suspended ceiling",
+        "ceiling grid",
+        "acoustic ceiling tile",
+        "acoustic tile ceiling",
+        "ceiling tiles",
+        "lay-in ceiling",
+        "t-bar ceiling"
+      ],
+      "deny_any": [],
+      "embed_text": "Suspended or drop ceiling made from removable acoustic tiles set in a visible metal grid. Also called a lay-in tile or T-bar ceiling. Modernization may involve removing the tiles and grid and installing and finishing a drywall ceiling.",
+      "kind": "upgrade",
+      "id": "suspended_drop_ceiling",
+      "scope": "replace",
       "defaultHidden": false,
       "scene_groups": [
         "kitchen",
@@ -3987,6 +4092,12 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
+      },
+      "package_affinity": {
+        "exterior": {
+          "package_type": "exterior_repair",
+          "package_role": "package_support"
+        }
       }
     },
     {
@@ -4155,6 +4266,12 @@
         "group": "exterior",
         "stack_behavior": "sum",
         "unit_policy": "per_area"
+      },
+      "package_affinity": {
+        "exterior": {
+          "package_type": "exterior_repair",
+          "package_role": "package_driver"
+        }
       }
     },
     {
@@ -4194,6 +4311,12 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
+      },
+      "package_affinity": {
+        "exterior": {
+          "package_type": "exterior_repair",
+          "package_role": "package_support"
+        }
       }
     },
     {
@@ -4315,6 +4438,12 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
+      },
+      "package_affinity": {
+        "exterior": {
+          "package_type": "exterior_repair",
+          "package_role": "package_support"
+        }
       }
     },
     {
@@ -4350,6 +4479,12 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
+      },
+      "package_affinity": {
+        "exterior": {
+          "package_type": "exterior_repair",
+          "package_role": "package_support"
+        }
       }
     },
     {

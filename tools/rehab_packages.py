@@ -92,6 +92,12 @@ LIVING_REPAIR_HEAVY     = ("living_repair_heavy",     3_000, 10_000)
 LIVING_TURNOVER_LIGHT   = ("living_turnover_light",     600,  2_500)
 LIVING_TURNOVER_STD     = ("living_turnover_std",     2_200,  6_000)
 
+# Exterior (envelope repair: siding/trim, deck/porch, soffit/fascia, masonry).
+# Repair-only family — curb-appeal modernization is deliberately not modelled.
+# Both tiers stay under the GROUP_BUDGET_CAPS["exterior"] ceiling of $25k.
+EXTERIOR_REPAIR_LIGHT   = ("exterior_repair_light",   1_000,  5_000)
+EXTERIOR_REPAIR_HEAVY   = ("exterior_repair_heavy",   5_000, 18_000)
+
 
 _QUALIFIED_POSTURES = frozenset({
     "repair", "replace", "keep_default",                    # Pass 2f outputs
@@ -170,6 +176,7 @@ PACKAGE_TYPE_BEDROOM_TURNOVER = "bedroom_turnover"
 PACKAGE_TYPE_LIVING_MODERNIZATION = "living_modernization"
 PACKAGE_TYPE_LIVING_REPAIR = "living_repair"
 PACKAGE_TYPE_LIVING_TURNOVER = "living_turnover"
+PACKAGE_TYPE_EXTERIOR_REPAIR = "exterior_repair"
 PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH = "interior_paint_flooring_refresh"
 # Naming note: the strings above are *package_type* identifiers used as keys to
 # _PACKAGE_TYPE_TO_CATEGORY / _PACKAGE_TYPE_TO_ROOM / VALID_PACKAGE_TYPES.
@@ -189,6 +196,7 @@ VALID_PACKAGE_TYPES = frozenset({
     PACKAGE_TYPE_LIVING_MODERNIZATION,
     PACKAGE_TYPE_LIVING_REPAIR,
     PACKAGE_TYPE_LIVING_TURNOVER,
+    PACKAGE_TYPE_EXTERIOR_REPAIR,
     PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH,
 })
 
@@ -507,6 +515,22 @@ _PACKAGE_ABSORPTION_SCOPES: Dict[str, Dict[str, Any]] = {
         "trade_buckets": {"flooring", "paint_drywall", "cleaning_turnover"},
         "components": {"flooring", "paint"},
     },
+    # Exterior trades sit in _BROAD_ABSORPTION_BLOCKED_*, so these scopes only
+    # ever apply on the exact supporting-issue path: the package absorbs the
+    # line items built from its own evidence and nothing else. trim_doors_windows
+    # is deliberately absent — it is shared with interior openings.
+    "exterior_repair_light": {
+        "family": "exterior",
+        "groups": {"exterior"},
+        "trade_buckets": {"exterior_siding_trim", "masonry_exterior_structure"},
+        "components": {"siding", "deck_porch", "masonry"},
+    },
+    "exterior_repair_heavy": {
+        "family": "exterior",
+        "groups": {"exterior"},
+        "trade_buckets": {"exterior_siding_trim", "masonry_exterior_structure"},
+        "components": {"siding", "deck_porch", "masonry"},
+    },
 }
 
 _BROAD_ABSORPTION_BLOCKED_GROUPS = {
@@ -612,6 +636,10 @@ _PACKAGE_TYPE_TO_CATEGORY = {
     PACKAGE_TYPE_LIVING_MODERNIZATION: PACKAGE_CATEGORY_MODERNIZATION,
     PACKAGE_TYPE_LIVING_REPAIR: PACKAGE_CATEGORY_REPAIR,
     PACKAGE_TYPE_LIVING_TURNOVER: PACKAGE_CATEGORY_TURNOVER,
+    # Repair, never turnover: turnover packages short-circuit to
+    # confirmed_by_rule before the 2f room-prompt check, which would skip
+    # visual verification for the noisiest evidence category we have.
+    PACKAGE_TYPE_EXTERIOR_REPAIR: PACKAGE_CATEGORY_REPAIR,
     PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH: PACKAGE_CATEGORY_TURNOVER,
 }
 
@@ -628,6 +656,7 @@ _PACKAGE_TYPE_TO_ROOM = {
     PACKAGE_TYPE_LIVING_MODERNIZATION: ROOM_LIVING,
     PACKAGE_TYPE_LIVING_REPAIR: ROOM_LIVING,
     PACKAGE_TYPE_LIVING_TURNOVER: ROOM_LIVING,
+    PACKAGE_TYPE_EXTERIOR_REPAIR: ROOM_EXTERIOR,
     PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH: ROOM_WHOLE_HOME,
 }
 
@@ -868,8 +897,11 @@ def classify_component(candidate: EstimateCandidate) -> Optional[str]:
 
     Returns one of: cabinets, counter, kitchen_finish, appliance, vanity, tile,
     tub_shower, fixture, bath_finish, flooring, plumbing, electrical_heavy,
-    electrical_light, moisture, paint — or None when not relevant for any
-    package rule.
+    electrical_light, moisture, paint, siding, deck_porch, masonry — or None
+    when not relevant for any package rule.
+
+    The exterior classes are reachable only from exterior trade buckets, so they
+    cannot leak into an interior package's component set.
     """
     if isinstance(candidate, dict):
         cat_id = str(candidate.get("catalog_item_id") or "").lower()
@@ -897,6 +929,13 @@ def classify_component(candidate: EstimateCandidate) -> Optional[str]:
         if "fixture" in cat_id or "faucet" in cat_id:
             return "fixture"
         return "bath_finish"
+
+    if trade == "exterior_siding_trim":
+        if any(t in cat_id for t in ("deck", "porch", "patio", "soffit")):
+            return "deck_porch"
+        return "siding"
+    if trade == "masonry_exterior_structure":
+        return "masonry"
 
     if trade == "flooring":
         return "flooring"
@@ -1374,6 +1413,49 @@ def _distinct_photo_keys(candidates: List[EstimateCandidate]) -> List[str]:
     return _unique_in_order(photo_keys)
 
 
+PACKAGE_REVIEW_IMAGE_LIMIT = 3
+
+
+def _select_review_photo_keys(
+    drivers: List[EstimateCandidate],
+    supports: List[EstimateCandidate],
+    photo_keys: List[str],
+    limit: int = PACKAGE_REVIEW_IMAGE_LIMIT,
+) -> List[str]:
+    """Choose review photos that span the breadth of the package's claim.
+
+    Taking the first `limit` evidence photos reviews whichever findings happen to
+    sort earliest, so a property with several photos of one condition can send
+    2f three views of that condition and leave another driver unreviewed — and
+    an unreviewed driver cannot be confirmed. Pass 2f is asked to judge a whole
+    package, so the sample covers as many distinct evidence items as it can
+    before spending a slot on a second view of one already represented.
+
+    Drivers are offered their photo before supports because they are what makes
+    the package exist. Ordering is otherwise the caller's existing order, so the
+    same package always yields the same photos.
+    """
+    picked: List[str] = []
+
+    def take(photo_key: str) -> None:
+        if photo_key and photo_key not in picked and len(picked) < limit:
+            picked.append(photo_key)
+
+    for candidate in list(drivers or []) + list(supports or []):
+        if len(picked) >= limit:
+            break
+        for photo_key in _distinct_photo_keys([candidate]):
+            if photo_key not in picked:
+                take(photo_key)
+                break
+
+    # Backfill with any remaining evidence photos when the package has fewer
+    # distinct evidence items than review slots.
+    for photo_key in photo_keys or []:
+        take(photo_key)
+    return picked
+
+
 def _has_multiphoto_opportunity_corroboration(
     opportunity_drivers: List[EstimateCandidate],
 ) -> bool:
@@ -1596,18 +1678,32 @@ def _resolve_room_modernization_profile(
     return refresh_tier, "refresh", notes + ["multiple package_support refresh"]
 
 
+_DEFAULT_HEAVY_REPAIR_COMPONENTS = frozenset({"moisture", "electrical_heavy", "flooring"})
+
+# Envelope defects (siding, masonry) carry the cost weight on the exterior;
+# deck_porch alone stays light unless breadth pushes it over.
+_EXTERIOR_HEAVY_REPAIR_COMPONENTS = frozenset({"siding", "masonry"})
+
+
 def _resolve_room_repair_profile(
     light_tier: Tuple[str, int, int],
     heavy_tier: Tuple[str, int, int],
     evidence: List[EstimateCandidate],
     drivers: List[EstimateCandidate],
     supports: List[EstimateCandidate],
+    heavy_component_classes: frozenset = _DEFAULT_HEAVY_REPAIR_COMPONENTS,
 ) -> Tuple[Tuple[str, int, int], str, List[str]]:
-    """Generic room repair pricing: light vs heavy based on component breadth."""
+    """Generic room repair pricing: light vs heavy based on component breadth.
+
+    ``heavy_component_classes`` names the components that make a driver-anchored
+    finding heavy for this family. Interior rooms use the moisture/electrical/
+    flooring default; exterior passes its envelope classes so a porch-only
+    finding stays light while a siding or masonry defect escalates.
+    """
     components = {classify_component(c) for c in evidence}
     components.discard(None)
     notes: List[str] = []
-    heavy_components = components.intersection({"moisture", "electrical_heavy", "flooring"})
+    heavy_components = components.intersection(heavy_component_classes)
     heavy_breadth = (
         any((d.severity or 0) >= 3 for d in drivers)
         or len(components) >= 2
@@ -1679,6 +1775,10 @@ def _resolve_pricing_profile(
     if package_type == PACKAGE_TYPE_LIVING_TURNOVER:
         return _resolve_room_turnover_profile(
             LIVING_TURNOVER_LIGHT, LIVING_TURNOVER_STD, evidence, drivers, supports)
+    if package_type == PACKAGE_TYPE_EXTERIOR_REPAIR:
+        return _resolve_room_repair_profile(
+            EXTERIOR_REPAIR_LIGHT, EXTERIOR_REPAIR_HEAVY, evidence, drivers, supports,
+            heavy_component_classes=_EXTERIOR_HEAVY_REPAIR_COMPONENTS)
     # Default — kitchen_modernization and any future modernization-family types.
     return _resolve_kitchen_modernization_profile(evidence, drivers, supports)
 
@@ -1707,6 +1807,7 @@ _PRICING_TIER_ESCALATION: Dict[str, Tuple[str, int, int]] = {
     LIVING_REFRESH[0]: LIVING_FULL_REHAB,
     LIVING_REPAIR_LIGHT[0]: LIVING_REPAIR_HEAVY,
     LIVING_TURNOVER_LIGHT[0]: LIVING_TURNOVER_STD,
+    EXTERIOR_REPAIR_LIGHT[0]: EXTERIOR_REPAIR_HEAVY,
     # Top tiers (full_rehab / heavy / std) have no further escalation; the
     # Phase C floor handles any residual undercount.
 }
@@ -1869,7 +1970,7 @@ def _build_package_candidate(
         "supporting_catalog_item_ids": cat_ids,
         "driver_issue_ids": _unique_in_order([iid for c in drivers for iid in (c.issue_ids or [])]),
         "support_issue_ids": _unique_in_order([iid for c in supports for iid in (c.issue_ids or [])]),
-        "review_photo_keys": photo_keys[:3],
+        "review_photo_keys": _select_review_photo_keys(drivers, supports, photo_keys),
         "supporting_photo_count": len(photo_keys),
         "corroboration_basis": corroboration_basis,
         "evidence_items": evidence_items,
@@ -3744,6 +3845,7 @@ _PACKAGE_TYPE_VLM_LABELS = {
     PACKAGE_TYPE_BEDROOM_REPAIR: "Bedroom repair",
     PACKAGE_TYPE_LIVING_MODERNIZATION: "Living room modernization",
     PACKAGE_TYPE_LIVING_REPAIR: "Living room repair",
+    PACKAGE_TYPE_EXTERIOR_REPAIR: "Exterior repair",
 }
 
 

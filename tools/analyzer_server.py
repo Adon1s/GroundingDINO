@@ -62,6 +62,13 @@ from tools.pass_config import (
     normalize_reasoning_efforts,
 )
 
+from tools.failure_taxonomy import FailureDescriptor, classify_failure
+from tools.photo_pass_runner import (
+    ABORTED_ERROR_KIND,
+    ABORTED_MESSAGE,
+    run_photo_passes,
+)
+
 logger = logging.getLogger(__name__)
 
 # Shutdown flag
@@ -479,86 +486,106 @@ def _process_job(
         total_start = time.perf_counter()
         job_started = total_start
 
-        async def _analyze_all():
-            sem = asyncio.Semaphore(concurrency)
-            completed = 0
+        completed = 0
+        image_start_times: Dict[int, float] = {}
 
-            async def _analyze_one(idx, image_path):
-                nonlocal completed
-                # Skip if a prior attempt already completed this image successfully.
-                # Still emit progress so the frontend % advances during resume.
-                if idx in cached_results and not cached_results[idx].error:
-                    logger.info(f"  [cached] image {image_path.name} ({idx + 1}/{total_images})")
-                    completed += 1
-                    _emit({
-                        "type": "progress",
-                        "jobId": ts_job_id,
-                        "itemsDone": completed,
-                        "itemsTotal": total_images,
-                        "progress": round((completed / total_images) * 100),
-                    })
-                    return cached_results[idx]
+        def _emit_progress():
+            _emit({
+                "type": "progress",
+                "jobId": ts_job_id,
+                "itemsDone": completed,
+                "itemsTotal": total_images,
+                "progress": round((completed / total_images) * 100),
+            })
 
-                async with sem:
-                    img_start = time.perf_counter()
-                    logger.info(f"  [start] Analyzing: {image_path.name} ({idx + 1}/{total_images})")
+        async def _analyze_one(idx, image_path):
+            image_start_times[idx] = time.perf_counter()
+            logger.info(f"  [start] Analyzing: {image_path.name} ({idx + 1}/{total_images})")
+            img_options = options.with_meta(
+                run_id=internal_job_id,
+                photo_key=image_path.name,
+                property_key=property_key,
+            )
+            analysis = await orchestrator.analyze_image(
+                image_path=image_path,
+                options=img_options,
+            )
+            elapsed = time.perf_counter() - image_start_times[idx]
+            logger.info(f"    {image_path.name} -> {analysis.scene} ({elapsed:.1f}s)")
+            return ImageResult(
+                image_path=str(image_path),
+                scene_data=analysis.to_dict(),
+                scene=analysis.scene or "unknown",
+                processing_time=elapsed,
+            )
 
-                    try:
-                        img_options = options.with_meta(
-                            run_id=internal_job_id,
-                            photo_key=image_path.name,
-                            property_key=property_key,
-                        )
-                        analysis = await orchestrator.analyze_image(
-                            image_path=image_path,
-                            options=img_options,
-                        )
-                        elapsed = time.perf_counter() - img_start
+        def _make_failed(idx, image_path, exc):
+            elapsed = time.perf_counter() - image_start_times.get(idx, time.perf_counter())
+            logger.error(f"    ❌ {image_path.name} failed: {exc}", exc_info=True)
+            return ImageResult(
+                image_path=str(image_path),
+                # PassExecutionError carries the partial result so the failed
+                # image's pass_states/pass_errors are retained.
+                scene_data=getattr(exc, "partial_result", None),
+                scene="unknown",
+                processing_time=elapsed,
+                error=str(exc),
+            )
 
-                        img_result = ImageResult(
-                            image_path=str(image_path),
-                            scene_data=analysis.to_dict(),
-                            scene=analysis.scene or "unknown",
-                            processing_time=elapsed,
-                        )
-                        logger.info(f"    {image_path.name} -> {analysis.scene} ({elapsed:.1f}s)")
+        def _make_aborted(idx, image_path):
+            # Never attempted. Tagged distinctly so it is not counted as a failure
+            # occurrence — see tools/photo_pass_runner.py.
+            logger.info(f"  [skipped] {image_path.name}: run already failed")
+            return ImageResult(
+                image_path=str(image_path),
+                scene="unknown",
+                error=ABORTED_MESSAGE,
+                error_kind=ABORTED_ERROR_KIND,
+            )
 
-                    except Exception as exc:
-                        elapsed = time.perf_counter() - img_start
-                        logger.error(f"    ❌ {image_path.name} failed: {exc}", exc_info=True)
-                        img_result = ImageResult(
-                            image_path=str(image_path),
-                            # PassExecutionError carries the partial result so the
-                            # failed image's pass_states/pass_errors are retained.
-                            scene_data=getattr(exc, "partial_result", None),
-                            scene="unknown",
-                            processing_time=elapsed,
-                            error=str(exc),
-                        )
+        def _on_cached(idx, img_result):
+            nonlocal completed
+            logger.info(
+                f"  [cached] image {Path(img_result.image_path).name} "
+                f"({idx + 1}/{total_images})"
+            )
+            completed += 1
+            _emit_progress()
 
-                    # Persist successful images so a crash doesn't lose work.
-                    # Failed images are intentionally not cached — a retry should re-attempt them.
-                    if not img_result.error:
-                        try:
-                            _save_image_checkpoint(ckpt_dir, idx, img_result)
-                        except OSError as exc:
-                            logger.warning(f"  Checkpoint save failed for image {idx}: {exc}")
+        def _on_result(idx, img_result):
+            nonlocal completed
+            # Persist successful images so a crash doesn't lose work. Failed and
+            # aborted images are intentionally not checkpointed — a retry must
+            # re-attempt them.
+            if not img_result.error:
+                try:
+                    _save_image_checkpoint(ckpt_dir, idx, img_result)
+                except OSError as exc:
+                    logger.warning(f"  Checkpoint save failed for image {idx}: {exc}")
 
-                    attempt_results.append(img_result)
-                    completed += 1
-                    _emit({
-                        "type": "progress",
-                        "jobId": ts_job_id,
-                        "itemsDone": completed,
-                        "itemsTotal": total_images,
-                        "progress": round((completed / total_images) * 100),
-                    })
-                    return img_result
+            attempt_results.append(img_result)
+            completed += 1
+            _emit_progress()
 
-            tasks = [_analyze_one(i, img) for i, img in enumerate(image_paths)]
-            results.extend(await asyncio.gather(*tasks))
-
-        asyncio.run(_analyze_all())
+        photo_outcome = asyncio.run(run_photo_passes(
+            image_paths,
+            concurrency=concurrency,
+            analyze_one=_analyze_one,
+            make_failed=_make_failed,
+            make_aborted=_make_aborted,
+            cached_results=cached_results,
+            on_cached=_on_cached,
+            on_result=_on_result,
+            # Collect mode must keep attempting every photo; only strict mode,
+            # the production default, stops early.
+            fail_fast=options.failure_mode == "strict",
+        ))
+        results.extend(photo_outcome.results)
+        if photo_outcome.skipped:
+            logger.warning(
+                f"[Job {ts_job_id}] Stopped early: {photo_outcome.attempted} attempted, "
+                f"{photo_outcome.skipped} skipped after first failure"
+            )
 
         total_time = time.perf_counter() - total_start
         phase_timings = {"photo_analysis_sec": total_time, "pass_2f_sec": 0.0}
@@ -581,18 +608,32 @@ def _process_job(
         fatal_error = None
         failed_phase = None
         photo_intel_path = None
+        failure_descriptor: Optional[FailureDescriptor] = None
+        failure_occurrences = 1
 
         # A failed image produced no valid analysis. Publishing the rest would
         # present a partial property as a complete one, so fail the job and write
         # nothing. The checkpoint is left intact below so a retry resumes from the
         # images that did succeed.
-        failed_images = [r for r in results if getattr(r, "error", None)]
+        #
+        # Aborted images are excluded from the count: they were never attempted,
+        # so reporting them as failures would inflate one provider fault into
+        # dozens and let a single bad photo trip the worker's circuit breaker.
+        failed_images = [
+            r for r in results
+            if getattr(r, "error", None) and getattr(r, "error_kind", None) != ABORTED_ERROR_KIND
+        ]
         if failed_images and options.failure_mode == "strict":
+            aborted_note = (
+                f" ({photo_outcome.skipped} not attempted)" if photo_outcome.skipped else ""
+            )
             fatal_error = RuntimeError(
-                f"{len(failed_images)} of {len(results)} images failed analysis: "
+                f"{len(failed_images)} of {total_images} images failed analysis{aborted_note}: "
                 + "; ".join(f"{Path(r.image_path).name}: {r.error}" for r in failed_images[:5])
             )
             failed_phase = "photo_analysis"
+            failure_descriptor = photo_outcome.first_failure
+            failure_occurrences = photo_outcome.occurrence_count or len(failed_images)
             logger.error(f"[Job {ts_job_id}] {fatal_error}")
 
         try:
@@ -626,11 +667,13 @@ def _process_job(
             photo_intel_path = None
             fatal_error = exc
             failed_phase = "pass_2f"
+            failure_descriptor = classify_failure(exc, pass_key="2f", stage="dependency")
         except Exception as exc:
             logger.error(f"Failed to write photo_intel: {exc}", exc_info=True)
             photo_intel_path = None
             fatal_error = exc
             failed_phase = "postprocessing"
+            failure_descriptor = classify_failure(exc, stage="postprocessing")
 
         if not failed_phase:
             failed_phase = phase_timings.get("failed_phase")
@@ -654,9 +697,26 @@ def _process_job(
         _log_timing_stats(timing_stats, property_key)
 
         if fatal_error is not None:
+            # `failure` is what the TS worker classifies on: it decides retry vs
+            # review, and whether this fault is systemic enough to pause the whole
+            # queue. Falling back to classifying the fatal_error itself guarantees
+            # the key is always present, so the worker never has to infer a
+            # category from message text.
+            if failure_descriptor is None:
+                failure_descriptor = classify_failure(fatal_error, stage=failed_phase)
             _emit({
                 "type": "result", "jobId": ts_job_id, "success": False,
                 "error": str(fatal_error), "property_key": property_key,
+                "failure": {
+                    **failure_descriptor.to_wire(),
+                    "occurrence_count": failure_occurrences,
+                },
+                "photo_failures": [
+                    {"photo": Path(r.image_path).name, "error": r.error}
+                    for r in failed_images[:10]
+                ],
+                "photos_attempted": photo_outcome.attempted,
+                "photos_skipped": photo_outcome.skipped,
                 "timing_stats": timing_stats,
             })
             _emit({"type": "job_done", "jobId": ts_job_id})

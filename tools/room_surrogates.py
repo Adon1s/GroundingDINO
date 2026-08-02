@@ -13,6 +13,11 @@ listing order. Breaking scenes (kitchen, bathroom, bedroom, etc.) open or
 extend a surrogate; non-breaking scenes (hallway, closet, exterior_*, etc.)
 preserve the active surrogate so a `bath -> hallway -> bath` sequence
 stays one bathroom_1.
+
+Exception: exterior photos additionally collapse into one property-level
+surrogate appended after the state machine (see `_append_exterior_surrogate`).
+They stay non-breaking for interior clustering, but the property needs a single
+exterior identity for pricing and package inference.
 """
 from __future__ import annotations
 
@@ -26,6 +31,20 @@ from tools.pipeline_common import (
 )
 
 CLUSTERING_METHOD = "single_active_surrogate_v1"
+EXTERIOR_CLUSTERING_METHOD = "property_level_exterior_v1"
+
+# The whole property gets exactly one exterior identity. Exterior scenes are
+# non-breaking so they never open a per-scene surrogate (that is deliberate —
+# an exterior shot between two bathroom shots must not split the bathroom), but
+# without any surrogate every exterior issue also lands in its own estimate
+# unit, so exterior evidence can never corroborate itself into a package.
+#
+# The id must not be the bare group token "exterior": both extraction lanes run
+# stamped ids through renovation_estimate._meaningful_scope_hint, whose generic
+# denylist contains "exterior" and would silently strip it back to "".
+EXTERIOR_SURROGATE_ID = "exterior_primary"
+EXTERIOR_SURROGATE_SCENE = "exterior"
+EXTERIOR_SCENE_GROUP = "exterior"
 
 
 def _is_breaking(scene: str) -> bool:
@@ -60,8 +79,10 @@ def build_room_surrogates(photos: Dict[str, Any]) -> Dict[str, Any]:
             "room_surrogates": [room_surrogate_record, ...],
         }``
 
-        Only photos whose scene is in ``BREAKING_SCENES`` get a surrogate
-        ID. Surrogates are listed in the order they were opened.
+        Photos whose scene is in ``BREAKING_SCENES`` get a per-room surrogate
+        ID, listed in the order they were opened. Exterior-group photos get the
+        single property-level ``EXTERIOR_SURROGATE_ID``, appended last. All
+        other non-breaking photos get no surrogate.
     """
     counters: Dict[str, int] = {}
     seen_closed: set = set()
@@ -109,7 +130,53 @@ def build_room_surrogates(photos: Dict[str, Any]) -> Dict[str, Any]:
         active = new_surrogate
         photo_key_to_id[photo_key] = sid
 
+    _append_exterior_surrogate(photos, surrogates, photo_key_to_id)
+
     return {
         "photo_key_to_room_surrogate_id": photo_key_to_id,
         "room_surrogates": surrogates,
     }
+
+
+def _append_exterior_surrogate(
+    photos: Dict[str, Any],
+    surrogates: List[Dict[str, Any]],
+    photo_key_to_id: Dict[str, str],
+) -> None:
+    """Add the single property-level exterior surrogate, if any exterior photos.
+
+    Appended after the state machine has run so it can never become the active
+    surrogate and interfere with interior clustering. Downstream, estimate_units
+    has no special case for it: `_surrogate_unit_type` reads ``scene`` and the
+    fallback branch mints an estimate unit named after the surrogate id.
+    """
+    exterior_photo_keys = [
+        photo_key
+        for photo_key, photo in sorted(photos.items(), key=_sort_key)
+        if SCENE_TO_GROUP_UI.get(
+            (((photo or {}).get("scene") or {}).get("id")) or ""
+        ) == EXTERIOR_SCENE_GROUP
+    ]
+    if not exterior_photo_keys:
+        return
+
+    indexes = [
+        idx
+        for idx in (
+            ((photos.get(key) or {}).get("photo") or {}).get("index")
+            for key in exterior_photo_keys
+        )
+        if idx is not None
+    ]
+    surrogates.append({
+        "room_surrogate_id": EXTERIOR_SURROGATE_ID,
+        "scene": EXTERIOR_SURROGATE_SCENE,
+        "scene_group": EXTERIOR_SCENE_GROUP,
+        "photo_keys": exterior_photo_keys,
+        "listing_order_start": min(indexes) if indexes else None,
+        "listing_order_end": max(indexes) if indexes else None,
+        "clustering_method": EXTERIOR_CLUSTERING_METHOD,
+        "notes": ["property_level_exterior_identity"],
+    })
+    for photo_key in exterior_photo_keys:
+        photo_key_to_id[photo_key] = EXTERIOR_SURROGATE_ID

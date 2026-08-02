@@ -12,7 +12,8 @@ Pass 2c: Label observations + debug/forward split (text-only)
 Pass 2d: Resolve catalog item ID from candidates (text-only, optional)
 Pass 2e: Normalize canonical issues and build display-filtered issues (Issue cleaning for UI. Rule-based, no LLM)
 Pass 2f: Visual package verification (multi-image; per-room prompts for
-         kitchen / bathroom via PASS_2F_ROOM_PROMPTS). Confirms / rejects /
+         kitchen / bathroom / bedroom / living / exterior via
+         PASS_2F_ROOM_PROMPTS). Confirms / rejects /
          marks-uncertain a proposed renovation package against the photos.
          Visual-truth only; no pricing posture or cost estimation. Selector
          is room-keyed so future rooms (exterior, etc.) register here without
@@ -1846,14 +1847,68 @@ PASS_2F_LIVING_USER_PROMPT = (
     + PASS_2F_OUTPUT_SCHEMA
 )
 
-# Per-room selector. Future rooms (exterior, etc.) register here without
-# touching run_pass_2f internals. NOTE: the living key is "living" (the room
-# constant / package["room"]), not the "living_room" scene id.
+# ── Exterior Pass 2f prompt ──────────────────────────────────────────────────
+# Self-contained: no kitchen / bathroom / bedroom / living vocabulary anywhere
+# in the body. Uses the standard output schema (no visible_room_count).
+#
+# Exterior packages are repair-only, so the body describes envelope damage, not
+# curb-appeal modernization. Landscaping, yard, driveway and roof-covering
+# findings are deliberately absent: they are not part of this package and
+# naming them here would invite exactly the confabulation this pass exists to
+# catch.
+
+PASS_2F_EXTERIOR_SYSTEM_PROMPT = (
+    "You are verifying a proposed real-estate renovation package from exterior photos. "
+    "Use only visible evidence in the supplied images. Your job is visual truth only: "
+    "confirm, reject, or mark uncertain whether the proposed package is supported by the photos.\n\n"
+    + PASS_2F_SHARED_RULES +
+    "\nExterior-specific guidance:\n"
+    "- This package covers repair of the building envelope and attached structures: "
+    "siding, exterior trim, soffit and fascia, porches, decks, stairs and railings, and "
+    "masonry. Judge only those surfaces.\n"
+    "- A repair package is clearly contradicted when the visible envelope is sound: "
+    "intact siding with no rot, splitting, or missing sections, continuous undamaged trim "
+    "soffit and fascia, solid deck and porch boards with secure railings, and masonry "
+    "without displaced or crumbling mortar. Recent paint or new siding on an otherwise "
+    "sound envelope is a contradiction, not support. A single weathered or discolored "
+    "detail is not sufficient to confirm a repair package against an otherwise sound "
+    "exterior.\n"
+    "- Strong exterior support signals: rotted, split, buckled, or missing siding boards; "
+    "exposed sheathing or building wrap; separated or rotted trim; sagging, holed, or "
+    "detached soffit or fascia panels; deck or porch boards that are rotted, broken, or "
+    "visibly deflecting; loose, missing, or detached railings and stair treads; posts with "
+    "rot at the base; cracked, spalling, or displaced masonry with failed mortar joints.\n"
+    "- Distinguish damage from soiling. Dirt, algae, chalking, fading, and water staining "
+    "are surface conditions; confirm the package on them only when accompanied by visible "
+    "material failure.\n"
+    "- Common exterior photo limitations: the elevation is shot from a distance so surface "
+    "condition cannot be resolved; vegetation, vehicles, or fencing occlude the lower wall "
+    "and foundation; strong shadow, glare, or overcast flattening hides texture; wet "
+    "surfaces read as staining. Use uncertain when the proposed surfaces are not legible in "
+    "any of the supplied images.\n"
+)
+
+PASS_2F_EXTERIOR_USER_PROMPT = (
+    "Analyze these exterior photos together.\n\n"
+    "Proposed package:\n"
+    "- package_id: {package_id}\n"
+    "- package_type: {package_type}\n"
+    "- package_label: {package_label}\n\n"
+    "Candidate evidence items:\n"
+    "{evidence_json}\n\n"
+    + PASS_2F_OUTPUT_SCHEMA
+)
+
+# Per-room selector. Future rooms register here without touching run_pass_2f
+# internals. NOTE: the living key is "living" (the room constant /
+# package["room"]), not the "living_room" scene id; likewise "exterior" is the
+# room constant, not the exterior_front/back/side scene ids.
 PASS_2F_ROOM_PROMPTS = {
     "kitchen":  (PASS_2F_KITCHEN_SYSTEM_PROMPT,  PASS_2F_KITCHEN_USER_PROMPT),
     "bathroom": (PASS_2F_BATHROOM_SYSTEM_PROMPT, PASS_2F_BATHROOM_USER_PROMPT),
     "bedroom":  (PASS_2F_BEDROOM_SYSTEM_PROMPT,  PASS_2F_BEDROOM_USER_PROMPT),
     "living":   (PASS_2F_LIVING_SYSTEM_PROMPT,   PASS_2F_LIVING_USER_PROMPT),
+    "exterior": (PASS_2F_EXTERIOR_SYSTEM_PROMPT, PASS_2F_EXTERIOR_USER_PROMPT),
 }
 
 PASS_2F_PROMPT_VERSION = "pass_2f_package_v2"
