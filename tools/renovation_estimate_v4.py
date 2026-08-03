@@ -622,14 +622,21 @@ def _run_pass_2f_sync(
         photo_key_to_path=photo_key_to_path,
         provider=provider,
     )
+    # Only the loop lookup is guarded. Widening this to wrap the await as well
+    # silently re-ran the whole batch on any failure, because PassExecutionError
+    # subclasses RuntimeError: a single Pass 2f fault charged the provider twice,
+    # and the fallback's asyncio.run() then closed the shared event loop out from
+    # under everything that came after.
     try:
         loop = asyncio.get_event_loop()
-        if loop.is_running():
-            with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-                return pool.submit(asyncio.run, coro).result()
-        return loop.run_until_complete(coro)
     except RuntimeError:
+        # No event loop in this thread — asyncio.run creates and owns one.
         return asyncio.run(coro)
+
+    if loop.is_running():
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            return pool.submit(asyncio.run, coro).result()
+    return loop.run_until_complete(coro)
 
 
 def _reuse_pass_2f_fields(

@@ -31,6 +31,7 @@ from tools.rehab_evidence_projection import (
     EVIDENCE_PROJECTION_POLICY_VERSION,
     stamp_evidence_projection_provenance,
 )
+from tools.scene_classifier_passes import PassExecutionError
 from tools.scene_classifier_service import scene_classifier_payload
 
 logger = logging.getLogger(__name__)
@@ -971,6 +972,25 @@ def write_photo_intel(
             v4_est["meta"]["high_tier_count"],
             v4_est["meta"]["medium_tier_count"],
         )
+    except PassExecutionError:
+        # An enabled pass could not produce a valid result. Never degrade that to
+        # a null estimate: PassExecutionError exists precisely so "the pass
+        # failed" can never be mistaken for "the pass ran and found nothing".
+        #
+        # Swallowing it here produced a live incident. Pass 2f hit an exhausted
+        # OpenAI quota (HTTP 429), this handler wrote renovation_estimate_v4 =
+        # None for a property with 70 issues to price, and the job went on to
+        # report success — so the run looked complete while serving no capex,
+        # and _clear_checkpoint then discarded the per-image work, making the
+        # retry re-pay for every photo.
+        #
+        # _process_job already does the right thing with a raised error: it sets
+        # fatal_error, classifies it through the failure taxonomy so the worker
+        # sees `quota` rather than a generic contract violation, emits
+        # success:false, and leaves the checkpoint intact for a cheap retry.
+        if timing_recorder is not None:
+            timing_recorder["failed_phase"] = "pass_2f"
+        raise
     except Exception as exc:
         logger.error(f"Failed to compute renovation estimate: {exc}", exc_info=True)
         photo_intel["renovation_estimate_v4"] = None

@@ -2077,6 +2077,123 @@ class TestAuditBlock:
         finally:
             shutil.rmtree(tmp_path, ignore_errors=True)
 
+    def test_write_photo_intel_propagates_pass_execution_error(self):
+        """A fatal pass failure must not become a null estimate.
+
+        Regression for a live incident: Pass 2f hit an exhausted OpenAI quota
+        (HTTP 429), the estimate block's bare `except Exception` wrote
+        renovation_estimate_v4 = None for a property with real issues to price,
+        and the job went on to report success. The run looked complete while
+        serving no capex, and the checkpoint was then cleared, so the retry had
+        to re-pay for every photo.
+
+        _process_job already handles a raised error correctly — it classifies it
+        through the failure taxonomy, emits success:false, and leaves the
+        checkpoint intact. The only thing wrong was that the error never got
+        there.
+        """
+        from tools.artifact_writers import write_photo_intel
+        from tools.scene_classifier_passes import PassExecutionError
+
+        tmp_path = Path.cwd() / ".pytest_cache" / f"photo_intel_fatal_{uuid.uuid4().hex}"
+        tmp_path.mkdir(parents=True)
+        image_path = tmp_path / "kitchen_1.jpg"
+        try:
+            image_path.write_bytes(b"fake image")
+            kitchen_item = _make_item(
+                "outdated_kitchen_finishes",
+                estimate={
+                    "estimate_tier": "medium",
+                    "strategy": "replace_only",
+                    "group": "kitchen",
+                    "stack_behavior": "group_cap",
+                    "unit_policy": "per_kitchen",
+                },
+                trade_bucket="kitchen_cabinets_counters",
+                scope="replace",
+            )
+            kitchen_item.update({
+                "display_class": "marketability",
+                "package_role": "package_driver",
+                "package_type": "kitchen_modernization",
+            })
+            issue_catalog = _make_catalog(kitchen_item)
+            result = SimpleNamespace(
+                image_path=str(image_path),
+                scene="kitchen",
+                scene_classifier={
+                    "scene": "kitchen",
+                    "canonical_issues": [
+                        {
+                            "description": "Kitchen finishes are visibly dated.",
+                            "catalogItemId": "outdated_kitchen_finishes",
+                            "label": "marketability",
+                        }
+                    ],
+                    "verified_issues": [],
+                    "matched_issues": [],
+                    "passes": {
+                        "1a": {"scene": "kitchen", "confidence": 0.9, "reasoning": ""},
+                        "1c": {"overall_impression": "", "image_summary": "", "notable_features": []},
+                        "2e": {},
+                    },
+                },
+                scene_data=None,
+                processing_time=0.1,
+                error=None,
+            )
+            job = SimpleNamespace(
+                property_key="prop",
+                job_id="job",
+                timestamp="2026-04-19T00:00:00Z",
+                artifacts_dir=str(tmp_path),
+                results=[result],
+            )
+
+            # What an exhausted quota looks like by the time it reaches the writer.
+            mock_vlm = MagicMock()
+            mock_vlm.analyze_images = AsyncMock(
+                side_effect=PassExecutionError(
+                    "2f",
+                    "request",
+                    "Error code: 429 - insufficient_quota",
+                    code="credit_balance_exhausted",
+                    provider="openai",
+                    model="gpt-5.6-sol",
+                )
+            )
+            mock_vlm.analyze_image = AsyncMock()
+
+            timing = {}
+            with pytest.raises(PassExecutionError):
+                write_photo_intel(
+                    cfg=SimpleNamespace(LM_STUDIO_MODEL="test-model"),
+                    job=job,
+                    detection_backend="test",
+                    analysis_profile="test",
+                    use_pass_architecture=True,
+                    pass_toggles={"2f": True},
+                    model_overrides={},
+                    gpt_config={"model": "test-model", "api_key": "test-key"},
+                    issue_catalog=issue_catalog,
+                    output_path=tmp_path / "photo_intel.json",
+                    vlm_client=mock_vlm,
+                    timing_recorder=timing,
+                )
+
+            # The phase is still recorded, so timing stats attribute the failure
+            # to Pass 2f rather than to generic postprocessing.
+            assert timing.get("failed_phase") == "pass_2f"
+
+            # And no artifact claiming a null estimate is left behind for the
+            # worker to find.
+            written = tmp_path / "photo_intel.json"
+            if written.exists():
+                payload = json.loads(written.read_text(encoding="utf-8"))
+                assert payload.get("renovation_estimate_v4") is not None
+        finally:
+            shutil.rmtree(tmp_path, ignore_errors=True)
+
 
 # ─── Phase M: provider selection ────────────────────────────────────────────
 
