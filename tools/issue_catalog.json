@@ -1507,6 +1507,14 @@
         "cap_low": 8000,
         "cap_high": 25000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "repair_or_replace",
+        "group": "landscaping",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_area",
+        "requires_2f_for_estimate": true
       }
     },
     {
@@ -1548,6 +1556,14 @@
         "cap_low": 8000,
         "cap_high": 20000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_or_replace",
+        "group": "landscaping",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_area",
+        "requires_2f_for_estimate": true
       }
     },
     {
@@ -1587,6 +1603,14 @@
         "cap_low": 2500,
         "cap_high": 6000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "service_only",
+        "group": "exterior",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_property",
+        "requires_2f_for_estimate": true
       }
     },
     {
@@ -1627,6 +1651,14 @@
         "cap_low": 5000,
         "cap_high": 15000,
         "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "service_only",
+        "group": "landscaping",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_property",
+        "requires_2f_for_estimate": true
       },
       "require_any": [
         "tree",
@@ -3849,6 +3881,14 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "inspect_only",
+        "group": "roof",
+        "stack_behavior": "max_only",
+        "unit_policy": "per_property",
+        "requires_2f_for_estimate": false
       }
     },
     {
@@ -3918,6 +3958,14 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_only",
+        "group": "exterior",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_property",
+        "requires_2f_for_estimate": true
       }
     },
     {
@@ -4029,6 +4077,14 @@
       "cost": {
         "mode": "heuristic"
       },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_only",
+        "group": "exterior",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_property",
+        "requires_2f_for_estimate": true
+      },
       "require_any": [
         "carport",
         "undercarport"
@@ -4056,7 +4112,10 @@
       "scene_groups": [
         "exterior",
         "other"
-      ]
+      ],
+      "cost": {
+        "mode": "heuristic"
+      }
     },
     {
       "name": "Exterior Siding Discoloration or Fading",
@@ -4133,6 +4192,14 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_only",
+        "group": "landscaping",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_area",
+        "requires_2f_for_estimate": true
       }
     },
     {
@@ -4348,6 +4415,14 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "service_only",
+        "group": "landscaping",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_property",
+        "requires_2f_for_estimate": true
       }
     },
     {
@@ -4382,6 +4457,14 @@
       "drop_if_generic": false,
       "cost": {
         "mode": "heuristic"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_only",
+        "group": "windows_doors",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_opening",
+        "requires_2f_for_estimate": true
       }
     },
     {

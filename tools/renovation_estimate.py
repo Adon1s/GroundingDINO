@@ -34,6 +34,7 @@ from tools.catalog_cost_model import (
     derive_cost_model,
 )
 from tools.estimate_scope import REQUIRED_REHAB, apply_estimate_scope
+from tools.pipeline_common import normalize_scene_group
 
 logger = logging.getLogger(__name__)
 
@@ -94,9 +95,18 @@ def resolve_estimate_meta(raw: Optional[Dict[str, Any]]) -> CatalogEstimateMeta:
         affects_estimate = tier in ("high", "medium")
     requires_2f = raw.get("requires_2f_for_estimate")
     if requires_2f is None:
-        # Backward-compatible default: existing high/medium estimate blocks keep
-        # the old behavior unless the catalog opts out per item.
-        requires_2f = tier in ("high", "medium")
+        # Opt-in, deliberately. The estimate guard withholds a line item only
+        # where the catalog explicitly asks for confirmation.
+        #
+        # Defaulting this to `tier in ("high","medium")` was measured against
+        # the full artifact corpus and withheld $15.8M of cost_high across 77%
+        # of properties — a 37% cut to final_rehab high. That is not a
+        # correctness correction: Pass 2f reviews *packages*, so a standalone
+        # item with no package affinity (roof shingles, flooring) can never be
+        # confirmed, and "withhold until confirmed" resolves to "withhold
+        # forever". Guard items one at a time as a verifier that can satisfy
+        # them lands. See docs/HANDOFF_exterior_estimate_coverage.md.
+        requires_2f = False
     unit_policy = raw.get("unit_policy", "per_scope")
     if unit_policy not in _VALID_UNIT_POLICIES:
         unit_policy = "per_scope"
@@ -111,8 +121,13 @@ def resolve_estimate_meta(raw: Optional[Dict[str, Any]]) -> CatalogEstimateMeta:
     )
 
 
-def _resolve_catalog_estimate_meta(item: Dict[str, Any]) -> CatalogEstimateMeta:
-    """Resolve estimate meta, allowing top-level flags to override the block."""
+def resolve_catalog_estimate_meta(item: Dict[str, Any]) -> CatalogEstimateMeta:
+    """Resolve estimate meta, allowing top-level flags to override the block.
+
+    This is the single authority on whether a catalog item has an *effective*
+    estimate; audit tooling must call it rather than re-deriving the
+    ``affects_estimate`` predicate from the raw estimate block.
+    """
     raw_estimate = item.get("estimate")
     if isinstance(raw_estimate, dict):
         raw = dict(raw_estimate)
@@ -122,6 +137,58 @@ def _resolve_catalog_estimate_meta(item: Dict[str, Any]) -> CatalogEstimateMeta:
         if field_name in item and field_name not in raw:
             raw[field_name] = item[field_name]
     return resolve_estimate_meta(raw or None)
+
+
+# Back-compat alias for existing internal call sites.
+_resolve_catalog_estimate_meta = resolve_catalog_estimate_meta
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Estimate verification guard — gives requires_2f_for_estimate a consumer
+# ═══════════════════════════════════════════════════════════════════════════════
+
+ESTIMATE_GUARD_POLICY_VERSION = "requires_2f_guard_v1"
+
+# Why a candidate may (or may not) carry dollars into the headline.
+ESTIMATE_VERIFICATION_NOT_REQUIRED = "not_required"
+ESTIMATE_VERIFICATION_CONFIRMED = "confirmed"
+ESTIMATE_VERIFICATION_CONFIRMED_BY_RULE = "confirmed_by_rule"
+ESTIMATE_VERIFICATION_UNCONFIRMED = "unconfirmed"
+ESTIMATE_VERIFICATION_INVALIDATED = "invalidated"
+
+WITHHELD_REASON_REQUIRES_2F = "requires_2f_confirmation"
+
+# Mirror of rehab_packages.PACKAGE_VERIFICATION_CONFIRMED_BY_RULE. That module
+# imports EstimateCandidate from here, so importing the constant back would be
+# circular; tests assert the two stay in sync.
+_PACKAGE_STATUS_CONFIRMED_BY_RULE = "confirmed_by_rule"
+
+
+def classify_estimate_verification(candidate: "EstimateCandidate") -> str:
+    """Classify how a candidate stands against the Pass 2f estimate guard.
+
+    Precedence matters:
+      1. An invalidated detection stays invalidated — it keeps the existing
+         zero-dollar behaviour rather than moving into the withheld lane.
+      2. A catalog item that opts out of confirmation always prices.
+      3. ``pass_2f_applied`` covers both the active-confirmed-package path and
+         the case where 2f rejected the bundle but confirmed this issue.
+      4. A rule-confirmed package keeps its members priced, but they are never
+         labelled image-validated (``pass_2f_applied`` stays False there).
+      5. Everything else requires confirmation and has not received it.
+    """
+    if candidate.is_valid_detection is False:
+        return ESTIMATE_VERIFICATION_INVALIDATED
+    if not candidate.estimate_meta.requires_2f_for_estimate:
+        return ESTIMATE_VERIFICATION_NOT_REQUIRED
+    if candidate.pass_2f_applied and candidate.is_valid_detection is True:
+        return ESTIMATE_VERIFICATION_CONFIRMED
+    if (
+        candidate.visual_verification_status == _PACKAGE_STATUS_CONFIRMED_BY_RULE
+        and candidate.is_valid_detection is True
+    ):
+        return ESTIMATE_VERIFICATION_CONFIRMED_BY_RULE
+    return ESTIMATE_VERIFICATION_UNCONFIRMED
 
 
 def product_quarantined_trade_buckets(
@@ -233,6 +300,9 @@ class EstimateCandidate:
     package_role: Optional[str] = None
     visual_verification_status: Optional[str] = None
     package_verification_source: Optional[str] = None
+    # Estimate guard verdict (set by classify_estimate_verification); decides
+    # whether this candidate may carry dollars into headline totals.
+    estimate_verification_status: str = ""
 
 
 # Valid postures that 2f can authoritatively set
@@ -330,7 +400,13 @@ def _estimate_scope_key_for_issue(
     issue: Dict[str, Any],
 ) -> Tuple[str, str]:
     """Build a scope key where photos are evidence, not multipliers."""
-    scene_group = _meaningful_scope_hint(issue.get("scene_group")) or "other"
+    # scene_group is a closed 7-token vocabulary, so it is canonicalized against
+    # the taxonomy — not filtered through _GENERIC_SCOPE_HINTS, which contains
+    # "exterior" and would rewrite the one group that collides with a generic
+    # room word. The room fallback below keeps using the hint filter, so a bare
+    # exterior group still contributes no room identity.
+    scene_group = normalize_scene_group(_clean_scope_component(issue.get("scene_group")))
+    scene_group_room_hint = _meaningful_scope_hint(issue.get("scene_group")) or "other"
 
     room_surrogate = ""
     for field_name in (
@@ -344,7 +420,7 @@ def _estimate_scope_key_for_issue(
     if not room_surrogate:
         room_surrogate = (
             _meaningful_scope_hint(issue.get("scene"))
-            or scene_group
+            or scene_group_room_hint
             or "property"
         )
 
@@ -759,6 +835,134 @@ def _resolve_dominant_stack(candidates: List[EstimateCandidate]) -> str:
     return "sum"
 
 
+def _build_line_item(c: EstimateCandidate) -> Dict[str, Any]:
+    """Price one candidate into a line item.
+
+    The single pricing path: both the priced groups and the withheld lane call
+    this, so a withheld item's range is exactly the range it would have carried
+    had it been confirmed — no parallel implementation to drift.
+    """
+    effective = c.effective_posture or c.estimate_meta.strategy
+    low, high = resolve_pricing_band(c, effective)
+    risk_low, risk_high = resolve_risk_exposure_band(c, effective)
+    cost_basis = _pricing_cost_basis(c, effective)
+    # Zero out cost for detections the model deemed invalid
+    if c.is_valid_detection is False:
+        low, high = 0, 0
+        risk_low, risk_high = 0, 0
+    return {
+        "estimate_unit_id": c.estimate_unit_id,
+        "billable_estimate_unit_id": c.billable_estimate_unit_id,
+        "estimate_scope_key": c.estimate_scope_key,
+        "resolved_cluster_key": c.resolved_cluster_key,
+        "room_surrogate_id": c.room_surrogate_id,
+        "source_room_surrogate_ids": c.source_room_surrogate_ids,
+        "catalog_item_id": c.catalog_item_id,
+        "name": c.catalog_item_name,
+        "trade_bucket": c.trade_bucket,
+        "estimate_scope": c.estimate_scope,
+        "estimate_scope_reason": c.estimate_scope_reason,
+        "baseline_scope_before_posture": c.baseline_scope_before_posture,
+        "visible_required_with_inspect_posture": c.visible_required_with_inspect_posture,
+        "required_baseline_included": c.required_baseline_included,
+        "inspection_risk_added": c.inspection_risk_added,
+        "cost_model": c.cost_model,
+        "cost_model_source": c.cost_model_source,
+        "occurrences": c.occurrences,
+        "estimate_unit_count": c.estimate_unit_count,
+        "unit_policy": c.estimate_meta.unit_policy,
+        "estimate_unit_label": c.estimate_unit_label,
+        "unit_resolution_method": c.unit_resolution_method,
+        "unit_resolution_confidence": c.unit_resolution_confidence,
+        "unit_resolution_notes": c.unit_resolution_notes,
+        "unit_members": c.unit_members,
+        "source_estimate_unit_ids": c.source_estimate_unit_ids,
+        "source_issue_ids": c.source_issue_ids,
+        "supporting_photo_count": c.distinct_photo_count or len(c.photo_keys),
+        "supporting_scene_group_count": c.distinct_scene_group_count or len(c.scene_groups_seen),
+        "supporting_observations": c.supporting_observations,
+        "strategy": c.estimate_meta.strategy,
+        "stack_behavior": c.estimate_meta.stack_behavior,
+        "estimate_tier": c.estimate_meta.estimate_tier,
+        "requires_2f_for_estimate": c.estimate_meta.requires_2f_for_estimate,
+        "estimate_verification_status": c.estimate_verification_status,
+        "cost_basis": cost_basis,
+        "cost_low": low,
+        "cost_high": high,
+        "risk_exposure_low": risk_low,
+        "risk_exposure_high": risk_high,
+        # ── Validity & posture audit trail (always present) ──
+        "is_valid_detection": c.is_valid_detection,
+        "default_posture": c.estimate_meta.strategy,
+        "review_posture": c.review_posture,
+        "pricing_posture": c.review_posture,
+        "effective_posture": effective,
+        "review_source": c.review_source,
+        "review_image_path": c.review_image_path,
+        # ── Pass 2f fallback tracking ──
+        "pass_2f_attempted": c.pass_2f_attempted,
+        "pass_2f_applied": c.pass_2f_applied,
+        "pass_2f_fallback_reason": c.pass_2f_fallback_reason,
+        "package_id": c.package_id,
+        "package_type": c.package_type,
+        "package_role": c.package_role,
+        "visual_verification_status": c.visual_verification_status,
+        "package_verification_source": c.package_verification_source,
+    }
+
+
+def partition_withheld_candidates(
+    candidates: List[EstimateCandidate],
+) -> Tuple[List[EstimateCandidate], List[EstimateCandidate]]:
+    """Split candidates into (priced, withheld) and stamp each verdict.
+
+    Must run *after* estimate-unit resolution: `per_property` and `per_area`
+    clusters collapse several candidates of one catalog item into a single
+    priced unit, so partitioning earlier could split a cluster whose members
+    disagree on verification status and silently change the survivor's unit
+    count.
+    """
+    priced: List[EstimateCandidate] = []
+    withheld: List[EstimateCandidate] = []
+    for candidate in candidates:
+        candidate.estimate_verification_status = classify_estimate_verification(candidate)
+        if candidate.estimate_verification_status == ESTIMATE_VERIFICATION_UNCONFIRMED:
+            withheld.append(candidate)
+        else:
+            priced.append(candidate)
+    return priced, withheld
+
+
+def build_withheld_estimate(
+    withheld: List[EstimateCandidate],
+) -> Dict[str, Any]:
+    """Build the additive risk lane for candidates awaiting confirmation.
+
+    `total` is a plain uncapped sum, deliberately: group caps and `max_only`
+    are a blending artifact of a *visible* group, and applying them to a
+    partial set would silently discard withheld items. The plain sum is the
+    conservative upper bound on what confirmation could add.
+    """
+    line_items: List[Dict[str, Any]] = []
+    for candidate in withheld:
+        line_item = _build_line_item(candidate)
+        line_item["estimate_eligible"] = False
+        line_item["withheld_reason"] = WITHHELD_REASON_REQUIRES_2F
+        line_items.append(line_item)
+    return {
+        "policy_version": ESTIMATE_GUARD_POLICY_VERSION,
+        "line_items": line_items,
+        "total": {
+            "low": sum(li["cost_low"] for li in line_items),
+            "high": sum(li["cost_high"] for li in line_items),
+        },
+        "risk_exposure_total": {
+            "low": sum(li["risk_exposure_low"] for li in line_items),
+            "high": sum(li["risk_exposure_high"] for li in line_items),
+        },
+    }
+
+
 def compute_group_estimate(
     group: str,
     candidates: List[EstimateCandidate],
@@ -786,75 +990,7 @@ def compute_group_estimate(
         }
 
     # Compute per-candidate costs
-    line_items: List[Dict[str, Any]] = []
-    for c in candidates:
-        effective = c.effective_posture or c.estimate_meta.strategy
-        low, high = resolve_pricing_band(c, effective)
-        risk_low, risk_high = resolve_risk_exposure_band(c, effective)
-        cost_basis = _pricing_cost_basis(c, effective)
-        # Zero out cost for detections the model deemed invalid
-        if c.is_valid_detection is False:
-            low, high = 0, 0
-            risk_low, risk_high = 0, 0
-        li: Dict[str, Any] = {
-            "estimate_unit_id": c.estimate_unit_id,
-            "billable_estimate_unit_id": c.billable_estimate_unit_id,
-            "estimate_scope_key": c.estimate_scope_key,
-            "resolved_cluster_key": c.resolved_cluster_key,
-            "room_surrogate_id": c.room_surrogate_id,
-            "source_room_surrogate_ids": c.source_room_surrogate_ids,
-            "catalog_item_id": c.catalog_item_id,
-            "name": c.catalog_item_name,
-            "trade_bucket": c.trade_bucket,
-            "estimate_scope": c.estimate_scope,
-            "estimate_scope_reason": c.estimate_scope_reason,
-            "baseline_scope_before_posture": c.baseline_scope_before_posture,
-            "visible_required_with_inspect_posture": c.visible_required_with_inspect_posture,
-            "required_baseline_included": c.required_baseline_included,
-            "inspection_risk_added": c.inspection_risk_added,
-            "cost_model": c.cost_model,
-            "cost_model_source": c.cost_model_source,
-            "occurrences": c.occurrences,
-            "estimate_unit_count": c.estimate_unit_count,
-            "unit_policy": c.estimate_meta.unit_policy,
-            "estimate_unit_label": c.estimate_unit_label,
-            "unit_resolution_method": c.unit_resolution_method,
-            "unit_resolution_confidence": c.unit_resolution_confidence,
-            "unit_resolution_notes": c.unit_resolution_notes,
-            "unit_members": c.unit_members,
-            "source_estimate_unit_ids": c.source_estimate_unit_ids,
-            "source_issue_ids": c.source_issue_ids,
-            "supporting_photo_count": c.distinct_photo_count or len(c.photo_keys),
-            "supporting_scene_group_count": c.distinct_scene_group_count or len(c.scene_groups_seen),
-            "supporting_observations": c.supporting_observations,
-            "strategy": c.estimate_meta.strategy,
-            "stack_behavior": c.estimate_meta.stack_behavior,
-            "estimate_tier": c.estimate_meta.estimate_tier,
-            "requires_2f_for_estimate": c.estimate_meta.requires_2f_for_estimate,
-            "cost_basis": cost_basis,
-            "cost_low": low,
-            "cost_high": high,
-            "risk_exposure_low": risk_low,
-            "risk_exposure_high": risk_high,
-            # ── Validity & posture audit trail (always present) ──
-            "is_valid_detection": c.is_valid_detection,
-            "default_posture": c.estimate_meta.strategy,
-            "review_posture": c.review_posture,
-            "pricing_posture": c.review_posture,
-            "effective_posture": effective,
-            "review_source": c.review_source,
-            "review_image_path": c.review_image_path,
-            # ── Pass 2f fallback tracking ──
-            "pass_2f_attempted": c.pass_2f_attempted,
-            "pass_2f_applied": c.pass_2f_applied,
-            "pass_2f_fallback_reason": c.pass_2f_fallback_reason,
-            "package_id": c.package_id,
-            "package_type": c.package_type,
-            "package_role": c.package_role,
-            "visual_verification_status": c.visual_verification_status,
-            "package_verification_source": c.package_verification_source,
-        }
-        line_items.append(li)
+    line_items = [_build_line_item(c) for c in candidates]
 
     dominant = _resolve_dominant_stack(candidates)
     raw_sum_low = sum(li["cost_low"] for li in line_items)
@@ -1078,14 +1214,24 @@ def compute_renovation_estimate(
             candidate,
         )
 
+    # Estimate guard. Withheld candidates leave the working set entirely, so
+    # they are absent from groups, the tier summary, reconciliation, package
+    # adjustment, project scope, evidence projection and UI priorities by
+    # construction rather than by filtering at each downstream site.
+    candidates, withheld_candidates = partition_withheld_candidates(candidates)
+    withheld_count = len(withheld_candidates)
+    withheld_estimate = build_withheld_estimate(withheld_candidates)
+
     if not candidates:
+        # Reachable with a non-empty withheld lane: a property whose only
+        # findings all await confirmation. The withheld payload must be real.
         return {
             "version": "renovation_estimate_v3",
             "groups": [],
             "totals": {
                 "validated_total": {"low": 0, "high": 0},
                 "probable_total": {"low": 0, "high": 0},
-                "unreviewed_risk_total": {"low": 0, "high": 0},
+                "unreviewed_risk_total": withheld_estimate["total"],
                 "inspection_allowance_total": {"low": 0, "high": 0},
                 "risk_exposure_total": {"low": 0, "high": 0},
             },
@@ -1095,6 +1241,7 @@ def compute_renovation_estimate(
                 "source": "probable_total",
                 "validated_portion": {"low": 0, "high": 0},
             },
+            "withheld_estimate": withheld_estimate,
             "meta": {
                 "candidate_count": 0,
                 "estimate_unit_count": 0,
@@ -1104,6 +1251,8 @@ def compute_renovation_estimate(
                 "pass_2f_reviewed_count": 0,
                 "pass_2f_applied_count": 0,
                 "pass_2f_invalidated_count": 0,
+                "priced_candidate_count": 0,
+                "withheld_candidate_count": withheld_count,
             },
             "pass_2f_review_audit": {
                 "ran": False,
@@ -1210,20 +1359,14 @@ def compute_renovation_estimate(
     validated_low = tier_summary["validated_total"]["low"]
     validated_high = tier_summary["validated_total"]["high"]
 
-    unreviewed_low = sum(
-        item.get("cost_low", 0)
-        for item in tier_summary.get("unreviewed_items", [])
-        if item.get("is_valid_detection") is not False
-    )
-    unreviewed_high = sum(
-        item.get("cost_high", 0)
-        for item in tier_summary.get("unreviewed_items", [])
-        if item.get("is_valid_detection") is not False
-    )
+    # unreviewed_risk_total is now the withheld lane: additive risk that is
+    # deliberately absent from probable_total, rather than a double-counted
+    # subset of it. Aliasing the same dict is safe — scale_estimate_dollars
+    # dedupes by identity and already relies on that for package dicts.
     totals = {
         "validated_total": {"low": validated_low, "high": validated_high},
         "probable_total": {"low": total_low, "high": total_high},
-        "unreviewed_risk_total": {"low": unreviewed_low, "high": unreviewed_high},
+        "unreviewed_risk_total": withheld_estimate["total"],
         "inspection_allowance_total": {
             "low": inspection_allowance_low,
             "high": inspection_allowance_high,
@@ -1249,6 +1392,7 @@ def compute_renovation_estimate(
             "high": total_high,
         },
         "primary_estimate": primary_estimate,
+        "withheld_estimate": withheld_estimate,
         "meta": {
             "candidate_count": len(candidates),
             "estimate_unit_count": sum(max(1, c.estimate_unit_count) for c in candidates),
@@ -1258,6 +1402,8 @@ def compute_renovation_estimate(
             "pass_2f_reviewed_count": pass_2f_reviewed_count,
             "pass_2f_applied_count": pass_2f_applied_count,
             "pass_2f_invalidated_count": pass_2f_invalidated_count,
+            "priced_candidate_count": len(candidates),
+            "withheld_candidate_count": withheld_count,
         },
         "pass_2f_review_audit": pass_2f_review_audit,
         "disclaimer": (

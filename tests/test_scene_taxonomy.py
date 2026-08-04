@@ -19,6 +19,7 @@ from tools.pipeline_common import (
     SCENE_GROUPS_UI,
     SCENE_SPECS,
     SCENE_TO_GROUP_UI,
+    normalize_scene_group,
     normalize_scene_id,
 )
 
@@ -135,6 +136,25 @@ def test_canonical_ids_round_trip(scene):
 ])
 def test_normalize_scene_id(raw, expected):
     assert normalize_scene_id(raw) == expected
+
+
+@pytest.mark.parametrize("group", sorted(SCENE_GROUPS_UI))
+def test_canonical_groups_round_trip(group):
+    assert normalize_scene_group(group) == group
+
+
+@pytest.mark.parametrize("raw,expected", [
+    (" Exterior ", "exterior"),          # the group that collides with a room word
+    ("LIVING_AREAS", "living_areas"),
+    ("bedrooms", "other"),               # plural is not the group token
+    ("exterior_back", "other"),          # a scene id is not a group
+    ("pool", "other"),                   # a scene id, and a catalog-only token
+    ("", "other"),
+    (None, "other"),
+    (123, "other"),
+])
+def test_normalize_scene_group(raw, expected):
+    assert normalize_scene_group(raw) == expected
 
 
 # ── HVAC drift (the bug this consolidation fixes) ───────────────────────────

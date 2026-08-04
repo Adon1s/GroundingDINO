@@ -40,6 +40,7 @@ from tools.estimate_scope import (
     classify_estimate_scope_with_reason,
 )
 from tools.renovation_estimate import (
+    ESTIMATE_GUARD_POLICY_VERSION,
     compute_renovation_estimate,
     extract_estimate_candidates,
     resolve_estimate_units,
@@ -316,6 +317,7 @@ class TestSurface:
                 "modernization_dedupe",
                 "bathroom_expansion",
                 "package_subsumption",
+                "estimate_verification_guard",
                 "reconciliation",
                 "issue_disposition_audit",
                 "cost_adjustment",
@@ -324,6 +326,7 @@ class TestSurface:
             "packages_enabled": True,
             "reconciliation_enabled": True,
             "package_confirmation_required": True,
+            "estimate_verification_policy_version": ESTIMATE_GUARD_POLICY_VERSION,
         }
 
     def test_v4_provenance_marks_pass_2f_reused_when_provided(self):

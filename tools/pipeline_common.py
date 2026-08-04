@@ -118,6 +118,19 @@ def normalize_scene_id(raw: Any) -> str:
     return scene if scene in ALL_SCENE_IDS else SCENE_OTHER
 
 
+def normalize_scene_group(raw: Any) -> str:
+    """Normalize a model/artifact scene-group label to a canonical group.
+
+    The group vocabulary is the closed 7-token set in ``SCENE_GROUPS_UI``, so
+    anything else — a scene id, a plural, an empty value — collapses to
+    ``other``. Callers must use this rather than a generic room-hint filter:
+    ``exterior`` is both a scene group and a generic room word, and filters
+    written for room hints strip it.
+    """
+    group = str(raw or "").strip().lower()
+    return group if group in SCENE_GROUPS_UI else SCENE_OTHER
+
+
 PHOTO_INTEL_SCHEMA_VERSION = "photo_intel_v3"
 PROPERTY_SUMMARY_SCHEMA_VERSION = "property_summary_v3"
 NORMALIZATION_POLICY_VERSION = "workitem_v1"

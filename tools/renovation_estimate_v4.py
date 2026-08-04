@@ -53,6 +53,7 @@ from tools.rehab_packages import (
     run_pass_2f_batch,
 )
 from tools.renovation_estimate import (
+    ESTIMATE_GUARD_POLICY_VERSION,
     EstimateCandidate,
     _clean_scope_component,
     _estimate_scope_key_for_issue,
@@ -362,6 +363,7 @@ def compute_renovation_estimate_v4(
             "modernization_dedupe",
             "bathroom_expansion",
             "package_subsumption",
+            "estimate_verification_guard",
             "reconciliation",
             "issue_disposition_audit",
             "cost_adjustment",
@@ -370,6 +372,7 @@ def compute_renovation_estimate_v4(
         "packages_enabled": True,
         "reconciliation_enabled": True,
         "package_confirmation_required": True,
+        "estimate_verification_policy_version": ESTIMATE_GUARD_POLICY_VERSION,
     }
 
     return v4_estimate

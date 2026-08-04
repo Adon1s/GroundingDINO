@@ -963,14 +963,20 @@ def write_photo_intel(
                 "reason": "disabled_by_toggle",
                 "mode": "package_visual_verification",
             }
+        _withheld = v4_est.get("withheld_estimate") or {}
         logger.info(
-            "Renovation estimate v4: $%s-$%s (%d candidates, %d groups, %d high-tier, %d medium-tier)",
+            "Renovation estimate v4: $%s-$%s (%d candidates, %d groups, %d high-tier, "
+            "%d medium-tier; %d priced, %d withheld awaiting 2f = $%s-$%s)",
             f'{v4_est["final_rehab"]["low"]:,}',
             f'{v4_est["final_rehab"]["high"]:,}',
             v4_est["meta"]["candidate_count"],
             v4_est["meta"]["groups_active"],
             v4_est["meta"]["high_tier_count"],
             v4_est["meta"]["medium_tier_count"],
+            v4_est["meta"].get("priced_candidate_count", 0),
+            v4_est["meta"].get("withheld_candidate_count", 0),
+            f'{(_withheld.get("total") or {}).get("low", 0):,}',
+            f'{(_withheld.get("total") or {}).get("high", 0):,}',
         )
     except PassExecutionError:
         # An enabled pass could not produce a valid result. Never degrade that to

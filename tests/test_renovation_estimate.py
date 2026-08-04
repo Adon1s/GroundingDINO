@@ -23,12 +23,14 @@ def _run_async(coro):
         asyncio.set_event_loop(asyncio.new_event_loop())
 
 
+from tools.pipeline_common import SCENE_GROUPS_UI
 from tools.renovation_estimate import (
     ESTIMATE_DEFAULTS,
     INSPECT_ALLOWANCE,
     PASS_2F_FALLBACK_RETIRED,
     CatalogEstimateMeta,
     EstimateCandidate,
+    _estimate_scope_key_for_issue,
     _select_representative_image,
     compute_group_estimate,
     compute_renovation_estimate,
@@ -105,6 +107,17 @@ MEDIUM_ESTIMATE = {
 
 MINOR_ESTIMATE = {
     "estimate_tier": "minor",
+}
+
+# Same shape as HIGH_ESTIMATE but opted in to the Pass 2f estimate guard:
+# priced only once a confirmation path covers it. The guard is opt-in, so
+# every other fixture here is unguarded without having to say so.
+GUARDED_ESTIMATE = {
+    "estimate_tier": "high",
+    "strategy": "replace_only",
+    "group": "kitchen",
+    "stack_behavior": "group_cap",
+    "requires_2f_for_estimate": True,
 }
 
 
@@ -312,6 +325,104 @@ class TestExtractCandidates:
         issues = [_make_issue("medium_item"), _make_issue("high_item")]
         result = extract_estimate_candidates(issues, catalog)
         assert result[0].catalog_item_id == "high_item"
+
+
+class TestEstimateScopeKey:
+    """The scene_group: component is a canonical taxonomy token.
+
+    It used to run through _meaningful_scope_hint, a room-hint denylist that
+    contains "exterior" — so exterior, alone among the seven groups, was
+    rewritten to "other" and its scope keys lied about where the work was.
+    """
+
+    @pytest.mark.parametrize("group", sorted(SCENE_GROUPS_UI))
+    def test_every_canonical_group_round_trips(self, group):
+        key, _room = _estimate_scope_key_for_issue(
+            "flooring", _make_issue("flooring", scene_group=group),
+        )
+        assert key.split("|")[1] == f"scene_group:{group}"
+
+    @pytest.mark.parametrize("raw,expected", [
+        ("  EXTERIOR  ", "exterior"),
+        ("Living Areas", "living_areas"),
+        ("kitchen!", "kitchen"),
+    ])
+    def test_cleans_casing_whitespace_and_punctuation(self, raw, expected):
+        key, _room = _estimate_scope_key_for_issue(
+            "flooring", _make_issue("flooring", scene_group=raw),
+        )
+        assert key.split("|")[1] == f"scene_group:{expected}"
+
+    @pytest.mark.parametrize("raw", ["bedrooms", "sunroom", "exterior_back", "", None])
+    def test_unknown_values_fail_closed_to_other(self, raw):
+        key, _room = _estimate_scope_key_for_issue(
+            "flooring", _make_issue("flooring", scene_group=raw),
+        )
+        assert key.split("|")[1] == "scene_group:other"
+
+    def test_missing_scene_group_falls_back_to_other(self):
+        issue = _make_issue("flooring")
+        del issue["scene_group"]
+        key, _room = _estimate_scope_key_for_issue("flooring", issue)
+        assert key == "catalog:flooring|scene_group:other|room:other"
+
+    def test_bare_exterior_group_contributes_no_room_identity(self):
+        """The room fallback keeps using the generic-hint path, not the group."""
+        key, room = _estimate_scope_key_for_issue(
+            "flooring", _make_issue("flooring", scene_group="exterior"),
+        )
+        assert key == "catalog:flooring|scene_group:exterior|room:other"
+        assert room == "other"
+
+    def test_meaningful_scene_still_wins_the_room_slot(self):
+        key, room = _estimate_scope_key_for_issue(
+            "flooring",
+            _make_issue("flooring", scene_group="exterior", scene="exterior_back"),
+        )
+        assert key == "catalog:flooring|scene_group:exterior|room:exterior_back"
+        assert room == "exterior_back"
+
+    def test_exterior_surrogate_id_survives_the_hint_filter(self):
+        """The normalizer must not leak into room bucketing (see room_surrogates)."""
+        key, room = _estimate_scope_key_for_issue(
+            "flooring",
+            _make_issue(
+                "flooring", scene_group="exterior", room_surrogate_id="exterior_primary",
+            ),
+        )
+        assert key == "catalog:flooring|scene_group:exterior|room:exterior_primary"
+        assert room == "exterior_primary"
+
+    def test_exterior_and_other_group_split_on_a_shared_room_hint(self):
+        """The one path where this change can move money — pinned deliberately.
+
+        Two issues of one catalog item sharing a location_hint, one exterior
+        and one in the `other` group (the roof / street_view shape). They
+        collapsed into a single priced unit while exterior was mislabelled
+        `other`; they are now two, which is the honest reading.
+        """
+        catalog = _make_catalog(_make_item("flooring", estimate={
+            "estimate_tier": "medium",
+            "strategy": "repair_only",
+            "group": "flooring",
+            "stack_behavior": "sum",
+        }))
+        issues = [
+            _make_issue("flooring", scene_group="exterior", photo_key="front.jpg",
+                        location_hint="front_facade"),
+            _make_issue("flooring", scene_group="other", photo_key="street.jpg",
+                        location_hint="front_facade"),
+        ]
+
+        candidates = extract_estimate_candidates(issues, catalog)
+
+        assert len(candidates) == 2
+        assert sorted(c.estimate_scope_key for c in candidates) == [
+            "catalog:flooring|scene_group:exterior|room:front_facade",
+            "catalog:flooring|scene_group:other|room:front_facade",
+        ]
+        # Both keep the shared room identity — only the scene group separates them.
+        assert {c.room_surrogate_id for c in candidates} == {"front_facade"}
 
 
 class TestResolveEstimateUnits:
