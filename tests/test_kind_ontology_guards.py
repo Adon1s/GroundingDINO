@@ -67,3 +67,14 @@ def test_artifact_ontology_version_defaults_to_legacy():
 
 def test_artifact_ontology_version_reads_stamped_value():
     assert artifact_ontology_version({"ontology_version": ONTOLOGY_VERSION}) == ONTOLOGY_VERSION
+
+
+def test_ontology_constants_are_the_shared_module_objects():
+    """scene_classifier_passes re-exports tools.observation_kinds — identity,
+    not equality, so the two names can never drift apart."""
+    from tools import observation_kinds
+    from tools import scene_classifier_passes as passes
+
+    assert passes.ONTOLOGY_VERSION is observation_kinds.ONTOLOGY_VERSION
+    assert passes.OBSERVATION_KINDS is observation_kinds.OBSERVATION_KINDS
+    assert passes.EXCLUSION_REASONS is observation_kinds.EXCLUSION_REASONS

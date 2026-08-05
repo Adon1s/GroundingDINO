@@ -353,28 +353,14 @@ class Pass2bResult:
     raw_response: Optional[str] = None
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Observation-kind ontology v2 (Pass 2c semantic contract)
-# ─────────────────────────────────────────────────────────────────────────────
-# defect        — expected function, safety, integrity, or protection has FAILED
-# degradation   — functional but visibly deteriorated (wear/fading/weathering)
-# modernization — functional and acceptably maintained but dated/basic
-# Every other kind of text lands in the excluded lane with a closed-enum reason.
-# Historical artifacts without an ontology_version are legacy_v1 and are never
-# reinterpreted (see tools/pipeline_common.py).
-
-ONTOLOGY_VERSION = "observation-kind-v2"
-
-OBSERVATION_KINDS = frozenset({"defect", "degradation", "modernization"})
-
-EXCLUSION_REASONS = frozenset({
-    "good_condition",
-    "neutral_presence",
-    "advice_or_process",
-    "unsupported_or_speculative",
-    "measurement_overlay",
-    "not_renovation_related",
-})
+# Observation-kind ontology v2: the authoritative enum lives in
+# tools/observation_kinds.py; re-imported here so existing importers
+# (orchestrator, benchmark, tests) keep working unchanged.
+from tools.observation_kinds import (
+    ONTOLOGY_VERSION,
+    OBSERVATION_KINDS,
+    EXCLUSION_REASONS,
+)
 
 
 @dataclass
