@@ -514,6 +514,107 @@ def test_pass_2c_prompt_example_labels_match_valid_labels():
     assert _prompt_return_shape_labels() == VALID_LABELS
 
 
+# The upgrade_candidate rule used to enumerate interior finishes only, so
+# exterior findings had no example anchor and drifted to generic_presence/other.
+# See docs/HANDOFF_pass2c_exterior_recall.md.
+
+def test_pass_2c_prompt_anchors_exterior_finishes():
+    prompt = PASS_2C_SYSTEM_PROMPT.lower()
+
+    for anchor in ("siding", "fascia", "soffit", "porch", "masonry"):
+        assert anchor in prompt, f"Pass 2c prompt lost its {anchor!r} anchor"
+
+
+def test_pass_2c_prompt_keeps_interior_finish_anchors():
+    """Widening the rule must not displace what it already covered."""
+    prompt = PASS_2C_SYSTEM_PROMPT.lower()
+
+    for anchor in ("floors", "cabinets", "counters", "tile", "paint"):
+        assert anchor in prompt
+
+
+def test_pass_2c_prompt_routes_weathered_exterior_finishes_to_upgrade():
+    """Deliberate product call: a weathered exterior finish is an upgrade, not a
+    defect — it is not an immediate repair.
+
+    Measured against 266 replayed observations, this wording moves the lane
+    balance from ~64 defect / ~78 upgrade to ~32 defect / ~102 upgrade. That
+    reclassification is the point; do not "fix" it by scoping the anchor back to
+    "dated", which reverts the behaviour to parity with the old prompt.
+    """
+    prompt = PASS_2C_SYSTEM_PROMPT.lower()
+
+    assert "sagging gutter" in prompt
+    assert "dated, worn, or weathered exterior finish" in prompt
+    assert "upgrade_candidate" in prompt
+
+
+def test_pass_2c_prompt_has_no_whole_system_absence_rule():
+    """Absence safety lives in the catalog deny lists, not in the 2c prompt.
+
+    A prompt-level absence rule over-generalised from gutters to kitchen
+    fixtures ("no visible modern vent hood", "no apparent task lighting"),
+    where absence is a legitimate priced upgrade. See
+    docs/HANDOFF_pass2c_exterior_recall.md.
+    """
+    assert "whole system is absent" not in PASS_2C_SYSTEM_PROMPT.lower()
+
+
+def test_pass_2c_forwards_dated_exterior_finish():
+    description = "Wood lap siding appears weathered, with staining and aged paint."
+    client = FakeTextClient(json.dumps({
+        "labeled": [{"description": description, "label": "upgrade_candidate"}]
+    }))
+
+    result = asyncio.run(run_pass_2c(
+        vlm_client=client,
+        model_config={},
+        observations=[{"description": description}],
+        scene="exterior_front",
+    ))
+
+    assert result.labeled_forward == [
+        {"description": description, "label": "upgrade_candidate"},
+    ]
+
+
+def test_pass_2c_forwards_visible_gutter_damage():
+    """Concrete visible conditions stay forwardable — the absence-safety work
+    lives in the catalog deny lists, not in a 2c suppression rule."""
+    description = "A downspout is disconnected and terminates at the foundation."
+    client = FakeTextClient(json.dumps({
+        "labeled": [{"description": description, "label": "defect_or_damage"}]
+    }))
+
+    result = asyncio.run(run_pass_2c(
+        vlm_client=client,
+        model_config={},
+        observations=[{"description": description}],
+        scene="exterior_front",
+    ))
+
+    assert result.labeled_forward == [
+        {"description": description, "label": "defect_or_damage"},
+    ]
+
+
+def test_pass_2c_absence_claim_labeled_other_is_dropped():
+    description = "No clearly functioning gutter system is visible along the porch edge."
+    client = FakeTextClient(json.dumps({
+        "labeled": [{"description": description, "label": "other"}]
+    }))
+
+    result = asyncio.run(run_pass_2c(
+        vlm_client=client,
+        model_config={},
+        observations=[{"description": description}],
+        scene="exterior_front",
+    ))
+
+    assert result.labeled_debug == [{"description": description, "label": "other"}]
+    assert result.labeled_forward == []
+
+
 def test_pass_2c_coerce_normalizes_deprecated_safety_label():
     labeled = _coerce_labeled_2c([
         {"description": "Exposed wiring hangs from the ceiling box.", "label": "safety"},

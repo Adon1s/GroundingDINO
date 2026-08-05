@@ -522,3 +522,75 @@ def test_warning_unused_trade_bucket():
     assert any(
         w.startswith("<catalog>:") and "'hvac'" in w for w in result.warnings
     )
+
+
+# ─── absence must never resolve onto a gutter item ───────────────────────────
+# absent / damaged / maintenance are three different claims with three different
+# cost implications, and "not visible in this photo" is not "not present on the
+# building". The deny lists on the two gutter items are what enforces that; this
+# is a guardrail-level test, so it needs no embeddings server.
+# See docs/HANDOFF_pass2c_exterior_recall.md.
+
+GUTTER_ITEM_IDS = ("clogged_or_damaged_gutters", "gutter_maintenance_needed")
+
+# Verbatim from the production corpus: absence claims that reached a gutter item
+# before the deny terms landed.
+ABSENCE_OBSERVATIONS = (
+    "No visible gutters or downspouts direct water away from the foundation.",
+    "There is no visible gutter system despite the roof overhang.",
+    "The roofline has no visible gutter system on the front face of the house.",
+    "No downspout extension is visible for rainwater drainage.",
+    "Missing gutters and downspouts pose a risk for water damage.",
+    "Roofline appears uneven with no visible gutters.",
+)
+
+# Also verbatim: real damage and maintenance claims that must keep resolving.
+LEGITIMATE_OBSERVATIONS = (
+    "A downspout is disconnected or poorly routed near the porch and steps.",
+    "Rusted downspout and gutter system with visible rust streaks running down the side of the house.",
+    "Gutters may be clogged or detached from the structure.",
+    "Downspouts discharge near the foundation and stoop area.",
+    "The downspout ends too close to the foundation, discharging directly onto soil.",
+    "Gutters and downspouts are visible but show signs of lacking clear maintenance.",
+)
+
+
+def _denied_by(item_id: str, text: str) -> bool:
+    from tools.catalog_embeddings import build_guardrails_from_catalog
+    from tools.pipeline_common import term_matches
+
+    guardrails = build_guardrails_from_catalog(_load_shipped_catalog())
+    deny = (guardrails.get(item_id) or {}).get("deny_any", [])
+    return any(term_matches(term, text.lower()) for term in deny)
+
+
+@pytest.mark.parametrize("item_id", GUTTER_ITEM_IDS)
+@pytest.mark.parametrize("description", ABSENCE_OBSERVATIONS)
+def test_absence_claim_is_denied_by_both_gutter_items(item_id, description):
+    assert _denied_by(item_id, description), (
+        f"{description!r} would resolve onto {item_id}"
+    )
+
+
+@pytest.mark.parametrize("item_id", GUTTER_ITEM_IDS)
+@pytest.mark.parametrize("description", LEGITIMATE_OBSERVATIONS)
+def test_visible_gutter_condition_is_not_denied(item_id, description):
+    if item_id == "gutter_maintenance_needed" and any(
+        t in description.lower() for t in ("disconnected", "sagging")
+    ):
+        pytest.skip("pre-existing damage-routing deny, not an absence deny")
+    assert not _denied_by(item_id, description), (
+        f"{description!r} is a visible condition and must stay resolvable"
+    )
+
+
+def test_gutter_deny_lists_stay_narrow():
+    """A bare 'missing' or 'appears limited' on the damage item would swallow
+    mixed claims like 'gutters appear clogged or missing downspouts'."""
+    catalog = _load_shipped_catalog()
+    item = next(
+        i for i in catalog["items"] if i.get("id") == "clogged_or_damaged_gutters"
+    )
+
+    assert "missing" not in item["deny_any"]
+    assert "appears limited" not in item["deny_any"]

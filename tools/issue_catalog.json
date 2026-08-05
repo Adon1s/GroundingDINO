@@ -1580,7 +1580,13 @@
         "sagging",
         "disconnected"
       ],
-      "deny_any": [],
+      "deny_any": [
+        "no visible",
+        "no downspout",
+        "no downspouts",
+        "missing gutter",
+        "missing gutters"
+      ],
       "embed_text": "Clogged or damaged gutters/downspouts. Sagging, clogged, disconnected gutters. Gutter repair/cleaning.",
       "kind": "defect",
       "id": "clogged_or_damaged_gutters",
@@ -3909,7 +3915,10 @@
       "deny_any": [
         "sagging",
         "disconnected",
-        "missing"
+        "missing",
+        "no visible",
+        "no downspout",
+        "no downspouts"
       ],
       "embed_text": "Gutter maintenance needed. Gutters/downspouts likely need cleaning/inspection to ensure proper drainage.",
       "kind": "upgrade",

@@ -937,6 +937,8 @@ Rules:
 - If the description is advice/process language (e.g., “needs inspection”, “recommend evaluation”, “cannot determine from photo”), label “other”.
 - If the description mentions hidden systems (structural/foundation, electrical, plumbing, HVAC) but does NOT mention a specific visible sign (e.g., stain, crack, leak, rust, exposed wire, damage), label “other”.
 - If the description suggests a renovation action for a visible finish/surface (refinish/replace/update/paint) such as floors, cabinets, counters, fixtures, tile, paint, label “upgrade_candidate”.
+- Exterior finishes count the same way: siding, exterior trim/fascia/soffit, decks/porches, and masonry (brick/mortar/stucco). A dated, worn, or weathered exterior finish is “upgrade_candidate”, not “generic_presence”.
+- Damage to — or a missing part of — an item that is visibly installed (a sagging gutter, a detached downspout, a broken railing, a rotted deck board) stays “defect_or_damage”.
 
 Return JSON only:
 {
