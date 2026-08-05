@@ -446,7 +446,6 @@ async def _run_2d_batch(
                 observation=desc,
                 candidates=candidates,
                 kind=kind,
-                kind_routing=kind_routing,
             )
             chosen_id = r2d.resolved_item_id
         except Exception as e:

@@ -382,3 +382,100 @@ def test_embed_text_drives_retrieval():
         f"embedded — without the fix, the target embeds as 'Item A. An item.' which would "
         f"not outrank the decoy); got {top_ids}"
     )
+
+
+# ── strict kind-filter semantics (observation-kind-v2, Task 2) ───────────────
+# Contract: allowed_kinds=None means deliberately unfiltered; an EMPTY set or a
+# set of unknown kinds returns NO candidates. The retired bug treated both as
+# "no filter" and silently searched the whole catalog.
+
+_THREE_KIND_CATALOG = {
+    "items": [
+        {"id": "faucet_leaking", "name": "Leaking faucet", "description": "faucet drips water",
+         "kind": "defect", "trade_bucket": "plumbing"},
+        {"id": "carpet_worn", "name": "Worn carpet", "description": "carpet stain floor",
+         "kind": "degradation", "trade_bucket": "flooring"},
+        {"id": "tile_dated_style", "name": "Dated tile style", "description": "tile floor dated",
+         "kind": "modernization", "trade_bucket": "flooring"},
+    ]
+}
+
+
+def _three_kind_retriever():
+    return CatalogEmbeddingsRetriever(_THREE_KIND_CATALOG, encoder=DeterministicFakeEncoder())
+
+
+def test_retrieve_none_kind_filter_is_deliberately_unfiltered():
+    retriever = _three_kind_retriever()
+    hits = retriever.retrieve_candidates("stain on the tile floor", allowed_kinds=None, topk=10)
+    ids = {c.item_id for c in hits}
+    # None means no kind filter: matches from more than one kind are reachable.
+    assert {"carpet_worn", "tile_dated_style"} <= ids
+
+
+def test_retrieve_empty_kind_filter_returns_no_candidates():
+    retriever = _three_kind_retriever()
+    assert retriever.retrieve_candidates("stain on the tile floor", allowed_kinds=set(), topk=10) == []
+
+
+def test_retrieve_unknown_kind_filter_returns_no_candidates():
+    retriever = _three_kind_retriever()
+    assert retriever.retrieve_candidates("stain on the tile floor", allowed_kinds={"safety"}, topk=10) == []
+    assert retriever.retrieve_candidates("stain on the tile floor", allowed_kinds={"upgrade"}, topk=10) == []
+
+
+def test_retrieve_mixed_unknown_and_known_kinds_filters_to_known():
+    retriever = _three_kind_retriever()
+    hits = retriever.retrieve_candidates(
+        "stain on the carpet floor", allowed_kinds={"degradation", "nonsense"}, topk=10
+    )
+    assert [c.item_id for c in hits] == ["carpet_worn"]
+
+
+def test_provider_explicit_empty_allowed_kinds_returns_no_candidates():
+    from tools.catalog_embeddings import make_candidate_provider
+
+    provider = make_candidate_provider(_three_kind_retriever())
+    assert provider("stain on the tile floor", {"allowed_kinds": [], "top_k_candidates": 10}) == []
+
+
+def test_provider_unknown_kind_never_searches_the_whole_catalog():
+    """The headline regression: a retired kind ('upgrade') against a three-kind
+    index must yield zero candidates, not a silent whole-catalog search."""
+    from tools.catalog_embeddings import make_candidate_provider
+
+    provider = make_candidate_provider(_three_kind_retriever())
+    assert provider("stain on the tile floor", {"kind": "upgrade", "top_k_candidates": 10}) == []
+    assert provider("stain on the tile floor", {"allowed_kinds": ["upgrade"], "top_k_candidates": 10}) == []
+
+
+def test_provider_single_kind_context_searches_exactly_that_kind():
+    from tools.catalog_embeddings import make_candidate_provider
+
+    provider = make_candidate_provider(_three_kind_retriever())
+    hits = provider("stain on the carpet floor", {"kind": "degradation", "top_k_candidates": 10})
+    assert [c["item_id"] for c in hits] == ["carpet_worn"]
+    assert all(c["kind"] == "degradation" for c in hits)
+
+
+def test_provider_without_kind_or_filter_is_unfiltered():
+    from tools.catalog_embeddings import make_candidate_provider
+
+    provider = make_candidate_provider(_three_kind_retriever())
+    hits = provider("stain on the tile floor", {"top_k_candidates": 10})
+    assert len(hits) >= 2  # crosses kinds: degradation + modernization both match
+
+
+def test_build_items_skips_items_without_a_kind():
+    """No silent kind coercion at index time: a kindless item is excluded from
+    the index instead of defaulting to 'defect'."""
+    catalog = {
+        "items": [
+            {"id": "faucet_leaking", "name": "Leaking faucet", "description": "faucet drips water",
+             "kind": "defect", "trade_bucket": "plumbing"},
+            {"id": "kindless_item", "name": "No kind", "description": "water faucet leak"},
+        ]
+    }
+    retriever = CatalogEmbeddingsRetriever(catalog, encoder=DeterministicFakeEncoder())
+    hits = retriever.retrieve_candidates("the faucet is leaking water", allowed_kinds=None, topk=10)
+    assert "kindless_item" not in [c.item_id for c in hits]

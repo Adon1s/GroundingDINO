@@ -85,6 +85,7 @@ def _run_pass(pass_key, client):
             candidates=[{"item_id": "tile_cracked", "kind": "defect"}],
             vlm_client=client,
             model_config=dict(OPENAI_CFG),
+            kind="defect",
         ))
     raise AssertionError(f"unhandled pass {pass_key}")
 

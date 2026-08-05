@@ -18,6 +18,9 @@ from tools.scene_classifier_passes import (
     PASS_2C_PROMPT_SHA256,
     PASS_2C_PROMPT_VERSION,
     PASS_2C_SYSTEM_PROMPT,
+    PASS_2D_PROMPT_SHA256,
+    PASS_2D_PROMPT_VERSION,
+    PASS_2D_USER_PROMPT_TEMPLATE,
     PassExecutionError,
     _validate_pass_2c_decisions,
     evaluate_kind_routing,
@@ -60,64 +63,47 @@ class FakeOrchestratorClient:
         return "{}"
 
 
-def test_kind_routing_roof_wear_expands_to_both_kinds():
+@pytest.mark.parametrize("kind", sorted(OBSERVATION_KINDS))
+def test_kind_routing_is_a_singleton_exact_route(kind):
+    routing = evaluate_kind_routing("Shingles appear aged and weathered.", kind)
+
+    assert routing.original_kind == kind
+    assert routing.expanded_kinds == (kind,)
+    assert routing.reason == "exact_kind"
+
+
+@pytest.mark.parametrize("raw, normalized", [
+    ("  Defect ", "defect"),
+    ("DEGRADATION", "degradation"),
+    ("Modernization\n", "modernization"),
+])
+def test_kind_routing_normalizes_case_and_whitespace(raw, normalized):
+    routing = evaluate_kind_routing("Cabinet finish is worn.", raw)
+
+    assert routing.original_kind == normalized
+    assert routing.expanded_kinds == (normalized,)
+    assert routing.reason == "exact_kind"
+
+
+@pytest.mark.parametrize("kind", ["upgrade", "", None, "safety", "opportunity", "other"])
+def test_kind_routing_fails_closed_on_invalid_kinds(kind):
+    """Retired and unknown kinds produce an EMPTY route — never a widened or
+    unfiltered one. Callers must refuse to retrieve on an empty route."""
+    routing = evaluate_kind_routing("Shingles appear aged and weathered.", kind)
+
+    assert routing.expanded_kinds == ()
+    assert routing.reason == "invalid_kind"
+
+
+def test_kind_routing_never_widens_on_condition_language():
+    """The v1 upgrade→{upgrade,defect} component-term widening is retired:
+    condition language in the text must not change the route."""
     routing = evaluate_kind_routing(
-        "Shingles appear aged and weathered from an aerial angle.",
-        "upgrade",
+        "Siding is cracked, stained, faded, and rotted.", "degradation"
     )
 
-    assert routing.original_kind == "upgrade"
-    assert routing.expanded_kinds == ("upgrade", "defect")
-    assert routing.reason == "visible_condition_signal"
-    assert "shingle" in routing.matched_component_terms
-    assert routing.blocked_by_negation is False
-
-
-def test_kind_routing_roof_color_stays_upgrade_only():
-    routing = evaluate_kind_routing("Roof color appears dated.", "upgrade")
-
-    assert routing.expanded_kinds == ("upgrade",)
-    assert routing.reason == "no_visible_condition_signal"
-
-
-def test_kind_routing_negated_age_only_is_blocked():
-    routing = evaluate_kind_routing(
-        "Brick exterior appears aged but intact with no visible damage.",
-        "upgrade",
-    )
-
-    assert routing.expanded_kinds == ("upgrade",)
-    assert routing.reason == "blocked_by_negation"
-    assert routing.blocked_by_negation is True
-
-
-def test_kind_routing_no_cracks_visible_is_blocked():
-    routing = evaluate_kind_routing(
-        "Driveway appears older but no cracks are visible.",
-        "upgrade",
-    )
-
-    assert routing.expanded_kinds == ("upgrade",)
-    assert routing.blocked_by_negation is True
-
-
-def test_kind_routing_faded_siding_can_still_expand_with_softening_present():
-    routing = evaluate_kind_routing(
-        "Siding color looks faded but no damage is visible.",
-        "upgrade",
-    )
-
-    assert routing.expanded_kinds == ("upgrade", "defect")
-    assert routing.blocked_by_negation is True
-    assert "siding" in routing.matched_component_terms
-    assert "fade" in routing.matched_condition_terms
-
-
-def test_kind_routing_exterior_style_dated_is_not_condition_signal():
-    routing = evaluate_kind_routing("Exterior style appears dated.", "upgrade")
-
-    assert routing.expanded_kinds == ("upgrade",)
-    assert routing.reason == "no_visible_condition_signal"
+    assert routing.expanded_kinds == ("degradation",)
+    assert routing.reason == "exact_kind"
 
 
 def test_prioritize_resolution_candidates_pushes_generic_items_last_when_widened():
@@ -179,11 +165,9 @@ def test_pass_2d_exterior_staining_uses_strict_shortcut():
 
 
 def test_pass_2d_negation_blocks_shortcut_for_driveway_case():
+    """The shortcut must self-block on negated condition language — the
+    protection no longer rides in on a routing decision."""
     client = FakeTextClient()
-    routing = evaluate_kind_routing(
-        "Driveway appears older but no cracks are visible.",
-        "upgrade",
-    )
     candidates = [
         {
             "item_id": "driveway_or_walkway_cracking",
@@ -191,7 +175,7 @@ def test_pass_2d_negation_blocks_shortcut_for_driveway_case():
             "description": "Driveway or walkway shows cracks or settlement.",
             "support_any": ["driveway crack", "walkway crack"],
             "trade_bucket": "landscaping_drains",
-            "kind": "defect",
+            "kind": "modernization",
             "score": 0.91,
             "defaultHidden": False,
             "drop_if_generic": False,
@@ -203,8 +187,7 @@ def test_pass_2d_negation_blocks_shortcut_for_driveway_case():
         model_config={},
         observation="Driveway appears older but no cracks are visible.",
         candidates=candidates,
-        kind="upgrade",
-        kind_routing=routing,
+        kind="modernization",
     ))
 
     assert result.resolved_item_id is None
@@ -538,9 +521,16 @@ def test_prompt_version_constants_are_pinned():
     bump the version string."""
     assert PASS_2B_PROMPT_VERSION == "pass_2b_atomic_v2"
     assert PASS_2C_PROMPT_VERSION == "pass_2c_kind_v2"
+    assert PASS_2D_PROMPT_VERSION == "pass_2d_exact_kind_v2"
     assert len(PASS_2B_PROMPT_SHA256) == 64
     assert len(PASS_2C_PROMPT_SHA256) == 64
-    assert PASS_2B_PROMPT_SHA256 != PASS_2C_PROMPT_SHA256
+    assert len(PASS_2D_PROMPT_SHA256) == 64
+    assert len({PASS_2B_PROMPT_SHA256, PASS_2C_PROMPT_SHA256, PASS_2D_PROMPT_SHA256}) == 3
+
+
+def test_pass_2d_prompt_pins_the_kind_upstream():
+    assert "kind is decided upstream" in PASS_2D_USER_PROMPT_TEMPLATE
+    assert "routing guidance" not in PASS_2D_USER_PROMPT_TEMPLATE
 
 
 # ── observation-kind-v2 classification behavior ─────────────────────────────

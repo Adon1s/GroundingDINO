@@ -257,7 +257,7 @@ def build_guardrails_from_catalog(catalog: Dict[str, Any]) -> Dict[str, Dict[str
 class CatalogItemMeta:
     item_id: str
     name: str
-    kind: str              # defect | upgrade (safety/opportunity filtered out)
+    kind: str              # as authored in the catalog (validator owns the enum)
     trade_bucket: str
     severity: int
     description: str
@@ -353,9 +353,6 @@ class CatalogEmbeddingsRetriever:
         for g, idxs in tmp.items():
             self._idx_by_group[g] = np.asarray(sorted(set(idxs)), dtype=np.int64)
 
-        # Convenience "slices" - only defect and upgrade (no safety/opportunity)
-        self._defect_kinds = {"defect"}
-        self._upgrade_kinds = {"upgrade"}
 
     def _catalog_text(self, it: Dict[str, Any]) -> str:
         # Replace semantics: a non-empty string `embed_text` is the full embedding
@@ -396,17 +393,18 @@ class CatalogEmbeddingsRetriever:
                 continue
 
             name = str(it.get("name") or item_id).strip()
-            kind = str(it.get("kind") or "defect").strip().lower()
+            kind = str(it.get("kind") or "").strip().lower()
+            if not kind:
+                # No silent kind coercion: an item without a kind is a catalog
+                # authoring error (validator-enforced), not a defect by default.
+                logger.warning("catalog item %r has no kind; skipping from index", item_id)
+                continue
             trade_bucket = str(it.get("trade_bucket") or "").strip().lower()
             severity = _parse_int(it.get("severity"), default=0)
             description = str(it.get("description") or "").strip()
             support_any = tuple(str(x).strip() for x in (it.get("support_any") or []) if str(x).strip())
             default_hidden = bool(it.get("defaultHidden", False))
             drop_if_generic = bool(it.get("drop_if_generic", False))
-
-            # Filter out safety and opportunity kinds - they should not appear downstream
-            if kind in {"safety", "opportunity"}:
-                continue
 
             # scene_groups: read directly from catalog; fall back to all groups if missing
             raw_sg = it.get("scene_groups")
@@ -469,7 +467,10 @@ class CatalogEmbeddingsRetriever:
         Args:
             observation_text: The issue description to match.
             topk:             Override default_topk.
-            allowed_kinds:    If set, restrict to items whose kind is in this set.
+            allowed_kinds:    None means deliberately unfiltered. Any other value
+                              restricts to items whose kind is in the set — an
+                              empty set, or a set of kinds absent from the index,
+                              returns NO candidates (never the whole catalog).
             allowed_groups:   If set, restrict to items whose scene_groups (from catalog)
                               overlaps this set. Pass the photo's scene group here to
                               prevent cross-room matches (e.g. kitchen items in bathroom).
@@ -482,8 +483,9 @@ class CatalogEmbeddingsRetriever:
 
         idxs: Optional[np.ndarray] = None
 
-        # Kind filter — union of per-kind index arrays
-        if allowed_kinds:
+        # Kind filter — union of per-kind index arrays. `is not None` matters:
+        # an empty set must fail closed to [], not fall through as "no filter".
+        if allowed_kinds is not None:
             buf: List[int] = []
             for k in allowed_kinds:
                 arr = self._idx_by_kind.get(k)
@@ -548,7 +550,7 @@ class CatalogEmbeddingsRetriever:
         return self.retrieve_candidates(
             observation_text,
             topk=topk,
-            allowed_kinds=self._defect_kinds,
+            allowed_kinds={"defect"},
             allowed_groups=allowed_groups,
         )
 
@@ -561,9 +563,48 @@ class CatalogEmbeddingsRetriever:
         return self.retrieve_candidates(
             observation_text,
             topk=topk,
-            allowed_kinds=self._upgrade_kinds,
+            allowed_kinds={"upgrade"},
             allowed_groups=allowed_groups,
         )
+
+
+def make_candidate_provider(retriever: "CatalogEmbeddingsRetriever") -> Any:
+    """
+    Wrap a retriever as the Pass 2d candidate-provider callable.
+
+    Strict exact-kind semantics (observation-kind-v2): kind membership is
+    decided by the retriever's index, never by a hardcoded vocabulary, so the
+    same closure serves any catalog. Filter contract:
+
+    - context carries an explicit ``allowed_kinds`` (even an empty one) — use
+      it verbatim; empty/unknown kinds fail closed to zero candidates.
+    - otherwise a single ``kind`` — search exactly that kind.
+    - neither — deliberately unfiltered (None).
+    """
+    from dataclasses import asdict
+
+    def candidate_provider(observation_text: str, context: dict) -> list:
+        kind = (context.get("kind") or "").strip().lower()
+        topk = context.get("top_k_candidates")
+        scene_group = context.get("scene_group")
+        allowed_groups = {scene_group} if scene_group else None
+        if "allowed_kinds" in context:
+            allowed_kinds: Optional[Set[str]] = {
+                str(k).strip().lower() for k in (context.get("allowed_kinds") or [])
+            }
+        elif kind:
+            allowed_kinds = {kind}
+        else:
+            allowed_kinds = None
+        matches = retriever.retrieve_candidates(
+            observation_text,
+            topk=topk,
+            allowed_kinds=allowed_kinds,
+            allowed_groups=allowed_groups,
+        )
+        return [asdict(m) for m in matches]
+
+    return candidate_provider
 
 
 def build_candidate_provider(catalog: Dict[str, Any]) -> Any:
@@ -579,10 +620,7 @@ def build_candidate_provider(catalog: Dict[str, Any]) -> Any:
     Callers that intend to run without Pass 2d must skip this entirely rather
     than tolerate a failure from it.
     """
-    from dataclasses import asdict
-
     from tools import pipeline_config as cfg
-    from tools.scene_classifier_passes import prioritize_resolution_candidates
 
     retriever = CatalogEmbeddingsRetriever(
         catalog_v2=catalog,
@@ -597,36 +635,9 @@ def build_candidate_provider(catalog: Dict[str, Any]) -> Any:
         embedding_dimension=getattr(cfg, "EMBEDDINGS_DIMENSION", 1024),
     )
 
-    def candidate_provider(observation_text: str, context: dict) -> list:
-        kind = (context.get("kind") or "").strip().lower()
-        topk = context.get("top_k_candidates")
-        scene_group = context.get("scene_group")
-        allowed_groups = {scene_group} if scene_group else None
-        allowed_kinds_ctx = context.get("allowed_kinds")
-        if allowed_kinds_ctx:
-            allowed_kinds = {
-                str(k).strip().lower()
-                for k in allowed_kinds_ctx
-                if str(k).strip().lower() in {"defect", "upgrade"}
-            }
-        else:
-            allowed_kinds = {kind} if kind in ("defect", "upgrade") else None
-        widened_routing = bool(allowed_kinds and len(allowed_kinds) > 1)
-        requested_topk = topk
-        if widened_routing and topk:
-            requested_topk = max(int(topk), int(topk) * 2)
-        matches = retriever.retrieve_candidates(
-            observation_text,
-            topk=requested_topk,
-            allowed_kinds=allowed_kinds,
-            allowed_groups=allowed_groups,
-        )
-        cands = [asdict(m) for m in matches]
-        return prioritize_resolution_candidates(cands, widened_routing=widened_routing)
-
     logger.info(
         "Pass 2d candidate_provider ready (model=%s, items=%d)",
         retriever.model_name,
         len(retriever._items),
     )
-    return candidate_provider
+    return make_candidate_provider(retriever)

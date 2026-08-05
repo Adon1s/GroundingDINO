@@ -240,7 +240,6 @@ _ROUTING_CONCRETE_CONDITION_PATTERNS: Tuple[Tuple[str, str], ...] = (
     ("mildew", "mildew"),
 )
 
-_VAGUE_ROUTING_CONDITIONS = {canonical for _, canonical in _ROUTING_VAGUE_CONDITION_PATTERNS}
 _SOFTENING_NEGATION_PATTERNS: Tuple[str, ...] = tuple(_cfg_value(
     "PASS_2D_ROUTING_NEGATION_PATTERNS",
     (
@@ -415,13 +414,10 @@ SHADOW_DECISION_REASONS: Tuple[str, ...] = (
 
 @dataclass(frozen=True)
 class KindRoutingDecision:
-    """Routing decision for catalog retrieval after Pass 2c labeling."""
+    """Routing decision for catalog retrieval after Pass 2c classification."""
     original_kind: str
     expanded_kinds: Tuple[str, ...]
     reason: str
-    matched_component_terms: Tuple[str, ...] = ()
-    matched_condition_terms: Tuple[str, ...] = ()
-    blocked_by_negation: bool = False
 
 
 @dataclass
@@ -429,7 +425,7 @@ class Pass2dResult:
     """Result from Pass 2d: Resolved catalog item ID from candidates."""
     observation: str
     resolved_item_id: Optional[str] = None
-    resolved_kind: Optional[str] = None  # "defect" or "upgrade"
+    resolved_kind: Optional[str] = None  # defect | degradation | modernization
     raw_response: Optional[str] = None
     resolution_path: str = "llm"
     shortcut_reason: Optional[str] = None
@@ -528,46 +524,27 @@ class Pass2fResult:
 
 
 def evaluate_kind_routing(description: str, kind: str) -> KindRoutingDecision:
-    """Decide whether Pass 2d retrieval should stay single-kind or widen."""
+    """Singleton exact-kind route under observation-kind-v2.
+
+    Retrieval searches exactly the observation's kind — no widening, no
+    fallback. An invalid kind yields an empty route; callers must fail closed
+    before retrieval (the orchestrator raises, and the retrieval filter treats
+    an empty/unknown kind set as "no candidates", never "no filter").
+
+    `description` no longer influences routing; the parameter is retained for
+    call-site compatibility (blocked harnesses migrate in Task 3).
+    """
     normalized_kind = (kind or "").strip().lower()
-    if normalized_kind != "upgrade":
-        expanded = (normalized_kind,) if normalized_kind in {"defect", "upgrade"} else ()
+    if normalized_kind in OBSERVATION_KINDS:
         return KindRoutingDecision(
             original_kind=normalized_kind,
-            expanded_kinds=expanded,
-            reason="non_upgrade_kind",
+            expanded_kinds=(normalized_kind,),
+            reason="exact_kind",
         )
-
-    component_hits, condition_hits, blocked_by_negation = _analyze_visible_condition_signal(description)
-    if not component_hits or not condition_hits:
-        return KindRoutingDecision(
-            original_kind=normalized_kind,
-            expanded_kinds=("upgrade",),
-            reason="no_visible_condition_signal",
-            matched_component_terms=component_hits,
-            matched_condition_terms=condition_hits,
-            blocked_by_negation=blocked_by_negation,
-        )
-
-    only_vague_conditions = all(term in _VAGUE_ROUTING_CONDITIONS for term in condition_hits)
-    if blocked_by_negation and only_vague_conditions:
-        return KindRoutingDecision(
-            original_kind=normalized_kind,
-            expanded_kinds=("upgrade",),
-            reason="blocked_by_negation",
-            matched_component_terms=component_hits,
-            matched_condition_terms=condition_hits,
-            blocked_by_negation=True,
-        )
-
-    expanded_kinds = ("upgrade", "defect")
     return KindRoutingDecision(
         original_kind=normalized_kind,
-        expanded_kinds=expanded_kinds,
-        reason="visible_condition_signal",
-        matched_component_terms=component_hits,
-        matched_condition_terms=condition_hits,
-        blocked_by_negation=blocked_by_negation,
+        expanded_kinds=(),
+        reason="invalid_kind",
     )
 
 
@@ -1155,6 +1132,7 @@ CANDIDATES:
 
 Rules:
 - Choose 0 or 1 item_id whose name and trade best match the observation semantically.
+- All candidates share this kind; the kind is decided upstream and is not yours to change.
 - If none fit, return null.
 - Use ONLY item_id values from the candidate list.
 
@@ -1163,6 +1141,20 @@ Return JSON only:
   "resolved_item_id": "..." or null
 }}
 """
+
+PASS_2D_PROMPT_VERSION = "pass_2d_exact_kind_v2"
+PASS_2D_PROMPT_SHA256 = hashlib.sha256(
+    json.dumps(
+        {
+            "version": PASS_2D_PROMPT_VERSION,
+            "system": PASS_2D_SYSTEM_PROMPT,
+            "user_template": PASS_2D_USER_PROMPT_TEMPLATE,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+).hexdigest()
 
 
 def _candidate_item_id(c: Dict[str, Any]) -> str:
@@ -1225,7 +1217,7 @@ def _resolved_kind_for_candidate(candidate: Optional[Dict[str, Any]], fallback_k
     if not isinstance(candidate, dict):
         return fallback_kind
     candidate_kind = (candidate.get("kind") or "").strip().lower()
-    if candidate_kind in {"defect", "upgrade"}:
+    if candidate_kind in OBSERVATION_KINDS:
         return candidate_kind
     return fallback_kind
 
@@ -1235,11 +1227,13 @@ def _resolve_candidate_via_lexical_shortcut(
     candidates: List[Dict[str, Any]],
     *,
     kind: str,
-    kind_routing: Optional[KindRoutingDecision] = None,
 ) -> Tuple[Optional[str], Optional[str], Optional[str]]:
     if not candidates:
         return None, None, None
-    if kind_routing and kind_routing.blocked_by_negation:
+    # Never shortcut onto a condition the observation explicitly negates
+    # ("no cracks are visible", "intact") — the LLM must weigh those itself.
+    _, _, blocked_by_negation = _analyze_visible_condition_signal(observation)
+    if blocked_by_negation:
         return None, None, None
 
     top_candidate = candidates[0]
@@ -1274,21 +1268,19 @@ async def run_pass_2d(
         model_config: dict,
         observation: str,
         candidates: List[Dict[str, Any]],
-        kind: str = "defect",
-        kind_routing: Optional[KindRoutingDecision] = None,
+        kind: str,
 ) -> Pass2dResult:
     """
     Pass 2d: Resolve a canonical catalog item ID from embedding candidates.
-
-    Handles both defect and upgrade observations. The `kind` parameter
-    controls prompt framing and is passed through to the result.
 
     Args:
         vlm_client: VLM client instance
         model_config: Model configuration
         observation: The observation description string
         candidates: List of candidate dicts from embeddings retrieval
-        kind: "defect" or "upgrade" — determines which pool was searched
+        kind: the observation's kind (defect | degradation | modernization) —
+              the pool that was searched; under strict exact-kind retrieval
+              every candidate shares it
 
     Returns:
         Pass2dResult with resolved_item_id and resolved_kind
@@ -1306,7 +1298,6 @@ async def run_pass_2d(
         observation,
         candidates,
         kind=kind,
-        kind_routing=kind_routing,
     )
     if resolved_id:
         logger.debug("Pass 2d: lexical shortcut resolved %r -> %s", observation[:60], resolved_id)
@@ -1326,13 +1317,6 @@ async def run_pass_2d(
         candidates_text=candidates_text,
         kind=kind,
     )
-    if kind_routing and len(kind_routing.expanded_kinds) > 1:
-        user_prompt += (
-            "\nAdditional routing guidance:\n"
-            "- Both defect and upgrade candidates may be present.\n"
-            "- If a specific physical-condition defect item and a broad dated/style upgrade are both plausible, prefer the specific physical-condition item.\n"
-            "- Generic candidates marked drop_if_generic/default_hidden are lower priority than specific visible-condition matches.\n"
-        )
 
     logger.debug(f"Pass 2d: Resolving catalog item for {kind} observation: {observation[:50]}...")
 
