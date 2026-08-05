@@ -7,8 +7,12 @@ Pass 1a: Scene Type Classification (fast, always Qwen)
 Pass 1b: Feature/Market Appeal Notes - FREEFORM (premium uses GPT-5.2) --DEPRECATED
 Pass 1c: Feature Notes → JSON Structuring (text-only) --DEPRECATED
 Pass 2a: Observations freeform (premium uses GPT-5.2)
-Pass 2b: Observations → JSON (text-only)
-Pass 2c: Label observations + debug/forward split (text-only)
+Pass 2b: Observations → JSON, atomic per condition claim (text-only)
+Pass 2c: Classify observations under observation-kind-v2 (text-only).
+         Emits kinds (defect | degradation | modernization) or exclusion
+         reasons. The pipeline is classification-only until the catalog
+         migration (Task 2) and downstream cutover (Task 3) land; results
+         are non-publishable.
 Pass 2d: Resolve catalog item ID from candidates (text-only, optional)
 Pass 2e: Normalize canonical issues and build display-filtered issues (Issue cleaning for UI. Rule-based, no LLM)
 Pass 2f: Visual package verification (multi-image; per-room prompts for
@@ -120,7 +124,7 @@ def _is_dimension_overlay(desc: str) -> bool:
 
     Presence of a dimension is not enough: tile and framing sizes ("dated 4 x 4
     tile backsplash", "water stain near the 2 x 4 framing") are real findings,
-    and dropping them here is silent because it happens before labeled_forward.
+    and dropping them here is silent because it happens before classification.
     Two guards: what remains after removing the dimension must be short, and
     concrete damage language always wins — overlays say "12' x 10'", never
     "12' x 10' with water damage".
@@ -134,28 +138,28 @@ def _is_dimension_overlay(desc: str) -> bool:
             or len(residue.split()) <= _DIM_OVERLAY_MAX_RESIDUE_WORDS)
 
 
-def force_other_if_dimensions(labeled: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def partition_dimension_overlays(
+    observations: List[Dict[str, str]],
+) -> Tuple[List[Dict[str, str]], List[Dict[str, str]]]:
     """
-    Force label to 'other' for any observation that is a room-dimension overlay
-    (e.g. "Primary Bedroom 12'6 x 10'", "Living Room 14 x 12").
-
-    MLS floorplan overlay text frequently gets OCR'd into photo descriptions.
-    These are measurement artefacts, not real observations, and should never
-    reach labeled_forward (or the UI as defects/upgrades).
+    Split observations into (to_classify, overlay_excluded) before the Pass 2c
+    LLM call. Room-dimension overlays (e.g. "Primary Bedroom 12'6 x 10'",
+    "Living Room 14 x 12") are MLS floorplan text OCR'd into photo notes —
+    measurement artefacts, not observations. They go straight to the excluded
+    lane with reason "measurement_overlay" and are never sent to the model.
     """
-    out = []
-    for x in labeled or []:
+    to_classify: List[Dict[str, str]] = []
+    overlay_excluded: List[Dict[str, str]] = []
+    for x in observations or []:
         desc = str(x.get("description") or "").strip()
         if not desc:
             continue
-        if _is_dimension_overlay(desc) and x.get("label") in {"defect_or_damage", "upgrade_candidate"}:
-            logger.debug(f"Pass 2c: Forcing label=other (dimension string) → {desc!r}")
-            x2 = dict(x)
-            x2["label"] = "other"
-            out.append(x2)
+        if _is_dimension_overlay(desc):
+            logger.debug(f"Pass 2c: Excluding dimension overlay pre-LLM → {desc!r}")
+            overlay_excluded.append({"description": desc, "reason": "measurement_overlay"})
         else:
-            out.append(x)
-    return out
+            to_classify.append({"description": desc})
+    return to_classify, overlay_excluded
 
 
 def _cfg_value(name: str, default: Any) -> Any:
@@ -349,12 +353,37 @@ class Pass2bResult:
     raw_response: Optional[str] = None
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Observation-kind ontology v2 (Pass 2c semantic contract)
+# ─────────────────────────────────────────────────────────────────────────────
+# defect        — expected function, safety, integrity, or protection has FAILED
+# degradation   — functional but visibly deteriorated (wear/fading/weathering)
+# modernization — functional and acceptably maintained but dated/basic
+# Every other kind of text lands in the excluded lane with a closed-enum reason.
+# Historical artifacts without an ontology_version are legacy_v1 and are never
+# reinterpreted (see tools/pipeline_common.py).
+
+ONTOLOGY_VERSION = "observation-kind-v2"
+
+OBSERVATION_KINDS = frozenset({"defect", "degradation", "modernization"})
+
+EXCLUSION_REASONS = frozenset({
+    "good_condition",
+    "neutral_presence",
+    "advice_or_process",
+    "unsupported_or_speculative",
+    "measurement_overlay",
+    "not_renovation_related",
+})
+
+
 @dataclass
 class Pass2cResult:
-    """Result from Pass 2c: Labeled observations with debug/forward split."""
-    labeled_debug: List[Dict[str, str]] = field(default_factory=list)
-    labeled_forward: List[Dict[str, str]] = field(default_factory=list)
+    """Result from Pass 2c: classified observations under observation-kind-v2."""
+    observations: List[Dict[str, str]] = field(default_factory=list)  # [{"description","kind"}]
+    excluded: List[Dict[str, str]] = field(default_factory=list)      # [{"description","reason"}]
     raw_response: Optional[str] = None
+    ontology_version: str = ONTOLOGY_VERSION
 
 
 @dataclass
@@ -825,7 +854,7 @@ async def run_pass_2a(
 # Pass 2b: Observations → JSON (Text-only)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_2B_SYSTEM_PROMPT_TEMPLATE = """You split FREEFORM photo notes into distinct, concrete observations.
+PASS_2B_SYSTEM_PROMPT_TEMPLATE = """You split FREEFORM photo notes into distinct, atomic observations.
 
 INPUT NOTES:
 ---
@@ -834,10 +863,15 @@ INPUT NOTES:
 
 Rules:
 - Only output observations explicitly stated or directly described in the notes.
-- One observation per item.
+- One condition claim per observation. When one sentence mixes different claim types about an item, split it into separate observations:
+  - damage or failure language (broken, rotted, leaking, missing, unsafe, water-stained, water damage) is its own observation;
+  - wear or aging language (worn, faded, stained, scuffed, weathered) is its own observation;
+  - dated or style language (dated, old-fashioned, basic, builder-grade) is its own observation.
+  Example: "weathered and rotted deck boards" becomes "Deck boards are weathered." and "Deck boards are rotted."
+- Details of the same claim type about the same item stay together ("siding is faded and stained" stays one observation).
 - Description must be 5–25 words.
-- Be factual and non-speculative
-- Do NOT infer causes, consequences, or hidden problems.
+- Be factual and non-speculative.
+- Do NOT infer causes, consequences, hidden problems, or repair advice.
 - If the notes are empty or contain just the word none or none as the last word, return an empty list.
 
 Return JSON only:
@@ -848,6 +882,20 @@ Return JSON only:
 }"""
 
 PASS_2B_USER_PROMPT = "Convert the notes into the JSON format."
+
+PASS_2B_PROMPT_VERSION = "pass_2b_atomic_v2"
+PASS_2B_PROMPT_SHA256 = hashlib.sha256(
+    json.dumps(
+        {
+            "version": PASS_2B_PROMPT_VERSION,
+            "system_template": PASS_2B_SYSTEM_PROMPT_TEMPLATE,
+            "user": PASS_2B_USER_PROMPT,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+).hexdigest()
 
 
 def _coerce_observations_2b(x: Any) -> List[Dict[str, str]]:
@@ -918,65 +966,121 @@ async def run_pass_2b(
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# Pass 2c: Label Observations + Debug/Forward Split (Text-only)
+# Pass 2c: Classify Observations — observation-kind-v2 (Text-only)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-PASS_2C_SYSTEM_PROMPT = """Label each observation with a simple type.
+PASS_2C_SYSTEM_PROMPT = """Classify each numbered observation about a property photo.
 
-Allowed labels:
-- defect_or_damage: visible wear, damage, missing, broken, poor condition, or safety hazards (exposed wiring, tripping hazards, unsafe conditions)
-- upgrade_candidate: dated/cheap fixture/finish that a renovator would likely replace or update
-- good_condition: explicitly says looks good / intact / clean
-- generic_presence: neutral existence of an item (e.g., “there is a door”)
-- other: anything else
+Assign exactly one decision per observation: either a "kind" or an "exclude" reason.
 
-Rules:
-- Do NOT add new observations.
-- Use ONLY the provided descriptions.
-- One label per item.
-- If the description is advice/process language (e.g., “needs inspection”, “recommend evaluation”, “cannot determine from photo”), label “other”.
-- If the description mentions hidden systems (structural/foundation, electrical, plumbing, HVAC) but does NOT mention a specific visible sign (e.g., stain, crack, leak, rust, exposed wire, damage), label “other”.
-- If the description suggests a renovation action for a visible finish/surface (refinish/replace/update/paint) such as floors, cabinets, counters, fixtures, tile, paint, label “upgrade_candidate”.
+Kinds (the condition of the item):
+- defect: expected function, safety, integrity, or protection has FAILED. Failure is stated or visible: broken or missing required parts, active leaks, rot, structural damage, unsafe conditions (exposed wiring, tripping hazards), failed weather protection, rusted-through metal.
+- degradation: the item still works and nothing has failed, but it has visibly deteriorated: wear, fading, staining, scuffing, surface rust or corrosion, peeling finish, aging, weathering.
+- modernization: the item is functional and acceptably maintained, but dated, basic, low-grade, or an improvement opportunity a renovator might take.
+
+Kind rules:
+- Choose defect only when failure is stated or visible. Deterioration without failure is degradation.
+- Visible deterioration wins over dated/style language. Purely dated or basic appearance is modernization.
+- A required or protective component asserted to be missing or broken is a defect. An absent optional feature is modernization.
+- Paving only (driveways, walkways, patios): cracking, surface wear, or minor unevenness (including uneven joints) is degradation; heaving, raised trip edges, or crumbling is a defect.
+- Everywhere except paving, cracks are defects: cracked walls, ceilings, tiles, panes, basins, or fixtures.
+- Mold or mildew growth is a defect.
+- Explicit water stains or water damage (on ceilings, walls, cabinetry, or floors) evidence moisture intrusion: defect. Ordinary dirt or cosmetic staining is degradation.
+- An item described only by a low-grade or dated material or grade (laminate, hollow-core, builder-grade, basic) is modernization, not neutral_presence.
+- If something is merely "not visible" or "cannot be determined", exclude it as unsupported_or_speculative.
+
+Exclude reasons (text that gets no kind):
+- good_condition: says the item looks good, intact, well maintained, clean, or new.
+- neutral_presence: neutral existence of an item ("there is a door").
+- advice_or_process: advice, process, or verification language ("needs inspection", "recommend evaluation", "cannot determine from photo").
+- unsupported_or_speculative: possible or hidden problems with no visible sign; absence inferred only because something is not visible in the photo; hidden systems (structural/foundation, electrical, plumbing, HVAC) mentioned without a specific visible sign (stain, crack, leak, rust, exposed wire, damage).
+- measurement_overlay: room-dimension text from floorplan overlays ("Primary Bedroom 12'6 x 10'").
+- not_renovation_related: anything else that is not about the renovation-relevant condition of the property.
+
+Response rules:
+- One decision per input index. Use every index exactly once.
+- Do NOT add, merge, drop, or rewrite observations.
+- Each decision has "index" and exactly one of "kind" or "exclude".
 
 Return JSON only:
 {
-  "labeled": [
-    { "description": "...", "label": "defect_or_damage|upgrade_candidate|good_condition|generic_presence|other" }
+  "decisions": [
+    { "index": 1, "kind": "defect|degradation|modernization" },
+    { "index": 2, "exclude": "good_condition|neutral_presence|advice_or_process|unsupported_or_speculative|measurement_overlay|not_renovation_related" }
   ]
 }
 """
 
-PASS_2C_USER_PROMPT_TEMPLATE = """OBSERVATIONS_JSON:
-{observations_json}
+PASS_2C_USER_PROMPT_TEMPLATE = """Scene: {scene}
+
+OBSERVATIONS:
+{numbered_observations}
 """
 
-VALID_LABELS = {"defect_or_damage", "upgrade_candidate", "good_condition", "generic_presence", "other"}
+PASS_2C_PROMPT_VERSION = "pass_2c_kind_v2"
+PASS_2C_PROMPT_SHA256 = hashlib.sha256(
+    json.dumps(
+        {
+            "version": PASS_2C_PROMPT_VERSION,
+            "system": PASS_2C_SYSTEM_PROMPT,
+            "user_template": PASS_2C_USER_PROMPT_TEMPLATE,
+        },
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+).hexdigest()
 
 
-def _coerce_labeled_2c(x: Any) -> List[Dict[str, str]]:
-    """Normalize Pass 2c labeled observations."""
-    if not isinstance(x, list):
-        return []
-    out: List[Dict[str, str]] = []
-    for it in x:
-        if not isinstance(it, dict):
-            continue
-        desc = str(it.get("description") or "").strip()
-        if not desc:
-            continue
-        label = str(it.get("label") or "").strip().lower()
-        if label == "safety":
-            # Deprecated label: visible hazards belong under defect_or_damage.
-            # Log so model drift stays observable instead of silently suppressed.
-            logger.warning("Pass 2c: deprecated 'safety' label coerced to 'other': %s", desc)
-            label = "other"
-        elif label not in VALID_LABELS:
-            label = "other"
-        out.append({
-            "description": desc,
-            "label": label,
-        })
-    return out
+def _validate_pass_2c_decisions(payload: Any, expected_count: int) -> Dict[int, Dict[str, str]]:
+    """
+    Validate the indexed Pass 2c response against the observation-kind-v2
+    contract. Fail closed: any missing/duplicate index, unknown kind or
+    exclusion reason, or malformed row raises ValueError (surfaced as a
+    PassExecutionError parse failure). There is deliberately no silent
+    coercion — the v1 unknown-label→"other" fallback made prompt/contract
+    drift invisible.
+    """
+    if not isinstance(payload, dict):
+        raise ValueError("response is not a JSON object")
+    decisions = payload.get("decisions")
+    if not isinstance(decisions, list):
+        raise ValueError("'decisions' must be a list")
+    seen: Dict[int, Dict[str, str]] = {}
+    for row in decisions:
+        if not isinstance(row, dict):
+            raise ValueError(f"decision row is not an object: {row!r}")
+        raw_idx = row.get("index")
+        if isinstance(raw_idx, bool):
+            raise ValueError(f"index is not an integer: {raw_idx!r}")
+        if isinstance(raw_idx, int):
+            idx = raw_idx
+        elif isinstance(raw_idx, str) and raw_idx.strip().isdigit():
+            idx = int(raw_idx.strip())
+        else:
+            raise ValueError(f"index is not an integer: {raw_idx!r}")
+        if not (1 <= idx <= expected_count):
+            raise ValueError(f"index {idx} outside 1..{expected_count}")
+        if idx in seen:
+            raise ValueError(f"duplicate index {idx}")
+        kind = row.get("kind")
+        exclude = row.get("exclude")
+        if (kind is None) == (exclude is None):
+            raise ValueError(f"index {idx}: exactly one of 'kind' or 'exclude' required")
+        if kind is not None:
+            k = str(kind).strip().lower()
+            if k not in OBSERVATION_KINDS:
+                raise ValueError(f"index {idx}: unknown kind {kind!r}")
+            seen[idx] = {"kind": k}
+        else:
+            r = str(exclude).strip().lower()
+            if r not in EXCLUSION_REASONS:
+                raise ValueError(f"index {idx}: unknown exclusion reason {exclude!r}")
+            seen[idx] = {"exclude": r}
+    missing = [i for i in range(1, expected_count + 1) if i not in seen]
+    if missing:
+        raise ValueError(f"missing decisions for indexes {missing}")
+    return seen
 
 
 async def run_pass_2c(
@@ -986,57 +1090,64 @@ async def run_pass_2c(
         scene: str = "other",
 ) -> Pass2cResult:
     """
-    Pass 2c: Label observations and split into debug/forward lists.
+    Pass 2c: Classify observations under observation-kind-v2.
 
-    labeled_debug: all labeled observations (for debugging)
-    labeled_forward: only defect_or_damage and upgrade_candidate (for downstream)
+    Dimension overlays are excluded deterministically before the LLM call.
+    The model returns indexed decisions only — it cannot rewrite descriptions.
+    Validation is fail-closed: an invalid or incomplete partition raises
+    PassExecutionError instead of degrading silently.
 
     Args:
         vlm_client: VLM client instance
         model_config: Model configuration
         observations: Observations from Pass 2b
+        scene: Scene id for context
 
     Returns:
-        Pass2cResult with labeled_debug and labeled_forward
+        Pass2cResult with classified observations and the excluded lane
     """
-    if not observations:
-        return Pass2cResult(labeled_debug=[], labeled_forward=[], raw_response=None)
+    to_classify, overlay_excluded = partition_dimension_overlays(observations)
+    if not to_classify:
+        return Pass2cResult(observations=[], excluded=overlay_excluded, raw_response=None)
 
-    observations_json = json.dumps(observations, ensure_ascii=False)
-    user_prompt = f"Scene: {scene}\n\n" + safe_format_prompt(PASS_2C_USER_PROMPT_TEMPLATE, observations_json=observations_json)
+    numbered = "\n".join(
+        f"{i}. {obs['description']}" for i, obs in enumerate(to_classify, start=1)
+    )
+    user_prompt = safe_format_prompt(
+        PASS_2C_USER_PROMPT_TEMPLATE, scene=scene, numbered_observations=numbered
+    )
 
-    logger.debug("Pass 2c: Labeling observations (text-only)")
+    logger.debug("Pass 2c: Classifying observations (text-only)")
 
     try:
         response = await vlm_client.analyze_text(
             system_prompt=PASS_2C_SYSTEM_PROMPT,
             user_prompt=user_prompt,
-            **_with_analysis_pass(model_config, "Pass 2c (label observations)"),
+            **_with_analysis_pass(model_config, "Pass 2c (classify observations)"),
         )
     except Exception as e:
-        logger.error(f"Pass 2c: Error labeling observations: {e}")
+        logger.error(f"Pass 2c: Error classifying observations: {e}")
         raise _pass_failure('2c', 'request', e, model_config) from e
 
     try:
-        result = extract_json_object(response) or {}
-        labeled_debug = _coerce_labeled_2c(result.get("labeled"))
-
-        # Override label → "other" for any observation that contains a room
-        # dimension string (e.g. MLS floorplan overlays like "12'6 x 10'").
-        labeled_debug = force_other_if_dimensions(labeled_debug)
+        payload = extract_json_object(response) or {}
+        decisions = _validate_pass_2c_decisions(payload, len(to_classify))
     except Exception as e:
-        logger.error(f"Pass 2c: Unparseable labeling response: {e}")
+        logger.error(f"Pass 2c: Invalid classification response: {e}")
         raise _pass_failure('2c', 'parse', e, model_config) from e
 
-    # Split: labeled_forward = defect_or_damage + upgrade_candidate only
-    labeled_forward = [
-        x for x in labeled_debug
-        if x.get("label") in {"defect_or_damage", "upgrade_candidate"}
-    ]
+    classified: List[Dict[str, str]] = []
+    excluded: List[Dict[str, str]] = list(overlay_excluded)
+    for i, obs in enumerate(to_classify, start=1):
+        decision = decisions[i]
+        if "kind" in decision:
+            classified.append({"description": obs["description"], "kind": decision["kind"]})
+        else:
+            excluded.append({"description": obs["description"], "reason": decision["exclude"]})
 
     return Pass2cResult(
-        labeled_debug=labeled_debug,
-        labeled_forward=labeled_forward,
+        observations=classified,
+        excluded=excluded,
         raw_response=response,
     )
 

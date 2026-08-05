@@ -60,11 +60,21 @@ class FakeOrchestratorClient:
         user_lower = (user_prompt or "").lower()
         if "split freeform photo notes" in system_lower:
             return '{"observations":[{"description":"%s"}]}' % OBSERVATION
-        if "label each observation" in system_lower:
-            return '{"labeled":[{"description":"%s","label":"upgrade_candidate"}]}' % OBSERVATION
+        if "classify each numbered observation" in system_lower:
+            return '{"decisions":[{"index":1,"kind":"degradation"}]}'
         if "map this observation to a catalog item id" in user_lower:
             return '{"resolved_item_id":"damaged_or_aged_roof_shingles"}'
         return "{}"
+
+
+# observation-kind-v2: the orchestrator stops after Pass 2c, so the Pass 2d
+# retrieval path (failure policy + per-observation debug rows) is dormant until
+# Task 2/3 rewire it. Skipped, not deleted — the fail-closed retrieval policy
+# must come back with 2d. See docs/HANDOFF_kind_ontology_task1.md.
+dormant_2d = pytest.mark.skip(
+    reason="Pass 2d dormant: pipeline is classification-only (observation-kind-v2) "
+    "until Task 2/3; see docs/HANDOFF_kind_ontology_task1.md"
+)
 
 
 def _analyze(candidate_provider, options=None):
@@ -166,6 +176,7 @@ def test_other_exceptions_propagate_to_the_caller():
     RuntimeError("socket closed"),
     TypeError("provider guts exploded"),
 ])
+@dormant_2d
 def test_provider_failure_becomes_a_typed_dependency_failure(exc):
     """
     A raw exception escaping _run_passes bypasses the PassExecutionError
@@ -180,6 +191,7 @@ def test_provider_failure_becomes_a_typed_dependency_failure(exc):
     assert excinfo.value.stage == "dependency"
 
 
+@dormant_2d
 def test_broken_provider_is_called_once_per_observation():
     calls = []
 
@@ -198,6 +210,7 @@ def _rows(result):
     return result.debug["pass_2d_per_observation"]
 
 
+@dormant_2d
 def test_legacy_provider_records_one_row_with_the_context_note():
     result = _analyze(_one_arg)
     rows = _rows(result)
@@ -205,6 +218,7 @@ def test_legacy_provider_records_one_row_with_the_context_note():
     assert rows[0]["skipped_reason"] == PROVIDER_IGNORED_CONTEXT
 
 
+@dormant_2d
 def test_async_provider_records_one_row():
     async def provider(description, context):
         return [dict(CANDIDATE)]
@@ -214,6 +228,7 @@ def test_async_provider_records_one_row():
     assert "returned_coroutine" in rows[0]["skipped_reason"]
 
 
+@dormant_2d
 def test_non_list_provider_records_one_row():
     def provider(description, context):
         return {"item_id": "not-a-list"}
@@ -223,6 +238,7 @@ def test_non_list_provider_records_one_row():
     assert "returned_nonlist (dict)" in rows[0]["skipped_reason"]
 
 
+@dormant_2d
 def test_empty_candidates_records_one_row():
     def provider(description, context):
         return []
@@ -233,6 +249,7 @@ def test_empty_candidates_records_one_row():
     assert rows[0]["candidate_count"] == 0
 
 
+@dormant_2d
 def test_successful_resolution_records_one_row():
     rows = _rows(_analyze(_two_arg))
     assert len(rows) == 1
@@ -240,6 +257,7 @@ def test_successful_resolution_records_one_row():
     assert rows[0]["top_candidate_id"] == "damaged_or_aged_roof_shingles"
 
 
+@dormant_2d
 def test_missing_issue_id_records_exactly_one_row(monkeypatch):
     """The regression: this branch used to append the same row a second time."""
     monkeypatch.setattr(

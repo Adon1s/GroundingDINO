@@ -425,6 +425,11 @@ def _build_output_paths(args: argparse.Namespace) -> Tuple[Path, Path, Path]:
 
 
 def main() -> None:
+    raise RuntimeError(
+        "bias_check: drives model_comparison.py, which is blocked — the Pass 2c "
+        "contract migrated to observation-kind-v2 and the harness still consumes "
+        "the retired v1 label vocabulary. See docs/HANDOFF_kind_ontology_task1.md."
+    )
     args = parse_args()
 
     if not _MAIN_SCRIPT.exists():

@@ -2000,6 +2000,12 @@ def parse_args() -> argparse.Namespace:
 
 
 def main():
+    raise RuntimeError(
+        "catalog_auditor: the Pass 2c contract migrated to observation-kind-v2 "
+        "(indexed kind/exclude decisions; labeled_forward no longer exists). "
+        "This harness still consumes the retired v1 label vocabulary and is "
+        "blocked pending migration. See docs/HANDOFF_kind_ontology_task1.md."
+    )
     args = parse_args()
 
     log_level = logging.DEBUG if args.verbose else logging.INFO

@@ -420,6 +420,22 @@ def write_photo_intel(
     dependency_status: Optional[Dict[str, str]] = None,
 ) -> Path:
     """Persist per-photo intelligence (including scene classifier fields)."""
+    # ── observation-kind-v2 publish guard ────────────────────────────────────
+    # Classification-only results carry three-kind observations that no
+    # downstream consumer (catalog, estimates, scoring, packages) can handle
+    # yet. Publishing one would overwrite canonical artifacts with an
+    # incomplete pipeline output. Hard stop until Task 2 (catalog migration)
+    # and Task 3 (downstream cutover) land.
+    for _res in getattr(job, "results", []) or []:
+        _payload = getattr(_res, "scene_classifier", None) or getattr(_res, "scene_data", None) or {}
+        if isinstance(_payload, dict) and _payload.get("classification_only"):
+            raise RuntimeError(
+                "write_photo_intel: refusing to publish a classification_only "
+                "(observation-kind-v2) result. The pipeline ends after Pass 2c "
+                "until the catalog migration (Task 2) and downstream cutover "
+                "(Task 3) land. See docs/HANDOFF_kind_ontology_task1.md."
+            )
+
     created_at = datetime.utcnow().isoformat() + "Z"
 
     photos: Dict[str, Any] = {}

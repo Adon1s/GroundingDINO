@@ -49,7 +49,14 @@ from tools.pass_config import (
 )
 
 from tools.scene_classifier_passes import (
+    EXCLUSION_REASONS,
     KindRoutingDecision,
+    OBSERVATION_KINDS,
+    ONTOLOGY_VERSION,
+    PASS_2B_PROMPT_SHA256,
+    PASS_2B_PROMPT_VERSION,
+    PASS_2C_PROMPT_SHA256,
+    PASS_2C_PROMPT_VERSION,
     Pass1aResult,
     Pass1bResult,
     Pass1cResult,
@@ -175,8 +182,15 @@ class ImageAnalysisResult:
     features_struct: Dict[str, Any] = field(default_factory=dict)
     observations_struct: Dict[str, Any] = field(default_factory=dict)
 
-    labeled_debug: List[Dict[str, Any]] = field(default_factory=list)
-    labeled_forward: List[Dict[str, Any]] = field(default_factory=list)
+    # observation-kind-v2 lanes (Pass 2c output)
+    observations: List[Dict[str, Any]] = field(default_factory=list)          # [{"description","kind",...}]
+    excluded_observations: List[Dict[str, Any]] = field(default_factory=list)  # [{"description","reason"}]
+
+    # The v2 pipeline ends after classification until the catalog migration
+    # (Task 2) and downstream cutover (Task 3) land. Non-publishable:
+    # artifact_writers.write_photo_intel rejects classification_only payloads.
+    classification_only: bool = True
+    ontology_version: str = ONTOLOGY_VERSION
 
     # Optional resolver output (2d). Orchestrator stores results if run elsewhere.
     resolved_items: List[Dict[str, Any]] = field(default_factory=list)    # unified: defects + upgrades
@@ -226,8 +240,10 @@ class ImageAnalysisResult:
             # structured outputs (v2)
             "features_struct": self.features_struct,
             "observations_struct": self.observations_struct,
-            "labeled_debug": self.labeled_debug,
-            "labeled_forward": self.labeled_forward,
+            "observations": self.observations,
+            "excluded_observations": self.excluded_observations,
+            "classification_only": self.classification_only,
+            "ontology_version": self.ontology_version,
             "resolved_items": self.resolved_items,
             "verified_issues": self.verified_issues,
             "matched_issues": self.matched_issues,
@@ -483,7 +499,8 @@ class SceneClassifierOrchestrator:
         result.processing_time = time.perf_counter() - start_time
         logger.info(
             f"Completed {image_path.name}: scene={result.scene}, "
-            f"forward_obs={len(result.labeled_forward)}, "
+            f"classified_obs={len(result.observations)}, "
+            f"excluded_obs={len(result.excluded_observations)}, "
             f"time={result.processing_time:.1f}s (LLM={result.total_pass_time:.1f}s)"
         )
 
@@ -608,7 +625,7 @@ class SceneClassifierOrchestrator:
             result.models_used['2b'] = model_name
 
         # ─────────────────────────────────────────────────────────────────────
-        # Pass 2c: Label Observations + Debug/Forward Split (text-only)
+        # Pass 2c: Classify observations — observation-kind-v2 (text-only)
         # ─────────────────────────────────────────────────────────────────────
         if self._t(toggles, '2c'):
             model_config = self._get_model_config('2c', options)
@@ -629,35 +646,60 @@ class SceneClassifierOrchestrator:
             )
             result.pass_timings['2c'] = time.perf_counter() - t0
 
-            result.labeled_debug = result.pass_2c.labeled_debug or []
-            result.labeled_forward = result.pass_2c.labeled_forward or []
+            result.observations = list(result.pass_2c.observations or [])
+            result.excluded_observations = list(result.pass_2c.excluded or [])
 
-            context["labeled_debug"] = result.labeled_debug
-            context["labeled_forward"] = result.labeled_forward
+            context["observations"] = result.observations
+            context["excluded_observations"] = result.excluded_observations
 
-            # ── Stamp deterministic issue_id on every forward observation ──
-            # Uses _make_issue_id() for stable, deterministic IDs.
+            # ── Stamp deterministic issue_id on every classified observation ──
+            # Uses _make_issue_id() for stable, deterministic IDs (kind takes
+            # the label slot in the signature under observation-kind-v2).
             _run_id = (getattr(options, "meta", None) or {}).get("run_id", "")
             _photo_key = (getattr(options, "meta", None) or {}).get("photo_key") or image_path.name
             _sig_counts: Dict[tuple, int] = {}
-            for _obs in (result.labeled_forward or []):
+            for _obs in (result.observations or []):
                 if not isinstance(_obs, dict):
                     continue
                 _desc = (_obs.get("description") or "").strip()
                 if not _desc:
                     continue
-                _label = (_obs.get("label") or "").strip()
+                _kind = (_obs.get("kind") or "").strip()
                 _loc = (_obs.get("location_hint") or "").strip()
-                _sig = (_desc, _loc, _label)
+                _sig = (_desc, _loc, _kind)
                 _ordinal = _sig_counts.get(_sig, 0)
                 _sig_counts[_sig] = _ordinal + 1
                 # Forward-only: only assign if missing
                 if not _obs.get("issue_id"):
-                    _obs["issue_id"] = _make_issue_id(_run_id, _photo_key, _desc, _loc, _label, _ordinal)
+                    _obs["issue_id"] = _make_issue_id(_run_id, _photo_key, _desc, _loc, _kind, _ordinal)
                 _obs.setdefault("source_photo_key", _photo_key)
 
             result.passes_run.append('2c')
             result.models_used['2c'] = model_name
+
+        # ─────────────────────────────────────────────────────────────────────
+        # observation-kind-v2: classification-only stop
+        # ─────────────────────────────────────────────────────────────────────
+        # The pipeline ends here until the catalog migration (Task 2) and
+        # downstream cutover (Task 3) land. Everything below — the shadow lane,
+        # Pass 2d resolution, and Pass 2e normalization — is dormant: it still
+        # consumes the retired v1 label vocabulary and the two-kind catalog,
+        # and must not run against three-kind observations. _finalize marks
+        # 2d/2e "skipped". Results are non-publishable: write_photo_intel
+        # rejects classification_only payloads.
+        result.classification_only = True
+        result.debug["classification_only"] = {
+            "reason": "classification_only_v2",
+            "detail": "observation-kind-v2 pipeline ends after Pass 2c until Task 2/3 land",
+        }
+        result.debug["ontology"] = {
+            "ontology_version": ONTOLOGY_VERSION,
+            "pass_2b_prompt_version": PASS_2B_PROMPT_VERSION,
+            "pass_2b_prompt_sha256": PASS_2B_PROMPT_SHA256,
+            "pass_2c_prompt_version": PASS_2C_PROMPT_VERSION,
+            "pass_2c_prompt_sha256": PASS_2C_PROMPT_SHA256,
+        }
+        return
 
         # ─────────────────────────────────────────────────────────────────────
         # Pass 2d: Resolve catalog item ID from candidates (text-only, optional)

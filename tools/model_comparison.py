@@ -2569,6 +2569,12 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     return args
 
 def main() -> None:
+    raise RuntimeError(
+        "model_comparison: the Pass 2c contract migrated to observation-kind-v2 "
+        "(indexed kind/exclude decisions; labeled_debug/labeled_forward no longer "
+        "exist). This harness still consumes the retired v1 label vocabulary and "
+        "is blocked pending migration. See docs/HANDOFF_kind_ontology_task1.md."
+    )
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(name)s: %(message)s",

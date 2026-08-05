@@ -127,9 +127,15 @@ def parse_orchestrator_result(result: Any) -> SceneClassification:
     # V2 fields from orchestrator
     payload["features_struct"] = data.get("features_struct", {}) or {}
     payload["observations_struct"] = data.get("observations_struct", {}) or {}
-    payload["labeled_debug"] = data.get("labeled_debug", []) or []
-    payload["labeled_forward"] = data.get("labeled_forward", []) or []
+    payload["observations"] = data.get("observations", []) or []
+    payload["excluded_observations"] = data.get("excluded_observations", []) or []
     payload["resolved_items"] = data.get("resolved_items", []) or []
+
+    # observation-kind-v2: classification-only results are non-publishable
+    # until Task 2/3 land. write_photo_intel enforces this via the marker.
+    payload["classification_only"] = bool(data.get("classification_only", False))
+    if data.get("ontology_version"):
+        payload["ontology_version"] = data.get("ontology_version")
 
     # Meta
     payload["passes_run"] = data.get("passes_run", []) or []

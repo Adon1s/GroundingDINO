@@ -4,15 +4,25 @@ import logging
 import re
 from pathlib import Path
 
+import pytest
+
 from tools.pass_config import SceneClassifierRunOptions
 from tools.scene_classifier_orchestrator import SceneClassifierOrchestrator
 from tools.scene_classifier_passes import (
+    EXCLUSION_REASONS,
+    OBSERVATION_KINDS,
+    ONTOLOGY_VERSION,
+    PASS_2B_PROMPT_SHA256,
+    PASS_2B_PROMPT_VERSION,
+    PASS_2B_SYSTEM_PROMPT_TEMPLATE,
+    PASS_2C_PROMPT_SHA256,
+    PASS_2C_PROMPT_VERSION,
     PASS_2C_SYSTEM_PROMPT,
-    VALID_LABELS,
-    _coerce_labeled_2c,
+    PassExecutionError,
+    _validate_pass_2c_decisions,
     evaluate_kind_routing,
-    force_other_if_dimensions,
     format_candidates_text,
+    partition_dimension_overlays,
     prioritize_resolution_candidates,
     run_pass_2c,
     run_pass_2d,
@@ -43,8 +53,8 @@ class FakeOrchestratorClient:
         user_lower = (user_prompt or "").lower()
         if "split freeform photo notes" in system_lower:
             return '{"observations":[{"description":"Shingles appear aged and weathered from an aerial angle."}]}'
-        if "label each observation" in system_lower:
-            return '{"labeled":[{"description":"Shingles appear aged and weathered from an aerial angle.","label":"upgrade_candidate"}]}'
+        if "classify each numbered observation" in system_lower:
+            return '{"decisions":[{"index":1,"kind":"degradation"}]}'
         if "map this observation to a catalog item id" in user_lower:
             return '{"resolved_item_id":"damaged_or_aged_roof_shingles"}'
         return "{}"
@@ -383,11 +393,11 @@ def test_pass_2d_prompt_does_not_leak_the_whole_word_marker():
     assert "mold$" not in rendered
 
 
-def test_force_other_if_dimensions_only_drops_floorplan_overlays():
-    """The filter targets OCR'd MLS floorplan overlays, which are a dimension
-    plus a room name and nothing else. An observation that merely cites a tile
-    or framing size is a real finding, and dropping it here is invisible
-    downstream because it happens before the labeled_forward split.
+def test_partition_dimension_overlays_only_excludes_floorplan_overlays():
+    """The pre-filter targets OCR'd MLS floorplan overlays, which are a
+    dimension plus a room name and nothing else. An observation that merely
+    cites a tile or framing size is a real finding, and dropping it here is
+    invisible downstream because it happens before classification.
     """
     overlays = [
         "Primary Bedroom 14' x 12'",
@@ -403,75 +413,35 @@ def test_force_other_if_dimensions_only_drops_floorplan_overlays():
         "Cracked 12x12 tile",
     ]
 
-    labeled = (
-        [{"description": d, "label": "defect_or_damage"} for d in overlays]
-        + [{"description": d, "label": "defect_or_damage"} for d in keepers]
-    )
-    out = {x["description"]: x["label"] for x in force_other_if_dimensions(labeled)}
+    observations = [{"description": d} for d in overlays + keepers]
+    to_classify, excluded = partition_dimension_overlays(observations)
 
-    for d in overlays:
-        assert out[d] == "other", f"overlay should be forced to other: {d!r}"
-    for d in keepers:
-        assert out[d] == "defect_or_damage", f"real observation was dropped: {d!r}"
+    assert [x["description"] for x in to_classify] == keepers
+    assert [x["description"] for x in excluded] == overlays
+    assert all(x["reason"] == "measurement_overlay" for x in excluded)
 
 
-def test_force_other_if_dimensions_leaves_non_dimension_rows_alone():
-    labeled = [
-        {"description": "The carpet is heavily stained.", "label": "defect_or_damage"},
-        {"description": "Bedroom has a ceiling fan.", "label": "other"},
+def test_partition_dimension_overlays_leaves_non_dimension_rows_alone():
+    observations = [
+        {"description": "The carpet is heavily stained."},
+        {"description": "Bedroom has a ceiling fan."},
     ]
 
-    assert force_other_if_dimensions(labeled) == labeled
+    to_classify, excluded = partition_dimension_overlays(observations)
+    assert to_classify == observations
+    assert excluded == []
 
 
-def test_orchestrator_widens_roof_upgrade_retrieval_without_relabeling():
-    provider_contexts = []
+def test_orchestrator_stops_after_classification():
+    """observation-kind-v2: the pipeline ends after Pass 2c. The shadow lane,
+    Pass 2d, and Pass 2e are dormant until the catalog migration (Task 2) and
+    downstream cutover (Task 3) land — the candidate provider must never be
+    called, and the result must be marked classification_only."""
+    provider_calls = []
 
     def candidate_provider(observation_text, context):
-        provider_contexts.append(dict(context))
-        return [
-            {
-                "item_id": "dated_exterior_finishes",
-                "name": "Dated Exterior Finishes",
-                "description": "Overall exterior style appears outdated.",
-                "support_any": ["dated exterior", "outdated exterior"],
-                "trade_bucket": "exterior_siding_trim",
-                "kind": "upgrade",
-                "score": 0.71,
-                "defaultHidden": False,
-                "drop_if_generic": True,
-            },
-            {
-                "item_id": "damaged_or_aged_roof_shingles",
-                "name": "Damaged or Aged Roof Shingles",
-                "description": "Missing, curling, patchy, worn shingles or debris suggesting reduced remaining life.",
-                "support_any": ["roof", "shingle", "worn"],
-                "trade_bucket": "roof_gutters",
-                "kind": "defect",
-                "score": 0.70,
-                "defaultHidden": False,
-                "drop_if_generic": False,
-            },
-        ]
-
-    catalog_items = [
-        {
-            "id": "dated_exterior_finishes",
-            "tier": "optional",
-            "drop_if_generic": True,
-            "defaultHidden": False,
-            "kind": "upgrade",
-            "trade_bucket": "exterior_siding_trim",
-        },
-        {
-            "id": "damaged_or_aged_roof_shingles",
-            "tier": "work",
-            "drop_if_generic": False,
-            "defaultHidden": False,
-            "kind": "defect",
-            "trade_bucket": "roof_gutters",
-        },
-    ]
+        provider_calls.append(observation_text)
+        return []
 
     orchestrator = SceneClassifierOrchestrator(
         qwen_config={},
@@ -479,7 +449,7 @@ def test_orchestrator_widens_roof_upgrade_retrieval_without_relabeling():
         vlm_client=FakeOrchestratorClient(),
         candidate_provider=candidate_provider,
         top_k_candidates=5,
-        catalog_items=catalog_items,
+        catalog_items=[],
     )
 
     result = asyncio.run(orchestrator.analyze_image(
@@ -487,185 +457,250 @@ def test_orchestrator_widens_roof_upgrade_retrieval_without_relabeling():
         options=SceneClassifierRunOptions(),
     ))
 
-    assert result.labeled_forward[0]["label"] == "upgrade_candidate"
-    assert provider_contexts[0]["allowed_kinds"] == ["upgrade", "defect"]
+    assert result.classification_only is True
+    assert result.ontology_version == ONTOLOGY_VERSION
+    assert provider_calls == []
 
-    debug_row = result.debug["pass_2d_per_observation"][0]
-    assert debug_row["kind_routing"]["original_kind"] == "upgrade"
-    assert debug_row["kind_routing"]["expanded_kinds"] == ["upgrade", "defect"]
-    assert debug_row["kind_routing"]["reason"] == "visible_condition_signal"
-    assert debug_row["resolution_path"] == "llm"
-    assert debug_row["shortcut_reason"] is None
+    assert len(result.observations) == 1
+    obs = result.observations[0]
+    assert obs["description"] == "Shingles appear aged and weathered from an aerial angle."
+    assert obs["kind"] == "degradation"
+    assert obs["issue_id"]
+    assert obs["source_photo_key"] == "photo_002.jpg"
+    assert result.excluded_observations == []
 
-    assert result.resolved_items[0]["resolved_item_id"] == "damaged_or_aged_roof_shingles"
-    assert result.resolved_items[0]["resolved_kind"] == "defect"
-    assert result.verified_issues[0]["catalogItemId"] == "damaged_or_aged_roof_shingles"
-    assert result.verified_issues[0]["kind"] == "defect"
+    assert result.pass_states["2d"] == "skipped"
+    assert result.pass_states["2e"] == "skipped"
+    assert result.resolved_items == []
+    assert result.verified_issues == []
+
+    ontology_debug = result.debug["ontology"]
+    assert ontology_debug["ontology_version"] == ONTOLOGY_VERSION
+    assert ontology_debug["pass_2c_prompt_version"] == PASS_2C_PROMPT_VERSION
+    assert ontology_debug["pass_2c_prompt_sha256"] == PASS_2C_PROMPT_SHA256
+    assert result.debug["classification_only"]["reason"] == "classification_only_v2"
+
+    as_dict = result.to_dict()
+    assert as_dict["classification_only"] is True
+    assert as_dict["observations"] == result.observations
+    assert as_dict["excluded_observations"] == []
 
 
-def _prompt_return_shape_labels():
-    """Pull the label alternatives out of the Pass 2c return-shape example."""
-    match = re.search(r'"label":\s*"([^"]+)"', PASS_2C_SYSTEM_PROMPT)
-    assert match, "Pass 2c prompt is missing a return-shape label example"
+# ── observation-kind-v2 prompt invariants ───────────────────────────────────
+# The v1 prompt tests (label enum, interior finish anchors, safety-label
+# coercion) are superseded: the two-kind label vocabulary is retired and the
+# v2 contract fails closed on unknown values instead of coercing to "other".
+# The exterior-anchor edit reverted in the working tree stays retired — the
+# degradation kind now owns exterior wear.
+
+
+def _prompt_example_values(key: str) -> set:
+    """Pull the enum alternatives out of the Pass 2c return-shape example."""
+    match = re.search(rf'"{key}":\s*"([^"]+)"', PASS_2C_SYSTEM_PROMPT)
+    assert match, f"Pass 2c prompt is missing a return-shape {key} example"
     return set(match.group(1).split("|"))
 
 
-def test_pass_2c_prompt_example_labels_match_valid_labels():
-    assert _prompt_return_shape_labels() == VALID_LABELS
+def test_pass_2c_prompt_example_kinds_match_contract():
+    assert _prompt_example_values("kind") == set(OBSERVATION_KINDS)
 
 
-# An exterior-anchor edit to this prompt (routing worn/weathered exterior
-# finishes to upgrade_candidate) was shipped and then reverted: it is a `kind`
-# semantics decision, and `kind` is being reworked wholesale into
-# defect | degradation | modernization by the semantic-overhaul work. Deciding
-# where exterior wear lands under a two-value ontology that is about to be
-# replaced buys nothing, and its supporting A/B is not reproducible.
-#
-# Absence safety does NOT live here. It lives in the catalog deny lists on the
-# two gutter items — suppressing absence language at 2c cost ~179 forwarded
-# observations to stop 26 bad resolutions. See
-# docs/HANDOFF_pass2c_exterior_recall.md.
+def test_pass_2c_prompt_example_reasons_match_contract():
+    assert _prompt_example_values("exclude") == set(EXCLUSION_REASONS)
 
-def test_pass_2c_prompt_keeps_interior_finish_anchors():
-    """The upgrade_candidate rule's finish examples are load-bearing: without an
-    example anchor, findings drift to generic_presence/other."""
-    prompt = PASS_2C_SYSTEM_PROMPT.lower()
 
-    for anchor in ("floors", "cabinets", "counters", "tile", "paint"):
-        assert anchor in prompt
+def test_pass_2c_prompt_defines_every_kind_and_reason():
+    prompt = PASS_2C_SYSTEM_PROMPT
+    for value in sorted(OBSERVATION_KINDS) + sorted(EXCLUSION_REASONS):
+        assert f"- {value}:" in prompt, f"prompt is missing a definition for {value}"
 
 
 def test_pass_2c_prompt_has_no_whole_system_absence_rule():
-    """Absence safety lives in the catalog deny lists, not in the 2c prompt.
-
-    A prompt-level absence rule over-generalised from gutters to kitchen
-    fixtures ("no visible modern vent hood", "no apparent task lighting"),
-    where absence is a legitimate priced upgrade. See
-    docs/HANDOFF_pass2c_exterior_recall.md.
+    """Absence safety lives in the catalog deny lists, not in a blanket 2c
+    suppression rule. A prompt-level absence rule over-generalised from gutters
+    to kitchen fixtures ("no visible modern vent hood"), where absence is a
+    legitimate priced upgrade. The v2 prompt distinguishes *asserted* absence
+    (a kind) from absence inferred only from non-visibility (excluded), which
+    is a different, narrower rule. See docs/HANDOFF_pass2c_exterior_recall.md.
     """
     assert "whole system is absent" not in PASS_2C_SYSTEM_PROMPT.lower()
 
 
-def test_pass_2c_forwards_upgrade_candidate_label():
-    """The forward split is label-driven, not text-driven: whatever the prompt
-    says, an upgrade_candidate is forwarded."""
-    description = "Wood lap siding appears weathered, with staining and aged paint."
+def test_pass_2b_prompt_requires_atomic_split():
+    prompt = PASS_2B_SYSTEM_PROMPT_TEMPLATE.lower()
+    assert "one condition claim per observation" in prompt
+    assert "weathered and rotted deck boards" in prompt
+
+
+def test_prompt_version_constants_are_pinned():
+    """Prompt provenance: artifacts and benchmark reports record these; a
+    prompt edit must change the SHA (it hashes the prompt text) and should
+    bump the version string."""
+    assert PASS_2B_PROMPT_VERSION == "pass_2b_atomic_v2"
+    assert PASS_2C_PROMPT_VERSION == "pass_2c_kind_v2"
+    assert len(PASS_2B_PROMPT_SHA256) == 64
+    assert len(PASS_2C_PROMPT_SHA256) == 64
+    assert PASS_2B_PROMPT_SHA256 != PASS_2C_PROMPT_SHA256
+
+
+# ── observation-kind-v2 classification behavior ─────────────────────────────
+
+
+def test_pass_2c_partitions_kinds_and_exclusions():
+    observations = [
+        {"description": "Wood siding is faded and weathered but remains intact."},
+        {"description": "The room contains a ceiling fan."},
+        {"description": "A downspout is disconnected and terminates at the foundation."},
+    ]
     client = FakeTextClient(json.dumps({
-        "labeled": [{"description": description, "label": "upgrade_candidate"}]
+        "decisions": [
+            {"index": 1, "kind": "degradation"},
+            {"index": 2, "exclude": "neutral_presence"},
+            {"index": 3, "kind": "defect"},
+        ]
     }))
 
     result = asyncio.run(run_pass_2c(
         vlm_client=client,
         model_config={},
-        observations=[{"description": description}],
+        observations=observations,
         scene="exterior_front",
     ))
 
-    assert result.labeled_forward == [
-        {"description": description, "label": "upgrade_candidate"},
+    assert result.ontology_version == ONTOLOGY_VERSION
+    assert result.observations == [
+        {"description": "Wood siding is faded and weathered but remains intact.", "kind": "degradation"},
+        {"description": "A downspout is disconnected and terminates at the foundation.", "kind": "defect"},
+    ]
+    assert result.excluded == [
+        {"description": "The room contains a ceiling fan.", "reason": "neutral_presence"},
     ]
 
 
-def test_pass_2c_forwards_visible_gutter_damage():
-    """Concrete visible conditions stay forwardable — the absence-safety work
-    lives in the catalog deny lists, not in a 2c suppression rule."""
-    description = "A downspout is disconnected and terminates at the foundation."
-    client = FakeTextClient(json.dumps({
-        "labeled": [{"description": description, "label": "defect_or_damage"}]
-    }))
+def test_pass_2c_accepts_string_indexes():
+    client = FakeTextClient('{"decisions":[{"index":"1","kind":"modernization"}]}')
 
     result = asyncio.run(run_pass_2c(
         vlm_client=client,
         model_config={},
-        observations=[{"description": description}],
-        scene="exterior_front",
+        observations=[{"description": "Kitchen has dated oak cabinets in good repair."}],
     ))
 
-    assert result.labeled_forward == [
-        {"description": description, "label": "defect_or_damage"},
-    ]
+    assert result.observations[0]["kind"] == "modernization"
 
 
-def test_pass_2c_absence_claim_labeled_other_is_dropped():
-    description = "No clearly functioning gutter system is visible along the porch edge."
-    client = FakeTextClient(json.dumps({
-        "labeled": [{"description": description, "label": "other"}]
-    }))
+def test_pass_2c_excludes_overlays_before_the_llm_call():
+    """Dimension overlays are excluded deterministically — when every input is
+    an overlay, the model is never called."""
+    client = FakeTextClient()
 
     result = asyncio.run(run_pass_2c(
         vlm_client=client,
         model_config={},
-        observations=[{"description": description}],
-        scene="exterior_front",
+        observations=[
+            {"description": "Primary Bedroom 14' x 12'"},
+            {"description": "Living Room 20 x 15"},
+        ],
     ))
 
-    assert result.labeled_debug == [{"description": description, "label": "other"}]
-    assert result.labeled_forward == []
+    assert client.calls == 0
+    assert result.observations == []
+    assert [x["reason"] for x in result.excluded] == ["measurement_overlay", "measurement_overlay"]
 
 
-def test_pass_2c_coerce_normalizes_deprecated_safety_label():
-    labeled = _coerce_labeled_2c([
-        {"description": "Exposed wiring hangs from the ceiling box.", "label": "safety"},
-    ])
+def test_pass_2c_empty_observations_short_circuit():
+    client = FakeTextClient()
 
-    assert labeled == [
-        {"description": "Exposed wiring hangs from the ceiling box.", "label": "other"},
-    ]
+    result = asyncio.run(run_pass_2c(
+        vlm_client=client,
+        model_config={},
+        observations=[],
+    ))
 
-
-def test_pass_2c_coerce_normalizes_unknown_label():
-    labeled = _coerce_labeled_2c([
-        {"description": "Something the model invented a label for.", "label": "vibes"},
-    ])
-
-    assert labeled[0]["label"] == "other"
+    assert client.calls == 0
+    assert result.observations == []
+    assert result.excluded == []
+    assert result.raw_response is None
 
 
-def test_pass_2c_coerce_warns_on_deprecated_safety_label(caplog):
-    with caplog.at_level(logging.WARNING, logger="tools.scene_classifier_passes"):
-        _coerce_labeled_2c([
-            {"description": "Exposed wiring hangs from the ceiling box.", "label": "safety"},
-        ])
+# ── observation-kind-v2 fail-closed validation ──────────────────────────────
+# Deliberate departure from v1: unknown values raised, never coerced. The v1
+# unknown-label→"other" fallback made prompt/contract drift invisible.
 
-    assert any(
-        "safety" in record.message and record.levelno == logging.WARNING
-        for record in caplog.records
+
+def _run_2c_expecting_failure(response: str):
+    client = FakeTextClient(response)
+    with pytest.raises(PassExecutionError) as excinfo:
+        asyncio.run(run_pass_2c(
+            vlm_client=client,
+            model_config={},
+            observations=[
+                {"description": "The carpet is heavily stained."},
+                {"description": "Bedroom has a ceiling fan."},
+            ],
+        ))
+    assert excinfo.value.pass_key == "2c"
+    assert excinfo.value.stage == "parse"
+    return excinfo.value
+
+
+def test_pass_2c_fails_closed_on_missing_index():
+    _run_2c_expecting_failure('{"decisions":[{"index":1,"kind":"degradation"}]}')
+
+
+def test_pass_2c_fails_closed_on_duplicate_index():
+    _run_2c_expecting_failure(
+        '{"decisions":[{"index":1,"kind":"degradation"},{"index":1,"exclude":"neutral_presence"}]}'
     )
 
 
-def test_pass_2c_deprecated_safety_result_is_not_forwarded():
-    client = FakeTextClient(json.dumps({
-        "labeled": [
-            {"description": "Exposed wiring hangs from the ceiling box.", "label": "safety"},
-        ]
-    }))
-
-    result = asyncio.run(run_pass_2c(
-        vlm_client=client,
-        model_config={},
-        observations=[{"description": "Exposed wiring hangs from the ceiling box."}],
-    ))
-
-    assert result.labeled_debug[0]["label"] == "other"
-    assert result.labeled_forward == []
+def test_pass_2c_fails_closed_on_unknown_kind():
+    _run_2c_expecting_failure(
+        '{"decisions":[{"index":1,"kind":"upgrade"},{"index":2,"exclude":"neutral_presence"}]}'
+    )
 
 
-def test_pass_2c_visible_hazard_labeled_defect_is_forwarded():
-    client = FakeTextClient(json.dumps({
-        "labeled": [
-            {"description": "Exposed wiring hangs from the ceiling box.", "label": "defect_or_damage"},
-        ]
-    }))
+def test_pass_2c_fails_closed_on_unknown_exclusion_reason():
+    _run_2c_expecting_failure(
+        '{"decisions":[{"index":1,"kind":"degradation"},{"index":2,"exclude":"vibes"}]}'
+    )
 
-    result = asyncio.run(run_pass_2c(
-        vlm_client=client,
-        model_config={},
-        observations=[{"description": "Exposed wiring hangs from the ceiling box."}],
-    ))
 
-    assert result.labeled_forward == [
-        {"description": "Exposed wiring hangs from the ceiling box.", "label": "defect_or_damage"},
-    ]
+def test_pass_2c_fails_closed_on_kind_and_exclude_together():
+    _run_2c_expecting_failure(
+        '{"decisions":[{"index":1,"kind":"degradation","exclude":"good_condition"},'
+        '{"index":2,"exclude":"neutral_presence"}]}'
+    )
+
+
+def test_pass_2c_fails_closed_on_out_of_range_index():
+    _run_2c_expecting_failure(
+        '{"decisions":[{"index":1,"kind":"degradation"},{"index":3,"kind":"defect"}]}'
+    )
+
+
+def test_pass_2c_fails_closed_on_malformed_json():
+    _run_2c_expecting_failure("not json at all")
+
+
+def test_pass_2c_fails_closed_on_rewritten_shape():
+    """A model echoing the v1 shape (labeled list) must fail loudly, not be
+    silently interpreted."""
+    _run_2c_expecting_failure(
+        '{"labeled":[{"description":"The carpet is heavily stained.","label":"defect_or_damage"}]}'
+    )
+
+
+def test_validate_pass_2c_decisions_returns_normalized_map():
+    decisions = _validate_pass_2c_decisions(
+        {"decisions": [
+            {"index": 2, "exclude": " Good_Condition "},
+            {"index": 1, "kind": " DEFECT "},
+        ]},
+        expected_count=2,
+    )
+
+    assert decisions == {1: {"kind": "defect"}, 2: {"exclude": "good_condition"}}
 
 
 # ── Pass 1a scene normalization ─────────────────────────────────────────────

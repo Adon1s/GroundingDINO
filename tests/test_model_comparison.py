@@ -84,6 +84,17 @@ def _make_pass_2b_result(descriptions=None):
     )
 
 
+# observation-kind-v2: model_comparison's live-2c cells still consume the
+# retired v1 label vocabulary (labeled_debug/labeled_forward), and the harness
+# entry point is blocked with a RuntimeError until it is migrated (Task 3
+# measurement work). Fixture-replay and judge/aggregation tests keep running.
+# See docs/HANDOFF_kind_ontology_task1.md.
+blocked_live_2c = pytest.mark.skip(
+    reason="model_comparison live-2c cells blocked: Pass 2c contract migrated to "
+    "observation-kind-v2; see docs/HANDOFF_kind_ontology_task1.md"
+)
+
+
 def _make_pass_2c_result(rows=None):
     rows = rows or [
         {"description": "Water stain on ceiling", "label": "defect_or_damage"},
@@ -210,6 +221,7 @@ def _make_fixture():
 class TestBuildCellsStructure:
     """Stub VLM → every image gets 5 cells for each analysis model."""
 
+    @blocked_live_2c
     def test_run_analysis_model_cells_produces_all_five_cells(self):
         image = _make_image_info()
         fixture = _make_fixture()
@@ -241,6 +253,7 @@ class TestBuildCellsStructure:
         assert len(cells.pass_2d_isolated) > 0
         assert len(cells.pass_2c_2d_coupled) > 0
 
+    @blocked_live_2c
     def test_skip_skills_are_respected(self):
         image = _make_image_info()
         fixture = _make_fixture()
@@ -521,6 +534,7 @@ class TestAggregateLeaderboard:
 class TestCouplingConstraint:
     """Coupled 2c+2d must never cross-feed — each model's own 2c goes to its own 2d."""
 
+    @blocked_live_2c
     def test_run_local_cells_feeds_own_2c_into_own_2d_coupled(self):
         """Model A's coupled 2d uses Model A's own 2c rows (by construction)."""
         image = _make_image_info()
@@ -558,6 +572,7 @@ class TestCouplingConstraint:
         fixture_obs_set = {r["description"] for r in fixture.pass_2c}
         assert not coupled_obs.intersection(fixture_obs_set)
 
+    @blocked_live_2c
     def test_isolated_2d_uses_fixture_not_own_2c(self):
         """Isolated 2d must use the fixture's F_2c (identical across models)."""
         image = _make_image_info()

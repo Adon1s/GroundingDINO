@@ -139,6 +139,21 @@ NORMALIZATION_POLICY_VERSION = "workitem_v1"
 # never as safe.
 PRODUCT_POLICY_VERSION = "quarantine_v1"
 
+# Observation-kind ontology. Stored artifacts without an ontology_version were
+# written under the two-kind (defect | upgrade) contract: read them as
+# legacy_v1 and never reinterpret their historical kind values against the
+# three-kind (defect | degradation | modernization) ontology.
+LEGACY_ONTOLOGY_VERSION = "legacy_v1"
+
+
+def artifact_ontology_version(artifact: Any) -> str:
+    """Ontology version of a stored artifact dict; missing field ⇒ legacy_v1."""
+    if isinstance(artifact, dict):
+        version = str(artifact.get("ontology_version") or "").strip()
+        if version:
+            return version
+    return LEGACY_ONTOLOGY_VERSION
+
 
 def stable_hash_id(*parts: str, length: int = 12) -> str:
     """Generate a stable, deterministic short hash ID from input parts."""
