@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "name": "sol_vs_terra",
+  "models": {
+    "model_a": {
+      "label": "GPT-5.6 Sol",
+      "provider": "openai",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "low",
+      "verbosity": "low"
+    },
+    "model_b": {
+      "label": "GPT-5.6 Terra",
+      "provider": "openai",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "low",
+      "verbosity": "low"
+    }
+  },
+  "fixture": {
+    "provider": "openai",
+    "model_env": "MODEL_COMPARISON_FIXTURE_MODEL"
+  },
+  "judge": {
+    "provider": "openai",
+    "model_env": "MODEL_COMPARISON_JUDGE_MODEL",
+    "reasoning_effort": "low",
+    "verbosity": "low"
+  },
+  "run": {
+    "concurrency": 3,
+    "judge_delay": 2.0,
+    "skills": ["2a", "2b", "2c", "2d_isolated", "2c+2d_coupled"]
+  }
+}

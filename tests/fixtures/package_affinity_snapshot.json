@@ -1,0 +1,524 @@
+{
+  "bathroom|active_water_damage_bathroom": {
+    "package_type": "bathroom_repair",
+    "package_role": "package_driver",
+    "package_category": "repair",
+    "room": "bathroom"
+  },
+  "bathroom|baseboard_wear_scuffs": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|bathroom_gfci_missing_or_damaged": {
+    "package_type": "bathroom_repair",
+    "package_role": "package_driver",
+    "package_category": "repair",
+    "room": "bathroom"
+  },
+  "bathroom|bathroom_layout_modernization_opportunity": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|bathroom_paint_refresh_recommended": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|bathroom_plumbing_visible_issue": {
+    "package_type": "bathroom_repair",
+    "package_role": "package_driver",
+    "package_category": "repair",
+    "room": "bathroom"
+  },
+  "bathroom|damaged_drywall_or_cracks": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|dated_bathroom_flooring_style": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|dated_bathroom_vanity_light": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|dated_bathroom_wallpaper": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|dated_interior_doors": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|dated_interior_trim": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|dated_or_worn_vanity_countertop": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|dated_wood_paneling": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|exhaust_fan_missing_or_damaged": {
+    "package_type": "bathroom_repair",
+    "package_role": "package_support",
+    "package_category": "repair",
+    "room": "bathroom"
+  },
+  "bathroom|missing_bathroom_tile_exposed_substrate": {
+    "package_type": "bathroom_repair",
+    "package_role": "package_driver",
+    "package_category": "repair",
+    "room": "bathroom"
+  },
+  "bathroom|missing_or_damaged_caulk_at_tub_or_shower": {
+    "package_type": "bathroom_repair",
+    "package_role": "package_support",
+    "package_category": "repair",
+    "room": "bathroom"
+  },
+  "bathroom|missing_vanity_exposed_plumbing": {
+    "package_type": "bathroom_repair",
+    "package_role": "package_driver",
+    "package_category": "repair",
+    "room": "bathroom"
+  },
+  "bathroom|mold_or_mildew_visible_bathroom": {
+    "package_type": "bathroom_repair",
+    "package_role": "package_driver",
+    "package_category": "repair",
+    "room": "bathroom"
+  },
+  "bathroom|ornate_vintage_mirror": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|outdated_bathroom_finishes": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_driver",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|outdated_or_damaged_vanity": {
+    "package_type": "bathroom_repair",
+    "package_role": "package_driver",
+    "package_category": "repair",
+    "room": "bathroom"
+  },
+  "bathroom|peeling_or_damaged_bathroom_paint": {
+    "package_type": "bathroom_repair",
+    "package_role": "package_support",
+    "package_category": "repair",
+    "room": "bathroom"
+  },
+  "bathroom|popcorn_or_acoustic_ceiling_texture": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|stained_or_damaged_bath_fixtures": {
+    "package_type": "bathroom_repair",
+    "package_role": "package_support",
+    "package_category": "repair",
+    "room": "bathroom"
+  },
+  "bathroom|tile_or_grout_damage": {
+    "package_type": "bathroom_repair",
+    "package_role": "package_driver",
+    "package_category": "repair",
+    "room": "bathroom"
+  },
+  "bathroom|tub_surround_or_shower_pan_damage": {
+    "package_type": "bathroom_repair",
+    "package_role": "package_driver",
+    "package_category": "repair",
+    "room": "bathroom"
+  },
+  "bathroom|vanity_countertop_damage": {
+    "package_type": "bathroom_repair",
+    "package_role": "package_support",
+    "package_category": "repair",
+    "room": "bathroom"
+  },
+  "bathroom|vintage_tile_pattern_style": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|wall_scuffs_marks_or_dents": {
+    "package_type": "bathroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bathroom"
+  },
+  "bathroom|worn_or_damaged_bathroom_flooring": {
+    "package_type": "bathroom_repair",
+    "package_role": "package_support",
+    "package_category": "repair",
+    "room": "bathroom"
+  },
+  "bedroom|baseboard_wear_scuffs": {
+    "package_type": "bedroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bedroom"
+  },
+  "bedroom|damaged_drywall_or_cracks": {
+    "package_type": "bedroom_repair",
+    "package_role": "package_driver",
+    "package_category": "repair",
+    "room": "bedroom"
+  },
+  "bedroom|dated_interior_doors": {
+    "package_type": "bedroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bedroom"
+  },
+  "bedroom|dated_interior_trim": {
+    "package_type": "bedroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bedroom"
+  },
+  "bedroom|dated_lighting_fixtures": {
+    "package_type": "bedroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bedroom"
+  },
+  "bedroom|dated_wallpaper_present": {
+    "package_type": "bedroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bedroom"
+  },
+  "bedroom|dated_wood_paneling": {
+    "package_type": "bedroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bedroom"
+  },
+  "bedroom|older_flooring_style": {
+    "package_type": "bedroom_modernization",
+    "package_role": "package_driver",
+    "package_category": "modernization",
+    "room": "bedroom"
+  },
+  "bedroom|paint_refresh_recommended": {
+    "package_type": "bedroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bedroom"
+  },
+  "bedroom|peeling_or_discolored_paint": {
+    "package_type": "bedroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bedroom"
+  },
+  "bedroom|popcorn_or_acoustic_ceiling_texture": {
+    "package_type": "bedroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bedroom"
+  },
+  "bedroom|scratched_or_damaged_flooring": {
+    "package_type": "bedroom_repair",
+    "package_role": "package_driver",
+    "package_category": "repair",
+    "room": "bedroom"
+  },
+  "bedroom|wall_scuffs_marks_or_dents": {
+    "package_type": "bedroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bedroom"
+  },
+  "bedroom|water_stain_ceiling": {
+    "package_type": "bedroom_repair",
+    "package_role": "package_driver",
+    "package_category": "repair",
+    "room": "bedroom"
+  },
+  "bedroom|worn_or_stained_carpet": {
+    "package_type": "bedroom_modernization",
+    "package_role": "package_driver",
+    "package_category": "modernization",
+    "room": "bedroom"
+  },
+  "bedroom|worn_or_stained_flooring": {
+    "package_type": "bedroom_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "bedroom"
+  },
+  "bedroom|worn_or_stained_vinyl_linoleum": {
+    "package_type": "bedroom_modernization",
+    "package_role": "package_driver",
+    "package_category": "modernization",
+    "room": "bedroom"
+  },
+  "kitchen|appliance_damage_or_missing": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|baseboard_wear_scuffs": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|countertop_damage": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|damaged_drywall_or_cracks": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|dated_interior_doors": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|dated_interior_trim": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|dated_lighting_fixtures": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|dated_wallpaper_present": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|dated_wood_paneling": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|missing_base_cabinets_exposed_subfloor": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_driver",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|older_flooring_style": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|outdated_kitchen_finishes": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_driver",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|outdated_or_damaged_cabinets": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_driver",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|paint_refresh_recommended": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|peeling_or_discolored_paint": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|popcorn_or_acoustic_ceiling_texture": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|scratched_or_damaged_flooring": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|wall_scuffs_marks_or_dents": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|worn_or_stained_carpet": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|worn_or_stained_flooring": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "kitchen|worn_or_stained_vinyl_linoleum": {
+    "package_type": "kitchen_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "kitchen"
+  },
+  "living|baseboard_wear_scuffs": {
+    "package_type": "living_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "living"
+  },
+  "living|damaged_drywall_or_cracks": {
+    "package_type": "living_repair",
+    "package_role": "package_driver",
+    "package_category": "repair",
+    "room": "living"
+  },
+  "living|dated_fireplace_surround": {
+    "package_type": "living_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "living"
+  },
+  "living|dated_interior_doors": {
+    "package_type": "living_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "living"
+  },
+  "living|dated_interior_trim": {
+    "package_type": "living_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "living"
+  },
+  "living|dated_lighting_fixtures": {
+    "package_type": "living_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "living"
+  },
+  "living|dated_wallpaper_present": {
+    "package_type": "living_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "living"
+  },
+  "living|dated_wood_paneling": {
+    "package_type": "living_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "living"
+  },
+  "living|older_flooring_style": {
+    "package_type": "living_modernization",
+    "package_role": "package_driver",
+    "package_category": "modernization",
+    "room": "living"
+  },
+  "living|paint_refresh_recommended": {
+    "package_type": "living_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "living"
+  },
+  "living|peeling_or_discolored_paint": {
+    "package_type": "living_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "living"
+  },
+  "living|popcorn_or_acoustic_ceiling_texture": {
+    "package_type": "living_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "living"
+  },
+  "living|scratched_or_damaged_flooring": {
+    "package_type": "living_repair",
+    "package_role": "package_driver",
+    "package_category": "repair",
+    "room": "living"
+  },
+  "living|wall_scuffs_marks_or_dents": {
+    "package_type": "living_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "living"
+  },
+  "living|water_stain_ceiling": {
+    "package_type": "living_repair",
+    "package_role": "package_driver",
+    "package_category": "repair",
+    "room": "living"
+  },
+  "living|worn_or_stained_carpet": {
+    "package_type": "living_modernization",
+    "package_role": "package_driver",
+    "package_category": "modernization",
+    "room": "living"
+  },
+  "living|worn_or_stained_flooring": {
+    "package_type": "living_modernization",
+    "package_role": "package_support",
+    "package_category": "modernization",
+    "room": "living"
+  },
+  "living|worn_or_stained_vinyl_linoleum": {
+    "package_type": "living_modernization",
+    "package_role": "package_driver",
+    "package_category": "modernization",
+    "room": "living"
+  }
+}

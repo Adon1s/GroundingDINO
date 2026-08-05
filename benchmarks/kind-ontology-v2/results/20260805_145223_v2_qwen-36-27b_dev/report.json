@@ -1,0 +1,3464 @@
+{
+  "benchmark": "kind-ontology-v2",
+  "schema_version": 1,
+  "meta": {
+    "timestamp": "2026-08-05T14:52:23",
+    "contract": "v2",
+    "cases_slice": "dev",
+    "case_fingerprint": "ff95e151eb684039ff42e2569e0829e8e8e68970c86cc1341b44ab3e74560f7b",
+    "model_label": "Qwen 3.6 27B",
+    "model_config": {
+      "provider": "lmstudio",
+      "model": "unsloth/qwen3.6-27b@q6_k",
+      "url": "http://100.102.92.1:1234"
+    },
+    "repeats": 5,
+    "ontology_version": "observation-kind-v2",
+    "pass_2b_prompt_version": "pass_2b_atomic_v2",
+    "pass_2b_prompt_sha256": "243ae92a37fd300f517e6997dcd1d2dcd8e87c36b68e7d17606df55a99c94f02",
+    "pass_2c_prompt_version": "pass_2c_kind_v2",
+    "pass_2c_prompt_sha256": "e074c606e0719b85e72b20a8b68532318f8ac0ed6a6df125edd3b6c9b782a0bd"
+  },
+  "metrics": {
+    "n_cases": 93,
+    "n_repeats": 5,
+    "schema_failure_calls": 22,
+    "atomic": {
+      "n": 63,
+      "kind_accuracy_mean": 0.9365079365079365,
+      "kind_accuracy_per_repeat": [
+        0.8888888888888888,
+        0.9047619047619048,
+        0.9682539682539683,
+        0.9523809523809523,
+        0.9682539682539683
+      ],
+      "per_kind": {
+        "defect": {
+          "recall": 1.0,
+          "precision": 0.9523809523809523,
+          "gold_decisions": 100,
+          "predicted_decisions": 105
+        },
+        "degradation": {
+          "recall": 0.9545454545454546,
+          "precision": 1.0,
+          "gold_decisions": 110,
+          "predicted_decisions": 105
+        },
+        "modernization": {
+          "recall": 0.8571428571428571,
+          "precision": 1.0,
+          "gold_decisions": 105,
+          "predicted_decisions": 90
+        }
+      }
+    },
+    "excluded": {
+      "n": 12,
+      "false_classification_rate": 0.0,
+      "reason_accuracy": 0.7666666666666667
+    },
+    "repeatability": {
+      "unanimous_fraction": 0.88,
+      "pairwise_agreement": 0.944
+    },
+    "mixed": {
+      "n": 18,
+      "full_case_success_rate": 1.0,
+      "cross_kind_bundling_rate": 0.0,
+      "rows": [
+        {
+          "case_id": "mix-001",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-001",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-001",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-001",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-001",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-002",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-002",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-002",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-002",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-002",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-003",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-003",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-003",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-003",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-003",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-004",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-004",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-004",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-004",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-004",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-005",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-005",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-005",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-005",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-005",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-006",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-006",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-006",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-006",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-006",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-007",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-007",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-007",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-007",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-007",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-008",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-008",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-008",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-008",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-008",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-009",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-009",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-009",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-009",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-009",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-010",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-010",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-010",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-010",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-010",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-011",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-011",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-011",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-011",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-011",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-012",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-012",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-012",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-012",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-012",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-013",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-013",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-013",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-013",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-013",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-014",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-014",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-014",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-014",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-014",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-015",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-015",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-015",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-015",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-015",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-016",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-016",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-016",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-016",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-016",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-017",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-017",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-017",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-017",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-017",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-018",
+          "repeat": 0,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-018",
+          "repeat": 1,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-018",
+          "repeat": 2,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-018",
+          "repeat": 3,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        },
+        {
+          "case_id": "mix-018",
+          "repeat": 4,
+          "full_success": true,
+          "claims_matched": [
+            true,
+            true
+          ],
+          "bundled": false,
+          "cross_kind_bundled": false
+        }
+      ]
+    },
+    "confusion_matrix": {
+      "defect": {
+        "defect": 100
+      },
+      "degradation": {
+        "degradation": 105,
+        "defect": 5
+      },
+      "modernization": {
+        "excluded": 2,
+        "modernization": 90,
+        "schema_failure": 13
+      },
+      "excluded": {
+        "excluded": 51,
+        "schema_failure": 9
+      }
+    }
+  },
+  "raw_repeats": [
+    {
+      "def-003": {
+        "kind": "defect"
+      },
+      "def-004": {
+        "kind": "defect"
+      },
+      "def-018": {
+        "kind": "defect"
+      },
+      "def-006": {
+        "kind": "defect"
+      },
+      "def-007": {
+        "kind": "defect"
+      },
+      "def-014": {
+        "kind": "defect"
+      },
+      "deg-018": {
+        "kind": "degradation"
+      },
+      "mod-004": {
+        "kind": "modernization"
+      },
+      "mod-011": {
+        "kind": "modernization"
+      },
+      "mod-016": {
+        "kind": "modernization"
+      },
+      "exc-good-002": {
+        "exclude": "good_condition"
+      },
+      "def-008": {
+        "kind": "defect"
+      },
+      "def-021": {
+        "kind": "defect"
+      },
+      "deg-002": {
+        "kind": "degradation"
+      },
+      "deg-021": {
+        "kind": "degradation"
+      },
+      "mod-006": {
+        "kind": "modernization"
+      },
+      "mod-008": {
+        "kind": "modernization"
+      },
+      "exc-good-001": {
+        "exclude": "good_condition"
+      },
+      "exc-neut-001": {
+        "exclude": "neutral_presence"
+      },
+      "exc-adv-002": {
+        "exclude": "unsupported_or_speculative"
+      },
+      "exc-dim-001": {
+        "exclude": "measurement_overlay"
+      },
+      "exc-nrr-002": {
+        "exclude": "not_renovation_related"
+      },
+      "deg-014": {
+        "kind": "degradation"
+      },
+      "mod-019": {
+        "kind": "modernization"
+      },
+      "def-005": {
+        "kind": "defect"
+      },
+      "def-010": {
+        "kind": "defect"
+      },
+      "def-013": {
+        "kind": "defect"
+      },
+      "deg-015": {
+        "kind": "degradation"
+      },
+      "exc-adv-001": {
+        "exclude": "advice_or_process"
+      },
+      "def-002": {
+        "kind": "defect"
+      },
+      "def-009": {
+        "kind": "degradation"
+      },
+      "def-011": {
+        "kind": "defect"
+      },
+      "def-016": {
+        "kind": "defect"
+      },
+      "def-017": {
+        "kind": "defect"
+      },
+      "deg-003": {
+        "kind": "degradation"
+      },
+      "deg-004": {
+        "kind": "degradation"
+      },
+      "deg-006": {
+        "kind": "degradation"
+      },
+      "deg-011": {
+        "kind": "degradation"
+      },
+      "deg-013": {
+        "kind": "defect"
+      },
+      "deg-020": {
+        "kind": "degradation"
+      },
+      "mod-017": {
+        "kind": "modernization"
+      },
+      "mod-021": {
+        "error": "parse: index 2: exactly one of 'kind' or 'exclude' required"
+      },
+      "exc-spec-001": {
+        "error": "parse: index 2: exactly one of 'kind' or 'exclude' required"
+      },
+      "def-020": {
+        "kind": "defect"
+      },
+      "deg-001": {
+        "kind": "degradation"
+      },
+      "deg-016": {
+        "kind": "degradation"
+      },
+      "mod-012": {
+        "kind": "modernization"
+      },
+      "def-019": {
+        "kind": "defect"
+      },
+      "deg-012": {
+        "kind": "degradation"
+      },
+      "deg-005": {
+        "kind": "degradation"
+      },
+      "deg-019": {
+        "kind": "degradation"
+      },
+      "mod-001": {
+        "exclude": "good_condition"
+      },
+      "mod-002": {
+        "kind": "modernization"
+      },
+      "mod-003": {
+        "kind": "modernization"
+      },
+      "mod-007": {
+        "kind": "modernization"
+      },
+      "mod-009": {
+        "kind": "modernization"
+      },
+      "mod-013": {
+        "kind": "modernization"
+      },
+      "mod-014": {
+        "kind": "modernization"
+      },
+      "mod-018": {
+        "kind": "modernization"
+      },
+      "exc-nrr-001": {
+        "exclude": "not_renovation_related"
+      },
+      "def-001": {
+        "kind": "defect"
+      },
+      "def-012": {
+        "kind": "defect"
+      },
+      "deg-007": {
+        "kind": "degradation"
+      },
+      "deg-008": {
+        "kind": "degradation"
+      },
+      "deg-009": {
+        "kind": "degradation"
+      },
+      "deg-017": {
+        "kind": "degradation"
+      },
+      "mod-005": {
+        "error": "parse: index 5: exactly one of 'kind' or 'exclude' required"
+      },
+      "mod-010": {
+        "error": "parse: index 5: exactly one of 'kind' or 'exclude' required"
+      },
+      "mod-015": {
+        "error": "parse: index 5: exactly one of 'kind' or 'exclude' required"
+      },
+      "mod-020": {
+        "error": "parse: index 5: exactly one of 'kind' or 'exclude' required"
+      },
+      "exc-neut-002": {
+        "error": "parse: index 5: exactly one of 'kind' or 'exclude' required"
+      },
+      "exc-spec-002": {
+        "error": "parse: index 5: exactly one of 'kind' or 'exclude' required"
+      },
+      "exc-dim-002": {
+        "exclude": "measurement_overlay"
+      },
+      "deg-010": {
+        "kind": "degradation"
+      },
+      "def-015": {
+        "kind": "defect"
+      },
+      "mix-001": {
+        "observations": [
+          {
+            "description": "Deck boards are weathered near the stairs.",
+            "kind": "degradation"
+          },
+          {
+            "description": "Deck boards are rotted near the stairs.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-002": {
+        "observations": [
+          {
+            "description": "The carpet is worn throughout.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The carpet is water-stained near the vent.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-003": {
+        "observations": [
+          {
+            "description": "Exterior paint is peeling.",
+            "kind": "degradation"
+          },
+          {
+            "description": "One siding board is cracked.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-004": {
+        "observations": [
+          {
+            "description": "The driveway is faded.",
+            "kind": "degradation"
+          },
+          {
+            "description": "One section of the driveway has heaved, leaving a raised crack across the middle.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-005": {
+        "observations": [
+          {
+            "description": "The kitchen cabinets are worn.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The kitchen cabinets are dated.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-006": {
+        "observations": [
+          {
+            "description": "The bathroom vanity is an older basic unit.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The top of the bathroom vanity is stained.",
+            "kind": "degradation"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-007": {
+        "observations": [
+          {
+            "description": "The ceiling fan is dated in style.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The ceiling fan blades are discolored.",
+            "kind": "degradation"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-008": {
+        "observations": [
+          {
+            "description": "The screen door is dated in style.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The screen door is torn at the bottom corner.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-009": {
+        "observations": [
+          {
+            "description": "The kitchen cabinets are dated oak.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The sink basin is cracked.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-010": {
+        "observations": [
+          {
+            "description": "Gutters are stained along the front.",
+            "kind": "degradation"
+          },
+          {
+            "description": "One downspout is disconnected.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-011": {
+        "observations": [
+          {
+            "description": "The hardwood floors are scuffed.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The trim is a basic flat casing.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-012": {
+        "observations": [
+          {
+            "description": "The bathroom has a basic frameless mirror.",
+            "kind": "modernization"
+          },
+          {
+            "description": "There is cracked floor tile near the tub.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-013": {
+        "observations": [
+          {
+            "description": "The roof shingles are weathered.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The gutter is sagging.",
+            "kind": "defect"
+          },
+          {
+            "description": "The porch light is a dated builder-grade fixture.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-014": {
+        "observations": [
+          {
+            "description": "Kitchen cabinets are dated oak.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The counter is worn at the edges.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The sink base shows water damage.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-015": {
+        "observations": [
+          {
+            "description": "The bedroom carpet is stained.",
+            "kind": "degradation"
+          },
+          {
+            "description": "A window pane is cracked.",
+            "kind": "defect"
+          },
+          {
+            "description": "The light fixture is a basic dome style.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-016": {
+        "observations": [
+          {
+            "description": "The back fence has collapsed in one section.",
+            "kind": "defect"
+          },
+          {
+            "description": "The patio slab is heaved and cracked.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-017": {
+        "observations": [
+          {
+            "description": "The siding is faded.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The front walkway is stained with rust marks.",
+            "kind": "degradation"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-018": {
+        "observations": [
+          {
+            "description": "The kitchen has laminate countertops.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The cabinet hardware is builder-grade.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      }
+    },
+    {
+      "def-003": {
+        "kind": "defect"
+      },
+      "def-004": {
+        "kind": "defect"
+      },
+      "def-018": {
+        "kind": "defect"
+      },
+      "def-006": {
+        "kind": "defect"
+      },
+      "def-007": {
+        "kind": "defect"
+      },
+      "def-014": {
+        "kind": "defect"
+      },
+      "deg-018": {
+        "kind": "degradation"
+      },
+      "mod-004": {
+        "kind": "modernization"
+      },
+      "mod-011": {
+        "kind": "modernization"
+      },
+      "mod-016": {
+        "kind": "modernization"
+      },
+      "exc-good-002": {
+        "exclude": "good_condition"
+      },
+      "def-008": {
+        "kind": "defect"
+      },
+      "def-021": {
+        "kind": "defect"
+      },
+      "deg-002": {
+        "kind": "degradation"
+      },
+      "deg-021": {
+        "kind": "degradation"
+      },
+      "mod-006": {
+        "kind": "modernization"
+      },
+      "mod-008": {
+        "kind": "modernization"
+      },
+      "exc-good-001": {
+        "exclude": "good_condition"
+      },
+      "exc-neut-001": {
+        "exclude": "neutral_presence"
+      },
+      "exc-adv-002": {
+        "exclude": "unsupported_or_speculative"
+      },
+      "exc-dim-001": {
+        "exclude": "measurement_overlay"
+      },
+      "exc-nrr-002": {
+        "exclude": "not_renovation_related"
+      },
+      "deg-014": {
+        "kind": "degradation"
+      },
+      "mod-019": {
+        "kind": "modernization"
+      },
+      "def-005": {
+        "kind": "defect"
+      },
+      "def-010": {
+        "kind": "defect"
+      },
+      "def-013": {
+        "kind": "defect"
+      },
+      "deg-015": {
+        "kind": "degradation"
+      },
+      "exc-adv-001": {
+        "exclude": "advice_or_process"
+      },
+      "def-002": {
+        "kind": "defect"
+      },
+      "def-009": {
+        "kind": "degradation"
+      },
+      "def-011": {
+        "kind": "defect"
+      },
+      "def-016": {
+        "kind": "defect"
+      },
+      "def-017": {
+        "kind": "defect"
+      },
+      "deg-003": {
+        "kind": "degradation"
+      },
+      "deg-004": {
+        "kind": "degradation"
+      },
+      "deg-006": {
+        "kind": "degradation"
+      },
+      "deg-011": {
+        "kind": "degradation"
+      },
+      "deg-013": {
+        "kind": "defect"
+      },
+      "deg-020": {
+        "kind": "degradation"
+      },
+      "mod-017": {
+        "kind": "modernization"
+      },
+      "mod-021": {
+        "error": "parse: index 2: exactly one of 'kind' or 'exclude' required"
+      },
+      "exc-spec-001": {
+        "error": "parse: index 2: exactly one of 'kind' or 'exclude' required"
+      },
+      "def-020": {
+        "kind": "defect"
+      },
+      "deg-001": {
+        "kind": "degradation"
+      },
+      "deg-016": {
+        "kind": "degradation"
+      },
+      "mod-012": {
+        "kind": "modernization"
+      },
+      "def-019": {
+        "kind": "defect"
+      },
+      "deg-012": {
+        "kind": "degradation"
+      },
+      "deg-005": {
+        "kind": "degradation"
+      },
+      "deg-019": {
+        "kind": "degradation"
+      },
+      "mod-001": {
+        "kind": "modernization"
+      },
+      "mod-002": {
+        "kind": "modernization"
+      },
+      "mod-003": {
+        "kind": "modernization"
+      },
+      "mod-007": {
+        "kind": "modernization"
+      },
+      "mod-009": {
+        "kind": "modernization"
+      },
+      "mod-013": {
+        "kind": "modernization"
+      },
+      "mod-014": {
+        "kind": "modernization"
+      },
+      "mod-018": {
+        "kind": "modernization"
+      },
+      "exc-nrr-001": {
+        "exclude": "not_renovation_related"
+      },
+      "def-001": {
+        "kind": "defect"
+      },
+      "def-012": {
+        "kind": "defect"
+      },
+      "deg-007": {
+        "kind": "degradation"
+      },
+      "deg-008": {
+        "kind": "degradation"
+      },
+      "deg-009": {
+        "kind": "degradation"
+      },
+      "deg-017": {
+        "kind": "degradation"
+      },
+      "mod-005": {
+        "error": "parse: index 5: exactly one of 'kind' or 'exclude' required"
+      },
+      "mod-010": {
+        "error": "parse: index 5: exactly one of 'kind' or 'exclude' required"
+      },
+      "mod-015": {
+        "error": "parse: index 5: exactly one of 'kind' or 'exclude' required"
+      },
+      "mod-020": {
+        "error": "parse: index 5: exactly one of 'kind' or 'exclude' required"
+      },
+      "exc-neut-002": {
+        "error": "parse: index 5: exactly one of 'kind' or 'exclude' required"
+      },
+      "exc-spec-002": {
+        "error": "parse: index 5: exactly one of 'kind' or 'exclude' required"
+      },
+      "exc-dim-002": {
+        "exclude": "measurement_overlay"
+      },
+      "deg-010": {
+        "kind": "degradation"
+      },
+      "def-015": {
+        "kind": "defect"
+      },
+      "mix-001": {
+        "observations": [
+          {
+            "description": "Deck boards are weathered near the stairs.",
+            "kind": "degradation"
+          },
+          {
+            "description": "Deck boards are rotted near the stairs.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-002": {
+        "observations": [
+          {
+            "description": "The carpet is worn throughout.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The carpet is water-stained near the vent.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-003": {
+        "observations": [
+          {
+            "description": "Exterior paint is peeling.",
+            "kind": "degradation"
+          },
+          {
+            "description": "One siding board is cracked.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-004": {
+        "observations": [
+          {
+            "description": "The driveway is faded.",
+            "kind": "degradation"
+          },
+          {
+            "description": "One section of the driveway has heaved, leaving a raised crack across the middle.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-005": {
+        "observations": [
+          {
+            "description": "The kitchen cabinets are worn.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The kitchen cabinets are dated.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-006": {
+        "observations": [
+          {
+            "description": "The bathroom vanity is an older basic unit.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The top of the bathroom vanity is stained.",
+            "kind": "degradation"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-007": {
+        "observations": [
+          {
+            "description": "The ceiling fan is dated in style.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The ceiling fan blades are discolored.",
+            "kind": "degradation"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-008": {
+        "observations": [
+          {
+            "description": "The screen door is dated in style.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The screen door is torn at the bottom corner.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-009": {
+        "observations": [
+          {
+            "description": "The kitchen cabinets are dated oak.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The sink basin is cracked.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-010": {
+        "observations": [
+          {
+            "description": "Gutters are stained along the front of the property.",
+            "kind": "degradation"
+          },
+          {
+            "description": "One downspout is disconnected from the gutter system.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-011": {
+        "observations": [
+          {
+            "description": "The hardwood floors are scuffed.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The trim is a basic flat casing.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-012": {
+        "observations": [
+          {
+            "description": "The bathroom has a basic frameless mirror.",
+            "kind": "modernization"
+          },
+          {
+            "description": "There is cracked floor tile near the tub.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-013": {
+        "observations": [
+          {
+            "description": "The roof shingles are weathered.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The gutter is sagging.",
+            "kind": "defect"
+          },
+          {
+            "description": "The porch light is a dated builder-grade fixture.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-014": {
+        "observations": [
+          {
+            "description": "Kitchen cabinets are dated oak.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The counter is worn at the edges.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The sink base shows water damage.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-015": {
+        "observations": [
+          {
+            "description": "The bedroom carpet is stained.",
+            "kind": "degradation"
+          },
+          {
+            "description": "A window pane is cracked.",
+            "kind": "defect"
+          },
+          {
+            "description": "The light fixture is a basic dome style.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-016": {
+        "observations": [
+          {
+            "description": "The back fence has collapsed in one section.",
+            "kind": "defect"
+          },
+          {
+            "description": "The patio slab is heaved and cracked.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-017": {
+        "observations": [
+          {
+            "description": "The siding is faded.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The front walkway is stained with rust marks.",
+            "kind": "degradation"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-018": {
+        "observations": [
+          {
+            "description": "The kitchen has laminate countertops.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The cabinet hardware is builder-grade.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      }
+    },
+    {
+      "def-003": {
+        "kind": "defect"
+      },
+      "def-004": {
+        "kind": "defect"
+      },
+      "def-018": {
+        "kind": "defect"
+      },
+      "def-006": {
+        "kind": "defect"
+      },
+      "def-007": {
+        "kind": "defect"
+      },
+      "def-014": {
+        "kind": "defect"
+      },
+      "deg-018": {
+        "kind": "degradation"
+      },
+      "mod-004": {
+        "kind": "modernization"
+      },
+      "mod-011": {
+        "kind": "modernization"
+      },
+      "mod-016": {
+        "kind": "modernization"
+      },
+      "exc-good-002": {
+        "exclude": "good_condition"
+      },
+      "def-008": {
+        "kind": "defect"
+      },
+      "def-021": {
+        "kind": "defect"
+      },
+      "deg-002": {
+        "kind": "degradation"
+      },
+      "deg-021": {
+        "kind": "degradation"
+      },
+      "mod-006": {
+        "kind": "modernization"
+      },
+      "mod-008": {
+        "kind": "modernization"
+      },
+      "exc-good-001": {
+        "exclude": "good_condition"
+      },
+      "exc-neut-001": {
+        "exclude": "neutral_presence"
+      },
+      "exc-adv-002": {
+        "exclude": "unsupported_or_speculative"
+      },
+      "exc-dim-001": {
+        "exclude": "measurement_overlay"
+      },
+      "exc-nrr-002": {
+        "exclude": "not_renovation_related"
+      },
+      "deg-014": {
+        "kind": "degradation"
+      },
+      "mod-019": {
+        "kind": "modernization"
+      },
+      "def-005": {
+        "kind": "defect"
+      },
+      "def-010": {
+        "kind": "defect"
+      },
+      "def-013": {
+        "kind": "defect"
+      },
+      "deg-015": {
+        "kind": "degradation"
+      },
+      "exc-adv-001": {
+        "exclude": "advice_or_process"
+      },
+      "def-002": {
+        "kind": "defect"
+      },
+      "def-009": {
+        "kind": "degradation"
+      },
+      "def-011": {
+        "kind": "defect"
+      },
+      "def-016": {
+        "kind": "defect"
+      },
+      "def-017": {
+        "kind": "defect"
+      },
+      "deg-003": {
+        "kind": "degradation"
+      },
+      "deg-004": {
+        "kind": "degradation"
+      },
+      "deg-006": {
+        "kind": "degradation"
+      },
+      "deg-011": {
+        "kind": "degradation"
+      },
+      "deg-013": {
+        "kind": "defect"
+      },
+      "deg-020": {
+        "kind": "degradation"
+      },
+      "mod-017": {
+        "kind": "modernization"
+      },
+      "mod-021": {
+        "error": "parse: index 2: exactly one of 'kind' or 'exclude' required"
+      },
+      "exc-spec-001": {
+        "error": "parse: index 2: exactly one of 'kind' or 'exclude' required"
+      },
+      "def-020": {
+        "kind": "defect"
+      },
+      "deg-001": {
+        "kind": "degradation"
+      },
+      "deg-016": {
+        "kind": "degradation"
+      },
+      "mod-012": {
+        "kind": "modernization"
+      },
+      "def-019": {
+        "kind": "defect"
+      },
+      "deg-012": {
+        "kind": "degradation"
+      },
+      "deg-005": {
+        "kind": "degradation"
+      },
+      "deg-019": {
+        "kind": "degradation"
+      },
+      "mod-001": {
+        "kind": "modernization"
+      },
+      "mod-002": {
+        "kind": "modernization"
+      },
+      "mod-003": {
+        "kind": "modernization"
+      },
+      "mod-007": {
+        "kind": "modernization"
+      },
+      "mod-009": {
+        "kind": "modernization"
+      },
+      "mod-013": {
+        "kind": "modernization"
+      },
+      "mod-014": {
+        "kind": "modernization"
+      },
+      "mod-018": {
+        "kind": "modernization"
+      },
+      "exc-nrr-001": {
+        "exclude": "not_renovation_related"
+      },
+      "def-001": {
+        "kind": "defect"
+      },
+      "def-012": {
+        "kind": "defect"
+      },
+      "deg-007": {
+        "kind": "degradation"
+      },
+      "deg-008": {
+        "kind": "degradation"
+      },
+      "deg-009": {
+        "kind": "degradation"
+      },
+      "deg-017": {
+        "kind": "degradation"
+      },
+      "mod-005": {
+        "kind": "modernization"
+      },
+      "mod-010": {
+        "kind": "modernization"
+      },
+      "mod-015": {
+        "kind": "modernization"
+      },
+      "mod-020": {
+        "kind": "modernization"
+      },
+      "exc-neut-002": {
+        "exclude": "neutral_presence"
+      },
+      "exc-spec-002": {
+        "exclude": "unsupported_or_speculative"
+      },
+      "exc-dim-002": {
+        "exclude": "measurement_overlay"
+      },
+      "deg-010": {
+        "kind": "degradation"
+      },
+      "def-015": {
+        "kind": "defect"
+      },
+      "mix-001": {
+        "observations": [
+          {
+            "description": "Deck boards are weathered near the stairs.",
+            "kind": "degradation"
+          },
+          {
+            "description": "Deck boards are rotted near the stairs.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-002": {
+        "observations": [
+          {
+            "description": "The carpet is worn throughout.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The carpet is water-stained near the vent.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-003": {
+        "observations": [
+          {
+            "description": "Exterior paint is peeling.",
+            "kind": "degradation"
+          },
+          {
+            "description": "One siding board is cracked.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-004": {
+        "observations": [
+          {
+            "description": "The driveway is faded.",
+            "kind": "degradation"
+          },
+          {
+            "description": "One section of the driveway has heaved, leaving a raised crack across the middle.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-005": {
+        "observations": [
+          {
+            "description": "The kitchen cabinets are worn.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The kitchen cabinets are dated.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-006": {
+        "observations": [
+          {
+            "description": "The bathroom vanity is an older basic unit.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The top of the bathroom vanity is stained.",
+            "kind": "degradation"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-007": {
+        "observations": [
+          {
+            "description": "The ceiling fan is dated in style.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The ceiling fan blades are discolored.",
+            "kind": "degradation"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-008": {
+        "observations": [
+          {
+            "description": "The screen door is dated in style.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The screen door is torn at the bottom corner.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-009": {
+        "observations": [
+          {
+            "description": "The kitchen cabinets are dated oak.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The sink basin is cracked.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-010": {
+        "observations": [
+          {
+            "description": "Gutters are stained along the front.",
+            "kind": "degradation"
+          },
+          {
+            "description": "One downspout is disconnected.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-011": {
+        "observations": [
+          {
+            "description": "The hardwood floors are scuffed.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The trim is a basic flat casing.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-012": {
+        "observations": [
+          {
+            "description": "The bathroom has a basic frameless mirror.",
+            "kind": "modernization"
+          },
+          {
+            "description": "There is cracked floor tile near the tub.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-013": {
+        "observations": [
+          {
+            "description": "The roof shingles are weathered.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The gutter is sagging.",
+            "kind": "defect"
+          },
+          {
+            "description": "The porch light is a dated builder-grade fixture.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-014": {
+        "observations": [
+          {
+            "description": "Kitchen cabinets are dated oak.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The counter is worn at the edges.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The sink base shows water damage.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-015": {
+        "observations": [
+          {
+            "description": "The bedroom carpet is stained.",
+            "kind": "degradation"
+          },
+          {
+            "description": "A window pane is cracked.",
+            "kind": "defect"
+          },
+          {
+            "description": "The light fixture is a basic dome style.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-016": {
+        "observations": [
+          {
+            "description": "The back fence has collapsed in one section.",
+            "kind": "defect"
+          },
+          {
+            "description": "The patio slab is heaved and cracked.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-017": {
+        "observations": [
+          {
+            "description": "The siding is faded.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The front walkway is stained with rust marks.",
+            "kind": "degradation"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-018": {
+        "observations": [
+          {
+            "description": "The kitchen has laminate countertops.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The cabinet hardware is builder-grade.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      }
+    },
+    {
+      "def-003": {
+        "kind": "defect"
+      },
+      "def-004": {
+        "kind": "defect"
+      },
+      "def-018": {
+        "kind": "defect"
+      },
+      "def-006": {
+        "kind": "defect"
+      },
+      "def-007": {
+        "kind": "defect"
+      },
+      "def-014": {
+        "kind": "defect"
+      },
+      "deg-018": {
+        "kind": "degradation"
+      },
+      "mod-004": {
+        "kind": "modernization"
+      },
+      "mod-011": {
+        "kind": "modernization"
+      },
+      "mod-016": {
+        "kind": "modernization"
+      },
+      "exc-good-002": {
+        "exclude": "good_condition"
+      },
+      "def-008": {
+        "kind": "defect"
+      },
+      "def-021": {
+        "kind": "defect"
+      },
+      "deg-002": {
+        "kind": "degradation"
+      },
+      "deg-021": {
+        "kind": "degradation"
+      },
+      "mod-006": {
+        "kind": "modernization"
+      },
+      "mod-008": {
+        "kind": "modernization"
+      },
+      "exc-good-001": {
+        "exclude": "good_condition"
+      },
+      "exc-neut-001": {
+        "exclude": "neutral_presence"
+      },
+      "exc-adv-002": {
+        "exclude": "unsupported_or_speculative"
+      },
+      "exc-dim-001": {
+        "exclude": "measurement_overlay"
+      },
+      "exc-nrr-002": {
+        "exclude": "not_renovation_related"
+      },
+      "deg-014": {
+        "kind": "degradation"
+      },
+      "mod-019": {
+        "kind": "modernization"
+      },
+      "def-005": {
+        "kind": "defect"
+      },
+      "def-010": {
+        "kind": "defect"
+      },
+      "def-013": {
+        "kind": "defect"
+      },
+      "deg-015": {
+        "kind": "degradation"
+      },
+      "exc-adv-001": {
+        "exclude": "advice_or_process"
+      },
+      "def-002": {
+        "kind": "defect"
+      },
+      "def-009": {
+        "kind": "degradation"
+      },
+      "def-011": {
+        "kind": "defect"
+      },
+      "def-016": {
+        "kind": "defect"
+      },
+      "def-017": {
+        "kind": "defect"
+      },
+      "deg-003": {
+        "kind": "degradation"
+      },
+      "deg-004": {
+        "kind": "degradation"
+      },
+      "deg-006": {
+        "kind": "degradation"
+      },
+      "deg-011": {
+        "kind": "degradation"
+      },
+      "deg-013": {
+        "kind": "defect"
+      },
+      "deg-020": {
+        "kind": "degradation"
+      },
+      "mod-017": {
+        "kind": "modernization"
+      },
+      "mod-021": {
+        "error": "parse: index 2: exactly one of 'kind' or 'exclude' required"
+      },
+      "exc-spec-001": {
+        "error": "parse: index 2: exactly one of 'kind' or 'exclude' required"
+      },
+      "def-020": {
+        "kind": "defect"
+      },
+      "deg-001": {
+        "kind": "degradation"
+      },
+      "deg-016": {
+        "kind": "degradation"
+      },
+      "mod-012": {
+        "kind": "modernization"
+      },
+      "def-019": {
+        "kind": "defect"
+      },
+      "deg-012": {
+        "kind": "degradation"
+      },
+      "deg-005": {
+        "kind": "degradation"
+      },
+      "deg-019": {
+        "kind": "degradation"
+      },
+      "mod-001": {
+        "exclude": "good_condition"
+      },
+      "mod-002": {
+        "kind": "modernization"
+      },
+      "mod-003": {
+        "kind": "modernization"
+      },
+      "mod-007": {
+        "kind": "modernization"
+      },
+      "mod-009": {
+        "kind": "modernization"
+      },
+      "mod-013": {
+        "kind": "modernization"
+      },
+      "mod-014": {
+        "kind": "modernization"
+      },
+      "mod-018": {
+        "kind": "modernization"
+      },
+      "exc-nrr-001": {
+        "exclude": "not_renovation_related"
+      },
+      "def-001": {
+        "kind": "defect"
+      },
+      "def-012": {
+        "kind": "defect"
+      },
+      "deg-007": {
+        "kind": "degradation"
+      },
+      "deg-008": {
+        "kind": "degradation"
+      },
+      "deg-009": {
+        "kind": "degradation"
+      },
+      "deg-017": {
+        "kind": "degradation"
+      },
+      "mod-005": {
+        "kind": "modernization"
+      },
+      "mod-010": {
+        "kind": "modernization"
+      },
+      "mod-015": {
+        "kind": "modernization"
+      },
+      "mod-020": {
+        "kind": "modernization"
+      },
+      "exc-neut-002": {
+        "exclude": "neutral_presence"
+      },
+      "exc-spec-002": {
+        "exclude": "unsupported_or_speculative"
+      },
+      "exc-dim-002": {
+        "exclude": "measurement_overlay"
+      },
+      "deg-010": {
+        "kind": "degradation"
+      },
+      "def-015": {
+        "kind": "defect"
+      },
+      "mix-001": {
+        "observations": [
+          {
+            "description": "Deck boards are weathered near the stairs.",
+            "kind": "degradation"
+          },
+          {
+            "description": "Deck boards are rotted near the stairs.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-002": {
+        "observations": [
+          {
+            "description": "The carpet is worn throughout.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The carpet is water-stained near the vent.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-003": {
+        "observations": [
+          {
+            "description": "Exterior paint is peeling.",
+            "kind": "degradation"
+          },
+          {
+            "description": "One siding board is cracked.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-004": {
+        "observations": [
+          {
+            "description": "The driveway is faded.",
+            "kind": "degradation"
+          },
+          {
+            "description": "One section of the driveway has heaved, leaving a raised crack across the middle.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-005": {
+        "observations": [
+          {
+            "description": "The kitchen cabinets are worn.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The kitchen cabinets are dated.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-006": {
+        "observations": [
+          {
+            "description": "The bathroom vanity is an older basic unit.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The top of the bathroom vanity is stained.",
+            "kind": "degradation"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-007": {
+        "observations": [
+          {
+            "description": "The ceiling fan is dated in style.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The ceiling fan blades are discolored.",
+            "kind": "degradation"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-008": {
+        "observations": [
+          {
+            "description": "The screen door is dated in style.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The screen door is torn at the bottom corner.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-009": {
+        "observations": [
+          {
+            "description": "The kitchen cabinets are dated oak.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The sink basin is cracked.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-010": {
+        "observations": [
+          {
+            "description": "Gutters are stained along the front.",
+            "kind": "degradation"
+          },
+          {
+            "description": "One downspout is disconnected.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-011": {
+        "observations": [
+          {
+            "description": "The hardwood floors are scuffed.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The trim is a basic flat casing.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-012": {
+        "observations": [
+          {
+            "description": "The bathroom has a basic frameless mirror.",
+            "kind": "modernization"
+          },
+          {
+            "description": "There is cracked floor tile near the tub.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-013": {
+        "observations": [
+          {
+            "description": "The roof shingles are weathered.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The gutter is sagging.",
+            "kind": "defect"
+          },
+          {
+            "description": "The porch light is a dated builder-grade fixture.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-014": {
+        "observations": [
+          {
+            "description": "Kitchen cabinets are dated oak.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The counter is worn at the edges.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The sink base shows water damage.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-015": {
+        "observations": [
+          {
+            "description": "The bedroom carpet is stained.",
+            "kind": "degradation"
+          },
+          {
+            "description": "A window pane is cracked.",
+            "kind": "defect"
+          },
+          {
+            "description": "The light fixture is a basic dome style.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-016": {
+        "observations": [
+          {
+            "description": "The back fence has collapsed in one section.",
+            "kind": "defect"
+          },
+          {
+            "description": "The patio slab is heaved and cracked.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-017": {
+        "observations": [
+          {
+            "description": "The siding is faded.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The front walkway is stained with rust marks.",
+            "kind": "degradation"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-018": {
+        "observations": [
+          {
+            "description": "The kitchen has laminate countertops.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The cabinet hardware is builder-grade.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      }
+    },
+    {
+      "def-003": {
+        "kind": "defect"
+      },
+      "def-004": {
+        "kind": "defect"
+      },
+      "def-018": {
+        "kind": "defect"
+      },
+      "def-006": {
+        "kind": "defect"
+      },
+      "def-007": {
+        "kind": "defect"
+      },
+      "def-014": {
+        "kind": "defect"
+      },
+      "deg-018": {
+        "kind": "degradation"
+      },
+      "mod-004": {
+        "kind": "modernization"
+      },
+      "mod-011": {
+        "kind": "modernization"
+      },
+      "mod-016": {
+        "kind": "modernization"
+      },
+      "exc-good-002": {
+        "exclude": "good_condition"
+      },
+      "def-008": {
+        "kind": "defect"
+      },
+      "def-021": {
+        "kind": "defect"
+      },
+      "deg-002": {
+        "kind": "degradation"
+      },
+      "deg-021": {
+        "kind": "degradation"
+      },
+      "mod-006": {
+        "kind": "modernization"
+      },
+      "mod-008": {
+        "kind": "modernization"
+      },
+      "exc-good-001": {
+        "exclude": "good_condition"
+      },
+      "exc-neut-001": {
+        "exclude": "neutral_presence"
+      },
+      "exc-adv-002": {
+        "exclude": "unsupported_or_speculative"
+      },
+      "exc-dim-001": {
+        "exclude": "measurement_overlay"
+      },
+      "exc-nrr-002": {
+        "exclude": "not_renovation_related"
+      },
+      "deg-014": {
+        "kind": "degradation"
+      },
+      "mod-019": {
+        "kind": "modernization"
+      },
+      "def-005": {
+        "kind": "defect"
+      },
+      "def-010": {
+        "kind": "defect"
+      },
+      "def-013": {
+        "kind": "defect"
+      },
+      "deg-015": {
+        "kind": "degradation"
+      },
+      "exc-adv-001": {
+        "exclude": "advice_or_process"
+      },
+      "def-002": {
+        "kind": "defect"
+      },
+      "def-009": {
+        "kind": "degradation"
+      },
+      "def-011": {
+        "kind": "defect"
+      },
+      "def-016": {
+        "kind": "defect"
+      },
+      "def-017": {
+        "kind": "defect"
+      },
+      "deg-003": {
+        "kind": "degradation"
+      },
+      "deg-004": {
+        "kind": "degradation"
+      },
+      "deg-006": {
+        "kind": "degradation"
+      },
+      "deg-011": {
+        "kind": "degradation"
+      },
+      "deg-013": {
+        "kind": "defect"
+      },
+      "deg-020": {
+        "kind": "degradation"
+      },
+      "mod-017": {
+        "kind": "modernization"
+      },
+      "mod-021": {
+        "error": "parse: index 2: exactly one of 'kind' or 'exclude' required"
+      },
+      "exc-spec-001": {
+        "error": "parse: index 2: exactly one of 'kind' or 'exclude' required"
+      },
+      "def-020": {
+        "kind": "defect"
+      },
+      "deg-001": {
+        "kind": "degradation"
+      },
+      "deg-016": {
+        "kind": "degradation"
+      },
+      "mod-012": {
+        "kind": "modernization"
+      },
+      "def-019": {
+        "kind": "defect"
+      },
+      "deg-012": {
+        "kind": "degradation"
+      },
+      "deg-005": {
+        "kind": "degradation"
+      },
+      "deg-019": {
+        "kind": "degradation"
+      },
+      "mod-001": {
+        "kind": "modernization"
+      },
+      "mod-002": {
+        "kind": "modernization"
+      },
+      "mod-003": {
+        "kind": "modernization"
+      },
+      "mod-007": {
+        "kind": "modernization"
+      },
+      "mod-009": {
+        "kind": "modernization"
+      },
+      "mod-013": {
+        "kind": "modernization"
+      },
+      "mod-014": {
+        "kind": "modernization"
+      },
+      "mod-018": {
+        "kind": "modernization"
+      },
+      "exc-nrr-001": {
+        "exclude": "not_renovation_related"
+      },
+      "def-001": {
+        "kind": "defect"
+      },
+      "def-012": {
+        "kind": "defect"
+      },
+      "deg-007": {
+        "kind": "degradation"
+      },
+      "deg-008": {
+        "kind": "degradation"
+      },
+      "deg-009": {
+        "kind": "degradation"
+      },
+      "deg-017": {
+        "kind": "degradation"
+      },
+      "mod-005": {
+        "kind": "modernization"
+      },
+      "mod-010": {
+        "kind": "modernization"
+      },
+      "mod-015": {
+        "kind": "modernization"
+      },
+      "mod-020": {
+        "kind": "modernization"
+      },
+      "exc-neut-002": {
+        "exclude": "neutral_presence"
+      },
+      "exc-spec-002": {
+        "exclude": "unsupported_or_speculative"
+      },
+      "exc-dim-002": {
+        "exclude": "measurement_overlay"
+      },
+      "deg-010": {
+        "kind": "degradation"
+      },
+      "def-015": {
+        "kind": "defect"
+      },
+      "mix-001": {
+        "observations": [
+          {
+            "description": "Deck boards are weathered near the stairs.",
+            "kind": "degradation"
+          },
+          {
+            "description": "Deck boards are rotted near the stairs.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-002": {
+        "observations": [
+          {
+            "description": "The carpet is worn throughout.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The carpet is water-stained near the vent.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-003": {
+        "observations": [
+          {
+            "description": "Exterior paint is peeling.",
+            "kind": "degradation"
+          },
+          {
+            "description": "One siding board is cracked.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-004": {
+        "observations": [
+          {
+            "description": "The driveway is faded.",
+            "kind": "degradation"
+          },
+          {
+            "description": "One section of the driveway has heaved, leaving a raised crack across the middle.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-005": {
+        "observations": [
+          {
+            "description": "The kitchen cabinets are worn.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The kitchen cabinets are dated.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-006": {
+        "observations": [
+          {
+            "description": "The bathroom vanity is an older basic unit.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The top of the bathroom vanity is stained.",
+            "kind": "degradation"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-007": {
+        "observations": [
+          {
+            "description": "The ceiling fan is dated in style.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The ceiling fan blades are discolored.",
+            "kind": "degradation"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-008": {
+        "observations": [
+          {
+            "description": "The screen door is dated in style.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The screen door is torn at the bottom corner.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-009": {
+        "observations": [
+          {
+            "description": "The kitchen cabinets are dated oak.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The sink basin is cracked.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-010": {
+        "observations": [
+          {
+            "description": "Gutters are stained along the front.",
+            "kind": "degradation"
+          },
+          {
+            "description": "One downspout is disconnected.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-011": {
+        "observations": [
+          {
+            "description": "The hardwood floors are scuffed.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The trim is a basic flat casing.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-012": {
+        "observations": [
+          {
+            "description": "The bathroom has a basic frameless mirror.",
+            "kind": "modernization"
+          },
+          {
+            "description": "There is cracked floor tile near the tub.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-013": {
+        "observations": [
+          {
+            "description": "The roof shingles are weathered.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The gutter is sagging.",
+            "kind": "defect"
+          },
+          {
+            "description": "The porch light is a dated builder-grade fixture.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-014": {
+        "observations": [
+          {
+            "description": "Kitchen cabinets are dated oak.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The counter is worn at the edges.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The sink base shows water damage.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-015": {
+        "observations": [
+          {
+            "description": "The bedroom carpet is stained.",
+            "kind": "degradation"
+          },
+          {
+            "description": "A window pane is cracked.",
+            "kind": "defect"
+          },
+          {
+            "description": "The light fixture is a basic dome style.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-016": {
+        "observations": [
+          {
+            "description": "The back fence has collapsed in one section.",
+            "kind": "defect"
+          },
+          {
+            "description": "The patio slab is heaved and cracked.",
+            "kind": "defect"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-017": {
+        "observations": [
+          {
+            "description": "The siding is faded.",
+            "kind": "degradation"
+          },
+          {
+            "description": "The front walkway is stained with rust marks.",
+            "kind": "degradation"
+          }
+        ],
+        "excluded": []
+      },
+      "mix-018": {
+        "observations": [
+          {
+            "description": "The kitchen has laminate countertops.",
+            "kind": "modernization"
+          },
+          {
+            "description": "The kitchen cabinets have builder-grade hardware.",
+            "kind": "modernization"
+          }
+        ],
+        "excluded": []
+      }
+    }
+  ]
+}

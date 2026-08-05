@@ -1,0 +1,651 @@
+{
+ "benchmark": "kind-ontology-v2",
+ "schema_version": 1,
+ "slice": "holdout",
+ "status": "frozen-2026-08-05",
+ "cases": [
+  {
+   "case_id": "def-022",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "exterior_back",
+   "input": "The railing on the back steps is broken and unstable.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Safety component failure.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-exterior_back-1"
+  },
+  {
+   "case_id": "def-023",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "living_room",
+   "input": "A recessed lighting fixture is missing from its hole in the ceiling.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Missing required installed part.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "holdout-living_room-1"
+  },
+  {
+   "case_id": "def-024",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "yard",
+   "input": "The patio slab is severely cracked and heaved in places.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Severe cracking with displacement.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "holdout-yard-1"
+  },
+  {
+   "case_id": "def-025",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "bathroom",
+   "input": "Black mold and mildew are visible along the lower shower wall.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Mold growth = failure condition.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-bathroom-1"
+  },
+  {
+   "case_id": "def-026",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "exterior_back",
+   "input": "The rear soffit shows rot where the boards meet the gutter.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Rot = material failure.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-exterior_back-1"
+  },
+  {
+   "case_id": "def-027",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "exterior_side",
+   "input": "An exterior outlet cover is missing, leaving the receptacle exposed to weather.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Missing protective component, unsafe exposure.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-exterior_side-1"
+  },
+  {
+   "case_id": "def-028",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "bedroom",
+   "input": "A hole in the drywall exposes framing beside the closet door.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Wall integrity failure.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-bedroom-1"
+  },
+  {
+   "case_id": "def-029",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "exterior_back",
+   "input": "Several deck balusters are missing along the left side.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Missing safety components.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-exterior_back-1"
+  },
+  {
+   "case_id": "def-030",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "bathroom",
+   "input": "The bathroom floor tile is cracked and lifting near the toilet.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Cracked + lifting = failed floor covering.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-bathroom-1"
+  },
+  {
+   "case_id": "deg-022",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "exterior_front",
+   "input": "The metal handrail is rusty on the surface but solidly attached.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Surface corrosion, explicitly sound (contrast rusted-through = defect).",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-exterior_front-1"
+  },
+  {
+   "case_id": "deg-023",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "garage",
+   "input": "The garage floor coating is worn through in the parking strip.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Coating wear (finish layer), slab itself not failed.",
+   "source": "synthetic",
+   "review_flag": true,
+   "batch_id": "holdout-garage-1"
+  },
+  {
+   "case_id": "deg-024",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "bathroom",
+   "input": "The tub surround caulk is discolored and dingy.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Cosmetic deterioration of caulk, no gap/failure asserted.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-bathroom-1"
+  },
+  {
+   "case_id": "deg-025",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "exterior_front",
+   "input": "Roof shingles look worn and near the end of their life.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Aged but not failed — the classic v1 wear-band case (v1 catalog called this defect).",
+   "source": "corpus",
+   "review_flag": true,
+   "batch_id": "holdout-exterior_front-1"
+  },
+  {
+   "case_id": "deg-026",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "living_room",
+   "input": "The stair treads are worn smooth with the finish rubbed off in the middle.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Finish wear.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-living_room-1"
+  },
+  {
+   "case_id": "deg-027",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "kitchen",
+   "input": "The laminate countertop is faded and scratched near the sink.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Wear without failure.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-kitchen-1"
+  },
+  {
+   "case_id": "deg-028",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "exterior_side",
+   "input": "Window sills are weathered with flaking paint.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Weathering/finish deterioration.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-exterior_side-1"
+  },
+  {
+   "case_id": "deg-029",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "living_room",
+   "input": "The ceiling fan blades are discolored and dusty.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Cosmetic deterioration, fan works.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "holdout-living_room-1"
+  },
+  {
+   "case_id": "deg-030",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "exterior_front",
+   "input": "The front door finish is faded and worn around the handle.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Finish wear.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-exterior_front-1"
+  },
+  {
+   "case_id": "mod-022",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "bathroom",
+   "input": "The bathroom has a cultured marble vanity top typical of older builds.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Dated material, no condition claim.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-bathroom-1"
+  },
+  {
+   "case_id": "mod-023",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "kitchen",
+   "input": "The kitchen sink is a standard double-bowl stainless unit with a basic faucet.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Basic grade.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-kitchen-1"
+  },
+  {
+   "case_id": "mod-024",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "bedroom",
+   "input": "The bedroom closet has a single wire shelf typical of basic construction.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Basic construction.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-bedroom-1"
+  },
+  {
+   "case_id": "mod-025",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "kitchen",
+   "input": "Flooring is an older sheet vinyl in a dated pattern, free of damage.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Dated, explicitly undamaged.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-kitchen-1"
+  },
+  {
+   "case_id": "mod-026",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "living_room",
+   "input": "The ceiling fan is a basic model that appears over ten years old.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Basic/dated.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "holdout-living_room-1"
+  },
+  {
+   "case_id": "mod-027",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "living_room",
+   "input": "The fireplace surround is dated brass and tile but intact.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Dated, intact.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-living_room-1"
+  },
+  {
+   "case_id": "mod-028",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "exterior_front",
+   "input": "The garage has a basic builder-grade door without windows.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Basic grade (absent windows are an optional feature).",
+   "source": "synthetic",
+   "review_flag": true,
+   "batch_id": "holdout-exterior_front-1"
+  },
+  {
+   "case_id": "mod-029",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "bathroom",
+   "input": "The hall bathroom features an oak vanity from the original construction.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Original/dated.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-bathroom-1"
+  },
+  {
+   "case_id": "mod-030",
+   "case_type": "atomic",
+   "slice": "holdout",
+   "scene": "bedroom",
+   "input": "Interior doors are hollow-core flat panels with dated brass knobs.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Basic/dated.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-bedroom-1"
+  },
+  {
+   "case_id": "exc-good-003",
+   "case_type": "excluded",
+   "slice": "holdout",
+   "scene": "living_room",
+   "input": "Wood-look plank flooring is in good condition.",
+   "gold": {
+    "reason": "good_condition"
+   },
+   "rationale": "Explicit good condition.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "holdout-living_room-1"
+  },
+  {
+   "case_id": "exc-neut-003",
+   "case_type": "excluded",
+   "slice": "holdout",
+   "scene": "bathroom",
+   "input": "The light fixture is a multi-bulb vanity light.",
+   "gold": {
+    "reason": "neutral_presence"
+   },
+   "rationale": "Descriptive presence only.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "holdout-bathroom-1"
+  },
+  {
+   "case_id": "exc-adv-003",
+   "case_type": "excluded",
+   "slice": "holdout",
+   "scene": "yard",
+   "input": "Erosion control needs should be checked near the slope.",
+   "gold": {
+    "reason": "advice_or_process"
+   },
+   "rationale": "Process language.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "holdout-yard-1"
+  },
+  {
+   "case_id": "exc-spec-003",
+   "case_type": "excluded",
+   "slice": "holdout",
+   "scene": "exterior_front",
+   "input": "Insulation levels are probably low in the attic and walls.",
+   "gold": {
+    "reason": "unsupported_or_speculative"
+   },
+   "rationale": "Hidden system, no visible sign.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "holdout-exterior_front-1"
+  },
+  {
+   "case_id": "exc-dim-003",
+   "case_type": "excluded",
+   "slice": "holdout",
+   "scene": "kitchen",
+   "input": "Kitchen 10'x8'6\"",
+   "gold": {
+    "reason": "measurement_overlay"
+   },
+   "rationale": "Floorplan overlay text (deterministic pre-filter).",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "holdout-kitchen-1"
+  },
+  {
+   "case_id": "exc-nrr-003",
+   "case_type": "excluded",
+   "slice": "holdout",
+   "scene": "living_room",
+   "input": "A patterned rug in the foreground contrasts with the hardwood flooring.",
+   "gold": {
+    "reason": "not_renovation_related"
+   },
+   "rationale": "Furnishing, not property condition.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "holdout-living_room-2"
+  },
+  {
+   "case_id": "mix-019",
+   "case_type": "mixed",
+   "slice": "holdout",
+   "scene": "exterior_side",
+   "input": "The wood fence is weathered gray and two pickets are missing.",
+   "gold": {
+    "claims": [
+     {
+      "component": "fence",
+      "anchors_any": [
+       "weathered"
+      ],
+      "kind": "degradation"
+     },
+     {
+      "component": "picket",
+      "anchors_any": [
+       "missing"
+      ],
+      "kind": "defect"
+     }
+    ]
+   },
+   "rationale": "deg+def.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-020",
+   "case_type": "mixed",
+   "slice": "holdout",
+   "scene": "bathroom",
+   "input": "The vanity is a dated builder-grade unit with a worn and scratched top.",
+   "gold": {
+    "claims": [
+     {
+      "component": "vanity",
+      "anchors_any": [
+       "dated",
+       "builder"
+      ],
+      "kind": "modernization"
+     },
+     {
+      "component": "vanity",
+      "anchors_any": [
+       "worn",
+       "scratch"
+      ],
+      "kind": "degradation"
+     }
+    ]
+   },
+   "rationale": "deg+mod on one component.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-021",
+   "case_type": "mixed",
+   "slice": "holdout",
+   "scene": "living_room",
+   "input": "The living room has a dated brass chandelier and a large water stain on the ceiling.",
+   "gold": {
+    "claims": [
+     {
+      "component": "chandelier",
+      "anchors_any": [
+       "dated",
+       "brass"
+      ],
+      "kind": "modernization"
+     },
+     {
+      "component": "ceiling",
+      "anchors_any": [
+       "water"
+      ],
+      "kind": "defect"
+     }
+    ]
+   },
+   "rationale": "def+mod.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-022",
+   "case_type": "mixed",
+   "slice": "holdout",
+   "scene": "garage",
+   "input": "The garage door is dented at the corner, its paint is faded, and the opener is an older basic model.",
+   "gold": {
+    "claims": [
+     {
+      "component": "door",
+      "anchors_any": [
+       "dent"
+      ],
+      "kind": "defect"
+     },
+     {
+      "component": "paint",
+      "anchors_any": [
+       "faded"
+      ],
+      "kind": "degradation"
+     },
+     {
+      "component": "opener",
+      "anchors_any": [
+       "older",
+       "basic"
+      ],
+      "kind": "modernization"
+     }
+    ]
+   },
+   "rationale": "All three kinds.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-023",
+   "case_type": "mixed",
+   "slice": "holdout",
+   "scene": "bathroom",
+   "input": "The bathroom has a cracked floor tile and a leaking faucet.",
+   "gold": {
+    "claims": [
+     {
+      "component": "tile",
+      "anchors_any": [
+       "crack"
+      ],
+      "kind": "defect"
+     },
+     {
+      "component": "faucet",
+      "anchors_any": [
+       "leak"
+      ],
+      "kind": "defect"
+     }
+    ]
+   },
+   "rationale": "Same-kind (defect) different concepts.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-024",
+   "case_type": "mixed",
+   "slice": "holdout",
+   "scene": "bathroom",
+   "input": "The bathroom has an oak vanity from original construction and a basic frameless mirror.",
+   "gold": {
+    "claims": [
+     {
+      "component": "vanity",
+      "anchors_any": [
+       "oak",
+       "original"
+      ],
+      "kind": "modernization"
+     },
+     {
+      "component": "mirror",
+      "anchors_any": [
+       "basic",
+       "frameless"
+      ],
+      "kind": "modernization"
+     }
+    ]
+   },
+   "rationale": "Same-kind (modernization) different concepts.",
+   "source": "synthetic",
+   "review_flag": false
+  }
+ ]
+}

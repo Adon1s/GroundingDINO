@@ -1,0 +1,46 @@
+{
+  "schema_version": 1,
+  "name": "terra-upstream-terra-2f",
+  "axes": {
+    "upstream": "terra",
+    "scene": "terra",
+    "pass_2f": "terra",
+    "judge": "terra"
+  },
+  "pipeline": {
+    "analysis_profile": "premium",
+    "detection_backend": "dinox",
+    "concurrency": 4,
+    "pass_toggles": {
+      "1a": true,
+      "1b": true,
+      "1c": true,
+      "2a": true,
+      "2b": true,
+      "2c": true,
+      "2d": true,
+      "2e": true,
+      "2f": true
+    }
+  },
+  "model_map": {
+    "1a": {"provider": "openai", "model": "gpt-5.6-terra", "reasoning_effort": "low", "verbosity": "low"},
+    "2a": {"provider": "openai", "model": "gpt-5.6-terra", "reasoning_effort": "low", "verbosity": "low"},
+    "2b": {"provider": "openai", "model": "gpt-5.6-terra", "reasoning_effort": "low", "verbosity": "low"},
+    "2c": {"provider": "openai", "model": "gpt-5.6-terra", "reasoning_effort": "low", "verbosity": "low"},
+    "2d": {"provider": "openai", "model": "gpt-5.6-terra", "reasoning_effort": "low", "verbosity": "low"},
+    "2f": {"provider": "openai", "model": "gpt-5.6-terra", "reasoning_effort": "medium", "verbosity": "low"}
+  },
+  "repetitions": 1,
+  "evaluation": {
+    "semantic_threshold": 0.72,
+    "gate_on_judge": false
+  },
+  "regression_thresholds": {
+    "required_recall_drop_pp": 3.0,
+    "scene_group_accuracy_drop_pp": 3.0,
+    "unsupported_hit_rise_pp": 2.0,
+    "cost_midpoint_pct_error_worsen_pp": 5.0
+  },
+  "frontend_root": null
+}

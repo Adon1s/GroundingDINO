@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "name": "local_vs_premium",
+  "models": {
+    "model_a": {
+      "label": "Local model",
+      "provider": "lmstudio",
+      "model": "unsloth/qwen3.6-27b@q6_k",
+      "url_env": "LM_STUDIO_URL",
+      "timeout_seconds": 360,
+      "manual_load": true
+    },
+    "model_b": {
+      "label": "Premium model",
+      "provider": "openai",
+      "model_env": "MODEL_COMPARISON_PREMIUM_MODEL",
+      "reasoning_effort": "low",
+      "verbosity": "low"
+    }
+  },
+  "fixture": {
+    "provider": "openai",
+    "model_env": "MODEL_COMPARISON_FIXTURE_MODEL"
+  },
+  "judge": {
+    "provider": "openai",
+    "model_env": "MODEL_COMPARISON_JUDGE_MODEL",
+    "reasoning_effort": "low",
+    "verbosity": "low"
+  },
+  "run": {
+    "concurrency": 1,
+    "judge_delay": 2.0,
+    "skills": ["2a", "2b", "2c", "2d_isolated", "2c+2d_coupled"]
+  }
+}

@@ -1,0 +1,2295 @@
+{
+  "benchmark": "kind-ontology-v2",
+  "schema_version": 1,
+  "meta": {
+    "timestamp": "2026-08-05T14:25:00",
+    "contract": "v1-baseline",
+    "cases_slice": "dev",
+    "case_fingerprint": "ff95e151eb684039ff42e2569e0829e8e8e68970c86cc1341b44ab3e74560f7b",
+    "model_label": "GPT-5.6 Terra",
+    "model_config": {
+      "provider": "openai",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "low",
+      "verbosity": "low",
+      "api_key": "<redacted>"
+    },
+    "repeats": 5,
+    "ontology_version": "observation-kind-v2",
+    "pass_2b_prompt_version": "pass_2b_atomic_v2",
+    "pass_2b_prompt_sha256": "164d3a4bc60ceff7203ff14398b3843fc498d7837366ede5bcb24f7e33ee325c",
+    "pass_2c_prompt_version": "pass_2c_kind_v2",
+    "pass_2c_prompt_sha256": "3d414ec5fa17356e91953bc38c5fa1446cf5cf16fb97352803fd572ad746a072"
+  },
+  "metrics": {
+    "n_cases": 93,
+    "n_repeats": 5,
+    "label_distribution_by_gold_kind": {
+      "defect": {
+        "defect_or_damage": 100
+      },
+      "degradation": {
+        "defect_or_damage": 110
+      },
+      "modernization": {
+        "upgrade_candidate": 96,
+        "generic_presence": 9
+      }
+    },
+    "mapped_accuracy": {
+      "defect_as_defect_or_damage": 1.0,
+      "modernization_as_upgrade_candidate": 0.9142857142857143
+    },
+    "degradation_split": {
+      "decisions": 110,
+      "defect_or_damage": 110,
+      "upgrade_candidate": 0,
+      "not_forwarded": 0,
+      "unanimous_cases": 22,
+      "n_degradation_cases": 22
+    },
+    "excluded_forwarded_rate": 0.25,
+    "n_atomic_decisions": 315
+  },
+  "raw_repeats": [
+    {
+      "def-003": {
+        "label": "defect_or_damage"
+      },
+      "def-004": {
+        "label": "defect_or_damage"
+      },
+      "def-018": {
+        "label": "defect_or_damage"
+      },
+      "def-006": {
+        "label": "defect_or_damage"
+      },
+      "def-007": {
+        "label": "defect_or_damage"
+      },
+      "def-014": {
+        "label": "defect_or_damage"
+      },
+      "deg-018": {
+        "label": "defect_or_damage"
+      },
+      "mod-004": {
+        "label": "generic_presence"
+      },
+      "mod-011": {
+        "label": "upgrade_candidate"
+      },
+      "mod-016": {
+        "label": "upgrade_candidate"
+      },
+      "exc-good-002": {
+        "label": "good_condition"
+      },
+      "def-008": {
+        "label": "defect_or_damage"
+      },
+      "def-021": {
+        "label": "defect_or_damage"
+      },
+      "deg-002": {
+        "label": "defect_or_damage"
+      },
+      "deg-021": {
+        "label": "defect_or_damage"
+      },
+      "mod-006": {
+        "label": "upgrade_candidate"
+      },
+      "mod-008": {
+        "label": "upgrade_candidate"
+      },
+      "exc-good-001": {
+        "label": "good_condition"
+      },
+      "exc-neut-001": {
+        "label": "generic_presence"
+      },
+      "exc-adv-002": {
+        "label": "upgrade_candidate"
+      },
+      "exc-dim-001": {
+        "label": "other"
+      },
+      "exc-nrr-002": {
+        "label": "other"
+      },
+      "deg-014": {
+        "label": "defect_or_damage"
+      },
+      "mod-019": {
+        "label": "upgrade_candidate"
+      },
+      "def-005": {
+        "label": "defect_or_damage"
+      },
+      "def-010": {
+        "label": "defect_or_damage"
+      },
+      "def-013": {
+        "label": "defect_or_damage"
+      },
+      "deg-015": {
+        "label": "defect_or_damage"
+      },
+      "exc-adv-001": {
+        "label": "other"
+      },
+      "def-002": {
+        "label": "defect_or_damage"
+      },
+      "def-009": {
+        "label": "defect_or_damage"
+      },
+      "def-011": {
+        "label": "defect_or_damage"
+      },
+      "def-016": {
+        "label": "defect_or_damage"
+      },
+      "def-017": {
+        "label": "defect_or_damage"
+      },
+      "deg-003": {
+        "label": "defect_or_damage"
+      },
+      "deg-004": {
+        "label": "defect_or_damage"
+      },
+      "deg-006": {
+        "label": "defect_or_damage"
+      },
+      "deg-011": {
+        "label": "defect_or_damage"
+      },
+      "deg-013": {
+        "label": "defect_or_damage"
+      },
+      "deg-020": {
+        "label": "defect_or_damage"
+      },
+      "mod-017": {
+        "label": "upgrade_candidate"
+      },
+      "mod-021": {
+        "label": "upgrade_candidate"
+      },
+      "exc-spec-001": {
+        "label": "defect_or_damage"
+      },
+      "def-020": {
+        "label": "defect_or_damage"
+      },
+      "deg-001": {
+        "label": "defect_or_damage"
+      },
+      "deg-016": {
+        "label": "defect_or_damage"
+      },
+      "mod-012": {
+        "label": "upgrade_candidate"
+      },
+      "def-019": {
+        "label": "defect_or_damage"
+      },
+      "deg-012": {
+        "label": "defect_or_damage"
+      },
+      "deg-005": {
+        "label": "defect_or_damage"
+      },
+      "deg-019": {
+        "label": "defect_or_damage"
+      },
+      "mod-001": {
+        "label": "upgrade_candidate"
+      },
+      "mod-002": {
+        "label": "upgrade_candidate"
+      },
+      "mod-003": {
+        "label": "upgrade_candidate"
+      },
+      "mod-007": {
+        "label": "generic_presence"
+      },
+      "mod-009": {
+        "label": "upgrade_candidate"
+      },
+      "mod-013": {
+        "label": "upgrade_candidate"
+      },
+      "mod-014": {
+        "label": "upgrade_candidate"
+      },
+      "mod-018": {
+        "label": "upgrade_candidate"
+      },
+      "exc-nrr-001": {
+        "label": "other"
+      },
+      "def-001": {
+        "label": "defect_or_damage"
+      },
+      "def-012": {
+        "label": "defect_or_damage"
+      },
+      "deg-007": {
+        "label": "defect_or_damage"
+      },
+      "deg-008": {
+        "label": "defect_or_damage"
+      },
+      "deg-009": {
+        "label": "defect_or_damage"
+      },
+      "deg-017": {
+        "label": "defect_or_damage"
+      },
+      "mod-005": {
+        "label": "upgrade_candidate"
+      },
+      "mod-010": {
+        "label": "upgrade_candidate"
+      },
+      "mod-015": {
+        "label": "upgrade_candidate"
+      },
+      "mod-020": {
+        "label": "upgrade_candidate"
+      },
+      "exc-neut-002": {
+        "label": "generic_presence"
+      },
+      "exc-spec-002": {
+        "label": "defect_or_damage"
+      },
+      "exc-dim-002": {
+        "label": "other"
+      },
+      "deg-010": {
+        "label": "defect_or_damage"
+      },
+      "def-015": {
+        "label": "defect_or_damage"
+      },
+      "mix-001": {
+        "labeled": [
+          {
+            "description": "Deck boards are weathered and rotted near the stairs.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-002": {
+        "labeled": [
+          {
+            "description": "Carpet is worn throughout.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Carpet is water-stained near the vent.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-003": {
+        "labeled": [
+          {
+            "description": "Exterior paint is peeling.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "One siding board is cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-004": {
+        "labeled": [
+          {
+            "description": "The driveway surface is faded.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "One driveway section has heaved, creating a raised crack across the middle.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-005": {
+        "labeled": [
+          {
+            "description": "Kitchen cabinets are worn and dated.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-006": {
+        "labeled": [
+          {
+            "description": "The bathroom vanity is an older basic unit.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The vanity top is stained.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-007": {
+        "labeled": [
+          {
+            "description": "The ceiling fan has a dated style.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The ceiling fan blades are discolored.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-008": {
+        "labeled": [
+          {
+            "description": "The screen door is dated in style.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The screen door is torn at the bottom corner.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-009": {
+        "labeled": [
+          {
+            "description": "Kitchen has dated oak cabinets.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "Sink basin is cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-010": {
+        "labeled": [
+          {
+            "description": "Front gutters are stained.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "One downspout is disconnected.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-011": {
+        "labeled": [
+          {
+            "description": "Hardwood floors are scuffed.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Trim has basic flat casing.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-012": {
+        "labeled": [
+          {
+            "description": "The bathroom has a basic frameless mirror.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "Floor tile near the tub is cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-013": {
+        "labeled": [
+          {
+            "description": "Roof shingles are weathered.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Gutter is sagging.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Porch light is a dated builder-grade fixture.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-014": {
+        "labeled": [
+          {
+            "description": "Kitchen cabinets are dated oak.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "Counter is worn at the edges.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Sink base shows water damage.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-015": {
+        "labeled": [
+          {
+            "description": "The bedroom carpet is stained.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "A window pane is cracked.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The light fixture is a basic dome.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-016": {
+        "labeled": [
+          {
+            "description": "One section of the back fence has collapsed.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The patio slab is heaved and cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-017": {
+        "labeled": [
+          {
+            "description": "The siding is faded.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The front walkway has rust stains.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-018": {
+        "labeled": [
+          {
+            "description": "Kitchen has laminate countertops.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "Kitchen has builder-grade cabinet hardware.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      }
+    },
+    {
+      "def-003": {
+        "label": "defect_or_damage"
+      },
+      "def-004": {
+        "label": "defect_or_damage"
+      },
+      "def-018": {
+        "label": "defect_or_damage"
+      },
+      "def-006": {
+        "label": "defect_or_damage"
+      },
+      "def-007": {
+        "label": "defect_or_damage"
+      },
+      "def-014": {
+        "label": "defect_or_damage"
+      },
+      "deg-018": {
+        "label": "defect_or_damage"
+      },
+      "mod-004": {
+        "label": "generic_presence"
+      },
+      "mod-011": {
+        "label": "upgrade_candidate"
+      },
+      "mod-016": {
+        "label": "upgrade_candidate"
+      },
+      "exc-good-002": {
+        "label": "good_condition"
+      },
+      "def-008": {
+        "label": "defect_or_damage"
+      },
+      "def-021": {
+        "label": "defect_or_damage"
+      },
+      "deg-002": {
+        "label": "defect_or_damage"
+      },
+      "deg-021": {
+        "label": "defect_or_damage"
+      },
+      "mod-006": {
+        "label": "upgrade_candidate"
+      },
+      "mod-008": {
+        "label": "upgrade_candidate"
+      },
+      "exc-good-001": {
+        "label": "good_condition"
+      },
+      "exc-neut-001": {
+        "label": "generic_presence"
+      },
+      "exc-adv-002": {
+        "label": "upgrade_candidate"
+      },
+      "exc-dim-001": {
+        "label": "other"
+      },
+      "exc-nrr-002": {
+        "label": "other"
+      },
+      "deg-014": {
+        "label": "defect_or_damage"
+      },
+      "mod-019": {
+        "label": "upgrade_candidate"
+      },
+      "def-005": {
+        "label": "defect_or_damage"
+      },
+      "def-010": {
+        "label": "defect_or_damage"
+      },
+      "def-013": {
+        "label": "defect_or_damage"
+      },
+      "deg-015": {
+        "label": "defect_or_damage"
+      },
+      "exc-adv-001": {
+        "label": "other"
+      },
+      "def-002": {
+        "label": "defect_or_damage"
+      },
+      "def-009": {
+        "label": "defect_or_damage"
+      },
+      "def-011": {
+        "label": "defect_or_damage"
+      },
+      "def-016": {
+        "label": "defect_or_damage"
+      },
+      "def-017": {
+        "label": "defect_or_damage"
+      },
+      "deg-003": {
+        "label": "defect_or_damage"
+      },
+      "deg-004": {
+        "label": "defect_or_damage"
+      },
+      "deg-006": {
+        "label": "defect_or_damage"
+      },
+      "deg-011": {
+        "label": "defect_or_damage"
+      },
+      "deg-013": {
+        "label": "defect_or_damage"
+      },
+      "deg-020": {
+        "label": "defect_or_damage"
+      },
+      "mod-017": {
+        "label": "upgrade_candidate"
+      },
+      "mod-021": {
+        "label": "upgrade_candidate"
+      },
+      "exc-spec-001": {
+        "label": "defect_or_damage"
+      },
+      "def-020": {
+        "label": "defect_or_damage"
+      },
+      "deg-001": {
+        "label": "defect_or_damage"
+      },
+      "deg-016": {
+        "label": "defect_or_damage"
+      },
+      "mod-012": {
+        "label": "upgrade_candidate"
+      },
+      "def-019": {
+        "label": "defect_or_damage"
+      },
+      "deg-012": {
+        "label": "defect_or_damage"
+      },
+      "deg-005": {
+        "label": "defect_or_damage"
+      },
+      "deg-019": {
+        "label": "defect_or_damage"
+      },
+      "mod-001": {
+        "label": "upgrade_candidate"
+      },
+      "mod-002": {
+        "label": "upgrade_candidate"
+      },
+      "mod-003": {
+        "label": "upgrade_candidate"
+      },
+      "mod-007": {
+        "label": "upgrade_candidate"
+      },
+      "mod-009": {
+        "label": "upgrade_candidate"
+      },
+      "mod-013": {
+        "label": "upgrade_candidate"
+      },
+      "mod-014": {
+        "label": "upgrade_candidate"
+      },
+      "mod-018": {
+        "label": "upgrade_candidate"
+      },
+      "exc-nrr-001": {
+        "label": "other"
+      },
+      "def-001": {
+        "label": "defect_or_damage"
+      },
+      "def-012": {
+        "label": "defect_or_damage"
+      },
+      "deg-007": {
+        "label": "defect_or_damage"
+      },
+      "deg-008": {
+        "label": "defect_or_damage"
+      },
+      "deg-009": {
+        "label": "defect_or_damage"
+      },
+      "deg-017": {
+        "label": "defect_or_damage"
+      },
+      "mod-005": {
+        "label": "upgrade_candidate"
+      },
+      "mod-010": {
+        "label": "upgrade_candidate"
+      },
+      "mod-015": {
+        "label": "upgrade_candidate"
+      },
+      "mod-020": {
+        "label": "upgrade_candidate"
+      },
+      "exc-neut-002": {
+        "label": "generic_presence"
+      },
+      "exc-spec-002": {
+        "label": "defect_or_damage"
+      },
+      "exc-dim-002": {
+        "label": "other"
+      },
+      "deg-010": {
+        "label": "defect_or_damage"
+      },
+      "def-015": {
+        "label": "defect_or_damage"
+      },
+      "mix-001": {
+        "labeled": [
+          {
+            "description": "Deck boards are weathered near the stairs.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Deck boards are rotted near the stairs.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-002": {
+        "labeled": [
+          {
+            "description": "The carpet is worn throughout.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The carpet is water-stained near the vent.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-003": {
+        "labeled": [
+          {
+            "description": "Exterior paint is peeling.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "One siding board is cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-004": {
+        "labeled": [
+          {
+            "description": "The driveway surface is faded.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "One driveway section has heaved, creating a raised crack across the middle.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-005": {
+        "labeled": [
+          {
+            "description": "The kitchen cabinets are worn and dated.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-006": {
+        "labeled": [
+          {
+            "description": "The bathroom vanity is an older basic unit.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The vanity top is stained.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-007": {
+        "labeled": [
+          {
+            "description": "The ceiling fan has a dated style.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The ceiling fan blades are discolored.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-008": {
+        "labeled": [
+          {
+            "description": "The screen door has a dated style.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The screen door is torn at the bottom corner.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-009": {
+        "labeled": [
+          {
+            "description": "The kitchen has dated oak cabinets.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The sink basin is cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-010": {
+        "labeled": [
+          {
+            "description": "Gutters are stained along the front.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "One downspout is disconnected.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-011": {
+        "labeled": [
+          {
+            "description": "Hardwood floors are scuffed.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Trim has basic flat casing.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-012": {
+        "labeled": [
+          {
+            "description": "The bathroom has a basic frameless mirror.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "Floor tile near the tub is cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-013": {
+        "labeled": [
+          {
+            "description": "Roof shingles are weathered.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Gutter is sagging.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Porch light is a dated builder-grade fixture.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-014": {
+        "labeled": [
+          {
+            "description": "Kitchen cabinets are dated oak.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "Counter is worn at the edges.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Sink base shows water damage.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-015": {
+        "labeled": [
+          {
+            "description": "The bedroom carpet is stained.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "A window pane is cracked.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The light fixture is a basic dome.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-016": {
+        "labeled": [
+          {
+            "description": "One section of the back fence has collapsed.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The patio slab is heaved and cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-017": {
+        "labeled": [
+          {
+            "description": "The siding is faded.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The front walkway has rust stains.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-018": {
+        "labeled": [
+          {
+            "description": "Kitchen countertops are laminate.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "Kitchen cabinet hardware is builder-grade.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      }
+    },
+    {
+      "def-003": {
+        "label": "defect_or_damage"
+      },
+      "def-004": {
+        "label": "defect_or_damage"
+      },
+      "def-018": {
+        "label": "defect_or_damage"
+      },
+      "def-006": {
+        "label": "defect_or_damage"
+      },
+      "def-007": {
+        "label": "defect_or_damage"
+      },
+      "def-014": {
+        "label": "defect_or_damage"
+      },
+      "deg-018": {
+        "label": "defect_or_damage"
+      },
+      "mod-004": {
+        "label": "generic_presence"
+      },
+      "mod-011": {
+        "label": "upgrade_candidate"
+      },
+      "mod-016": {
+        "label": "upgrade_candidate"
+      },
+      "exc-good-002": {
+        "label": "good_condition"
+      },
+      "def-008": {
+        "label": "defect_or_damage"
+      },
+      "def-021": {
+        "label": "defect_or_damage"
+      },
+      "deg-002": {
+        "label": "defect_or_damage"
+      },
+      "deg-021": {
+        "label": "defect_or_damage"
+      },
+      "mod-006": {
+        "label": "upgrade_candidate"
+      },
+      "mod-008": {
+        "label": "upgrade_candidate"
+      },
+      "exc-good-001": {
+        "label": "good_condition"
+      },
+      "exc-neut-001": {
+        "label": "generic_presence"
+      },
+      "exc-adv-002": {
+        "label": "upgrade_candidate"
+      },
+      "exc-dim-001": {
+        "label": "other"
+      },
+      "exc-nrr-002": {
+        "label": "other"
+      },
+      "deg-014": {
+        "label": "defect_or_damage"
+      },
+      "mod-019": {
+        "label": "upgrade_candidate"
+      },
+      "def-005": {
+        "label": "defect_or_damage"
+      },
+      "def-010": {
+        "label": "defect_or_damage"
+      },
+      "def-013": {
+        "label": "defect_or_damage"
+      },
+      "deg-015": {
+        "label": "defect_or_damage"
+      },
+      "exc-adv-001": {
+        "label": "other"
+      },
+      "def-002": {
+        "label": "defect_or_damage"
+      },
+      "def-009": {
+        "label": "defect_or_damage"
+      },
+      "def-011": {
+        "label": "defect_or_damage"
+      },
+      "def-016": {
+        "label": "defect_or_damage"
+      },
+      "def-017": {
+        "label": "defect_or_damage"
+      },
+      "deg-003": {
+        "label": "defect_or_damage"
+      },
+      "deg-004": {
+        "label": "defect_or_damage"
+      },
+      "deg-006": {
+        "label": "defect_or_damage"
+      },
+      "deg-011": {
+        "label": "defect_or_damage"
+      },
+      "deg-013": {
+        "label": "defect_or_damage"
+      },
+      "deg-020": {
+        "label": "defect_or_damage"
+      },
+      "mod-017": {
+        "label": "upgrade_candidate"
+      },
+      "mod-021": {
+        "label": "upgrade_candidate"
+      },
+      "exc-spec-001": {
+        "label": "defect_or_damage"
+      },
+      "def-020": {
+        "label": "defect_or_damage"
+      },
+      "deg-001": {
+        "label": "defect_or_damage"
+      },
+      "deg-016": {
+        "label": "defect_or_damage"
+      },
+      "mod-012": {
+        "label": "upgrade_candidate"
+      },
+      "def-019": {
+        "label": "defect_or_damage"
+      },
+      "deg-012": {
+        "label": "defect_or_damage"
+      },
+      "deg-005": {
+        "label": "defect_or_damage"
+      },
+      "deg-019": {
+        "label": "defect_or_damage"
+      },
+      "mod-001": {
+        "label": "upgrade_candidate"
+      },
+      "mod-002": {
+        "label": "upgrade_candidate"
+      },
+      "mod-003": {
+        "label": "upgrade_candidate"
+      },
+      "mod-007": {
+        "label": "generic_presence"
+      },
+      "mod-009": {
+        "label": "upgrade_candidate"
+      },
+      "mod-013": {
+        "label": "upgrade_candidate"
+      },
+      "mod-014": {
+        "label": "upgrade_candidate"
+      },
+      "mod-018": {
+        "label": "upgrade_candidate"
+      },
+      "exc-nrr-001": {
+        "label": "other"
+      },
+      "def-001": {
+        "label": "defect_or_damage"
+      },
+      "def-012": {
+        "label": "defect_or_damage"
+      },
+      "deg-007": {
+        "label": "defect_or_damage"
+      },
+      "deg-008": {
+        "label": "defect_or_damage"
+      },
+      "deg-009": {
+        "label": "defect_or_damage"
+      },
+      "deg-017": {
+        "label": "defect_or_damage"
+      },
+      "mod-005": {
+        "label": "upgrade_candidate"
+      },
+      "mod-010": {
+        "label": "upgrade_candidate"
+      },
+      "mod-015": {
+        "label": "upgrade_candidate"
+      },
+      "mod-020": {
+        "label": "upgrade_candidate"
+      },
+      "exc-neut-002": {
+        "label": "generic_presence"
+      },
+      "exc-spec-002": {
+        "label": "defect_or_damage"
+      },
+      "exc-dim-002": {
+        "label": "generic_presence"
+      },
+      "deg-010": {
+        "label": "defect_or_damage"
+      },
+      "def-015": {
+        "label": "defect_or_damage"
+      },
+      "mix-001": {
+        "labeled": [
+          {
+            "description": "Deck boards are weathered and rotted near the stairs.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-002": {
+        "labeled": [
+          {
+            "description": "Carpet is worn throughout.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Carpet is water-stained near the vent.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-003": {
+        "labeled": [
+          {
+            "description": "Exterior paint is peeling.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "One siding board is cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-004": {
+        "labeled": [
+          {
+            "description": "The driveway surface is faded.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "One driveway section has heaved, creating a raised crack across the middle.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-005": {
+        "labeled": [
+          {
+            "description": "The kitchen cabinets are worn and dated.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-006": {
+        "labeled": [
+          {
+            "description": "The bathroom vanity is an older basic unit.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The vanity top is stained.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-007": {
+        "labeled": [
+          {
+            "description": "The ceiling fan has a dated style.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The ceiling fan blades are discolored.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-008": {
+        "labeled": [
+          {
+            "description": "The screen door has a dated style.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The screen door is torn at the bottom corner.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-009": {
+        "labeled": [
+          {
+            "description": "The kitchen has dated oak cabinets.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The sink basin is cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-010": {
+        "labeled": [
+          {
+            "description": "Gutters are stained along the front.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "One downspout is disconnected.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-011": {
+        "labeled": [
+          {
+            "description": "Hardwood floors are scuffed.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Trim has a basic flat casing.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-012": {
+        "labeled": [
+          {
+            "description": "The bathroom has a basic frameless mirror.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "A floor tile near the tub is cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-013": {
+        "labeled": [
+          {
+            "description": "Roof shingles are weathered.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Gutter is sagging.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Porch light is a dated builder-grade fixture.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-014": {
+        "labeled": [
+          {
+            "description": "Kitchen cabinets are dated oak.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "Counter is worn at the edges.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Sink base shows water damage.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-015": {
+        "labeled": [
+          {
+            "description": "The bedroom carpet is stained.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "A window pane is cracked.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The light fixture is a basic dome.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-016": {
+        "labeled": [
+          {
+            "description": "One section of the back fence has collapsed.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The patio slab is heaved and cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-017": {
+        "labeled": [
+          {
+            "description": "The siding is faded.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The front walkway has rust stains.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-018": {
+        "labeled": [
+          {
+            "description": "Kitchen has laminate countertops.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "Kitchen has builder-grade cabinet hardware.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      }
+    },
+    {
+      "def-003": {
+        "label": "defect_or_damage"
+      },
+      "def-004": {
+        "label": "defect_or_damage"
+      },
+      "def-018": {
+        "label": "defect_or_damage"
+      },
+      "def-006": {
+        "label": "defect_or_damage"
+      },
+      "def-007": {
+        "label": "defect_or_damage"
+      },
+      "def-014": {
+        "label": "defect_or_damage"
+      },
+      "deg-018": {
+        "label": "defect_or_damage"
+      },
+      "mod-004": {
+        "label": "generic_presence"
+      },
+      "mod-011": {
+        "label": "upgrade_candidate"
+      },
+      "mod-016": {
+        "label": "upgrade_candidate"
+      },
+      "exc-good-002": {
+        "label": "good_condition"
+      },
+      "def-008": {
+        "label": "defect_or_damage"
+      },
+      "def-021": {
+        "label": "defect_or_damage"
+      },
+      "deg-002": {
+        "label": "defect_or_damage"
+      },
+      "deg-021": {
+        "label": "defect_or_damage"
+      },
+      "mod-006": {
+        "label": "upgrade_candidate"
+      },
+      "mod-008": {
+        "label": "upgrade_candidate"
+      },
+      "exc-good-001": {
+        "label": "good_condition"
+      },
+      "exc-neut-001": {
+        "label": "generic_presence"
+      },
+      "exc-adv-002": {
+        "label": "upgrade_candidate"
+      },
+      "exc-dim-001": {
+        "label": "other"
+      },
+      "exc-nrr-002": {
+        "label": "other"
+      },
+      "deg-014": {
+        "label": "defect_or_damage"
+      },
+      "mod-019": {
+        "label": "upgrade_candidate"
+      },
+      "def-005": {
+        "label": "defect_or_damage"
+      },
+      "def-010": {
+        "label": "defect_or_damage"
+      },
+      "def-013": {
+        "label": "defect_or_damage"
+      },
+      "deg-015": {
+        "label": "defect_or_damage"
+      },
+      "exc-adv-001": {
+        "label": "other"
+      },
+      "def-002": {
+        "label": "defect_or_damage"
+      },
+      "def-009": {
+        "label": "defect_or_damage"
+      },
+      "def-011": {
+        "label": "defect_or_damage"
+      },
+      "def-016": {
+        "label": "defect_or_damage"
+      },
+      "def-017": {
+        "label": "defect_or_damage"
+      },
+      "deg-003": {
+        "label": "defect_or_damage"
+      },
+      "deg-004": {
+        "label": "defect_or_damage"
+      },
+      "deg-006": {
+        "label": "defect_or_damage"
+      },
+      "deg-011": {
+        "label": "defect_or_damage"
+      },
+      "deg-013": {
+        "label": "defect_or_damage"
+      },
+      "deg-020": {
+        "label": "defect_or_damage"
+      },
+      "mod-017": {
+        "label": "upgrade_candidate"
+      },
+      "mod-021": {
+        "label": "upgrade_candidate"
+      },
+      "exc-spec-001": {
+        "label": "defect_or_damage"
+      },
+      "def-020": {
+        "label": "defect_or_damage"
+      },
+      "deg-001": {
+        "label": "defect_or_damage"
+      },
+      "deg-016": {
+        "label": "defect_or_damage"
+      },
+      "mod-012": {
+        "label": "upgrade_candidate"
+      },
+      "def-019": {
+        "label": "defect_or_damage"
+      },
+      "deg-012": {
+        "label": "defect_or_damage"
+      },
+      "deg-005": {
+        "label": "defect_or_damage"
+      },
+      "deg-019": {
+        "label": "defect_or_damage"
+      },
+      "mod-001": {
+        "label": "upgrade_candidate"
+      },
+      "mod-002": {
+        "label": "upgrade_candidate"
+      },
+      "mod-003": {
+        "label": "upgrade_candidate"
+      },
+      "mod-007": {
+        "label": "generic_presence"
+      },
+      "mod-009": {
+        "label": "upgrade_candidate"
+      },
+      "mod-013": {
+        "label": "upgrade_candidate"
+      },
+      "mod-014": {
+        "label": "upgrade_candidate"
+      },
+      "mod-018": {
+        "label": "upgrade_candidate"
+      },
+      "exc-nrr-001": {
+        "label": "other"
+      },
+      "def-001": {
+        "label": "defect_or_damage"
+      },
+      "def-012": {
+        "label": "defect_or_damage"
+      },
+      "deg-007": {
+        "label": "defect_or_damage"
+      },
+      "deg-008": {
+        "label": "defect_or_damage"
+      },
+      "deg-009": {
+        "label": "defect_or_damage"
+      },
+      "deg-017": {
+        "label": "defect_or_damage"
+      },
+      "mod-005": {
+        "label": "upgrade_candidate"
+      },
+      "mod-010": {
+        "label": "upgrade_candidate"
+      },
+      "mod-015": {
+        "label": "upgrade_candidate"
+      },
+      "mod-020": {
+        "label": "upgrade_candidate"
+      },
+      "exc-neut-002": {
+        "label": "generic_presence"
+      },
+      "exc-spec-002": {
+        "label": "defect_or_damage"
+      },
+      "exc-dim-002": {
+        "label": "generic_presence"
+      },
+      "deg-010": {
+        "label": "defect_or_damage"
+      },
+      "def-015": {
+        "label": "defect_or_damage"
+      },
+      "mix-001": {
+        "labeled": [
+          {
+            "description": "Deck boards are weathered and rotted near the stairs.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-002": {
+        "labeled": [
+          {
+            "description": "The carpet is worn throughout.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The carpet is water-stained near the vent.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-003": {
+        "labeled": [
+          {
+            "description": "Exterior paint is peeling.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "One siding board is cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-004": {
+        "labeled": [
+          {
+            "description": "The driveway surface is faded.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "One driveway section has heaved, creating a raised crack across the middle.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-005": {
+        "labeled": [
+          {
+            "description": "The kitchen cabinets are worn and dated.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-006": {
+        "labeled": [
+          {
+            "description": "The bathroom vanity is an older basic unit.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The vanity top is stained.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-007": {
+        "labeled": [
+          {
+            "description": "The ceiling fan has a dated style.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The ceiling fan blades are discolored.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-008": {
+        "labeled": [
+          {
+            "description": "The screen door has a dated style.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The screen door is torn at the bottom corner.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-009": {
+        "labeled": [
+          {
+            "description": "The kitchen has dated oak cabinets.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The sink basin is cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-010": {
+        "labeled": [
+          {
+            "description": "Gutters are stained along the front.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "One downspout is disconnected.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-011": {
+        "labeled": [
+          {
+            "description": "Hardwood floors are scuffed.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Trim has a basic flat casing.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-012": {
+        "labeled": [
+          {
+            "description": "The bathroom has a basic frameless mirror.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "Floor tile near the tub is cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-013": {
+        "labeled": [
+          {
+            "description": "Roof shingles are weathered.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Gutter is sagging.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Porch light is a dated builder-grade fixture.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-014": {
+        "labeled": [
+          {
+            "description": "Kitchen cabinets are dated oak.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "Counter is worn at the edges.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Sink base shows water damage.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-015": {
+        "labeled": [
+          {
+            "description": "The bedroom carpet is stained.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "A window pane is cracked.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The light fixture is a basic dome.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-016": {
+        "labeled": [
+          {
+            "description": "One section of the back fence has collapsed.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The patio slab is heaved and cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-017": {
+        "labeled": [
+          {
+            "description": "The siding is faded.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The front walkway has rust stains.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-018": {
+        "labeled": [
+          {
+            "description": "Kitchen has laminate countertops.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "Kitchen has builder-grade cabinet hardware.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      }
+    },
+    {
+      "def-003": {
+        "label": "defect_or_damage"
+      },
+      "def-004": {
+        "label": "defect_or_damage"
+      },
+      "def-018": {
+        "label": "defect_or_damage"
+      },
+      "def-006": {
+        "label": "defect_or_damage"
+      },
+      "def-007": {
+        "label": "defect_or_damage"
+      },
+      "def-014": {
+        "label": "defect_or_damage"
+      },
+      "deg-018": {
+        "label": "defect_or_damage"
+      },
+      "mod-004": {
+        "label": "generic_presence"
+      },
+      "mod-011": {
+        "label": "upgrade_candidate"
+      },
+      "mod-016": {
+        "label": "upgrade_candidate"
+      },
+      "exc-good-002": {
+        "label": "good_condition"
+      },
+      "def-008": {
+        "label": "defect_or_damage"
+      },
+      "def-021": {
+        "label": "defect_or_damage"
+      },
+      "deg-002": {
+        "label": "defect_or_damage"
+      },
+      "deg-021": {
+        "label": "defect_or_damage"
+      },
+      "mod-006": {
+        "label": "upgrade_candidate"
+      },
+      "mod-008": {
+        "label": "upgrade_candidate"
+      },
+      "exc-good-001": {
+        "label": "good_condition"
+      },
+      "exc-neut-001": {
+        "label": "generic_presence"
+      },
+      "exc-adv-002": {
+        "label": "upgrade_candidate"
+      },
+      "exc-dim-001": {
+        "label": "other"
+      },
+      "exc-nrr-002": {
+        "label": "other"
+      },
+      "deg-014": {
+        "label": "defect_or_damage"
+      },
+      "mod-019": {
+        "label": "upgrade_candidate"
+      },
+      "def-005": {
+        "label": "defect_or_damage"
+      },
+      "def-010": {
+        "label": "defect_or_damage"
+      },
+      "def-013": {
+        "label": "defect_or_damage"
+      },
+      "deg-015": {
+        "label": "defect_or_damage"
+      },
+      "exc-adv-001": {
+        "label": "other"
+      },
+      "def-002": {
+        "label": "defect_or_damage"
+      },
+      "def-009": {
+        "label": "defect_or_damage"
+      },
+      "def-011": {
+        "label": "defect_or_damage"
+      },
+      "def-016": {
+        "label": "defect_or_damage"
+      },
+      "def-017": {
+        "label": "defect_or_damage"
+      },
+      "deg-003": {
+        "label": "defect_or_damage"
+      },
+      "deg-004": {
+        "label": "defect_or_damage"
+      },
+      "deg-006": {
+        "label": "defect_or_damage"
+      },
+      "deg-011": {
+        "label": "defect_or_damage"
+      },
+      "deg-013": {
+        "label": "defect_or_damage"
+      },
+      "deg-020": {
+        "label": "defect_or_damage"
+      },
+      "mod-017": {
+        "label": "upgrade_candidate"
+      },
+      "mod-021": {
+        "label": "upgrade_candidate"
+      },
+      "exc-spec-001": {
+        "label": "defect_or_damage"
+      },
+      "def-020": {
+        "label": "defect_or_damage"
+      },
+      "deg-001": {
+        "label": "defect_or_damage"
+      },
+      "deg-016": {
+        "label": "defect_or_damage"
+      },
+      "mod-012": {
+        "label": "upgrade_candidate"
+      },
+      "def-019": {
+        "label": "defect_or_damage"
+      },
+      "deg-012": {
+        "label": "defect_or_damage"
+      },
+      "deg-005": {
+        "label": "defect_or_damage"
+      },
+      "deg-019": {
+        "label": "defect_or_damage"
+      },
+      "mod-001": {
+        "label": "upgrade_candidate"
+      },
+      "mod-002": {
+        "label": "upgrade_candidate"
+      },
+      "mod-003": {
+        "label": "upgrade_candidate"
+      },
+      "mod-007": {
+        "label": "generic_presence"
+      },
+      "mod-009": {
+        "label": "upgrade_candidate"
+      },
+      "mod-013": {
+        "label": "upgrade_candidate"
+      },
+      "mod-014": {
+        "label": "upgrade_candidate"
+      },
+      "mod-018": {
+        "label": "upgrade_candidate"
+      },
+      "exc-nrr-001": {
+        "label": "other"
+      },
+      "def-001": {
+        "label": "defect_or_damage"
+      },
+      "def-012": {
+        "label": "defect_or_damage"
+      },
+      "deg-007": {
+        "label": "defect_or_damage"
+      },
+      "deg-008": {
+        "label": "defect_or_damage"
+      },
+      "deg-009": {
+        "label": "defect_or_damage"
+      },
+      "deg-017": {
+        "label": "defect_or_damage"
+      },
+      "mod-005": {
+        "label": "upgrade_candidate"
+      },
+      "mod-010": {
+        "label": "upgrade_candidate"
+      },
+      "mod-015": {
+        "label": "upgrade_candidate"
+      },
+      "mod-020": {
+        "label": "upgrade_candidate"
+      },
+      "exc-neut-002": {
+        "label": "generic_presence"
+      },
+      "exc-spec-002": {
+        "label": "defect_or_damage"
+      },
+      "exc-dim-002": {
+        "label": "other"
+      },
+      "deg-010": {
+        "label": "defect_or_damage"
+      },
+      "def-015": {
+        "label": "defect_or_damage"
+      },
+      "mix-001": {
+        "labeled": [
+          {
+            "description": "Deck boards are weathered and rotted near the stairs.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-002": {
+        "labeled": [
+          {
+            "description": "Carpet is worn throughout.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Carpet is water-stained near the vent.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-003": {
+        "labeled": [
+          {
+            "description": "Exterior paint is peeling.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "One siding board is cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-004": {
+        "labeled": [
+          {
+            "description": "The driveway surface is faded.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "One driveway section has heaved, creating a raised crack across the middle.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-005": {
+        "labeled": [
+          {
+            "description": "The kitchen cabinets are worn and dated.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-006": {
+        "labeled": [
+          {
+            "description": "The bathroom vanity is an older basic unit.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The vanity top is stained.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-007": {
+        "labeled": [
+          {
+            "description": "The ceiling fan has a dated style.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The ceiling fan blades are discolored.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-008": {
+        "labeled": [
+          {
+            "description": "The screen door has a dated style.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "The screen door is torn at the bottom corner.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-009": {
+        "labeled": [
+          {
+            "description": "Kitchen cabinets are dated oak.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "Kitchen sink basin is cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-010": {
+        "labeled": [
+          {
+            "description": "Gutters are stained along the front.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "One downspout is disconnected.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-011": {
+        "labeled": [
+          {
+            "description": "Hardwood floors are scuffed.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Trim has basic flat casing.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-012": {
+        "labeled": [
+          {
+            "description": "The bathroom has a basic frameless mirror.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "A floor tile near the tub is cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-013": {
+        "labeled": [
+          {
+            "description": "Roof shingles are weathered.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Gutter is sagging.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Porch light is a dated builder-grade fixture.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-014": {
+        "labeled": [
+          {
+            "description": "Kitchen cabinets are dated oak.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "Counter is worn at the edges.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "Sink base shows water damage.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-015": {
+        "labeled": [
+          {
+            "description": "The bedroom carpet is stained.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "A window pane is cracked.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The light fixture is a basic dome.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      },
+      "mix-016": {
+        "labeled": [
+          {
+            "description": "One section of the back fence has collapsed.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The patio slab is heaved and cracked.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-017": {
+        "labeled": [
+          {
+            "description": "The siding is faded.",
+            "label": "defect_or_damage"
+          },
+          {
+            "description": "The front walkway has rust stains.",
+            "label": "defect_or_damage"
+          }
+        ]
+      },
+      "mix-018": {
+        "labeled": [
+          {
+            "description": "Kitchen has laminate countertops.",
+            "label": "upgrade_candidate"
+          },
+          {
+            "description": "Kitchen has builder-grade cabinet hardware.",
+            "label": "upgrade_candidate"
+          }
+        ]
+      }
+    }
+  ]
+}

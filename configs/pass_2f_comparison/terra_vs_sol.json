@@ -1,0 +1,44 @@
+{
+  "schema_version": 1,
+  "name": "terra_vs_sol_2f",
+  "source": {
+    "required_local_model": "unsloth/qwen3.6-27b@q6_k",
+    "require_local_upstream_routing": true
+  },
+  "models": {
+    "terra": {
+      "label": "Terra",
+      "provider": "openai",
+      "model": "gpt-5.6-terra",
+      "reasoning_effort": "low",
+      "verbosity": "low"
+    },
+    "sol": {
+      "label": "Sol",
+      "provider": "openai",
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "low",
+      "verbosity": "low"
+    },
+    "qwen": {
+      "label": "Local Qwen",
+      "provider": "lmstudio",
+      "model": "unsloth/qwen3.6-27b@q6_k",
+      "timeout_seconds": 1800
+    }
+  },
+  "executive_review": {
+    "enabled": false,
+    "provider": "openai",
+    "model": "gpt-5.6-sol",
+    "only": "asymmetric_approvals",
+    "reasoning_effort": "low",
+    "verbosity": "low"
+  },
+  "run": {
+    "max_images_per_package": 3,
+    "contestant_order": ["terra", "sol"],
+    "include_qwen": false,
+    "fail_fast": true
+  }
+}

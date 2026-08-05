@@ -1,0 +1,1593 @@
+{
+ "benchmark": "kind-ontology-v2",
+ "schema_version": 1,
+ "slice": "development",
+ "status": "frozen-2026-08-05",
+ "cases": [
+  {
+   "case_id": "def-001",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "living_room",
+   "input": "Multiple visible cracks run across the ceiling.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Structural surface integrity has failed (cracks).",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-living_room-1"
+  },
+  {
+   "case_id": "def-002",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "A downspout is disconnected and terminates at the foundation.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Asserted failure of a protective drainage component.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-exterior_front-1"
+  },
+  {
+   "case_id": "def-003",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "basement",
+   "input": "Exposed wiring runs along the ceiling beams without visible protection or conduit.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Unsafe condition (exposed wiring).",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-basement-1"
+  },
+  {
+   "case_id": "def-004",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "basement",
+   "input": "Multiple drop-ceiling tiles are missing or sagging, exposing framing and wiring.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Missing/failed required parts, exposure.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-basement-1"
+  },
+  {
+   "case_id": "def-005",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_back",
+   "input": "The existing concrete patio pad is cracked, with sections heaved and a raised trip edge.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Flatwork rule: heaving/raised trip edge = defect (approved in review).",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "dev-exterior_back-1"
+  },
+  {
+   "case_id": "def-006",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "bathroom",
+   "input": "Some tiles above the vanity appear removed or damaged, exposing the substrate.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Missing/damaged tile exposing substrate = failed protection.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-bathroom-1"
+  },
+  {
+   "case_id": "def-007",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "bathroom",
+   "input": "Visible staining and mold are present around the tub surround area.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Mold is a failure/health condition; it dominates the staining detail.",
+   "source": "corpus",
+   "review_flag": true,
+   "batch_id": "dev-bathroom-1"
+  },
+  {
+   "case_id": "def-008",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "bedroom",
+   "input": "A large patched or damaged area is visible on the right wall.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Visible damage to wall surface.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-bedroom-1"
+  },
+  {
+   "case_id": "def-009",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "The concrete driveway is cracked with uneven joints.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Flatwork rule (approved in review): cracking/minor unevenness = degradation; heaving/trip edge = defect.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "dev-exterior_front-1"
+  },
+  {
+   "case_id": "def-010",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_back",
+   "input": "Deck boards are rotted through near the stairs.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Rot = material failure.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-exterior_back-1"
+  },
+  {
+   "case_id": "def-011",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "The roof is missing several shingles above the garage.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Missing required weather-protection parts.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-exterior_front-1"
+  },
+  {
+   "case_id": "def-012",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "living_room",
+   "input": "Water stains are visible on the ceiling below the bathroom.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Ceiling water stain evidences moisture intrusion (failed protection) — NOT cosmetic staining.",
+   "source": "synthetic",
+   "review_flag": true,
+   "batch_id": "dev-living_room-1"
+  },
+  {
+   "case_id": "def-013",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_back",
+   "input": "A window pane in the rear door is cracked.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Broken glazing.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-exterior_back-1"
+  },
+  {
+   "case_id": "def-014",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "bathroom",
+   "input": "The vanity base under the bathroom sink is water-stained and swollen.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Visible moisture damage (swelling = material failure). Replaced an unverifiable 'leaking faucet' claim in review.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-bathroom-1"
+  },
+  {
+   "case_id": "def-015",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "yard",
+   "input": "A section of the wooden privacy fence has collapsed.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Structural collapse.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-yard-1"
+  },
+  {
+   "case_id": "def-016",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "The screen door is torn and hanging off its lower hinge.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Torn + detached = functional failure.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "dev-exterior_front-1"
+  },
+  {
+   "case_id": "def-017",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "Gutters are sagging and pulling away from the fascia along the front roofline.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Attached component failing (sagging/detaching).",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-exterior_front-1"
+  },
+  {
+   "case_id": "def-018",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "basement",
+   "input": "An open or missing cover is visible at a ceiling vent or access point.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Missing required cover.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-basement-1"
+  },
+  {
+   "case_id": "def-019",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "garage",
+   "input": "The garage door is dented and does not close fully at one corner.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Stated functional failure (does not close).",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-garage-1"
+  },
+  {
+   "case_id": "def-020",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_side",
+   "input": "Mortar joints in the chimney are crumbling near the top.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Masonry integrity failure.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-exterior_side-1"
+  },
+  {
+   "case_id": "def-021",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "bedroom",
+   "input": "The subfloor is exposed where flooring has been stripped and damaged.",
+   "gold": {
+    "kind": "defect"
+   },
+   "rationale": "Failed/absent floor covering exposing subfloor.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "dev-bedroom-1"
+  },
+  {
+   "case_id": "deg-001",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_side",
+   "input": "Wood siding is faded and weathered but remains intact.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Visible deterioration, explicitly intact.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-exterior_side-1"
+  },
+  {
+   "case_id": "deg-002",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "bedroom",
+   "input": "The carpet is visibly worn with heavy traffic patterns near the center and entryways.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Wear without failure.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-bedroom-1"
+  },
+  {
+   "case_id": "deg-003",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "The roof shingles appear aged and weathered.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Weathering with no failure evidence (contrast def-011 missing shingles).",
+   "source": "corpus",
+   "review_flag": true,
+   "batch_id": "dev-exterior_front-1"
+  },
+  {
+   "case_id": "deg-004",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "White trim around the door and windows looks faded or chipped.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Surface finish deterioration; chipping is finish-level, not structural.",
+   "source": "corpus",
+   "review_flag": true,
+   "batch_id": "dev-exterior_front-2"
+  },
+  {
+   "case_id": "deg-005",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "kitchen",
+   "input": "Countertop edges and seams appear worn.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Wear without failure.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-kitchen-1"
+  },
+  {
+   "case_id": "deg-006",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "Exterior paint and trim show peeling and weathered areas.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Finish deterioration (peeling paint), protection not asserted failed.",
+   "source": "corpus",
+   "review_flag": true,
+   "batch_id": "dev-exterior_front-2"
+  },
+  {
+   "case_id": "deg-007",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "living_room",
+   "input": "The hardwood floors are worn and uneven in places near the center of the room.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Wear-dominant; unevenness described as wear pattern, no failure.",
+   "source": "corpus-adapted",
+   "review_flag": true,
+   "batch_id": "dev-living_room-1"
+  },
+  {
+   "case_id": "deg-008",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "living_room",
+   "input": "Hardwood flooring shows scuffs, wear, and uneven tone.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Surface wear.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "dev-living_room-1"
+  },
+  {
+   "case_id": "deg-009",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "living_room",
+   "input": "The brown low-pile carpet is visibly worn and stained in places.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Wear + cosmetic staining, same claim type.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-living_room-1"
+  },
+  {
+   "case_id": "deg-010",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "utility_room",
+   "input": "Dark staining is present on the floor surface.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Cosmetic staining, no moisture-source assertion.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-utility_room-1"
+  },
+  {
+   "case_id": "deg-011",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "Staining and white powdery residue appear on the brick near ground level.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Efflorescence/staining = visible deterioration; no failure demonstrated.",
+   "source": "corpus",
+   "review_flag": true,
+   "batch_id": "dev-exterior_front-2"
+  },
+  {
+   "case_id": "deg-012",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "garage",
+   "input": "The concrete floor shows significant staining and discoloration.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Cosmetic surface condition.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "dev-garage-1"
+  },
+  {
+   "case_id": "deg-013",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "The asphalt shingle roof shows discoloration and moss growth.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Aging/organic growth without asserted failure.",
+   "source": "corpus-adapted",
+   "review_flag": true,
+   "batch_id": "dev-exterior_front-2"
+  },
+  {
+   "case_id": "deg-014",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "dining_room",
+   "input": "An exposed beam in the corner has peeling, weathered green paint.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Finish deterioration on a sound element.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "dev-dining_room-1"
+  },
+  {
+   "case_id": "deg-015",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_back",
+   "input": "Deck planks appear aged with gaps and discoloration.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Aging/wear; no rot or failure asserted (contrast def-010).",
+   "source": "corpus-adapted",
+   "review_flag": true,
+   "batch_id": "dev-exterior_back-1"
+  },
+  {
+   "case_id": "deg-016",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_side",
+   "input": "The wooden picket fence looks weathered and gray.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Weathering without failure.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "dev-exterior_side-1"
+  },
+  {
+   "case_id": "deg-017",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "living_room",
+   "input": "Baseboards show scuffs and chipped paint along the hallway.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Surface wear.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-living_room-1"
+  },
+  {
+   "case_id": "deg-018",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "bathroom",
+   "input": "The vanity cabinet doors are worn around the handles.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Wear without failure.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-bathroom-1"
+  },
+  {
+   "case_id": "deg-019",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "kitchen",
+   "input": "The kitchen faucet is tarnished and water-spotted but functional.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Explicitly functional, visibly deteriorated.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-kitchen-1"
+  },
+  {
+   "case_id": "deg-020",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "The driveway surface is faded with hairline cracking throughout.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Surface-level fade + hairline cracks (contrast def-009 cracked/uneven joints).",
+   "source": "corpus-adapted",
+   "review_flag": true,
+   "batch_id": "dev-exterior_front-2"
+  },
+  {
+   "case_id": "deg-021",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "bedroom",
+   "input": "Wall paint is scuffed and dingy throughout the room.",
+   "gold": {
+    "kind": "degradation"
+   },
+   "rationale": "Finish wear.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-bedroom-1"
+  },
+  {
+   "case_id": "mod-001",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "kitchen",
+   "input": "Kitchen has dated oak cabinets in good repair.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Dated but explicitly maintained.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-kitchen-1"
+  },
+  {
+   "case_id": "mod-002",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "kitchen",
+   "input": "The ceiling lights are flush-mount builder-grade fixtures.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Basic/low-grade fixture, functional.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-kitchen-1"
+  },
+  {
+   "case_id": "mod-003",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "kitchen",
+   "input": "Countertops appear to be made of laminate.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Low-grade material = improvement opportunity (no condition claim).",
+   "source": "corpus",
+   "review_flag": true,
+   "batch_id": "dev-kitchen-1"
+  },
+  {
+   "case_id": "mod-004",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "bathroom",
+   "input": "The vanity cabinet is made of white laminate material.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Low-grade material.",
+   "source": "corpus",
+   "review_flag": true,
+   "batch_id": "dev-bathroom-1"
+  },
+  {
+   "case_id": "mod-005",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "living_room",
+   "input": "The ceiling fan is dated in style and scale.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Dated style, no condition claim.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-living_room-2"
+  },
+  {
+   "case_id": "mod-006",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "bedroom",
+   "input": "The room has a single dated flush-mount light fixture.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Dated/basic fixture.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-bedroom-1"
+  },
+  {
+   "case_id": "mod-007",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "kitchen",
+   "input": "Lighting includes recessed lights and basic pendants.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "'Basic' grades the fixture — improvement opportunity, not mere presence.",
+   "source": "corpus",
+   "review_flag": true,
+   "batch_id": "dev-kitchen-1"
+  },
+  {
+   "case_id": "mod-008",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "bedroom",
+   "input": "The window has original-style trim and appears older.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Dated/original, no deterioration language.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-bedroom-1"
+  },
+  {
+   "case_id": "mod-009",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "kitchen",
+   "input": "Dark raised-panel cabinets appear dated but serviceable.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Dated, explicitly serviceable.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-kitchen-2"
+  },
+  {
+   "case_id": "mod-010",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "living_room",
+   "input": "A basic builder-grade dome light fixture is mounted on the ceiling.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Basic/builder-grade.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-living_room-2"
+  },
+  {
+   "case_id": "mod-011",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "bathroom",
+   "input": "The bathroom mirror is a basic frameless sheet.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Basic grade.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-bathroom-1"
+  },
+  {
+   "case_id": "mod-012",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_side",
+   "input": "Windows are older single-pane units with aluminum frames.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Dated technology, functional.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-exterior_side-1"
+  },
+  {
+   "case_id": "mod-013",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "kitchen",
+   "input": "The backsplash features a dated diamond-pattern tile that is not broken.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Dated style, explicitly intact.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "dev-kitchen-2"
+  },
+  {
+   "case_id": "mod-014",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "kitchen",
+   "input": "The kitchen appliances are white and mismatched in age.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Dated/mismatched, no failure.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-kitchen-2"
+  },
+  {
+   "case_id": "mod-015",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "living_room",
+   "input": "Popcorn ceiling texture covers the living room ceiling.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Dated finish, improvement opportunity.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-living_room-2"
+  },
+  {
+   "case_id": "mod-016",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "bathroom",
+   "input": "The tub is an older almond-colored fixture in working order.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Dated, explicitly working.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-bathroom-2"
+  },
+  {
+   "case_id": "mod-017",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "The screen door appears dated in style.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Style only (contrast def-016 torn screen door).",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "dev-exterior_front-2"
+  },
+  {
+   "case_id": "mod-018",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "kitchen",
+   "input": "The window features blinds that are functional but outdated in style.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Explicitly functional, outdated.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "dev-kitchen-2"
+  },
+  {
+   "case_id": "mod-019",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "dining_room",
+   "input": "The brass chandelier is a traditional style from the 1990s.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Dated style.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "dev-dining_room-1"
+  },
+  {
+   "case_id": "mod-020",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "living_room",
+   "input": "Trim consists of basic flat casing.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Basic grade.",
+   "source": "corpus",
+   "review_flag": true,
+   "batch_id": "dev-living_room-2"
+  },
+  {
+   "case_id": "mod-021",
+   "case_type": "atomic",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "The exterior features a basic wall sconce beside the door.",
+   "gold": {
+    "kind": "modernization"
+   },
+   "rationale": "Basic fixture.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "dev-exterior_front-3"
+  },
+  {
+   "case_id": "exc-good-001",
+   "case_type": "excluded",
+   "slice": "dev",
+   "scene": "bedroom",
+   "input": "Baseboards appear intact and well-maintained along the walls.",
+   "gold": {
+    "reason": "good_condition"
+   },
+   "rationale": "Explicit good condition.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-bedroom-2"
+  },
+  {
+   "case_id": "exc-good-002",
+   "case_type": "excluded",
+   "slice": "dev",
+   "scene": "bathroom",
+   "input": "White subway tile surrounds the shower and appears generally intact.",
+   "gold": {
+    "reason": "good_condition"
+   },
+   "rationale": "Explicit intact.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-bathroom-2"
+  },
+  {
+   "case_id": "exc-neut-001",
+   "case_type": "excluded",
+   "slice": "dev",
+   "scene": "bedroom",
+   "input": "The room contains a ceiling fan.",
+   "gold": {
+    "reason": "neutral_presence"
+   },
+   "rationale": "Pure presence, no grade or condition.",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-bedroom-2"
+  },
+  {
+   "case_id": "exc-neut-002",
+   "case_type": "excluded",
+   "slice": "dev",
+   "scene": "living_room",
+   "input": "Wide-plank wood-look flooring is installed.",
+   "gold": {
+    "reason": "neutral_presence"
+   },
+   "rationale": "Presence without grade/condition (contrast mod-003 'laminate').",
+   "source": "corpus",
+   "review_flag": true,
+   "batch_id": "dev-living_room-2"
+  },
+  {
+   "case_id": "exc-adv-001",
+   "case_type": "excluded",
+   "slice": "dev",
+   "scene": "exterior_back",
+   "input": "Windows should be checked for drafts, seal failure, and frame condition.",
+   "gold": {
+    "reason": "advice_or_process"
+   },
+   "rationale": "Inspection advice, no observed condition.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-exterior_back-1"
+  },
+  {
+   "case_id": "exc-adv-002",
+   "case_type": "excluded",
+   "slice": "dev",
+   "scene": "bedroom",
+   "input": "Hardwood flooring under carpet may need refinishing or replacement if worn.",
+   "gold": {
+    "reason": "advice_or_process"
+   },
+   "rationale": "Conditional advice about an unseen surface.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "dev-bedroom-2"
+  },
+  {
+   "case_id": "exc-spec-001",
+   "case_type": "excluded",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "No gutters or downspouts are visibly present on the exterior.",
+   "gold": {
+    "reason": "unsupported_or_speculative"
+   },
+   "rationale": "Absence inferred from non-visibility — the gutter absence-safety case.",
+   "source": "corpus",
+   "review_flag": true,
+   "batch_id": "dev-exterior_front-3"
+  },
+  {
+   "case_id": "exc-spec-002",
+   "case_type": "excluded",
+   "slice": "dev",
+   "scene": "living_room",
+   "input": "Exposed brick wall may have cracks, spalling, or previous water damage.",
+   "gold": {
+    "reason": "unsupported_or_speculative"
+   },
+   "rationale": "Speculative 'may have' with no visible sign.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-living_room-2"
+  },
+  {
+   "case_id": "exc-dim-001",
+   "case_type": "excluded",
+   "slice": "dev",
+   "scene": "bedroom",
+   "input": "Primary Bedroom 12'6 x 10'",
+   "gold": {
+    "reason": "measurement_overlay"
+   },
+   "rationale": "Floorplan overlay text (deterministic pre-filter).",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-bedroom-2"
+  },
+  {
+   "case_id": "exc-dim-002",
+   "case_type": "excluded",
+   "slice": "dev",
+   "scene": "living_room",
+   "input": "Living Room 20 x 15",
+   "gold": {
+    "reason": "measurement_overlay"
+   },
+   "rationale": "Floorplan overlay text (deterministic pre-filter).",
+   "source": "synthetic",
+   "review_flag": false,
+   "batch_id": "dev-living_room-3"
+  },
+  {
+   "case_id": "exc-nrr-001",
+   "case_type": "excluded",
+   "slice": "dev",
+   "scene": "kitchen",
+   "input": "A watermark reading 'Valley MLS' is visible on the image.",
+   "gold": {
+    "reason": "not_renovation_related"
+   },
+   "rationale": "Image artifact, not the property.",
+   "source": "corpus-adapted",
+   "review_flag": false,
+   "batch_id": "dev-kitchen-2"
+  },
+  {
+   "case_id": "exc-nrr-002",
+   "case_type": "excluded",
+   "slice": "dev",
+   "scene": "bedroom",
+   "input": "The current furniture arrangement makes the room feel cramped.",
+   "gold": {
+    "reason": "not_renovation_related"
+   },
+   "rationale": "Staging/furniture, not property condition.",
+   "source": "corpus",
+   "review_flag": false,
+   "batch_id": "dev-bedroom-2"
+  },
+  {
+   "case_id": "mix-001",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "exterior_back",
+   "input": "The deck boards are weathered and rotted near the stairs.",
+   "gold": {
+    "claims": [
+     {
+      "component": "deck",
+      "anchors_any": [
+       "weathered"
+      ],
+      "kind": "degradation"
+     },
+     {
+      "component": "deck",
+      "anchors_any": [
+       "rot",
+       "rotted"
+      ],
+      "kind": "defect"
+     }
+    ]
+   },
+   "rationale": "deg+def on one component: weathering vs rot must split.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-002",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "bedroom",
+   "input": "The carpet is worn throughout and water-stained near the vent.",
+   "gold": {
+    "claims": [
+     {
+      "component": "carpet",
+      "anchors_any": [
+       "worn"
+      ],
+      "kind": "degradation"
+     },
+     {
+      "component": "carpet",
+      "anchors_any": [
+       "water"
+      ],
+      "kind": "defect"
+     }
+    ]
+   },
+   "rationale": "deg+def: wear vs moisture evidence.",
+   "source": "corpus-adapted",
+   "review_flag": true
+  },
+  {
+   "case_id": "mix-003",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "exterior_side",
+   "input": "Exterior paint is peeling and one siding board is cracked.",
+   "gold": {
+    "claims": [
+     {
+      "component": "paint",
+      "anchors_any": [
+       "peel"
+      ],
+      "kind": "degradation"
+     },
+     {
+      "component": "siding",
+      "anchors_any": [
+       "crack"
+      ],
+      "kind": "defect"
+     }
+    ]
+   },
+   "rationale": "deg+def on different components.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-004",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "The driveway is faded and one section has heaved, leaving a raised crack across the middle.",
+   "gold": {
+    "claims": [
+     {
+      "component": "driveway",
+      "anchors_any": [
+       "faded"
+      ],
+      "kind": "degradation"
+     },
+     {
+      "component": "driveway",
+      "anchors_any": [
+       "heav",
+       "raised"
+      ],
+      "kind": "defect"
+     }
+    ]
+   },
+   "rationale": "deg+def on one component; heave/raised edge keeps the defect claim under the flatwork rule.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-005",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "kitchen",
+   "input": "The kitchen cabinets are worn and dated.",
+   "gold": {
+    "claims": [
+     {
+      "component": "cabinet",
+      "anchors_any": [
+       "worn"
+      ],
+      "kind": "degradation"
+     },
+     {
+      "component": "cabinet",
+      "anchors_any": [
+       "dated"
+      ],
+      "kind": "modernization"
+     }
+    ]
+   },
+   "rationale": "deg+mod on one component — the canonical wear/dated split.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-006",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "bathroom",
+   "input": "The bathroom vanity is an older basic unit and its top is stained.",
+   "gold": {
+    "claims": [
+     {
+      "component": "vanity",
+      "anchors_any": [
+       "stain"
+      ],
+      "kind": "degradation"
+     },
+     {
+      "component": "vanity",
+      "anchors_any": [
+       "basic",
+       "older"
+      ],
+      "kind": "modernization"
+     }
+    ]
+   },
+   "rationale": "deg+mod on one component.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-007",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "living_room",
+   "input": "The ceiling fan is dated in style and its blades are discolored.",
+   "gold": {
+    "claims": [
+     {
+      "component": "fan",
+      "anchors_any": [
+       "discolor"
+      ],
+      "kind": "degradation"
+     },
+     {
+      "component": "fan",
+      "anchors_any": [
+       "dated"
+      ],
+      "kind": "modernization"
+     }
+    ]
+   },
+   "rationale": "deg+mod; bundling both into one claim is the failure mode.",
+   "source": "corpus-adapted",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-008",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "The screen door is dated in style and torn at the bottom corner.",
+   "gold": {
+    "claims": [
+     {
+      "component": "door",
+      "anchors_any": [
+       "torn"
+      ],
+      "kind": "defect"
+     },
+     {
+      "component": "door",
+      "anchors_any": [
+       "dated"
+      ],
+      "kind": "modernization"
+     }
+    ]
+   },
+   "rationale": "def+mod on one component.",
+   "source": "corpus-adapted",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-009",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "kitchen",
+   "input": "The kitchen has dated oak cabinets and a cracked sink basin.",
+   "gold": {
+    "claims": [
+     {
+      "component": "cabinet",
+      "anchors_any": [
+       "dated",
+       "oak"
+      ],
+      "kind": "modernization"
+     },
+     {
+      "component": "sink",
+      "anchors_any": [
+       "crack"
+      ],
+      "kind": "defect"
+     }
+    ]
+   },
+   "rationale": "def+mod on different components. 'Leaking faucet' replaced in review — 2c classifies asserted text; unverifiable claims are a 2a/2b grounding issue.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-010",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "Gutters are stained along the front and one downspout is disconnected.",
+   "gold": {
+    "claims": [
+     {
+      "component": "gutter",
+      "anchors_any": [
+       "stain"
+      ],
+      "kind": "degradation"
+     },
+     {
+      "component": "downspout",
+      "anchors_any": [
+       "disconnect"
+      ],
+      "kind": "defect"
+     }
+    ]
+   },
+   "rationale": "deg+def in the gutter system.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-011",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "living_room",
+   "input": "The hardwood floors are scuffed and the trim is a basic flat casing.",
+   "gold": {
+    "claims": [
+     {
+      "component": "floor",
+      "anchors_any": [
+       "scuff"
+      ],
+      "kind": "degradation"
+     },
+     {
+      "component": "trim",
+      "anchors_any": [
+       "basic"
+      ],
+      "kind": "modernization"
+     }
+    ]
+   },
+   "rationale": "deg+mod on different components.",
+   "source": "corpus-adapted",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-012",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "bathroom",
+   "input": "The bathroom has a basic frameless mirror and cracked floor tile near the tub.",
+   "gold": {
+    "claims": [
+     {
+      "component": "mirror",
+      "anchors_any": [
+       "basic",
+       "frameless"
+      ],
+      "kind": "modernization"
+     },
+     {
+      "component": "tile",
+      "anchors_any": [
+       "crack"
+      ],
+      "kind": "defect"
+     }
+    ]
+   },
+   "rationale": "def+mod on different components.",
+   "source": "corpus-adapted",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-013",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "The roof shingles are weathered, the gutter is sagging, and the porch light is a dated builder-grade fixture.",
+   "gold": {
+    "claims": [
+     {
+      "component": "shingle",
+      "anchors_any": [
+       "weather"
+      ],
+      "kind": "degradation"
+     },
+     {
+      "component": "gutter",
+      "anchors_any": [
+       "sag"
+      ],
+      "kind": "defect"
+     },
+     {
+      "component": "light",
+      "anchors_any": [
+       "dated",
+       "builder"
+      ],
+      "kind": "modernization"
+     }
+    ]
+   },
+   "rationale": "All three kinds in one note.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-014",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "kitchen",
+   "input": "Kitchen cabinets are dated oak, the counter is worn at the edges, and the sink base shows water damage.",
+   "gold": {
+    "claims": [
+     {
+      "component": "cabinet",
+      "anchors_any": [
+       "dated",
+       "oak"
+      ],
+      "kind": "modernization"
+     },
+     {
+      "component": "counter",
+      "anchors_any": [
+       "worn"
+      ],
+      "kind": "degradation"
+     },
+     {
+      "component": "sink",
+      "anchors_any": [
+       "water"
+      ],
+      "kind": "defect"
+     }
+    ]
+   },
+   "rationale": "All three kinds in one note.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-015",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "bedroom",
+   "input": "The bedroom carpet is stained, a window pane is cracked, and the light fixture is a basic dome.",
+   "gold": {
+    "claims": [
+     {
+      "component": "carpet",
+      "anchors_any": [
+       "stain"
+      ],
+      "kind": "degradation"
+     },
+     {
+      "component": "pane",
+      "anchors_any": [
+       "crack"
+      ],
+      "kind": "defect"
+     },
+     {
+      "component": "fixture",
+      "anchors_any": [
+       "basic",
+       "dome"
+      ],
+      "kind": "modernization"
+     }
+    ]
+   },
+   "rationale": "All three kinds in one note.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-016",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "exterior_back",
+   "input": "The back fence has collapsed in one section and the patio slab is heaved and cracked.",
+   "gold": {
+    "claims": [
+     {
+      "component": "fence",
+      "anchors_any": [
+       "collaps"
+      ],
+      "kind": "defect"
+     },
+     {
+      "component": "slab",
+      "anchors_any": [
+       "crack",
+       "heav"
+      ],
+      "kind": "defect"
+     }
+    ]
+   },
+   "rationale": "Same-kind (defect) different concepts must stay separate.",
+   "source": "corpus-adapted",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-017",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "exterior_front",
+   "input": "The siding is faded and the front walkway is stained with rust marks.",
+   "gold": {
+    "claims": [
+     {
+      "component": "siding",
+      "anchors_any": [
+       "faded"
+      ],
+      "kind": "degradation"
+     },
+     {
+      "component": "walkway",
+      "anchors_any": [
+       "stain",
+       "rust"
+      ],
+      "kind": "degradation"
+     }
+    ]
+   },
+   "rationale": "Same-kind (degradation) different concepts.",
+   "source": "synthetic",
+   "review_flag": false
+  },
+  {
+   "case_id": "mix-018",
+   "case_type": "mixed",
+   "slice": "dev",
+   "scene": "kitchen",
+   "input": "The kitchen has laminate countertops and builder-grade cabinet hardware.",
+   "gold": {
+    "claims": [
+     {
+      "component": "countertop",
+      "anchors_any": [
+       "laminate"
+      ],
+      "kind": "modernization"
+     },
+     {
+      "component": "hardware",
+      "anchors_any": [
+       "builder"
+      ],
+      "kind": "modernization"
+     }
+    ]
+   },
+   "rationale": "Same-kind (modernization) different concepts.",
+   "source": "synthetic",
+   "review_flag": false
+  }
+ ]
+}
