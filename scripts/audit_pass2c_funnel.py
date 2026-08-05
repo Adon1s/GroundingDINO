@@ -86,13 +86,18 @@ class DenyGate:
     so a historical corpus can never show the effect of a deny-list change —
     every artifact would have to be re-analysed first. Replaying the live deny
     lists over the recorded descriptions answers the question that actually
-    matters ("would this still resolve today?") without re-running the pipeline,
-    and is what `--fail-on-absence-resolution` gates on.
+    matters ("would this stored resolution still be allowed today?") without
+    re-running the pipeline, and is what `--fail-on-absence-resolution` gates on.
 
-    This mirrors `CatalogEmbeddingsRetriever._passes_guardrails`
-    (catalog_embeddings.py:441) for the deny branch only. `require_any` is not
-    replayed: it gates retrieval jointly with the embedding score, which is not
-    reconstructible offline.
+    **This is a deny-list replay over historical resolutions, not a fresh
+    embedding/retrieval simulation.** It mirrors
+    `CatalogEmbeddingsRetriever._passes_guardrails` (catalog_embeddings.py:441)
+    for the deny branch only, and needs no embeddings server. `require_any` is
+    not replayed: it gates retrieval jointly with the embedding score, which is
+    not reconstructible offline. So the count answers "would this stored
+    resolution survive the current deny lists?" — never "what would retrieval
+    produce today?". A catalog change that alters embed_text, support terms, or
+    which candidates score highest is invisible here; only re-analysis shows it.
     """
 
     def __init__(self, catalog_path: Path):
@@ -845,9 +850,10 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument(
         "--max-absence-resolutions", type=int, default=0, metavar="N",
         help=(
-            "Allowance for --fail-on-absence-resolution. Default 0. The historical "
-            "corpus carries 8 accepted residuals that assert absence and damage in "
-            "one sentence; see docs/HANDOFF_pass2c_exterior_recall.md."
+            "Allowance for --fail-on-absence-resolution. Default 0, which is the "
+            "right setting for any newly analysed corpus. The historical corpus "
+            "carries 2 accepted residuals that assert absence and damage in one "
+            "sentence; see docs/HANDOFF_pass2c_exterior_recall.md."
         ),
     )
     return parser.parse_args(argv)

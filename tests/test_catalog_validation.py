@@ -542,6 +542,20 @@ ABSENCE_OBSERVATIONS = (
     "No downspout extension is visible for rainwater drainage.",
     "Missing gutters and downspouts pose a risk for water damage.",
     "Roofline appears uneven with no visible gutters.",
+    # Second wave: the residuals the first deny set left behind. Each phrasing
+    # below was a real absence->gutter resolution in the corpus.
+    "Gutter management on the right-side structure appears limited or absent.",
+    "Gutters and downspouts appear limited or poorly detailed around the front projection.",
+    "Lack of visible, well-maintained gutter systems in certain areas.",
+    "There is a lack of visible, well-maintained gutter systems.",
+    "No well-maintained gutter systems are visible.",
+    "No obvious functioning gutters or downspouts are visible.",
+    # The customer-reported phrasing that opened the handoff (131 Alex Ln).
+    "No clearly functioning gutter system is visible along the porch edge.",
+    # The "component not visible" family: never a resolution in this corpus, but
+    # 30 observations carry it, so it is covered before it lands.
+    "Gutters and downspouts are not visible in the exterior view.",
+    "Gutters and downspouts are not apparent on the exterior of the property.",
 )
 
 # Also verbatim: real damage and maintenance claims that must keep resolving.
@@ -584,9 +598,36 @@ def test_visible_gutter_condition_is_not_denied(item_id, description):
     )
 
 
+# Two corpus strings assert absence AND damage in one sentence. They are the
+# deliberate residuals of the deny work: blocking them would lose a real
+# clogged-gutter finding, which is a worse error than letting a hedged absence
+# claim through. `--fail-on-absence-resolution --max-absence-resolutions 2`
+# encodes the same allowance at corpus level.
+MIXED_CLAIMS = (
+    "The roofline appears uneven with missing or poorly installed gutters.",
+    "Gutters appear clogged or missing downspouts along the roofline.",
+)
+
+
+@pytest.mark.parametrize("description", MIXED_CLAIMS)
+def test_mixed_absence_and_damage_claims_stay_eligible(description):
+    """The real guard on deny-list breadth — a broad term added later shows up
+    here as a lost condition claim, not as a passing membership check."""
+    assert not _denied_by("clogged_or_damaged_gutters", description), (
+        f"{description!r} asserts visible damage and must stay resolvable"
+    )
+
+
 def test_gutter_deny_lists_stay_narrow():
     """A bare 'missing' or 'appears limited' on the damage item would swallow
-    mixed claims like 'gutters appear clogged or missing downspouts'."""
+    the mixed claims above.
+
+    These are exact-element checks, so the phrase-scoped
+    'appears limited or absent' term is a distinct element and does not trip
+    them. That is the point: the phrase-scoped terms are safe and the bare
+    stems are not. `test_mixed_absence_and_damage_claims_stay_eligible` is what
+    actually enforces the outcome.
+    """
     catalog = _load_shipped_catalog()
     item = next(
         i for i in catalog["items"] if i.get("id") == "clogged_or_damaged_gutters"

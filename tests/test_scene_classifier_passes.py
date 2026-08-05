@@ -514,39 +514,25 @@ def test_pass_2c_prompt_example_labels_match_valid_labels():
     assert _prompt_return_shape_labels() == VALID_LABELS
 
 
-# The upgrade_candidate rule used to enumerate interior finishes only, so
-# exterior findings had no example anchor and drifted to generic_presence/other.
-# See docs/HANDOFF_pass2c_exterior_recall.md.
-
-def test_pass_2c_prompt_anchors_exterior_finishes():
-    prompt = PASS_2C_SYSTEM_PROMPT.lower()
-
-    for anchor in ("siding", "fascia", "soffit", "porch", "masonry"):
-        assert anchor in prompt, f"Pass 2c prompt lost its {anchor!r} anchor"
-
+# An exterior-anchor edit to this prompt (routing worn/weathered exterior
+# finishes to upgrade_candidate) was shipped and then reverted: it is a `kind`
+# semantics decision, and `kind` is being reworked wholesale into
+# defect | degradation | modernization by the semantic-overhaul work. Deciding
+# where exterior wear lands under a two-value ontology that is about to be
+# replaced buys nothing, and its supporting A/B is not reproducible.
+#
+# Absence safety does NOT live here. It lives in the catalog deny lists on the
+# two gutter items — suppressing absence language at 2c cost ~179 forwarded
+# observations to stop 26 bad resolutions. See
+# docs/HANDOFF_pass2c_exterior_recall.md.
 
 def test_pass_2c_prompt_keeps_interior_finish_anchors():
-    """Widening the rule must not displace what it already covered."""
+    """The upgrade_candidate rule's finish examples are load-bearing: without an
+    example anchor, findings drift to generic_presence/other."""
     prompt = PASS_2C_SYSTEM_PROMPT.lower()
 
     for anchor in ("floors", "cabinets", "counters", "tile", "paint"):
         assert anchor in prompt
-
-
-def test_pass_2c_prompt_routes_weathered_exterior_finishes_to_upgrade():
-    """Deliberate product call: a weathered exterior finish is an upgrade, not a
-    defect — it is not an immediate repair.
-
-    Measured against 266 replayed observations, this wording moves the lane
-    balance from ~64 defect / ~78 upgrade to ~32 defect / ~102 upgrade. That
-    reclassification is the point; do not "fix" it by scoping the anchor back to
-    "dated", which reverts the behaviour to parity with the old prompt.
-    """
-    prompt = PASS_2C_SYSTEM_PROMPT.lower()
-
-    assert "sagging gutter" in prompt
-    assert "dated, worn, or weathered exterior finish" in prompt
-    assert "upgrade_candidate" in prompt
 
 
 def test_pass_2c_prompt_has_no_whole_system_absence_rule():
@@ -560,7 +546,9 @@ def test_pass_2c_prompt_has_no_whole_system_absence_rule():
     assert "whole system is absent" not in PASS_2C_SYSTEM_PROMPT.lower()
 
 
-def test_pass_2c_forwards_dated_exterior_finish():
+def test_pass_2c_forwards_upgrade_candidate_label():
+    """The forward split is label-driven, not text-driven: whatever the prompt
+    says, an upgrade_candidate is forwarded."""
     description = "Wood lap siding appears weathered, with staining and aged paint."
     client = FakeTextClient(json.dumps({
         "labeled": [{"description": description, "label": "upgrade_candidate"}]

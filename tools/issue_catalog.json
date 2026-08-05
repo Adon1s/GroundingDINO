@@ -1585,7 +1585,15 @@
         "no downspout",
         "no downspouts",
         "missing gutter",
-        "missing gutters"
+        "missing gutters",
+        "lack of visible",
+        "no well-maintained",
+        "no obvious functioning",
+        "appears limited or absent",
+        "appear limited or poorly detailed",
+        "no clearly functioning",
+        "not visible",
+        "not apparent"
       ],
       "embed_text": "Clogged or damaged gutters/downspouts. Sagging, clogged, disconnected gutters. Gutter repair/cleaning.",
       "kind": "defect",
@@ -3918,7 +3926,15 @@
         "missing",
         "no visible",
         "no downspout",
-        "no downspouts"
+        "no downspouts",
+        "lack of visible",
+        "no well-maintained",
+        "no obvious functioning",
+        "appears limited or absent",
+        "appear limited or poorly detailed",
+        "no clearly functioning",
+        "not visible",
+        "not apparent"
       ],
       "embed_text": "Gutter maintenance needed. Gutters/downspouts likely need cleaning/inspection to ensure proper drainage.",
       "kind": "upgrade",
