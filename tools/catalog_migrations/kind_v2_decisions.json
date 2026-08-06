@@ -76,6 +76,9 @@
             "ontology_basis": "mold_growth"
           }
         }
+      ],
+      "task3_flags": [
+        "Task 2 benchmark finding (dev, res-moi-002): overlaps with the general visible_mold_or_mildew concept. Bathroom mold text resolved to the bathroom-specific item over the general one — arguably the better answer, but the two are not distinguishable by rule. Inherited from v1, untouched by the kind migration. Task 3 should decide whether the room-specific duplicate earns its place."
       ]
     },
     {
@@ -1893,6 +1896,9 @@
             "ontology_basis": "mold_growth"
           }
         }
+      ],
+      "task3_flags": [
+        "Task 2 benchmark finding (dev, res-moi-002): overlaps with the general visible_mold_or_mildew concept. Bathroom mold text resolved to the bathroom-specific item over the general one — arguably the better answer, but the two are not distinguishable by rule. Inherited from v1, untouched by the kind migration. Task 3 should decide whether the room-specific duplicate earns its place."
       ]
     },
     {
