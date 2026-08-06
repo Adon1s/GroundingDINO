@@ -568,8 +568,11 @@ def _catalog_text(candidate: Any, catalog_item: Dict[str, Any]) -> str:
             chunks.extend(
                 strip_term_marker(str(v)) for v in support_any if v is not None
             )
+    # The candidate's kind label is deliberately excluded: kind values are
+    # routed on directly, and "modernization" would otherwise self-match the
+    # value-add scope terms.
     for field_name in (
-        "catalog_item_id", "catalog_item_name", "kind", "scope", "trade_bucket",
+        "catalog_item_id", "catalog_item_name", "scope", "trade_bucket",
     ):
         value = _get(candidate, field_name, None)
         if value is not None:
