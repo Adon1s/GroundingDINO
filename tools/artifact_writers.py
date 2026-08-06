@@ -197,6 +197,10 @@ def load_issue_catalog(path: Path) -> dict:
       - 'items': unified list of catalog entries (each has 'id' and 'kind' field)
       - 'trade_buckets': list of trade bucket definitions
       - 'version': catalog version string
+      - 'ontology_version' / 'publication_status': root metadata, None when the
+        catalog does not carry them (the shipped v1 catalog does not). The
+        publish guard in write_photo_intel reads publication_status, so it has
+        to survive this normalization.
     """
     try:
         with open(path, "r", encoding="utf-8") as f:
@@ -243,6 +247,8 @@ def load_issue_catalog(path: Path) -> dict:
         "items": items,
         "trade_buckets": tb,
         "version": data.get("version"),
+        "ontology_version": data.get("ontology_version"),
+        "publication_status": data.get("publication_status"),
     }
 
 
@@ -420,12 +426,28 @@ def write_photo_intel(
     dependency_status: Optional[Dict[str, str]] = None,
 ) -> Path:
     """Persist per-photo intelligence (including scene classifier fields)."""
-    # ── observation-kind-v2 publish guard ────────────────────────────────────
-    # Classification-only results carry three-kind observations that no
-    # downstream consumer (catalog, estimates, scoring, packages) can handle
-    # yet. Publishing one would overwrite canonical artifacts with an
-    # incomplete pipeline output. Hard stop until Task 2 (catalog migration)
-    # and Task 3 (downstream cutover) land.
+    # ── observation-kind-v2 publish guards ───────────────────────────────────
+    # Two independent gates, both of which must survive until the pricing and
+    # package metadata for the v2 catalog is authored (after Task 3).
+    #
+    # 1. Catalog gate: a catalog that declares itself non-publishable must never
+    #    produce published artifacts. Absent status = publishable, so the
+    #    shipped v1 catalog is unaffected (same tolerant-read pattern as the
+    #    product_quarantined trade-bucket flag).
+    _publication_status = (issue_catalog or {}).get("publication_status")
+    if _publication_status not in (None, "publishable"):
+        raise RuntimeError(
+            f"write_photo_intel: refusing to publish with catalog "
+            f"publication_status={_publication_status!r}. The observation-kind-v2 "
+            "catalog carries no pricing or package metadata for its split "
+            "successors; publication stays blocked until that is authored after "
+            "Task 3. See docs/HANDOFF_kind_ontology_task2.md."
+        )
+
+    # 2. Result gate: classification-only results carry three-kind observations
+    #    that no downstream consumer (catalog, estimates, scoring, packages) can
+    #    handle yet. Publishing one would overwrite canonical artifacts with an
+    #    incomplete pipeline output.
     for _res in getattr(job, "results", []) or []:
         _payload = getattr(_res, "scene_classifier", None) or getattr(_res, "scene_data", None) or {}
         if isinstance(_payload, dict) and _payload.get("classification_only"):
