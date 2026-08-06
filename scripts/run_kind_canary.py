@@ -36,6 +36,42 @@ DEFAULT_MODEL_MAP = ROOT / "benchmarks" / "configs" / "kind_canary_model_map.jso
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
 
 
+def _preflight_embeddings() -> bool:
+    """Real-POST probe of the embeddings sidecar with the CONFIGURED model.
+
+    /health returns 200 while the GPU device is lost, and a wrong model name
+    can also answer 200 — so probe exactly what Pass 2d will ask for.
+    """
+    import urllib.error
+    import urllib.request
+
+    sys.path.insert(0, str(ROOT))
+    from tools import pipeline_config as cfg
+
+    url = f"{cfg.EMBEDDINGS_BASE_URL.rstrip('/')}/embeddings"
+    payload = {"input": ["preflight: worn roof shingles"], "model": cfg.EMBEDDINGS_MODEL_NAME}
+    request = urllib.request.Request(
+        url, data=json.dumps(payload).encode(), headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            body = json.load(response)
+        dim = len((body.get("data") or [{}])[0].get("embedding") or [])
+        if dim <= 0:
+            print(f"preflight: embeddings returned no vector from {url}", file=sys.stderr)
+            return False
+        print(f"preflight: embeddings OK ({cfg.EMBEDDINGS_MODEL_NAME}, dim={dim})")
+        return True
+    except urllib.error.HTTPError as exc:
+        print(f"preflight: embeddings HTTP {exc.code} from {url}: "
+              f"{exc.read()[:200].decode(errors='replace')}", file=sys.stderr)
+    except Exception as exc:  # noqa: BLE001 - any failure means do not start
+        print(f"preflight: embeddings unreachable at {url}: {exc}", file=sys.stderr)
+    print("Restart the embeddings sidecar before running the canary "
+          "(a dead device still answers /health with 200).", file=sys.stderr)
+    return False
+
+
 def _latest_run_artifact(property_key: str) -> Path | None:
     prop_dir = ARTIFACT_CORPUS / property_key
     if not prop_dir.is_dir():
@@ -77,7 +113,12 @@ def main(argv=None) -> int:
     parser.add_argument("--only", help="run a single property_key (retry helper)")
     parser.add_argument("--allow-proposed", action="store_true",
                         help="run against a manifest that is not frozen yet")
+    parser.add_argument("--skip-preflight", action="store_true",
+                        help="skip the embeddings probe (only when 2d is intentionally off)")
     args = parser.parse_args(argv)
+
+    if not args.skip_preflight and not _preflight_embeddings():
+        return 2
 
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     if manifest.get("status") != "frozen" and not args.allow_proposed:
@@ -123,8 +164,11 @@ def main(argv=None) -> int:
             if not args.only or row["property_key"] == args.only]
     for index, row in enumerate(rows, start=1):
         key = row["property_key"]
-        if (out_root / key).is_dir() and any((out_root / key).iterdir()):
-            print(f"[{index}/{len(rows)}] {key}: already has output, skipping (delete to re-run)")
+        # Skip only on a REAL artifact. A failed run still leaves an empty run
+        # directory behind, and treating that as "done" would silently drop the
+        # property from the canary.
+        if any((out_root / key).glob("*/photo_intel.json")):
+            print(f"[{index}/{len(rows)}] {key}: already has an artifact, skipping (delete to re-run)")
             continue
         images = sorted(
             str(p) for p in (IMAGES_ROOT / key).iterdir()
