@@ -59,14 +59,29 @@ class TestSnapshot:
         mutated["items"][0]["name"] = "Renamed For Test"
         assert V.snapshot(mutated)["fingerprint"] != V.snapshot(issue_catalog)["fingerprint"]
 
+    def test_v1_catalog_seals_the_legacy_kind_pair(self, frozen_vocabulary):
+        """Sealed-snapshot invariance: a snapshot of the shipped v1 catalog must
+        keep recording exactly the legacy vocabulary after Task 3, or existing
+        sealed datasets would fingerprint-drift with no catalog change."""
+        assert frozen_vocabulary["catalog_kinds"] == ["defect", "upgrade"]
+
+    def test_v2_stamped_catalog_seals_the_three_kind_ontology(self, issue_catalog):
+        v2 = copy.deepcopy(issue_catalog)
+        v2["ontology_version"] = "observation-kind-v2"
+        snap = V.snapshot(v2)
+        assert snap["catalog_kinds"] == ["defect", "degradation", "modernization"]
+
 
 class TestDefaultActionability:
     @pytest.mark.parametrize("item,expected", [
         ({"trade_bucket": "cleaning_turnover", "kind": "defect", "scope": "repair"}, "turnover"),
         ({"kind": "defect", "scope": "service"}, "inspection_risk"),
         ({"kind": "upgrade", "scope": "cosmetic"}, "modernization"),
+        ({"kind": "modernization", "scope": "cosmetic"}, "modernization"),
         ({"kind": "defect", "scope": "repair"}, "repair"),
         ({"kind": "defect", "scope": "replace"}, "repair"),
+        # degradation is deterioration you pay to fix, not discretionary work
+        ({"kind": "degradation", "scope": "replace"}, "repair"),
     ])
     def test_four_ordered_rules(self, item, expected):
         assert V.default_actionability(item) == expected

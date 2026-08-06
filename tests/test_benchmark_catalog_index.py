@@ -40,6 +40,22 @@ class TestSearch:
         assert results
         assert all(r["kind"] == "upgrade" for r in results)
 
+    def test_kind_filter_supports_v2_kinds(self):
+        """A v2 catalog's degradation/modernization kinds filter the same way —
+        the filter is a plain string compare, pinned here so nobody re-adds a
+        two-kind allowlist."""
+        v2_catalog = {"items": [
+            {"id": "worn_carpet", "name": "Worn Carpet", "kind": "degradation",
+             "scope": "replace", "trade_bucket": "flooring", "scene_groups": []},
+            {"id": "dated_kitchen", "name": "Dated Kitchen", "kind": "modernization",
+             "scope": "cosmetic", "trade_bucket": "kitchen_cabinets_counters",
+             "scene_groups": []},
+        ]}
+        for kind, expected in (("degradation", "worn_carpet"),
+                               ("modernization", "dated_kitchen")):
+            results = catalog_index.search(v2_catalog, "", kind=kind, limit=10)
+            assert [r["id"] for r in results] == [expected]
+
     def test_limit_is_honored(self, issue_catalog):
         assert len(catalog_index.search(issue_catalog, "", limit=3)) == 3
 
@@ -66,3 +82,20 @@ class TestFormatResults:
         assert "damaged_drywall_or_cracks" in text
         assert "repair" in text
         assert "Drywall Damage or Cracks" in text
+
+    def test_columns_stay_aligned_with_13_char_modernization(self):
+        """The kind column is sized to the data: "modernization" (13 chars)
+        overflowed the old fixed-8 column and pushed every later column out."""
+        rows = [
+            {"id": "dated_kitchen", "name": "Dated Kitchen", "kind": "modernization",
+             "scope": "cosmetic", "tier": "work", "trade_bucket": "kitchen",
+             "scene_groups": [], "actionability": "modernization"},
+            {"id": "roof_leak", "name": "Roof Leak", "kind": "defect",
+             "scope": "repair", "tier": "work", "trade_bucket": "roof_gutters",
+             "scene_groups": [], "actionability": "repair"},
+        ]
+        text = catalog_index.format_results(rows)
+        data_lines = [l for l in text.splitlines() if "cosmetic" in l or "repair " in l]
+        scope_columns = {line.find(scope) for line, scope in
+                         zip(data_lines, ("cosmetic", "repair"))}
+        assert len(scope_columns) == 1, f"scope column misaligned: {text}"

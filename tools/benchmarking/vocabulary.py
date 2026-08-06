@@ -26,12 +26,16 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from tools.catalog_validation import (
-    VALID_KINDS as CATALOG_KINDS,
     VALID_SCENE_GROUP_TOKENS,
     VALID_SCOPES as CATALOG_SCOPES,
 )
 from tools.comparison_common import ComparisonError, sha256_canonical
 from tools.estimate_scope import VALID_ESTIMATE_SCOPES
+from tools.observation_kinds import (
+    LEGACY_CATALOG_KINDS,
+    OBSERVATION_KINDS,
+    ONTOLOGY_VERSION,
+)
 from tools.pipeline_common import SCENE_GROUPS_UI, SCENE_TO_GROUP_UI
 from tools.rehab_packages import (
     PACKAGE_CATEGORY_INSPECTION_RISK,
@@ -100,23 +104,30 @@ _TURNOVER_TRADE_BUCKET = "cleaning_turnover"
 def default_actionability(item: Dict[str, Any]) -> str:
     """Derive a finding's actionability from its catalog item.
 
-    A matched catalog item already encodes this: ``kind`` separates defects from
-    upgrades and ``scope`` separates service calls from physical work. Deriving
-    it saves the annotator a field on every finding, and the derivation is
-    frozen into the snapshot so a later rule change cannot silently restate old
-    references. Only ``missing_catalog_item`` findings need it hand-authored.
+    A matched catalog item already encodes this: ``kind`` separates discretionary
+    work from repair work and ``scope`` separates service calls from physical
+    work. Deriving it saves the annotator a field on every finding, and the
+    derivation is frozen into the snapshot so a later rule change cannot
+    silently restate old references. Only ``missing_catalog_item`` findings
+    need it hand-authored.
 
     Four ordered rules, no per-item special cases:
-      cleaning_turnover trade -> turnover
-      scope "service"         -> inspection_risk
-      kind "upgrade"          -> modernization
-      otherwise               -> repair
+      cleaning_turnover trade          -> turnover
+      scope "service"                  -> inspection_risk
+      kind "upgrade"/"modernization"   -> modernization
+      otherwise (defect, degradation)  -> repair
+
+    Note the name collision: "modernization" is both an observation kind
+    (observation-kind-v2) and a package category. The mapping is the identity
+    for that kind, but the two vocabularies are distinct — degradation is a
+    kind with no category namesake, and it derives to repair because
+    deterioration is something you pay to fix.
     """
     if str(item.get("trade_bucket") or "") == _TURNOVER_TRADE_BUCKET:
         return PACKAGE_CATEGORY_TURNOVER
     if str(item.get("scope") or "") == "service":
         return PACKAGE_CATEGORY_INSPECTION_RISK
-    if str(item.get("kind") or "") == "upgrade":
+    if str(item.get("kind") or "") in ("upgrade", "modernization"):
         return PACKAGE_CATEGORY_MODERNIZATION
     return PACKAGE_CATEGORY_REPAIR
 
@@ -174,7 +185,16 @@ def snapshot(issue_catalog: Dict[str, Any]) -> Dict[str, Any]:
         "catalog_scene_group_tokens": sorted(VALID_SCENE_GROUP_TOKENS),
         "catalog_items": dict(sorted(catalog_items.items())),
         "actionability_by_catalog_item": dict(sorted(actionability.items())),
-        "catalog_kinds": sorted(CATALOG_KINDS),
+        # Versioned off the catalog's own root metadata (the
+        # catalog_validation pattern): a v2-stamped catalog seals the
+        # three-kind ontology, anything else seals the legacy pair. A snapshot
+        # must describe the catalog it froze, not whichever vocabulary is
+        # newest.
+        "catalog_kinds": sorted(
+            OBSERVATION_KINDS
+            if issue_catalog.get("ontology_version") == ONTOLOGY_VERSION
+            else LEGACY_CATALOG_KINDS
+        ),
         "catalog_scopes": sorted(CATALOG_SCOPES),
         "package_types": sorted(VALID_PACKAGE_TYPES),
         "package_categories": sorted(VALID_PACKAGE_CATEGORIES),

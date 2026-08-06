@@ -30,6 +30,7 @@ from tools.benchmarking import catalog_index, dataset as ds, reference_authoring
 from tools.benchmarking import vocabulary as vocab_mod
 from tools.benchmarking.schemas import ValidationResult
 from tools.comparison_common import ComparisonError
+from tools.observation_kinds import LEGACY_CATALOG_KINDS, OBSERVATION_KINDS
 
 DATASETS_ROOT = PROJECT_ROOT / "benchmarks" / "datasets"
 
@@ -244,7 +245,9 @@ def build_parser() -> argparse.ArgumentParser:
     catalog.add_argument("catalog_action", choices=("search",))
     catalog.add_argument("query", nargs="?", default="")
     catalog.add_argument("--scene-group")
-    catalog.add_argument("--kind", choices=("defect", "upgrade"))
+    catalog.add_argument(
+        "--kind", choices=sorted(OBSERVATION_KINDS | LEGACY_CATALOG_KINDS),
+    )
     catalog.add_argument("--limit", type=int, default=25)
     catalog.set_defaults(func=cmd_catalog)
 

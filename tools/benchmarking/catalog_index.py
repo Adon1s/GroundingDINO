@@ -88,11 +88,14 @@ def format_results(results: Iterable[Dict[str, Any]]) -> str:
     if not rows:
         return "no matching catalog items"
     width = max(len(str(row["id"])) for row in rows)
+    # Kind column sized to the data: "modernization" (13) overflows a fixed 8.
+    kind_width = max(len(str(row["kind"] or "-")) for row in rows)
     lines = []
     for row in rows:
         groups = ",".join(row["scene_groups"]) or "-"
         lines.append(
-            f"{str(row['id']):<{width}}  {row['kind']:<8} {row['scope'] or '-':<9} "
+            f"{str(row['id']):<{width}}  {str(row['kind'] or '-'):<{kind_width}} "
+            f"{row['scope'] or '-':<9} "
             f"{row['actionability']:<15} {row['trade_bucket'] or '-':<28} {groups}"
         )
         lines.append(f"{'':<{width}}  {row['name']}")
