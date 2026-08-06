@@ -195,28 +195,42 @@ def _classify_baseline_scope_with_reason(
     if tier == "optional" and has_value_add and not has_marketability:
         return OPTIONAL_VALUE_ADD, "optional_value_add_signal"
 
-    if kind == "upgrade":
+    # Discretionary lane: modernization (v2) plays the old upgrade role.
+    # Reason strings are kind-parameterized and reproduce v1 exactly for upgrade.
+    if kind in ("upgrade", "modernization"):
         if tier == "optional" and has_value_add:
             return OPTIONAL_VALUE_ADD, "optional_modernization"
         if has_marketability:
-            return MARKETABILITY_REHAB, "upgrade_marketability"
+            return MARKETABILITY_REHAB, f"{kind}_marketability"
         if tier == "optional":
-            return OPTIONAL_VALUE_ADD, "optional_upgrade"
-        return MARKETABILITY_REHAB, "upgrade_default"
+            return OPTIONAL_VALUE_ADD, f"optional_{kind}"
+        return MARKETABILITY_REHAB, f"{kind}_default"
 
-    if kind == "defect":
+    # Condition lane: degradation mirrors the defect gates (severity, structural
+    # category, required-condition text can promote to required_rehab); past the
+    # gates it defaults to marketability (renewal work), not required.
+    if kind in ("defect", "degradation"):
         if tier == "optional":
-            return OPTIONAL_VALUE_ADD, "optional_defect"
+            return OPTIONAL_VALUE_ADD, f"optional_{kind}"
         if severity >= 3:
-            return REQUIRED_REHAB, "defect_severity_threshold"
+            return REQUIRED_REHAB, f"{kind}_severity_threshold"
         if category in _STRUCTURAL_CATEGORIES:
             return REQUIRED_REHAB, "required_category"
         if _contains_any(text, _REQUIRED_TERMS):
             return REQUIRED_REHAB, "required_condition_signal"
+        if kind == "degradation":
+            return MARKETABILITY_REHAB, "degradation_default"
         if has_marketability:
             return MARKETABILITY_REHAB, "cosmetic_defect_marketability"
         return REQUIRED_REHAB, "defect_default"
 
+    if kind:
+        raise ValueError(
+            f"estimate_scope: unknown kind {kind!r}; "
+            "expected defect|degradation|modernization|upgrade"
+        )
+
+    # Empty kind: kindless synthetic candidates keep the v1 text fallthrough.
     if has_value_add:
         return OPTIONAL_VALUE_ADD, "value_add_signal"
     if has_marketability:
@@ -533,7 +547,7 @@ def _is_visible_required_condition(candidate: Any, catalog_item: Dict[str, Any])
     """Detect definite visible required-condition defects without ID allowlists."""
     kind = str(_get(candidate, "kind", catalog_item.get("kind", "defect")) or "").lower()
     tier = str(catalog_item.get("tier") or "").lower()
-    if kind != "defect" or tier == "optional":
+    if kind not in ("defect", "degradation") or tier == "optional":
         return False
 
     text = _catalog_text(candidate, catalog_item)
