@@ -1,0 +1,38 @@
+{
+  "status": "proposed_pending_approval",
+  "note": "Task 4A canary manifest: 18 properties, 3 per stratum, selected from the renointel-prod corpus (completed run + images on disk). Frozen only after Steven's written approval; record approval by setting status to 'frozen' with approved_by/approved_at.",
+  "selection_criteria": {
+    "eligible_pool": 821,
+    "mixed_atomic_split": "most distinct split-parent legacy ids among resolved issues",
+    "major_system_defect": "most severity>=3 defects in electrical/plumbing/hvac/roof_gutters/foundation_structure/moisture_mold",
+    "exterior_weathering": "most weathering-pattern ids in exterior trade buckets",
+    "interior_cosmetic": "most low-severity/cosmetic issues in interior buckets",
+    "modernization_only": "highest upgrade-kind share with defect share < 1/3",
+    "low_photo_count": "3-8 photos with >=2 issues"
+  },
+  "properties": [
+    { "property_key": "redfin_126224899", "stratum": "mixed_atomic_split", "baseline_reference_run": "latest", "split_parent_ids_hit": 11 },
+    { "property_key": "redfin_80990371", "stratum": "mixed_atomic_split", "baseline_reference_run": "latest", "split_parent_ids_hit": 11 },
+    { "property_key": "redfin_125779232", "stratum": "mixed_atomic_split", "baseline_reference_run": "latest", "split_parent_ids_hit": 11 },
+    { "property_key": "redfin_201296407", "stratum": "modernization_only", "baseline_reference_run": "latest" },
+    { "property_key": "redfin_201369408", "stratum": "modernization_only", "baseline_reference_run": "latest" },
+    { "property_key": "redfin_201211488", "stratum": "modernization_only", "baseline_reference_run": "latest" },
+    { "property_key": "redfin_11079485", "stratum": "low_photo_count", "baseline_reference_run": "latest" },
+    { "property_key": "redfin_10806500", "stratum": "low_photo_count", "baseline_reference_run": "latest" },
+    { "property_key": "redfin_11000447", "stratum": "low_photo_count", "baseline_reference_run": "latest" },
+    { "property_key": "redfin_166147710", "stratum": "major_system_defect", "baseline_reference_run": "latest" },
+    { "property_key": "redfin_81000709", "stratum": "major_system_defect", "baseline_reference_run": "latest" },
+    { "property_key": "redfin_125970550", "stratum": "major_system_defect", "baseline_reference_run": "latest" },
+    { "property_key": "redfin_127468088", "stratum": "exterior_weathering", "baseline_reference_run": "latest" },
+    { "property_key": "redfin_80925528", "stratum": "exterior_weathering", "baseline_reference_run": "latest" },
+    { "property_key": "redfin_126418713", "stratum": "exterior_weathering", "baseline_reference_run": "latest" },
+    { "property_key": "redfin_10952874", "stratum": "interior_cosmetic", "baseline_reference_run": "latest" },
+    { "property_key": "redfin_11077450", "stratum": "interior_cosmetic", "baseline_reference_run": "latest" },
+    { "property_key": "redfin_11185681", "stratum": "interior_cosmetic", "baseline_reference_run": "latest" }
+  ],
+  "inputs": {
+    "images_root": "C:/Users/Steven/IntelliJProjects/renointel-prod/public/images/properties/<property_key>",
+    "baseline_build": "a1972cf (worktree ../rv-legacy-a1972cf)",
+    "candidate_build": "pass_2c_redesign with KIND_ONTOLOGY_VERSION=observation_kind_v2"
+  }
+}

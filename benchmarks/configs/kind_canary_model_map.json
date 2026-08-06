@@ -1,0 +1,17 @@
+{
+  "note": "Task 4A canary model routing, applied identically to BOTH sides so only code/ontology differs. Terra on the classification passes (Task 1 decision: 2c needs Terra), 2d deliberately absent so it runs on local Qwen (Task 3 handoff item 8: Qwen matched Terra exactly on 2d), 2e is rule-based.",
+  "model_map": {
+    "1a": "gpt-5.6-terra",
+    "2a": "gpt-5.6-terra",
+    "2b": "gpt-5.6-terra",
+    "2c": "gpt-5.6-terra",
+    "2f": "gpt-5.6-terra"
+  },
+  "reasoning_map": {
+    "1a": "low",
+    "2a": "low",
+    "2b": "low",
+    "2c": "low",
+    "2f": "medium"
+  }
+}

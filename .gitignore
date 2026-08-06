@@ -146,3 +146,6 @@ vis/
 tmp/
 # Benchmark run outputs. Datasets and accepted baselines are versioned; runs are not.
 benchmark-results/
+
+# Kind-ontology canary working output (reports/ are committed; runs are not).
+artifacts_canary/
