@@ -2,7 +2,7 @@
   "benchmark": "catalog-resolution-v2",
   "schema_version": 1,
   "slice": "dev",
-  "status": "draft",
+  "status": "frozen-2026-08-05",
   "cases": [
     {
       "case_id": "res-cab-001",
@@ -1398,5 +1398,6 @@
       },
       "legacy": null
     }
-  ]
+  ],
+  "case_fingerprint": "d355313936b87c34f341c82f6ff249c30c95cf0d91160a7390675bd4f2822667"
 }

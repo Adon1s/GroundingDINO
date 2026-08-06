@@ -875,7 +875,10 @@
         "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
         "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
         "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
-      }
+      },
+      "task3_flags": [
+        "Steven (Pause B): overlaps with indoor_storage_clutter_heavy. Benchmark case res-mod-007 (\"room is cluttered with personal belongings\") retrieved indoor_storage_clutter_heavy ahead of this item, and both readings are defensible — the two concepts are not distinguishable from observation text. Inherited from v1, not introduced by the kind migration, so Task 2 leaves both items untouched and drops the ambiguous case rather than inventing a boundary. Task 3 should merge them or give them separable evidence."
+      ]
     },
     {
       "legacy_id": "baseboard_wear_scuffs",
@@ -1663,7 +1666,10 @@
         "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
         "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
         "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
-      }
+      },
+      "task3_flags": [
+        "Steven (Pause B): overlaps with indoor_storage_clutter_heavy. Benchmark case res-mod-007 (\"room is cluttered with personal belongings\") retrieved indoor_storage_clutter_heavy ahead of this item, and both readings are defensible — the two concepts are not distinguishable from observation text. Inherited from v1, not introduced by the kind migration, so Task 2 leaves both items untouched and drops the ambiguous case rather than inventing a boundary. Task 3 should merge them or give them separable evidence."
+      ]
     },
     {
       "legacy_id": "metal_carport_rust_corrosion",
