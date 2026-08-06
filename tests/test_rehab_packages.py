@@ -36,8 +36,6 @@ from tools.rehab_packages import (
     compute_package_strength,
     finalize_package_candidates,
     infer_package_candidates,
-    is_dated_cosmetic_evidence,
-    is_defect_driver,
     package_affinity_for,
     reconcile_packages_and_estimate_units,
     run_pass_2f_batch,
@@ -353,45 +351,70 @@ class TestClassifyComponent:
         assert classify_component(c) == "electrical_light"
 
 
-class TestQualifiers:
+class TestThreeKindDriverLanes:
+    """Driver dispatch under observation-kind-v2: degradation drives in the
+    defect lane (concrete deterioration evidence), modernization in the
+    opportunity lane (subjective datedness, corroboration-gated), and a
+    driver-role item with an unroutable kind fails loud instead of silently
+    vanishing from both lanes."""
 
-    def test_defect_driver_passes(self):
-        c = _candidate(catalog_item_id="x", effective_posture="repair")
-        cat = _cat_item("x", kind="defect", tier="work")
-        assert is_defect_driver(c, cat) is True
+    def _catalog(self, driver_kind):
+        return {
+            "items": [{
+                **_cat_item("worn_or_stained_carpet", kind=driver_kind,
+                            category="cosmetic"),
+                "package_role": "package_driver",
+                "package_type": "bedroom_modernization",
+                "estimate": {"estimate_tier": "high", "group": "flooring"},
+            }]
+        }
 
-    def test_defect_driver_rejects_optional(self):
-        c = _candidate(catalog_item_id="x", effective_posture="repair")
-        cat = _cat_item("x", kind="defect", tier="optional")
-        assert is_defect_driver(c, cat) is False
+    def _carpet_candidate(self, kind):
+        return _candidate(
+            catalog_item_id="worn_or_stained_carpet",
+            kind=kind,
+            trade_bucket="flooring",
+            group="bedroom",
+            room_surrogate_id="bed_1",
+            issue_ids=["i_carpet"],
+            photo_keys=["b1.jpg"],
+        )
 
-    def test_defect_driver_rejects_upgrade(self):
-        c = _candidate(catalog_item_id="x", kind="upgrade",
-                       effective_posture="repair")
-        cat = _cat_item("x", kind="upgrade", tier="work")
-        assert is_defect_driver(c, cat) is False
+    @pytest.mark.parametrize("kind", ["defect", "degradation"])
+    def test_degradation_drives_like_defect(self, kind):
+        candidates = infer_package_candidates(
+            [self._carpet_candidate(kind)],
+            [_surrogate("bed_1", "bedroom")],
+            self._catalog(kind),
+        )
+        assert len(candidates) == 1
+        assert candidates[0]["trigger_reason"] == "package_driver"
 
-    def test_defect_driver_rejects_invalid_detection(self):
-        c = _candidate(catalog_item_id="x", effective_posture="repair",
-                       is_valid_detection=False)
-        cat = _cat_item("x")
-        assert is_defect_driver(c, cat) is False
+    @pytest.mark.parametrize("kind", ["upgrade", "modernization"])
+    def test_modernization_gated_like_upgrade(self, kind):
+        c = self._carpet_candidate(kind)
+        candidates = infer_package_candidates(
+            [c], [_surrogate("bed_1", "bedroom")], self._catalog(kind),
+        )
+        # lone opportunity driver, single photo: suppressed pending corroboration
+        assert candidates == []
+        assert c.is_valid_detection is False
+        assert c.pass_2f_fallback_reason == (
+            "insufficient_corroboration_for_opportunity_driver"
+        )
 
-    def test_defect_driver_rejects_inspect_posture(self):
-        c = _candidate(catalog_item_id="x", effective_posture="inspect")
-        cat = _cat_item("x")
-        assert is_defect_driver(c, cat) is False
+    def test_unknown_driver_kind_raises(self):
+        with pytest.raises(ValueError, match="unroutable"):
+            infer_package_candidates(
+                [self._carpet_candidate("flooble")],
+                [_surrogate("bed_1", "bedroom")],
+                self._catalog("flooble"),
+            )
 
-    def test_dated_evidence_passes_for_cosmetic_upgrade(self):
-        c = _candidate(catalog_item_id="x", kind="upgrade",
-                       effective_posture="repair")
-        cat = _cat_item("x", kind="upgrade", category="cosmetic")
-        assert is_dated_cosmetic_evidence(c, cat) is True
-
-    def test_dated_evidence_rejects_defect(self):
-        c = _candidate(catalog_item_id="x", effective_posture="repair")
-        cat = _cat_item("x", kind="defect", category="cosmetic")
-        assert is_dated_cosmetic_evidence(c, cat) is False
+    def test_modernization_display_class_is_marketability(self):
+        item = _cat_item("dated_vanity_style", kind="modernization",
+                         category="cosmetic")
+        assert rp.catalog_display_class(item) == rp.DISPLAY_CLASS_MARKETABILITY
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -2704,10 +2727,12 @@ class TestBedroomLivingPackageCandidates:
         }["dated_fireplace_surround"] == "living_modernization"
 
     def test_bathroom_generic_wallpaper_is_left_to_bathroom_specific_item(self):
-        assert package_affinity_for("bathroom", "dated_wallpaper_present") is None
-
         catalog_path = Path(__file__).resolve().parents[1] / "tools" / "issue_catalog.json"
         data = json.loads(catalog_path.read_text(encoding="utf-8"))
+        shipped_table = build_package_affinity(data)
+        assert package_affinity_for(
+            "bathroom", "dated_wallpaper_present", shipped_table) is None
+
         ids = {item.get("id") for item in data.get("items", []) if isinstance(item, dict)}
         assert "dated_bathroom_wallpaper" in ids
         assert "bathroom_paint_refresh_recommended" in ids
@@ -2737,11 +2762,15 @@ class TestBedroomLivingPackageCandidates:
         ) == []
 
     def test_package_affinity_normalizes_living_area_aliases(self):
+        catalog_path = Path(__file__).resolve().parents[1] / "tools" / "issue_catalog.json"
+        shipped_table = build_package_affinity(
+            json.loads(catalog_path.read_text(encoding="utf-8"))
+        )
         assert package_affinity_for(
-            "living_areas", "popcorn_or_acoustic_ceiling_texture"
+            "living_areas", "popcorn_or_acoustic_ceiling_texture", shipped_table
         )["package_type"] == "living_modernization"
         assert package_affinity_for(
-            "living_room", "popcorn_or_acoustic_ceiling_texture"
+            "living_room", "popcorn_or_acoustic_ceiling_texture", shipped_table
         )["package_type"] == "living_modernization"
 
     # ── Issue 1: group-aware scene -> room normalization ──────────────────────

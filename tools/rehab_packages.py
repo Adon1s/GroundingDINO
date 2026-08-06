@@ -588,7 +588,7 @@ def catalog_display_class(catalog_item: Dict[str, Any]) -> str:
     ]).lower()
     if any(token in name_id for token in ("clutter", "staging", "furniture")):
         return DISPLAY_CLASS_CLUTTER
-    if str(catalog_item.get("kind") or "").lower() == "upgrade":
+    if str(catalog_item.get("kind") or "").lower() in ("upgrade", "modernization"):
         return DISPLAY_CLASS_MARKETABILITY
     trade = str(catalog_item.get("trade_bucket") or "")
     category = str(catalog_item.get("category") or "")
@@ -748,20 +748,6 @@ def build_package_affinity(
     return table
 
 
-_default_affinity_table: Optional[Dict[Tuple[str, str], Dict[str, str]]] = None
-
-
-def _default_package_affinity() -> Dict[Tuple[str, str], Dict[str, str]]:
-    """Affinity table from the shipped catalog, built once on first use."""
-    global _default_affinity_table
-    if _default_affinity_table is None:
-        catalog_path = Path(__file__).resolve().parent / "issue_catalog.json"
-        _default_affinity_table = build_package_affinity(
-            json.loads(catalog_path.read_text(encoding="utf-8"))
-        )
-    return _default_affinity_table
-
-
 def catalog_package_category(catalog_item: Dict[str, Any]) -> Optional[str]:
     raw = str(catalog_item.get("package_category") or "").strip().lower()
     if raw in VALID_PACKAGE_CATEGORIES:
@@ -793,9 +779,13 @@ def catalog_room(catalog_item: Dict[str, Any]) -> Optional[str]:
 def package_affinity_for(
     scene_group: str,
     issue_id: str,
-    table: Optional[Dict[Tuple[str, str], Dict[str, str]]] = None,
+    table: Dict[Tuple[str, str], Dict[str, str]],
 ) -> Optional[Dict[str, str]]:
     """Resolve the affinity entry for an issue observed in a scene.
+
+    The table is required and comes from build_package_affinity on the catalog
+    actually in play — a defaulted table silently routed against the shipped
+    v1 catalog's ids.
 
     Exact (room, issue_id) hits win. When the scene does not resolve to a
     package room (no surrogate, "other", hallway/stairway) and the issue's
@@ -805,8 +795,6 @@ def package_affinity_for(
     a scene; the scene-mismatch guard in infer_package_candidates still
     protects this fallback when a contradicting surrogate scene exists.
     """
-    if table is None:
-        table = _default_package_affinity()
     issue = str(issue_id or "").strip()
     if not issue:
         return None
@@ -837,7 +825,7 @@ def _catalog_item_with_package_affinity(
     catalog_item: Dict[str, Any],
     candidate: EstimateCandidate,
     scene_by_room: Dict[str, str],
-    affinity_table: Optional[Dict[Tuple[str, str], Dict[str, str]]] = None,
+    affinity_table: Dict[Tuple[str, str], Dict[str, str]],
 ) -> Dict[str, Any]:
     scene_room = _candidate_scene_room(candidate, scene_by_room)
     affinity = package_affinity_for(
@@ -1178,52 +1166,11 @@ def _append_invalid_cost_model_warnings(
         })
 
 
-def is_defect_driver(
-    candidate: EstimateCandidate,
-    catalog_item: Dict[str, Any],
-) -> bool:
-    """Real defect that can drive a partial/full rehab package."""
-    if candidate.is_valid_detection is False:
-        return False
-    if catalog_item.get("kind") != "defect":
-        return False
-    if catalog_item.get("tier") == _OPTIONAL_TIER:
-        return False
-    if _effective_posture(candidate) not in _QUALIFIED_POSTURES:
-        return False
-    return True
-
-
-def is_dated_cosmetic_evidence(
-    candidate: EstimateCandidate,
-    catalog_item: Dict[str, Any],
-) -> bool:
-    """Upgrade-kind cosmetic/opportunity item, used ONLY as refresh evidence."""
-    if candidate.is_valid_detection is False:
-        return False
-    if catalog_item.get("tier") == _OPTIONAL_TIER:
-        return False
-    if _effective_posture(candidate) not in _QUALIFIED_POSTURES:
-        return False
-    if catalog_item.get("kind") != "upgrade":
-        return False
-    return catalog_item.get("category") in ("cosmetic", "opportunity")
-
-
-def _is_defect_driver_role(catalog_item: Dict[str, Any]) -> bool:
-    """A package_driver whose evidence is a concrete observable defect."""
-    return (
-        catalog_package_role(catalog_item) == PACKAGE_ROLE_DRIVER
-        and catalog_item.get("kind") == "defect"
-    )
-
-
-def _is_opportunity_driver(catalog_item: Dict[str, Any]) -> bool:
-    """A package_driver whose evidence is a subjective marketability judgment."""
-    return (
-        catalog_package_role(catalog_item) == PACKAGE_ROLE_DRIVER
-        and catalog_item.get("kind") == "upgrade"
-    )
+# Driver lanes by kind. Visible deterioration (defect, degradation) is concrete
+# evidence and drives packages directly; datedness (upgrade legacy, modernization)
+# is a subjective judgment and must pass the opportunity corroboration gate.
+_DEFECT_DRIVER_KINDS = frozenset({"defect", "degradation"})
+_OPPORTUNITY_DRIVER_KINDS = frozenset({"upgrade", "modernization"})
 
 
 def _suppress_blocked_opportunity_drivers(
@@ -2097,11 +2044,21 @@ def infer_package_candidates(
                 candidate_catalog_meta.get(id(candidate))
                 or catalog_lookup.get(candidate.catalog_item_id or "", {})
             )
-            if _is_defect_driver_role(cat_item):
-                defect_drivers.append(candidate)
-            elif _is_opportunity_driver(cat_item):
-                opportunity_drivers.append(candidate)
-            elif catalog_package_role(cat_item) == PACKAGE_ROLE_SUPPORT:
+            role = catalog_package_role(cat_item)
+            if role == PACKAGE_ROLE_DRIVER:
+                kind = cat_item.get("kind")
+                if kind in _DEFECT_DRIVER_KINDS:
+                    defect_drivers.append(candidate)
+                elif kind in _OPPORTUNITY_DRIVER_KINDS:
+                    opportunity_drivers.append(candidate)
+                else:
+                    # A driver silently vanishing from both lanes is exactly the
+                    # two-kind failure mode this dispatch replaces.
+                    raise ValueError(
+                        f"package driver {cat_item.get('id')!r} has unroutable "
+                        f"kind {kind!r}"
+                    )
+            elif role == PACKAGE_ROLE_SUPPORT:
                 supports.append(candidate)
 
         distinct_opportunity_ids = {

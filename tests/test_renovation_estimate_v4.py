@@ -1072,6 +1072,17 @@ class TestEstimateScopeModes:
             assert classify_estimate_scope(candidate, item, None) == MARKETABILITY_REHAB
             assert candidate.estimate_scope == MARKETABILITY_REHAB
 
+    def test_modernization_kind_also_derives_room_allowance(self):
+        # observation-kind-v2: modernization inherits the upgrade room-allowance
+        # derivation (the provenance string is a frozen v1 artifact label).
+        model, source = derive_cost_model({
+            "id": "dated_bathroom_flooring_style",
+            "kind": "modernization",
+            "estimate": {"unit_policy": "per_bathroom"},
+        }, None)
+        assert model == ROOM_ALLOWANCE
+        assert source == COST_MODEL_SOURCE_DERIVED_UPGRADE_ROOM_ALLOWANCE
+
     def test_untagged_and_unknown_cost_models_default_to_line_item(self):
         unknown_model, unknown_source = derive_cost_model({}, None)
         assert unknown_model == LINE_ITEM

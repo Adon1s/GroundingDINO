@@ -66,7 +66,7 @@ def derive_cost_model(
             return str(explicit), COST_MODEL_SOURCE_CATALOG
         return LINE_ITEM, COST_MODEL_SOURCE_INVALID_CATALOG_FALLBACK
 
-    if catalog_item.get("kind") == "upgrade":
+    if catalog_item.get("kind") in ("upgrade", "modernization"):
         unit_policy = estimate.get("unit_policy") if isinstance(estimate, dict) else None
         if unit_policy in _ROOM_ALLOWANCE_POLICIES:
             return ROOM_ALLOWANCE, COST_MODEL_SOURCE_DERIVED_UPGRADE_ROOM_ALLOWANCE
