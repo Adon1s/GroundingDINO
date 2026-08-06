@@ -69,10 +69,10 @@ class FakeOrchestratorClient:
         return "{}"
 
 
-# observation-kind-v2 (Task 2): Pass 2d runs only under the catalog-resolution
-# benchmark mode. These tests drive that mode so the fail-closed retrieval
-# policy and one-row-per-observation debug contract stay pinned; production
-# runs still stop after Pass 2c.
+# observation-kind-v2: Pass 2d runs under the catalog-resolution benchmark
+# mode and (since Task 4A) the publish mode. These tests drive benchmark mode
+# so the fail-closed retrieval policy and one-row-per-observation debug
+# contract stay pinned; the publish-mode dispatch contract is pinned below.
 BENCHMARK_MODE = "catalog_resolution_benchmark"
 
 
@@ -359,6 +359,21 @@ def test_benchmark_mode_gate_counts_are_three_kind():
     summary = _analyze(_two_arg).debug["pass_2d_summary"]
     assert summary["resolved_by_kind"] == {"defect": 0, "degradation": 1, "modernization": 0}
     assert summary["resolved_total"] == 1
+
+
+def test_publish_mode_resolves_and_is_publishable():
+    """Task 4A: publish mode runs the full 2c -> 2d -> 2e chain and is the one
+    mode whose results are not marked classification_only."""
+    result = _analyze(_two_arg, SceneClassifierRunOptions(pipeline_mode="publish"))
+
+    assert result.debug["pipeline_mode"] == "publish"
+    assert result.classification_only is False
+    assert "classification_only" not in result.debug
+    assert [row["resolved_item_id"] for row in result.resolved_items] == [
+        "roof_shingles_aged_or_worn"
+    ]
+    assert '2e' in result.passes_run
+    assert result.verified_issues[0]["catalogItemId"] == "roof_shingles_aged_or_worn"
 
 
 def test_unknown_pipeline_mode_is_rejected():

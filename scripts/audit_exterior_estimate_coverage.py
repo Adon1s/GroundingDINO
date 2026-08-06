@@ -237,9 +237,18 @@ def audit_artifact(
             "reason": "stored packages carry no replayable verification",
         }
 
+    # The engine fails loud on resolved ids the catalog doesn't know (Task 4A);
+    # this observe-only walk tolerates them by design — they are counted below
+    # as unmatched_issue_occurrences, and only matched issues are recomputed.
+    matched_issues = [
+        issue for issue in issues
+        if not issue.get("catalog_item_id")
+        or str(issue.get("catalog_item_id")) in catalog_lookup
+    ]
+
     try:
         recomputed = compute_renovation_estimate_v4(
-            issues_flat=issues,
+            issues_flat=matched_issues,
             issue_catalog=issue_catalog,
             photos=artifact.get("photos") or {},
             property_metadata=(

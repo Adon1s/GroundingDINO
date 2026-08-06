@@ -477,8 +477,17 @@ def extract_estimate_candidates(
     grouped: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = {}
     for issue in (issues_flat or []):
         cat_id = issue.get("catalog_item_id")
-        if not cat_id or cat_id not in catalog_lookup:
+        if not cat_id:
             continue
+        if cat_id not in catalog_lookup:
+            # A resolved id the catalog doesn't know is stale data (e.g. a
+            # legacy id against the v2 catalog); dropping it would silently
+            # shrink the estimate. Migrate the artifact instead.
+            raise ValueError(
+                f"renovation_estimate: issue resolves to unknown/stale catalog "
+                f"id {cat_id!r}, absent from the selected catalog "
+                f"(version {issue_catalog.get('version')!r})."
+            )
         # Defense-in-depth: callers should already feed product lanes, but a
         # quarantined trade must never become a candidate regardless of caller.
         if str(catalog_lookup[cat_id].get("trade_bucket") or "") in quarantined_trades:

@@ -363,7 +363,17 @@ def compute_scoring(
     has_speculative = False
     unresolved_count = 0
     for issue in issues_flat or []:
-        cat_id = issue.get("catalog_item_id") or issue.get("issue_id") or issue.get("id")
+        resolved_id = issue.get("catalog_item_id")
+        if resolved_id and resolved_id not in catalog_lookup:
+            # A resolved id the catalog doesn't know is stale data (e.g. a
+            # legacy id against the v2 catalog), not an unresolved issue.
+            # Silently dropping it would understate scoring; migrate instead.
+            raise CatalogDataError(
+                f"scoring: issue resolves to unknown/stale catalog id "
+                f"{resolved_id!r}, absent from the selected catalog "
+                f"(version {issue_catalog.get('version')!r})."
+            )
+        cat_id = resolved_id or issue.get("issue_id") or issue.get("id")
         if not cat_id or cat_id not in catalog_lookup:
             unresolved_count += 1
             continue

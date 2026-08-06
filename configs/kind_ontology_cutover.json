@@ -1,0 +1,26 @@
+{
+  "rollout": {
+    "default": "legacy_v1",
+    "production_switch": "KIND_ONTOLOGY_VERSION=observation_kind_v2",
+    "rollback_switch": "KIND_ONTOLOGY_VERSION=legacy_v1",
+    "observation_window_days": 7,
+    "observation_window_starts": "at_production_enablement",
+    "retire_legacy": "task_4C_after_observation_review_and_4B_acceptance"
+  },
+  "minimum_canary_properties": 18,
+  "minimum_per_stratum": 3,
+  "representative_strata": [
+    "interior_cosmetic",
+    "exterior_weathering",
+    "major_system_defect",
+    "mixed_atomic_split",
+    "modernization_only",
+    "low_photo_count"
+  ],
+  "thresholds": {
+    "max_unresolved_rate_increase": 0.02,
+    "max_estimate_coverage_drop": 0.05,
+    "max_unapproved_headline_delta": 0.15
+  },
+  "approved_headline_deltas": {}
+}
