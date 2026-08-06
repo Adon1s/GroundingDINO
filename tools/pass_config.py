@@ -26,6 +26,19 @@ ReasoningEffort: TypeAlias = Literal['none', 'low', 'medium', 'high', 'xhigh', '
 FailureMode: TypeAlias = Literal['strict', 'collect']
 ALLOWED_FAILURE_MODES: frozenset[str] = frozenset({'strict', 'collect'})
 
+# How far the pipeline runs under observation-kind-v2.
+#   classification_only            - stop after Pass 2c (every production path)
+#   catalog_resolution_benchmark   - additionally run the strict exact-kind
+#                                    Pass 2d, for benchmarking the v2 catalog
+# Results are non-publishable in BOTH modes and Pass 2e never runs; only the
+# benchmark constructs options directly, so production cannot reach 2d.
+PipelineMode: TypeAlias = Literal['classification_only', 'catalog_resolution_benchmark']
+PIPELINE_MODE_CLASSIFICATION_ONLY: PipelineMode = 'classification_only'
+PIPELINE_MODE_CATALOG_RESOLUTION_BENCHMARK: PipelineMode = 'catalog_resolution_benchmark'
+ALLOWED_PIPELINE_MODES: frozenset[str] = frozenset(
+    {PIPELINE_MODE_CLASSIFICATION_ONLY, PIPELINE_MODE_CATALOG_RESOLUTION_BENCHMARK}
+)
+
 # All valid pass keys (in execution order). Every pass here is enabled by
 # default; there is no dormant/legacy tier.
 ALL_PASSES: tuple[PassKey, ...] = ('1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f')
@@ -266,6 +279,10 @@ class SceneClassifierRunOptions:
     #   collect - record the error on the result and stop that image's passes
     # 'collect' is for tests and diagnostics; paid runs are always strict.
     failure_mode: FailureMode = 'strict'
+    # observation-kind-v2 pipeline depth. Deliberately NOT settable through
+    # from_analysis_profile: production entry points build options that way, so
+    # only direct construction (benchmark, tests) can reach Pass 2d.
+    pipeline_mode: PipelineMode = PIPELINE_MODE_CLASSIFICATION_ONLY
     # Runtime metadata (run_id, property_key, photo_key, etc.)
     # Used by the orchestrator to build deterministic issue_ids per image.
     meta: Dict[str, Any] = field(default_factory=dict)

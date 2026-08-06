@@ -38,6 +38,8 @@ except ImportError:
 from tools.pipeline_common import SCENE_TO_GROUP_UI
 
 from tools.pass_config import (
+    ALLOWED_PIPELINE_MODES,
+    PIPELINE_MODE_CLASSIFICATION_ONLY,
     PassKey,
     PassToggles,
     PassModelOverrides,
@@ -50,26 +52,23 @@ from tools.pass_config import (
 
 from tools.scene_classifier_passes import (
     EXCLUSION_REASONS,
-    KindRoutingDecision,
     OBSERVATION_KINDS,
     ONTOLOGY_VERSION,
     PASS_2B_PROMPT_SHA256,
     PASS_2B_PROMPT_VERSION,
     PASS_2C_PROMPT_SHA256,
     PASS_2C_PROMPT_VERSION,
+    PASS_2D_PROMPT_SHA256,
+    PASS_2D_PROMPT_VERSION,
     Pass1aResult,
     Pass1bResult,
     Pass1cResult,
     Pass2aResult,
     Pass2bResult,
     Pass2cResult,
-    Pass2cShadowDecision,
     Pass2dResult,
     Pass2eResult,
     evaluate_kind_routing,
-    evaluate_pass_2c_shadow_candidate,
-    has_physical_condition_signal,
-    prioritize_resolution_candidates,
     PassExecutionError,
     _pass_failure,
     run_pass_1a_scene_type,
@@ -129,13 +128,177 @@ def _retrieve_candidates(
     """Call the candidate provider once, tolerating the legacy one-arg signature.
 
     Returns ``(raw_result, legacy_note)``. Exceptions are deliberately *not*
-    swallowed — Pass 2d treats a retrieval failure as a dependency failure while
-    the shadow lane treats it as skippable, so each caller applies its own
-    policy.
+    swallowed — the caller applies its own policy (Pass 2d treats a retrieval
+    failure as a dependency failure).
     """
     if _provider_accepts_context(provider):
         return provider(description, context), None
     return provider(description), PROVIDER_IGNORED_CONTEXT
+
+
+async def resolve_observation_against_catalog(
+    *,
+    vlm_client: Any,
+    model_config: Dict[str, Any],
+    candidate_provider: Callable[..., Any],
+    observation: Dict[str, Any],
+    base_context: Optional[Dict[str, Any]] = None,
+    top_k: int = 8,
+    source_image_path: str = "",
+) -> tuple[Optional[Dict[str, Any]], Dict[str, Any], Optional[Pass2dResult]]:
+    """Resolve one Pass 2c observation to a catalog item under strict exact-kind retrieval.
+
+    Returns ``(resolved_row | None, debug_row, pass_2d_result | None)``. Exactly
+    one debug row is produced per call, whatever the outcome.
+
+    Fail-closed points, both raising ``PassExecutionError`` rather than
+    degrading quietly:
+
+    - an observation kind outside the ontology fails **before** any retrieval;
+    - a candidate whose kind differs from the observation's is a broken filter,
+      not a ranking nuisance — the whole point of exact-kind routing is that the
+      pool is pure, so a leak must be loud.
+
+    Shared by the orchestrator's benchmark-mode loop and the catalog-resolution
+    benchmark, so the benchmark measures the production resolution path.
+    """
+    description = (observation.get("description") or "").strip()
+    kind = (observation.get("kind") or "").strip().lower()
+    scene_group = observation.get("scene_group") or (base_context or {}).get("scene_group")
+
+    debug_row: Dict[str, Any] = {
+        "observation": description,
+        "kind": kind,
+        "scene_group": scene_group,
+        "candidate_count": 0,
+        "skipped_reason": None,
+        "top_candidate_id": None,
+        "top_candidate_score": None,
+        "routing_reason": None,
+        "resolution_path": None,
+        "shortcut_reason": None,
+    }
+
+    routing = evaluate_kind_routing(description, kind)
+    debug_row["routing_reason"] = routing.reason
+    if not routing.expanded_kinds:
+        # Never retrieve on an invalid kind: an empty allowed-kinds set is the
+        # one input that used to fall through as "search everything".
+        raise PassExecutionError(
+            '2d', 'parse',
+            f"observation kind {kind!r} is not in the observation-kind-v2 ontology "
+            f"{sorted(OBSERVATION_KINDS)}",
+            code="invalid_kind",
+        )
+
+    ctx_for_provider = {
+        **(base_context or {}),
+        "kind": kind,
+        "allowed_kinds": list(routing.expanded_kinds),
+        "top_k_candidates": top_k,
+        "scene_group": scene_group,
+    }
+
+    # A retrieval failure is a dependency failure, not "no candidates": skipping
+    # it here would zero out this observation and read downstream as a photo
+    # with nothing to resolve.
+    try:
+        candidates, legacy_note = _retrieve_candidates(
+            candidate_provider, description, ctx_for_provider,
+        )
+    except Exception as exc:
+        raise _pass_failure('2d', 'dependency', exc, model_config) from exc
+    if legacy_note:
+        debug_row["skipped_reason"] = legacy_note
+
+    if hasattr(candidates, "__await__"):
+        debug_row["skipped_reason"] = (
+            "candidate_provider_returned_coroutine (provider must be sync or await it here)"
+        )
+        return None, debug_row, None
+
+    if not isinstance(candidates, list):
+        debug_row["skipped_reason"] = (
+            f"candidate_provider_returned_nonlist ({type(candidates).__name__})"
+        )
+        return None, debug_row, None
+
+    debug_row["candidate_count"] = len(candidates)
+    if not candidates:
+        debug_row["skipped_reason"] = "no_candidates"
+        return None, debug_row, None
+
+    candidates = candidates[:top_k]
+
+    off_kind = sorted({
+        str(c.get("kind") or "") for c in candidates
+        if (c.get("kind") or "").strip().lower() != kind
+    })
+    if off_kind:
+        raise PassExecutionError(
+            '2d', 'dependency',
+            f"candidate provider returned kinds {off_kind} for a {kind!r} observation; "
+            "exact-kind retrieval requires a pure candidate pool",
+            code="kind_purity_violation",
+        )
+
+    top_candidate = candidates[0]
+    debug_row["top_candidate_id"] = (
+        top_candidate.get("item_id")
+        or top_candidate.get("defect_id")
+        or top_candidate.get("upgrade_id")
+        or top_candidate.get("id")
+    )
+    debug_row["top_candidate_score"] = top_candidate.get("score")
+
+    pass_2d_result = await run_pass_2d(
+        vlm_client=vlm_client,
+        model_config=model_config,
+        observation=description,
+        candidates=candidates,
+        kind=kind,
+    )
+    debug_row["resolution_path"] = pass_2d_result.resolution_path
+    debug_row["shortcut_reason"] = pass_2d_result.shortcut_reason
+
+    issue_id = (observation.get("issue_id") or "").strip()
+    if not issue_id:
+        # issue_id is stamped during Pass 2c; missing means something went wrong
+        # upstream. The row is returned once — the caller appends it.
+        debug_row["skipped_reason"] = "missing_issue_id (expected stamped in 2c)"
+        return None, debug_row, pass_2d_result
+
+    row = {
+        "issue_id": issue_id,
+        "source_image_path": source_image_path,
+        "source_photo_key": (
+            observation.get("source_photo_key") or _photo_key_from_path(source_image_path)
+        ),
+        "description": description,
+        "resolved_item_id": pass_2d_result.resolved_item_id,
+        "resolved_kind": pass_2d_result.resolved_kind or kind,
+        "original_kind": kind,
+        "routing_reason": routing.reason,
+        "resolution_path": pass_2d_result.resolution_path,
+        "shortcut_reason": pass_2d_result.shortcut_reason,
+        # Candidates kept for auditability (score retained for unmapped-issue debugging)
+        "candidates": [
+            {
+                "item_id": c.get("item_id"),
+                "name": c.get("name"),
+                "trade_bucket": c.get("trade_bucket"),
+                "kind": c.get("kind"),
+                "score": c.get("score"),
+                "description": c.get("description"),
+                "support_any": c.get("support_any"),
+                "defaultHidden": c.get("defaultHidden"),
+                "drop_if_generic": c.get("drop_if_generic"),
+            }
+            for c in candidates
+        ],
+        "raw_response": pass_2d_result.raw_response,
+    }
+    return row, debug_row, pass_2d_result
 
 
 def _stable_hash_id(*parts: str, length: int = 16) -> str:
@@ -678,19 +841,27 @@ class SceneClassifierOrchestrator:
             result.models_used['2c'] = model_name
 
         # ─────────────────────────────────────────────────────────────────────
-        # observation-kind-v2: classification-only stop
+        # observation-kind-v2: pipeline mode dispatch
         # ─────────────────────────────────────────────────────────────────────
-        # The pipeline ends here until the catalog migration (Task 2) and
-        # downstream cutover (Task 3) land. Everything below — the shadow lane,
-        # Pass 2d resolution, and Pass 2e normalization — is dormant: it still
-        # consumes the retired v1 label vocabulary and the two-kind catalog,
-        # and must not run against three-kind observations. _finalize marks
-        # 2d/2e "skipped". Results are non-publishable: write_photo_intel
-        # rejects classification_only payloads.
+        # Normal analysis ends after Pass 2c. Catalog-resolution benchmarking may
+        # additionally run the strict exact-kind Pass 2d below, but results stay
+        # classification_only (non-publishable) in BOTH modes and Pass 2e never
+        # runs until the Task 3 cutover. write_photo_intel rejects these payloads.
+        mode = getattr(options, "pipeline_mode", PIPELINE_MODE_CLASSIFICATION_ONLY)
+        if mode not in ALLOWED_PIPELINE_MODES:
+            raise ValueError(
+                f"unsupported pipeline_mode: {mode!r}; "
+                f"expected one of {sorted(ALLOWED_PIPELINE_MODES)}"
+            )
+
         result.classification_only = True
+        result.debug["pipeline_mode"] = mode
         result.debug["classification_only"] = {
             "reason": "classification_only_v2",
-            "detail": "observation-kind-v2 pipeline ends after Pass 2c until Task 2/3 land",
+            "detail": (
+                "observation-kind-v2 results are non-publishable until the Task 3 "
+                f"cutover (pipeline_mode={mode})"
+            ),
         }
         result.debug["ontology"] = {
             "ontology_version": ONTOLOGY_VERSION,
@@ -698,400 +869,47 @@ class SceneClassifierOrchestrator:
             "pass_2b_prompt_sha256": PASS_2B_PROMPT_SHA256,
             "pass_2c_prompt_version": PASS_2C_PROMPT_VERSION,
             "pass_2c_prompt_sha256": PASS_2C_PROMPT_SHA256,
+            "pass_2d_prompt_version": PASS_2D_PROMPT_VERSION,
+            "pass_2d_prompt_sha256": PASS_2D_PROMPT_SHA256,
         }
-        return
+        if mode == PIPELINE_MODE_CLASSIFICATION_ONLY:
+            return
 
         # ─────────────────────────────────────────────────────────────────────
-        # Pass 2d: Resolve catalog item ID from candidates (text-only, optional)
+        # Pass 2d: strict exact-kind catalog resolution (benchmark mode only)
         # ─────────────────────────────────────────────────────────────────────
-
-        # ── Normalize kind + scene_group on every labeled_forward item ────────
-        # Must happen before 2d gate so gating and retrieval use consistent values.
-        # Ensures consistent values for gating and retrieval.
-        _UPGRADE_LABELS = {
-            "opportunity", "upgrade", "improvement", "cosmetic_upgrade",
-            "feature", "upgrade_candidate",
-        }
-
-        def _label_to_kind(lbl: str) -> str:
-            return "upgrade" if (lbl or "").strip().lower() in _UPGRADE_LABELS else "defect"
-
+        # Consumes Pass 2c observations directly: kind is assigned by the v2
+        # contract, so there is no label mapping, no kind coercion, and no
+        # shadow lane. Retrieval searches exactly the observation's kind.
         _scene_for_2d = result.scene or "unknown"
         _scene_group_for_2d = SCENE_TO_GROUP_UI.get(_scene_for_2d, "other")
 
-        # ─────────────────────────────────────────────────────────────────────
-        # Pass 2c shadow lane (between Pass 2c and Pass 2d)
-        # -----------------------------------------------------------------
-        # Re-checks observations Pass 2c labeled as `generic_presence` (and any
-        # other label in cfg.SHADOW_LANE_LABELS) that nonetheless carry physical-
-        # condition language. Retrieves matcher candidates with widened kinds
-        # and decides whether a specific non-generic catalog item clearly beats
-        # broad style/dated alternatives. Always logs an audit row to
-        # result.debug["shadow_lane"]; only mutates labeled_forward when
-        # cfg.SHADOW_LANE_PROMOTE is on (default OFF — log-only first deploy).
-        # ─────────────────────────────────────────────────────────────────────
-        _shadow_lane_enabled = (
-            cfg is not None
-            and getattr(cfg, "SHADOW_LANE_ENABLED", False)
-            and self.candidate_provider is not None
-            and result.pass_2c is not None
-        )
-        if _shadow_lane_enabled:
-            _shadow_promote = bool(getattr(cfg, "SHADOW_LANE_PROMOTE", False))
-            _shadow_labels = set(getattr(cfg, "SHADOW_LANE_LABELS", ["generic_presence"]) or [])
-            _shadow_min_score = float(getattr(cfg, "SHADOW_LANE_MIN_SCORE", 0.72))
-            _shadow_min_margin = float(getattr(cfg, "SHADOW_LANE_MIN_MARGIN", 0.03))
-            _shadow_min_specific_over_generic = float(
-                getattr(cfg, "SHADOW_LANE_MIN_SPECIFIC_OVER_GENERIC", 0.02)
-            )
+        observations = [
+            obs for obs in (result.observations or [])
+            if isinstance(obs, dict) and (obs.get("description") or "").strip()
+        ]
+        to_resolve_all = observations[:self.max_resolve_per_image]
 
-            _shadow_inputs: List[Dict[str, Any]] = [
-                obs for obs in (result.labeled_debug or [])
-                if isinstance(obs, dict)
-                and (obs.get("label") or "").strip().lower() in _shadow_labels
-                and has_physical_condition_signal(obs.get("description") or "")
-            ]
-            _shadow_rows: List[Dict[str, Any]] = []
-            _shadow_promoted_extras: List[Dict[str, Any]] = []
-
-            _shadow_base_ctx = {
-                **context,
-                "top_k_candidates": self.top_k_candidates,
-                "scene": result.scene,
-                "scene_group": _scene_group_for_2d,
-            }
-
-            for _shadow_obs in _shadow_inputs:
-                _shadow_desc = (_shadow_obs.get("description") or "").strip()
-                if not _shadow_desc:
-                    continue
-                _shadow_label = (_shadow_obs.get("label") or "").strip().lower()
-                _shadow_ctx = {
-                    **_shadow_base_ctx,
-                    "kind": "defect",                         # nominal; widened below
-                    "allowed_kinds": ["defect", "upgrade"],
-                }
-
-                # Retrieve candidates via the same provider Pass 2d uses. This is
-                # a log-only audit lane, so a retrieval failure skips the
-                # observation instead of failing the run the way Pass 2d does.
-                try:
-                    _shadow_candidates, _ = _retrieve_candidates(
-                        self.candidate_provider, _shadow_desc, _shadow_ctx,
-                    )
-                except Exception as _shadow_e:
-                    logger.debug(
-                        "Shadow lane: candidate_provider raised for %r (%s)",
-                        _shadow_desc[:60], _shadow_e,
-                    )
-                    _shadow_candidates = []
-                if hasattr(_shadow_candidates, "__await__"):
-                    # Provider returned a coroutine — same defensive check Pass 2d does.
-                    _shadow_candidates = []
-                if not isinstance(_shadow_candidates, list):
-                    _shadow_candidates = []
-                _shadow_candidates = prioritize_resolution_candidates(
-                    _shadow_candidates, widened_routing=True,
-                )
-                _shadow_candidates = _shadow_candidates[: self.top_k_candidates]
-
-                _decision: Pass2cShadowDecision = evaluate_pass_2c_shadow_candidate(
-                    _shadow_desc,
-                    _shadow_candidates,
-                    min_score=_shadow_min_score,
-                    min_margin=_shadow_min_margin,
-                    min_specific_over_generic=_shadow_min_specific_over_generic,
-                    label=_shadow_label,
-                )
-                _shadow_rows.append(asdict(_decision))
-
-                if _decision.promoted and _shadow_promote:
-                    _promoted = dict(_shadow_obs)  # copy so labeled_debug is untouched
-                    _promoted["label"] = (
-                        "defect_or_damage"
-                        if _decision.top_specific_kind == "defect"
-                        else "upgrade_candidate"
-                    )
-                    _promoted["kind"] = _decision.top_specific_kind
-                    _promoted["source"] = "shadow_lane"
-                    _promoted["shadow_top_specific_id"] = _decision.top_specific_id
-                    _promoted["shadow_top_specific_score"] = _decision.top_specific_score
-                    _shadow_promoted_extras.append(_promoted)
-
-            # Stamp issue_id / source_photo_key on promoted shadows using the
-            # same scheme as the Pass 2c block above. _run_id, _photo_key, and
-            # _sig_counts were defined inside the `if self._t(toggles, '2c'):`
-            # block; they're function-scoped so they're visible here.
-            for _obs in _shadow_promoted_extras:
-                _desc = (_obs.get("description") or "").strip()
-                _label = (_obs.get("label") or "").strip()
-                _loc = (_obs.get("location_hint") or "").strip()
-                _sig = (_desc, _loc, _label)
-                _ordinal = _sig_counts.get(_sig, 0)
-                _sig_counts[_sig] = _ordinal + 1
-                if not _obs.get("issue_id"):
-                    _obs["issue_id"] = _make_issue_id(
-                        _run_id, _photo_key, _desc, _loc, _label, _ordinal,
-                    )
-                _obs.setdefault("source_photo_key", _photo_key)
-
-            if _shadow_promoted_extras:
-                result.labeled_forward = list(result.labeled_forward or []) + _shadow_promoted_extras
-                context["labeled_forward"] = result.labeled_forward
-
-            _shadow_promoted_count = sum(1 for r in _shadow_rows if r.get("promoted"))
-            result.debug["shadow_lane"] = {
-                "enabled": True,
-                "promote": _shadow_promote,
-                "labels_scoped": sorted(_shadow_labels),
-                "min_score": _shadow_min_score,
-                "min_margin": _shadow_min_margin,
-                "min_specific_over_generic": _shadow_min_specific_over_generic,
-                "evaluated_count": len(_shadow_rows),
-                "promoted_count": _shadow_promoted_count,
-                "applied_count": len(_shadow_promoted_extras),
-                "per_observation": _shadow_rows,
-            }
-            logger.info(
-                "Shadow lane: evaluated=%d promoted=%d applied=%d (promote=%s, labels=%s)",
-                len(_shadow_rows),
-                _shadow_promoted_count,
-                len(_shadow_promoted_extras),
-                _shadow_promote,
-                ",".join(sorted(_shadow_labels)),
-            )
-        else:
-            result.debug["shadow_lane"] = {
-                "enabled": False,
-                "reason": (
-                    "no_pass_2c" if (result.pass_2c is None) else
-                    "no_provider" if (self.candidate_provider is None) else
-                    "config_disabled"
-                ),
-            }
-
-        for _obs in (result.labeled_forward or []):
-            if not isinstance(_obs, dict):
-                continue
-            # Trust existing kind if already valid; derive from label otherwise
-            _existing_kind = (_obs.get("kind") or "").strip().lower()
-            _obs["kind"] = _existing_kind if _existing_kind in {"defect", "upgrade"} else _label_to_kind(_obs.get("label", ""))
-            # Stamp scene_group so candidate_provider can gate retrieval
-            _obs.setdefault("scene_group", _scene_group_for_2d)
-            _obs.setdefault("scene", _scene_for_2d)
         pass_2d_toggle = self._t(toggles, "2d", default=True)
         pass_2d_provider_present = self.candidate_provider is not None
-
-        labeled_forward = result.labeled_forward or []
-        to_resolve_all = [
-            obs for obs in labeled_forward
-            if obs.get("kind") in {"defect", "upgrade"} and (obs.get("description") or "").strip()
-        ][:self.max_resolve_per_image]
-
-        # Persist into JSON so you can see it via website artifact
+        by_kind = {
+            kind: sum(1 for obs in observations if obs.get("kind") == kind)
+            for kind in sorted(OBSERVATION_KINDS)
+        }
         result.debug["pass_2d_gate"] = {
             "toggle": pass_2d_toggle,
             "candidate_provider_present": pass_2d_provider_present,
-            "labeled_forward_count": len(labeled_forward),
-            "defect_forward_count": len([x for x in labeled_forward if x.get("kind") == "defect"]),
-            "upgrade_forward_count": len([x for x in labeled_forward if x.get("kind") == "upgrade"]),
+            "observation_count": len(observations),
+            "by_kind": by_kind,
             "total_resolve_count": len(to_resolve_all),
         }
-
-        # Use INFO so it shows up in typical web logs
         logger.info(
-            "Pass 2d gate: toggle=%s provider=%s labeled_forward=%d defects=%d upgrades=%d total_resolve=%d",
-            pass_2d_toggle,
-            pass_2d_provider_present,
-            result.debug["pass_2d_gate"]["labeled_forward_count"],
-            result.debug["pass_2d_gate"]["defect_forward_count"],
-            result.debug["pass_2d_gate"]["upgrade_forward_count"],
-            result.debug["pass_2d_gate"]["total_resolve_count"],
+            "Pass 2d gate: toggle=%s provider=%s observations=%d by_kind=%s total_resolve=%d",
+            pass_2d_toggle, pass_2d_provider_present, len(observations),
+            by_kind, len(to_resolve_all),
         )
 
-        if pass_2d_toggle and pass_2d_provider_present and to_resolve_all:
-            model_config = self._get_model_config('2d', options)
-            model_name = self._get_model_name('2d', options)
-            self._record_model_routing('2d', options, model_config, result)
-
-            logger.debug(f"Running Pass 2d with {model_name} for {len(to_resolve_all)} observations")
-            t0 = time.perf_counter()
-
-            pass_2d_results: List[Pass2dResult] = []
-            resolved_items: List[Dict[str, Any]] = []    # unified list (defects + upgrades)
-
-            # Base context for candidate provider — include scene so provider can gate retrieval
-            base_ctx_for_provider = {
-                **context,
-                "top_k_candidates": self.top_k_candidates,
-                "scene": result.scene,
-                "scene_group": _scene_group_for_2d,
-            }
-
-            # Initialize per-observation debug list
-            result.debug["pass_2d_per_observation"] = []
-
-            for obs in to_resolve_all:
-                description = (obs.get("description") or "").strip()
-                if not description:
-                    continue
-
-                kind = obs.get("kind")   # already "defect" or "upgrade" from normalization above
-                kind_routing: KindRoutingDecision = evaluate_kind_routing(description, kind)
-                widened_routing = len(kind_routing.expanded_kinds) > 1
-                ctx_for_provider = {
-                    **base_ctx_for_provider,
-                    "kind": kind,
-                    "allowed_kinds": list(kind_routing.expanded_kinds),
-                }
-
-                debug_row = {
-                    "observation": description,
-                    "label": obs.get("label", ""),
-                    "kind": kind,
-                    "scene_group": obs.get("scene_group"),
-                    "candidate_count": 0,
-                    "skipped_reason": None,
-                    "top_candidate_id": None,
-                    "top_candidate_score": None,
-                    "kind_routing": {
-                        "original_kind": kind_routing.original_kind,
-                        "expanded_kinds": list(kind_routing.expanded_kinds),
-                        "reason": kind_routing.reason,
-                        "matched_component_terms": list(kind_routing.matched_component_terms),
-                        "matched_condition_terms": list(kind_routing.matched_condition_terms),
-                        "blocked_by_negation": kind_routing.blocked_by_negation,
-                    },
-                    "resolution_path": None,
-                    "shortcut_reason": None,
-                }
-
-                # Retrieve candidates via provider (tolerant of signature variants).
-                # A retrieval failure is a dependency failure, not "no candidates":
-                # skipping it here would zero out this observation and read
-                # downstream as a photo with nothing to resolve.
-                try:
-                    candidates, legacy_note = _retrieve_candidates(
-                        self.candidate_provider, description, ctx_for_provider,
-                    )
-                except Exception as exc:
-                    raise _pass_failure('2d', 'dependency', exc, model_config) from exc
-                if legacy_note:
-                    debug_row["skipped_reason"] = legacy_note
-
-                # If provider is async by accident, this will reveal it cleanly in JSON
-                if hasattr(candidates, "__await__"):
-                    debug_row["skipped_reason"] = "candidate_provider_returned_coroutine (provider must be sync or await it here)"
-                    result.debug["pass_2d_per_observation"].append(debug_row)
-                    continue
-
-                if not isinstance(candidates, list):
-                    debug_row["skipped_reason"] = f"candidate_provider_returned_nonlist ({type(candidates).__name__})"
-                    result.debug["pass_2d_per_observation"].append(debug_row)
-                    continue
-
-                candidates = prioritize_resolution_candidates(candidates, widened_routing=widened_routing)
-                debug_row["candidate_count"] = len(candidates)
-
-                if not candidates:
-                    debug_row["skipped_reason"] = "no_candidates"
-                    result.debug["pass_2d_per_observation"].append(debug_row)
-                    continue
-
-                # Keep only top_k if provider returns more
-                candidates = candidates[: self.top_k_candidates]
-
-                # ID key differs for upgrades; be tolerant
-                top_candidate = candidates[0]
-                top_id = (
-                    top_candidate.get("item_id")
-                    or top_candidate.get("defect_id")
-                    or top_candidate.get("upgrade_id")
-                    or top_candidate.get("id")
-                )
-                debug_row["top_candidate_id"] = top_id
-                debug_row["top_candidate_score"] = top_candidate.get("score")
-                result.debug["pass_2d_per_observation"].append(debug_row)
-
-                # Call Pass 2d (pass kind so prompt and result are kind-aware)
-                pass_2d_result = await run_pass_2d(
-                    vlm_client=self.vlm_client,
-                    model_config=model_config,
-                    observation=description,
-                    candidates=candidates,
-                    kind=kind,
-                    kind_routing=kind_routing,
-                )
-                pass_2d_results.append(pass_2d_result)
-                debug_row["resolution_path"] = pass_2d_result.resolution_path
-                debug_row["shortcut_reason"] = pass_2d_result.shortcut_reason
-
-                resolved_item_id = pass_2d_result.resolved_item_id  # canonical
-                # issue_id must be stamped during Pass 2c — if it's missing something went wrong upstream.
-                issue_id = (obs.get("issue_id") or "").strip()
-                if not issue_id:
-                    # debug_row is already in pass_2d_per_observation and this
-                    # mutates that same object — appending again would emit the
-                    # row twice for this observation.
-                    debug_row["skipped_reason"] = "missing_issue_id (expected stamped in 2c)"
-                    continue
-                photo_key = _photo_key_from_path(str(image_path))
-                row = {
-                    "issue_id": issue_id,
-                    "source_image_path": str(image_path),
-                    "source_photo_key": photo_key,
-                    "description": description,
-                    "label": obs.get("label", ""),
-                    "resolved_item_id": resolved_item_id,
-                    "resolved_kind": pass_2d_result.resolved_kind or kind,
-                    "original_kind": kind,
-                    "kind_routing": debug_row["kind_routing"],
-                    "resolution_path": pass_2d_result.resolution_path,
-                    "shortcut_reason": pass_2d_result.shortcut_reason,
-                    # Candidates: keep for auditability (score retained for unmapped-issue debugging)
-                    "candidates": [
-                        {
-                            "item_id": c.get("item_id"),
-                            "name": c.get("name"),
-                            "trade_bucket": c.get("trade_bucket"),
-                            "kind": c.get("kind"),
-                            "score": c.get("score"),
-                            "description": c.get("description"),
-                            "support_any": c.get("support_any"),
-                            "defaultHidden": c.get("defaultHidden"),
-                            "drop_if_generic": c.get("drop_if_generic"),
-                        }
-                        for c in candidates
-                    ],
-                    "raw_response": pass_2d_result.raw_response,
-                }
-                resolved_items.append(row)
-
-            result.pass_timings['2d'] = time.perf_counter() - t0
-            result.pass_2d = pass_2d_results
-            result.resolved_items = resolved_items
-            result.passes_run.append('2d')
-            result.models_used['2d'] = model_name
-
-            n_defects = sum(1 for x in resolved_items if x.get("resolved_kind") == "defect")
-            n_upgrades = sum(1 for x in resolved_items if x.get("resolved_kind") == "upgrade")
-            logger.debug(f"Pass 2d resolved {len(resolved_items)} items ({n_defects} defects, {n_upgrades} upgrades)")
-
-            # Add summary debug info
-            result.debug["pass_2d_summary"] = {
-                "attempted_total": len(to_resolve_all),
-                "resolved_total": len(resolved_items),
-                "resolved_defects": n_defects,
-                "resolved_upgrades": n_upgrades,
-            }
-            logger.info(
-                "Pass 2d summary: attempted=%d resolved=%d (defects=%d upgrades=%d)",
-                result.debug["pass_2d_summary"]["attempted_total"],
-                result.debug["pass_2d_summary"]["resolved_total"],
-                n_defects,
-                n_upgrades,
-            )
-        else:
+        if not (pass_2d_toggle and pass_2d_provider_present and to_resolve_all):
             if to_resolve_all and pass_2d_toggle and not pass_2d_provider_present:
                 # Entry points fail closed at preflight when 2d is enabled, so this
                 # should be unreachable; it is the assertion that keeps it that way.
@@ -1101,21 +919,88 @@ class SceneClassifierOrchestrator:
                     "but no candidate provider was supplied",
                     code="MissingCandidateProvider",
                 )
-            if to_resolve_all and not pass_2d_provider_present:
-                logger.debug("Pass 2d: %d resolvable items but no candidate provider.", len(to_resolve_all))
-            elif not to_resolve_all:
-                logger.debug("Pass 2d: no resolvable observations (kind=defect/upgrade) in labeled_forward.")
+            if not to_resolve_all:
+                logger.debug("Pass 2d: no resolvable observations from Pass 2c.")
             result.debug["pass_2d_summary"] = {
                 "attempted_total": 0,
                 "resolved_total": 0,
-                "resolved_defects": 0,
-                "resolved_upgrades": 0,
+                "resolved_by_kind": {kind: 0 for kind in sorted(OBSERVATION_KINDS)},
             }
+            return
+
+        model_config = self._get_model_config('2d', options)
+        model_name = self._get_model_name('2d', options)
+        self._record_model_routing('2d', options, model_config, result)
+
+        logger.debug("Running Pass 2d with %s for %d observations", model_name, len(to_resolve_all))
+        t0 = time.perf_counter()
+
+        base_ctx_for_provider = {
+            **context,
+            "top_k_candidates": self.top_k_candidates,
+            "scene": result.scene,
+            "scene_group": _scene_group_for_2d,
+        }
+
+        pass_2d_results: List[Pass2dResult] = []
+        resolved_items: List[Dict[str, Any]] = []
+        result.debug["pass_2d_per_observation"] = []
+
+        for obs in to_resolve_all:
+            obs.setdefault("scene", _scene_for_2d)
+            obs.setdefault("scene_group", _scene_group_for_2d)
+            resolved_row, debug_row, pass_2d_result = await resolve_observation_against_catalog(
+                vlm_client=self.vlm_client,
+                model_config=model_config,
+                candidate_provider=self.candidate_provider,
+                observation=obs,
+                base_context=base_ctx_for_provider,
+                top_k=self.top_k_candidates,
+                source_image_path=str(image_path),
+            )
+            result.debug["pass_2d_per_observation"].append(debug_row)
+            if pass_2d_result is not None:
+                pass_2d_results.append(pass_2d_result)
+            if resolved_row is not None:
+                resolved_items.append(resolved_row)
+
+        result.pass_timings['2d'] = time.perf_counter() - t0
+        result.pass_2d = pass_2d_results
+        result.resolved_items = resolved_items
+        result.passes_run.append('2d')
+        result.models_used['2d'] = model_name
+
+        resolved_by_kind = {
+            kind: sum(1 for row in resolved_items if row.get("resolved_kind") == kind)
+            for kind in sorted(OBSERVATION_KINDS)
+        }
+        result.debug["pass_2d_summary"] = {
+            "attempted_total": len(to_resolve_all),
+            "resolved_total": len(resolved_items),
+            "resolved_by_kind": resolved_by_kind,
+        }
+        logger.info(
+            "Pass 2d summary: attempted=%d resolved=%d by_kind=%s",
+            len(to_resolve_all), len(resolved_items), resolved_by_kind,
+        )
+
+        # Pass 2e stays dormant in every mode until Task 3: run_pass_2e still
+        # hard-drops any issue whose kind is not defect/upgrade
+        # (scene_classifier_passes: "Sanity — kind must be defect or upgrade"),
+        # which would silently delete every degradation and modernization issue.
+        # The block below is preserved for that migration, not reachable now.
+        return
 
         # ─────────────────────────────────────────────────────────────────────
         # Pass 2e: Normalize / Filter / Deduplicate Verified Issues (rule-based)
-        # Input:  labeled_forward (already has issue_id, kind, description stamped)
         # Output: result.verified_issues — clean, deduplicated, scoring-free
+        #
+        # TASK 3 MIGRATION TARGET — unreachable (see the return above). Still
+        # written against the retired v1 contract: it reads `labeled_forward`
+        # and calls `_label_to_kind`, neither of which exists any more, so this
+        # block will NameError/AttributeError if the return is removed without
+        # rewiring it onto `result.observations`. That is deliberate: loud, not
+        # silent. Task 3 must also lift 2e's own two-kind sanity drop.
         # ─────────────────────────────────────────────────────────────────────
         if self._t(toggles, '2e'):
             model_config = self._get_model_config('2e', options)

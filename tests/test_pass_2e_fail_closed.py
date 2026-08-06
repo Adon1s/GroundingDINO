@@ -29,16 +29,19 @@ from tools.scene_classifier_passes import PassExecutionError
 
 from tests.test_scene_classifier_passes import FakeOrchestratorClient
 
-# observation-kind-v2: the orchestrator stops after Pass 2c (classification
-# only), so the 2e failure path these tests exercise is dormant until Task 2
-# (catalog migration) and Task 3 (cutover) rewire it. The tests are skipped —
-# not deleted — because the fail-closed guarantee they pin must come back with
-# 2e. The active guarantee (2e never runs and nothing is promoted to verified)
-# is pinned by test_classification_only_stop_keeps_2e_dormant below.
-# See docs/HANDOFF_kind_ontology_task1.md.
+# observation-kind-v2: Task 2 revived Pass 2d (benchmark mode) but deliberately
+# left Pass 2e dormant — run_pass_2e still hard-drops any issue whose kind is
+# not defect/upgrade, so every degradation and modernization issue would vanish
+# with only a removed_reason counter to show for it. Reviving 2e is Task 3 work
+# and must lift that sanity check first. The tests are skipped, not deleted:
+# the fail-closed guarantee they pin has to come back with 2e. The active
+# guarantee (2e never runs, nothing is promoted to verified) is pinned by
+# test_classification_only_stop_keeps_2e_dormant below and by
+# test_benchmark_mode_never_runs_2e in tests/test_candidate_provider.py.
+# See docs/HANDOFF_kind_ontology_task2.md.
 dormant_2e = pytest.mark.skip(
-    reason="Pass 2e dormant: pipeline is classification-only (observation-kind-v2) "
-    "until Task 2/3; see docs/HANDOFF_kind_ontology_task1.md"
+    reason="Pass 2e dormant until Task 3 cutover: 2e still hard-drops non-two-kind "
+    "issues (invalid_kind sanity check); see docs/HANDOFF_kind_ontology_task2.md"
 )
 
 
