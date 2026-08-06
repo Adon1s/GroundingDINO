@@ -433,6 +433,7 @@ def _process_job(
         analysis_profile=model_routing_profile,
         model_overrides=filtered_overrides if filtered_overrides else None,
         reasoning_efforts=filtered_reasoning_efforts if filtered_reasoning_efforts else None,
+        pipeline_mode=cfg.PIPELINE_MODE,
     )
 
     if filtered_overrides:

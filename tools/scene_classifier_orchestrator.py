@@ -40,6 +40,7 @@ from tools.pipeline_common import SCENE_TO_GROUP_UI
 from tools.pass_config import (
     ALLOWED_PIPELINE_MODES,
     PIPELINE_MODE_CLASSIFICATION_ONLY,
+    PIPELINE_MODE_PUBLISH,
     PassKey,
     PassToggles,
     PassModelOverrides,
@@ -842,10 +843,10 @@ class SceneClassifierOrchestrator:
         # ─────────────────────────────────────────────────────────────────────
         # observation-kind-v2: pipeline mode dispatch
         # ─────────────────────────────────────────────────────────────────────
-        # Normal analysis ends after Pass 2c. Catalog-resolution benchmarking
-        # additionally runs the strict exact-kind Pass 2d and the deterministic
-        # Pass 2e below, but results stay classification_only (non-publishable)
-        # in BOTH modes. write_photo_intel rejects these payloads.
+        # classification_only ends after Pass 2c and stays non-publishable.
+        # catalog_resolution_benchmark additionally runs Pass 2d + 2e, still
+        # non-publishable. publish runs the full 2c -> 2d -> 2e chain and is
+        # the only mode whose results write_photo_intel accepts.
         mode = getattr(options, "pipeline_mode", PIPELINE_MODE_CLASSIFICATION_ONLY)
         if mode not in ALLOWED_PIPELINE_MODES:
             raise ValueError(
@@ -853,15 +854,16 @@ class SceneClassifierOrchestrator:
                 f"expected one of {sorted(ALLOWED_PIPELINE_MODES)}"
             )
 
-        result.classification_only = True
+        result.classification_only = (mode != PIPELINE_MODE_PUBLISH)
         result.debug["pipeline_mode"] = mode
-        result.debug["classification_only"] = {
-            "reason": "classification_only_v2",
-            "detail": (
-                "observation-kind-v2 results are non-publishable until the Task 3 "
-                f"cutover (pipeline_mode={mode})"
-            ),
-        }
+        if result.classification_only:
+            result.debug["classification_only"] = {
+                "reason": "classification_only_v2",
+                "detail": (
+                    f"non-publishable pipeline_mode ({mode}); "
+                    "write_photo_intel rejects this payload"
+                ),
+            }
         result.debug["ontology"] = {
             "ontology_version": ONTOLOGY_VERSION,
             "pass_2b_prompt_version": PASS_2B_PROMPT_VERSION,
@@ -875,7 +877,7 @@ class SceneClassifierOrchestrator:
             return
 
         # ─────────────────────────────────────────────────────────────────────
-        # Pass 2d: strict exact-kind catalog resolution (benchmark mode only)
+        # Pass 2d: strict exact-kind catalog resolution (benchmark + publish)
         # ─────────────────────────────────────────────────────────────────────
         # Consumes Pass 2c observations directly: kind is assigned by the v2
         # contract, so there is no label mapping, no kind coercion, and no

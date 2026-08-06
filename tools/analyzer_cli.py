@@ -80,7 +80,10 @@ class PropertyAnalysisJob:
     total_processing_time: float = 0.0
     property_metadata: Optional[Dict[str, Any]] = None
 
-# Environment variable keys that should be resolved as filesystem paths
+# Environment variable keys that should be resolved as filesystem paths.
+# ISSUE_CATALOG_PATH only takes effect under KIND_ONTOLOGY_VERSION=legacy_v1:
+# combining it with observation_kind_v2 already failed at pipeline_config
+# import, so this loop can never re-point the v2 catalog.
 PATH_OVERRIDE_KEYS = {
     "ANALYZER_CLI",
     "ISSUE_CATALOG_PATH",
@@ -872,6 +875,7 @@ def main() -> int:
         model_overrides=model_overrides if model_overrides else None,
         reasoning_efforts=reasoning_efforts if reasoning_efforts else None,
         failure_mode=failure_mode,
+        pipeline_mode=cfg.PIPELINE_MODE,
     )
 
     # Generate job ID and create artifacts directory

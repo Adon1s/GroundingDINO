@@ -750,6 +750,10 @@ def write_photo_intel(
             "timestamp":           job.timestamp,
             "detection_backend":   detection_backend,
             "analysis_profile":    analysis_profile,
+            # How this run was produced: the KIND_ONTOLOGY_VERSION selector
+            # value and the pipeline depth it derived.
+            "kind_ontology_version": getattr(cfg, "KIND_ONTOLOGY_VERSION", None),
+            "pipeline_mode":         getattr(cfg, "PIPELINE_MODE", None),
             "used_pass_architecture": use_pass_architecture,
             "pass_toggles":        pass_toggles if pass_toggles else None,
             "model_overrides":     model_overrides if model_overrides else None,

@@ -198,6 +198,7 @@ async def _run_for_property(
         analysis_profile=analysis_profile,
         toggles=None,
         model_overrides=None,
+        pipeline_mode=cfg.PIPELINE_MODE,
     )
 
     sem = asyncio.Semaphore(concurrency)

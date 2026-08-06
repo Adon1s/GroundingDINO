@@ -8,6 +8,7 @@ All scripts are in the tools/ directory.
 """
 
 import os
+from collections import namedtuple
 from pathlib import Path
 from typing import Optional
 
@@ -60,8 +61,63 @@ DEMO_DIR = PROJECT_ROOT / "demo"
 # Output directory
 ARTIFACTS_ROOT = PROJECT_ROOT / "artifacts"
 
-# Issue catalog path
-ISSUE_CATALOG_PATH = TOOLS_DIR / "issue_catalog.json"
+# =============================================================================
+# KIND ONTOLOGY CUTOVER SELECTOR
+# =============================================================================
+# One atomic switch derives the catalog and the pipeline depth so incompatible
+# combinations cannot be configured:
+#   legacy_v1           -> v1 catalog + classification_only (three-kind output
+#                          stays non-publishable; the real rollback path is the
+#                          pinned pre-v2 build, not this selector)
+#   observation_kind_v2 -> v2 catalog + publish (full 2c -> 2d -> 2e)
+# Invalid values raise here at import — i.e. process startup — in every entry
+# point. Under observation_kind_v2 an ISSUE_CATALOG_PATH override is a hard
+# error: the catalog must come from the selector.
+
+KIND_ONTOLOGY_LEGACY_V1 = "legacy_v1"
+KIND_ONTOLOGY_V2 = "observation_kind_v2"
+
+KindOntologySelection = namedtuple(
+    "KindOntologySelection", ("version", "catalog_path", "pipeline_mode")
+)
+
+
+def resolve_kind_ontology(
+    raw: str, *, catalog_path_override: str = ""
+) -> KindOntologySelection:
+    """Map a KIND_ONTOLOGY_VERSION value to (catalog, pipeline depth)."""
+    if raw == KIND_ONTOLOGY_LEGACY_V1:
+        # The legacy catalog path stays overridable through the analyzer CLI's
+        # env-override layer (applied after import), exactly as before.
+        return KindOntologySelection(
+            raw, TOOLS_DIR / "issue_catalog.json", "classification_only"
+        )
+    if raw == KIND_ONTOLOGY_V2:
+        if catalog_path_override:
+            raise ValueError(
+                "ISSUE_CATALOG_PATH must not be set under "
+                f"KIND_ONTOLOGY_VERSION={KIND_ONTOLOGY_V2}: catalog and "
+                "pipeline depth both derive from the selector so they can "
+                "never disagree"
+            )
+        return KindOntologySelection(
+            raw, TOOLS_DIR / "issue_catalog_kind_v2.json", "publish"
+        )
+    raise ValueError(
+        f"invalid KIND_ONTOLOGY_VERSION {raw!r}; expected "
+        f"{KIND_ONTOLOGY_LEGACY_V1!r} or {KIND_ONTOLOGY_V2!r}"
+    )
+
+
+_KIND_ONTOLOGY = resolve_kind_ontology(
+    os.environ.get("KIND_ONTOLOGY_VERSION", KIND_ONTOLOGY_LEGACY_V1),
+    catalog_path_override=os.environ.get("ISSUE_CATALOG_PATH", ""),
+)
+KIND_ONTOLOGY_VERSION = _KIND_ONTOLOGY.version
+ISSUE_CATALOG_PATH = _KIND_ONTOLOGY.catalog_path
+# Plain string (not the pass_config Literal) to keep this module import-free;
+# membership in pass_config.ALLOWED_PIPELINE_MODES is pinned by test.
+PIPELINE_MODE = _KIND_ONTOLOGY.pipeline_mode
 
 # =============================================================================
 # LM STUDIO / VLM SETTINGS (Qwen - local)

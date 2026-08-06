@@ -15,9 +15,12 @@ Pass Overview:
 - 2f: Package visual verification (GPT-5 when premium, post-processing)
 """
 
+import logging
 import os
 from dataclasses import dataclass, field, replace
 from typing import Any, Dict, Literal, Optional, TypeAlias
+
+logger = logging.getLogger(__name__)
 
 # Type definitions
 PassKey: TypeAlias = Literal['1a', '1b', '1c', '2a', '2b', '2c', '2d', '2e', '2f']
@@ -27,16 +30,24 @@ FailureMode: TypeAlias = Literal['strict', 'collect']
 ALLOWED_FAILURE_MODES: frozenset[str] = frozenset({'strict', 'collect'})
 
 # How far the pipeline runs under observation-kind-v2.
-#   classification_only            - stop after Pass 2c (every production path)
+#   classification_only            - stop after Pass 2c; non-publishable
 #   catalog_resolution_benchmark   - additionally run the strict exact-kind
-#                                    Pass 2d, for benchmarking the v2 catalog
-# Results are non-publishable in BOTH modes and Pass 2e never runs; only the
-# benchmark constructs options directly, so production cannot reach 2d.
-PipelineMode: TypeAlias = Literal['classification_only', 'catalog_resolution_benchmark']
+#                                    Pass 2d and Pass 2e, for benchmarking the
+#                                    v2 catalog; still non-publishable
+#   publish                        - full 2c -> 2d -> 2e; the only mode whose
+#                                    results write_photo_intel accepts
+# Production entry points derive the mode from pipeline_config.PIPELINE_MODE
+# (the KIND_ONTOLOGY_VERSION selector), so catalog and depth cannot disagree.
+PipelineMode: TypeAlias = Literal['classification_only', 'catalog_resolution_benchmark', 'publish']
 PIPELINE_MODE_CLASSIFICATION_ONLY: PipelineMode = 'classification_only'
 PIPELINE_MODE_CATALOG_RESOLUTION_BENCHMARK: PipelineMode = 'catalog_resolution_benchmark'
+PIPELINE_MODE_PUBLISH: PipelineMode = 'publish'
 ALLOWED_PIPELINE_MODES: frozenset[str] = frozenset(
-    {PIPELINE_MODE_CLASSIFICATION_ONLY, PIPELINE_MODE_CATALOG_RESOLUTION_BENCHMARK}
+    {
+        PIPELINE_MODE_CLASSIFICATION_ONLY,
+        PIPELINE_MODE_CATALOG_RESOLUTION_BENCHMARK,
+        PIPELINE_MODE_PUBLISH,
+    }
 )
 
 # All valid pass keys (in execution order). Every pass here is enabled by
@@ -279,9 +290,10 @@ class SceneClassifierRunOptions:
     #   collect - record the error on the result and stop that image's passes
     # 'collect' is for tests and diagnostics; paid runs are always strict.
     failure_mode: FailureMode = 'strict'
-    # observation-kind-v2 pipeline depth. Deliberately NOT settable through
-    # from_analysis_profile: production entry points build options that way, so
-    # only direct construction (benchmark, tests) can reach Pass 2d.
+    # observation-kind-v2 pipeline depth. Production entry points pass
+    # pipeline_config.PIPELINE_MODE (derived from the KIND_ONTOLOGY_VERSION
+    # selector) through from_analysis_profile; the benchmark constructs
+    # options directly.
     pipeline_mode: PipelineMode = PIPELINE_MODE_CLASSIFICATION_ONLY
     # Runtime metadata (run_id, property_key, photo_key, etc.)
     # Used by the orchestrator to build deterministic issue_ids per image.
@@ -303,6 +315,7 @@ class SceneClassifierRunOptions:
             model_overrides: Optional[Dict[str, str]] = None,
             reasoning_efforts: Optional[Dict[str, str]] = None,
             failure_mode: str = 'strict',
+            pipeline_mode: Optional[str] = None,
     ) -> 'SceneClassifierRunOptions':
         """Create options from analysis profile string."""
         if failure_mode not in ALLOWED_FAILURE_MODES:
@@ -310,12 +323,31 @@ class SceneClassifierRunOptions:
                 f"unsupported failure_mode: {failure_mode!r}; "
                 f"expected one of {sorted(ALLOWED_FAILURE_MODES)}"
             )
+        if pipeline_mode is None:
+            pipeline_mode = PIPELINE_MODE_CLASSIFICATION_ONLY
+        if pipeline_mode not in ALLOWED_PIPELINE_MODES:
+            raise ValueError(
+                f"unsupported pipeline_mode: {pipeline_mode!r}; "
+                f"expected one of {sorted(ALLOWED_PIPELINE_MODES)}"
+            )
+        overrides = PassModelOverrides.from_dict(model_overrides)
+        if pipeline_mode == PIPELINE_MODE_PUBLISH and not overrides['2c']:
+            # 2c falls back to the standard local model without an explicit
+            # override; that model showed schema failures on 2c in the Task 1
+            # holdout, so a publish run without one is almost always a
+            # misconfigured model map.
+            logger.warning(
+                "PIPELINE_MODE=publish with no explicit 2c model override: "
+                "Pass 2c will run on the local standard model. Supply a "
+                "model map routing 2c (see benchmarks/configs/)."
+            )
         return cls(
             premium=(analysis_profile == 'premium'),
             toggles=PassToggles.from_dict(toggles),
-            model_overrides=PassModelOverrides.from_dict(model_overrides),
+            model_overrides=overrides,
             reasoning_efforts=normalize_reasoning_efforts(reasoning_efforts),
             failure_mode=failure_mode,  # type: ignore[arg-type]
+            pipeline_mode=pipeline_mode,  # type: ignore[arg-type]
         )
 
 
