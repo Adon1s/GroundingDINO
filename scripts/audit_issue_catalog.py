@@ -475,10 +475,11 @@ def render_markdown(data, catalog_path):
     lines.append("")
     lines.append("## 1. Summary of Current Catalog Issues")
     lines.append("")
+    kind_summary = ", ".join(
+        f"{count} {kind}" for kind, count in sorted(summary_data["kind_counts"].items())
+    ) or "no kinds"
     lines.append(
-        f"The catalog currently has {summary_data['total']} items: "
-        f"{summary_data['kind_counts'].get('defect', 0)} defects and "
-        f"{summary_data['kind_counts'].get('upgrade', 0)} upgrades. "
+        f"The catalog currently has {summary_data['total']} items ({kind_summary}). "
         f"Missing-field counts are: id={summary_data['missing']['id']}, "
         f"embed_text={summary_data['missing']['embed_text']}, "
         f"kind={summary_data['missing']['kind']}, "

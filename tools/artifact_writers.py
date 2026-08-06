@@ -218,29 +218,10 @@ def load_issue_catalog(path: Path) -> dict:
     if isinstance(tb, dict):
         tb = list(tb.values())
 
-    # Normalize to canonical "items" array.
-    # v3+ catalogs use a single "items" list where each entry has an 'id' and 'kind' field.
-    # Older catalogs split into "defects" / "upgrades" (or "defect_issues") -- merge both
-    # so upgrades are never silently dropped.
-    if "items" in data and data["items"]:
-        items = data["items"]
-    else:
-        # Legacy split format: normalize each side and merge
-        raw_defects  = data.get("defects",       []) or data.get("defect_issues", []) or []
-        raw_upgrades = data.get("upgrades",       []) or data.get("upgrade_items", []) or []
-        # Stamp kind if missing so downstream code has a reliable field
-        for d in raw_defects:
-            if isinstance(d, dict):
-                d.setdefault("kind", "defect")
-        for u in raw_upgrades:
-            if isinstance(u, dict):
-                u.setdefault("kind", "upgrade")
-        items = raw_defects + raw_upgrades
-        if items:
-            logger.info(
-                f"load_issue_catalog: merged legacy format -- "
-                f"{len(raw_defects)} defects + {len(raw_upgrades)} upgrades -> {len(items)} items"
-            )
+    # Canonical "items" array (v3+): each entry carries 'id' and 'kind'. The
+    # pre-v3 split-format ("defects"/"upgrades") merge was deleted in Task 3 —
+    # both shipped catalogs are v3, and no artifact reads catalog files.
+    items = data.get("items") or []
 
     return {
         # v3 canonical: single "items" array (each has 'id' and 'kind' field)
@@ -258,7 +239,8 @@ def log_catalog_load(path: Path, cat: dict):
     version = cat.get("version")
     kind_counts = {}
     for d in items:
-        k = d.get("kind", "defect") if isinstance(d, dict) else "?"
+        # a missing kind is logged visibly, never counted as defect
+        k = d.get("kind", "?") if isinstance(d, dict) else "?"
         kind_counts[k] = kind_counts.get(k, 0) + 1
     logger.info(
         f"Catalog load: path={path.resolve()} exists={path.exists()} "

@@ -10,7 +10,7 @@ Pass Overview:
 - 2a: Observations - freeform (GPT-5 when premium)
 - 2b: Observations -> JSON (always Qwen - text-only)
 - 2c: Label observations + debug/forward split (always Qwen - text-only)
-- 2d: Resolve defect_id from candidates (GPT-5 when premium, optional)
+- 2d: Resolve catalog item id from candidates (GPT-5 when premium, optional)
 - 2e: Normalize / filter / deduplicate issues (rule-based, no LLM)
 - 2f: Package visual verification (GPT-5 when premium, post-processing)
 """
@@ -197,7 +197,7 @@ class PassToggles:
     pass_2a: bool = True   # Observations (freeform)
     pass_2b: bool = True   # Observations -> JSON
     pass_2c: bool = True   # Label observations + debug/forward split
-    pass_2d: bool = True   # Resolve defect_id from candidates (requires candidate_provider)
+    pass_2d: bool = True   # Resolve catalog item id from candidates (requires candidate_provider)
     pass_2e: bool = True   # Normalize / filter / dedupe verified issues (rule-based, no LLM)
     pass_2f: bool = True   # Package visual verification (post-processing, requires package candidates + VLM)
 
@@ -428,7 +428,7 @@ PASS_DESCRIPTIONS: Dict[PassKey, str] = {
     '2a': 'Observations (freeform)',
     '2b': 'Observations → JSON',
     '2c': 'Label Observations (debug/forward)',
-    '2d': 'Resolve defect_id from candidates',
+    '2d': 'Resolve catalog item id from candidates',
     '2e': 'Normalize / Filter / Deduplicate Issues',
     '2f': 'Package Visual Verification (Pass 2f)',
 }

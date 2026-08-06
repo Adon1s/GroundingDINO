@@ -195,13 +195,10 @@ def get_catalog_flags(photo: dict) -> Dict[str, Any]:
 
 
 def build_catalog_from_issue_catalog(issue_catalog: dict) -> Tuple[List[dict], List[str], str]:
-    defect_items = (issue_catalog or {}).get("defect_issues", []) or []
-    opp_items = (issue_catalog or {}).get("opportunity_flags", []) or []
-
-    all_items: List[dict] = []
-    for x in list(defect_items) + list(opp_items):
-        if isinstance(x, dict) and x.get("id"):
-            all_items.append(x)
+    all_items: List[dict] = [
+        x for x in ((issue_catalog or {}).get("items") or [])
+        if isinstance(x, dict) and x.get("id")
+    ]
 
     ids = [i["id"] for i in all_items]
     catalog_text = "\n".join(f"- {i.get('id')}: {i.get('name', '')}" for i in all_items)

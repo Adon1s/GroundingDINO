@@ -540,33 +540,6 @@ class CatalogEmbeddingsRetriever:
             ))
         return out
 
-    # Convenience wrappers that make your pipeline code very explicit
-    def embeddings_retrieve_defect_candidates(
-        self,
-        observation_text: str,
-        topk: Optional[int] = None,
-        allowed_groups: Optional[Set[str]] = None,
-    ) -> List[MatchCandidate]:
-        return self.retrieve_candidates(
-            observation_text,
-            topk=topk,
-            allowed_kinds={"defect"},
-            allowed_groups=allowed_groups,
-        )
-
-    def embeddings_retrieve_upgrade_candidates(
-        self,
-        observation_text: str,
-        topk: Optional[int] = None,
-        allowed_groups: Optional[Set[str]] = None,
-    ) -> List[MatchCandidate]:
-        return self.retrieve_candidates(
-            observation_text,
-            topk=topk,
-            allowed_kinds={"upgrade"},
-            allowed_groups=allowed_groups,
-        )
-
 
 def make_candidate_provider(retriever: "CatalogEmbeddingsRetriever") -> Any:
     """

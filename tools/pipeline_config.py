@@ -132,35 +132,6 @@ PASS_2D_ROUTING_NEGATION_PATTERNS = [
 ]
 
 # =============================================================================
-# Pass 2c shadow lane
-# -----------------------------------------------------------------------------
-# Pass 2c is a single-label filter: only `defect_or_damage` and
-# `upgrade_candidate` reach the matcher. The failure mode we're guarding against
-# is `generic_presence` (and optionally `other`) swallowing a real issue. The
-# shadow lane re-checks those observations when they carry physical-condition
-# language, retrieves catalog candidates with widened kinds, and (optionally)
-# promotes them when a specific non-generic catalog item clearly beats the
-# broad style/dated alternatives.
-#
-# Shipping posture: ENABLED on, PROMOTE off. The lane runs and writes audit
-# rows to `result.debug["shadow_lane"]` so we can measure how often it would
-# have rescued a real issue. Flip SHADOW_LANE_PROMOTE=1 once the per-observation
-# rows confirm the lane is catching genuine misses without noise.
-# =============================================================================
-SHADOW_LANE_ENABLED = os.environ.get("SHADOW_LANE_ENABLED", "1") not in {"0", "false", "False"}
-SHADOW_LANE_PROMOTE = os.environ.get("SHADOW_LANE_PROMOTE", "0") not in {"0", "false", "False"}
-SHADOW_LANE_LABELS = [
-    s.strip().lower()
-    for s in os.environ.get("SHADOW_LANE_LABELS", "generic_presence").split(",")
-    if s.strip()
-]
-SHADOW_LANE_MIN_SCORE = float(os.environ.get("SHADOW_LANE_MIN_SCORE", "0.72"))
-SHADOW_LANE_MIN_MARGIN = float(os.environ.get("SHADOW_LANE_MIN_MARGIN", "0.03"))
-SHADOW_LANE_MIN_SPECIFIC_OVER_GENERIC = float(
-    os.environ.get("SHADOW_LANE_MIN_SPECIFIC_OVER_GENERIC", "0.02")
-)
-
-# =============================================================================
 # PASS TOGGLE SETTINGS
 # =============================================================================
 # Pass toggles are set per-run via the analyzer CLI's --enable-<key>/--disable-<key>

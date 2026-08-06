@@ -457,7 +457,7 @@ class SceneClassifierOrchestrator:
             vlm_client: VLM client instance for making API calls
             candidate_provider: Optional callback to retrieve catalog candidates for Pass 2d
                                Signature: (observation_text, context) -> List[Dict]
-                               context may include 'kind' ("defect" or "upgrade") and 'top_k_candidates'
+                               context may include 'kind' (an OBSERVATION_KINDS value) and 'top_k_candidates'
             top_k_candidates: Number of candidates to retrieve per observation
             max_resolve_per_image: Maximum observations to resolve per image in Pass 2d
             catalog_items: Optional list of catalog item dicts (from issue_catalog["items"]).

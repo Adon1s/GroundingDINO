@@ -1,4 +1,4 @@
-import json
+﻿import json
 from pathlib import Path
 
 import numpy as np
@@ -22,7 +22,7 @@ def _retriever_or_skip(catalog):
 
 
 class DeterministicFakeEncoder:
-    """Bag-of-words encoder over a fixed vocab — deterministic, no model or server.
+    """Bag-of-words encoder over a fixed vocab â€” deterministic, no model or server.
 
     Cosine similarity reflects token overlap, so text that shares vocabulary terms
     with a catalog item ranks above text that does not. Used to exercise the
@@ -59,9 +59,7 @@ def test_fake_encoder_ranks_related_item_first():
         ]
     }
     retriever = CatalogEmbeddingsRetriever(catalog, encoder=DeterministicFakeEncoder())
-    candidates = retriever.embeddings_retrieve_defect_candidates(
-        "the faucet is leaking water", topk=2
-    )
+    candidates = retriever.retrieve_candidates("the faucet is leaking water", topk=2, allowed_kinds={"defect"})
     assert [c.item_id for c in candidates][0] == "leaky_faucet"
 
 
@@ -84,10 +82,8 @@ def test_fake_encoder_retrieval_respects_deny_guardrail():
         encoder=DeterministicFakeEncoder(),
         guardrails=build_guardrails_from_catalog(catalog),
     )
-    # Observation mentions hardwood → deny_any must filter the carpet item out.
-    candidates = retriever.embeddings_retrieve_defect_candidates(
-        "the bedroom has clean hardwood floor", topk=5
-    )
+    # Observation mentions hardwood â†’ deny_any must filter the carpet item out.
+    candidates = retriever.retrieve_candidates("the bedroom has clean hardwood floor", topk=5, allowed_kinds={"defect"})
     assert "worn_or_stained_carpet" not in [c.item_id for c in candidates]
 
 
@@ -189,8 +185,8 @@ def test_guardrail_terms_do_not_match_inside_longer_words():
 def test_real_catalog_marked_terms_do_not_fire_on_prefixed_words():
     """Leading \\b cannot stop a term matching a word it *prefixes*.
 
-    `mold` sat inside "crown molding" in 18 of the 4,572 corpus observations —
-    as many as the 18 genuine mold observations — so four interior items
+    `mold` sat inside "crown molding" in 18 of the 4,572 corpus observations â€”
+    as many as the 18 genuine mold observations â€” so four interior items
     deny-blocked every crown-molding description. Those terms now carry the
     trailing-boundary marker; this locks both directions against the real
     catalog.
@@ -268,7 +264,7 @@ def test_real_catalog_require_terms_survive_word_anchoring():
         ("layout_modernization_opportunity", "The layout is cramped with limited counter space."),
     ]
     for item_id, observation in cases:
-        assert item_id in retriever.guardrails, f"{item_id} has no guardrails — case passes vacuously"
+        assert item_id in retriever.guardrails, f"{item_id} has no guardrails â€” case passes vacuously"
         assert retriever._passes_guardrails(observation, item_id) is True, (item_id, observation)
 
 
@@ -307,7 +303,7 @@ def test_catalog_uses_generic_bedroom_living_issue_ids():
 
 def test_require_any_blocks_unmatched_observation():
     """A catalog item whose `require_any` token is absent from the observation
-    must be filtered out of retrieval results — exercises the audit path that
+    must be filtered out of retrieval results â€” exercises the audit path that
     builds guardrails from the catalog and enforces them inside the retriever.
     """
     pytest.importorskip("sentence_transformers")
@@ -331,7 +327,7 @@ def test_require_any_blocks_unmatched_observation():
     observation = (
         "There is a stained, peeling vinyl floor in the kitchen that needs replacement."
     )
-    candidates = retriever.embeddings_retrieve_defect_candidates(observation, topk=10)
+    candidates = retriever.retrieve_candidates(observation, topk=10, allowed_kinds={"defect"})
 
     returned_ids = [c.item_id for c in candidates]
     assert "impossible_item" not in returned_ids, (
@@ -343,7 +339,7 @@ def test_embed_text_drives_retrieval():
     """An item with generic name/description but a distinctive phrase only in
     `embed_text` must outrank a decoy whose name/description compete on the
     observation's domain words. This only succeeds if `embed_text` is actually
-    being embedded — with the pre-fix code, the target embeds as
+    being embedded â€” with the pre-fix code, the target embeds as
     'Item A. An item.' and would lose to the decoy.
     """
     pytest.importorskip("sentence_transformers")
@@ -373,18 +369,18 @@ def test_embed_text_drives_retrieval():
     retriever = _retriever_or_skip(catalog)
 
     observation = "Octocat plumbing manifold under the kitchen sink is leaking water."
-    candidates = retriever.embeddings_retrieve_defect_candidates(observation, topk=2)
+    candidates = retriever.retrieve_candidates(observation, topk=2, allowed_kinds={"defect"})
 
     assert candidates, "expected at least one candidate"
     top_ids = [c.item_id for c in candidates]
     assert top_ids[0] == "embed_text_target", (
         f"expected embed_text_target as top match (only succeeds if embed_text is being "
-        f"embedded — without the fix, the target embeds as 'Item A. An item.' which would "
+        f"embedded â€” without the fix, the target embeds as 'Item A. An item.' which would "
         f"not outrank the decoy); got {top_ids}"
     )
 
 
-# ── strict kind-filter semantics (observation-kind-v2, Task 2) ───────────────
+# â”€â”€ strict kind-filter semantics (observation-kind-v2, Task 2) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Contract: allowed_kinds=None means deliberately unfiltered; an EMPTY set or a
 # set of unknown kinds returns NO candidates. The retired bug treated both as
 # "no filter" and silently searched the whole catalog.
@@ -479,3 +475,4 @@ def test_build_items_skips_items_without_a_kind():
     retriever = CatalogEmbeddingsRetriever(catalog, encoder=DeterministicFakeEncoder())
     hits = retriever.retrieve_candidates("the faucet is leaking water", allowed_kinds=None, topk=10)
     assert "kindless_item" not in [c.item_id for c in hits]
+
