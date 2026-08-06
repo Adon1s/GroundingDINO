@@ -27,6 +27,11 @@ from typing import Any, Dict, List, get_args
 
 from tools.catalog_cost_model import LINE_ITEM, ROOM_ALLOWANCE
 from tools.estimate_scope import VALID_ESTIMATE_SCOPES
+from tools.observation_kinds import (
+    LEGACY_CATALOG_KINDS,
+    OBSERVATION_KINDS,
+    ONTOLOGY_VERSION,
+)
 from tools.pipeline_common import SCENE_GROUPS_UI, TERM_WHOLE_WORD_MARKER
 from tools.rehab_packages import (
     PACKAGE_ROLE_DRIVER,
@@ -46,9 +51,35 @@ from tools.renovation_estimate import (
 
 _ID_PATTERN = re.compile(r"^[a-z0-9_]+$")
 
-# Item-level vocabularies with no runtime owner; the catalog itself is the
-# authority for these, so they are declared here once.
-VALID_KINDS = frozenset({"defect", "upgrade"})
+# Kind vocabulary is versioned off the catalog's own root metadata: a catalog
+# stamped ontology_version == observation-kind-v2 uses the three-kind enum,
+# anything else (the shipped v1 file has no stamp) uses the legacy two kinds.
+VALID_KINDS = LEGACY_CATALOG_KINDS
+VALID_KINDS_V2 = OBSERVATION_KINDS
+
+# v2 root metadata vocabulary. The writer guard (artifact_writers) treats any
+# non-"publishable" status as blocked; the validator pins the enum.
+VALID_PUBLICATION_STATUSES = frozenset({"blocked_pending_pricing", "publishable"})
+V2_CATALOG_VERSION = "3.0"
+
+# Fields that carry economic behavior. A v2 item stamped
+# pricing_status == "deferred_post_task3" (split successors) must carry none of
+# them; the migration generator (scripts/migrate_catalog_kind_v2.py) imports
+# this list so generator and validator can never disagree.
+ECONOMIC_FIELDS = (
+    "cost",
+    "estimate",
+    "work_item_code",
+    "cost_model",
+    "package_affinity",
+    "package_role",
+    "estimate_scope",
+    "estimate_scope_reason",
+)
+VALID_PRICING_STATUSES = frozenset({"deferred_post_task3"})
+
+VALID_CHANGE_TYPES = frozenset({"unchanged", "reclassified", "narrowed", "split"})
+
 VALID_SCOPES = frozenset({"repair", "replace", "cosmetic", "service"})
 VALID_ITEM_TIERS = frozenset({"work", "optional"})
 VALID_COST_MODES = frozenset({"allowance", "heuristic"})
@@ -105,6 +136,11 @@ def validate_issue_catalog(issue_catalog: Dict[str, Any]) -> CatalogValidationRe
     result = CatalogValidationResult()
     catalog = issue_catalog if isinstance(issue_catalog, dict) else {}
 
+    is_v2 = catalog.get("ontology_version") == ONTOLOGY_VERSION
+    kind_vocabulary = VALID_KINDS_V2 if is_v2 else VALID_KINDS
+    if is_v2:
+        _validate_v2_root(catalog, result)
+
     declared_buckets = [
         str(bucket.get("id") or "")
         for bucket in catalog.get("trade_buckets") or []
@@ -135,7 +171,9 @@ def validate_issue_catalog(issue_catalog: Dict[str, Any]) -> CatalogValidationRe
         else:
             seen_ids.add(raw_id)
 
-        _validate_core_enums(item, label, result)
+        _validate_core_enums(item, label, result, kind_vocabulary)
+        if is_v2:
+            _validate_v2_item(item, label, result)
         _validate_trade_bucket(item, label, declared_bucket_set, used_buckets, result)
         _validate_scene_groups(item, label, result)
         _validate_estimate_block(item, label, result)
@@ -168,10 +206,11 @@ def validate_issue_catalog(issue_catalog: Dict[str, Any]) -> CatalogValidationRe
 
 
 def _validate_core_enums(item: Dict[str, Any], label: str,
-                         result: CatalogValidationResult) -> None:
+                         result: CatalogValidationResult,
+                         kind_vocabulary: frozenset = VALID_KINDS) -> None:
     kind = item.get("kind")
-    if kind not in VALID_KINDS:
-        result.errors.append(f"{label}: kind {kind!r} not in {sorted(VALID_KINDS)}")
+    if kind not in kind_vocabulary:
+        result.errors.append(f"{label}: kind {kind!r} not in {sorted(kind_vocabulary)}")
     scope = item.get("scope")
     if scope not in VALID_SCOPES:
         result.errors.append(f"{label}: scope {scope!r} not in {sorted(VALID_SCOPES)}")
@@ -379,8 +418,160 @@ def _is_affinity_driver(item: Dict[str, Any]) -> bool:
     )
 
 
+def _validate_v2_root(catalog: Dict[str, Any], result: CatalogValidationResult) -> None:
+    version = catalog.get("version")
+    if version != V2_CATALOG_VERSION:
+        result.errors.append(
+            f"<catalog>: v2 catalog version {version!r} must be {V2_CATALOG_VERSION!r}"
+        )
+    status = catalog.get("publication_status")
+    if status not in VALID_PUBLICATION_STATUSES:
+        result.errors.append(
+            f"<catalog>: publication_status {status!r} not in "
+            f"{sorted(VALID_PUBLICATION_STATUSES)}"
+        )
+
+
+def _validate_v2_item(item: Dict[str, Any], label: str,
+                      result: CatalogValidationResult) -> None:
+    claim = item.get("atomic_claim")
+    if not isinstance(claim, dict):
+        result.errors.append(f"{label}: atomic_claim missing or not an object")
+    else:
+        for key in ("subject", "state", "ontology_basis"):
+            value = claim.get(key)
+            if not isinstance(value, str) or not value.strip():
+                result.errors.append(
+                    f"{label}: atomic_claim.{key} must be a non-empty string"
+                )
+    pricing_status = item.get("pricing_status")
+    if pricing_status is not None:
+        if pricing_status not in VALID_PRICING_STATUSES:
+            result.errors.append(
+                f"{label}: pricing_status {pricing_status!r} not in "
+                f"{sorted(VALID_PRICING_STATUSES)}"
+            )
+        carried = [f for f in ECONOMIC_FIELDS if f in item]
+        if carried:
+            result.errors.append(
+                f"{label}: pricing_status {pricing_status!r} forbids economic "
+                f"fields, found {carried}"
+            )
+
+
+def validate_migration_manifest(
+    manifest: Dict[str, Any],
+    v1_catalog: Dict[str, Any],
+    v2_catalog: Dict[str, Any],
+) -> CatalogValidationResult:
+    """Validate the audit-only migration manifest against both catalogs.
+
+    Checks: exactly one entry per legacy id, successor integrity (every
+    successor exists in v2 with the kind the manifest claims), no orphan v2
+    items (each is the successor of exactly one entry), well-formed flags, and
+    re-resolution consistency (any kind change or split requires it).
+    """
+    result = CatalogValidationResult()
+    v1_by_id = {it["id"]: it for it in (v1_catalog.get("items") or [])}
+    v2_by_id = {it["id"]: it for it in (v2_catalog.get("items") or [])}
+
+    entries = manifest.get("entries") or []
+    if manifest.get("audit_only") is not True:
+        result.errors.append("<manifest>: audit_only must be true — this is not a runtime alias table")
+
+    seen_legacy: set = set()
+    successor_parents: Dict[str, str] = {}
+    for entry in entries:
+        legacy_id = entry.get("legacy_id")
+        label = str(legacy_id)
+        if legacy_id in seen_legacy:
+            result.errors.append(f"{label}: duplicate manifest entry")
+            continue
+        seen_legacy.add(legacy_id)
+
+        v1_item = v1_by_id.get(legacy_id)
+        if v1_item is None:
+            result.errors.append(f"{label}: not a legacy catalog id")
+            continue
+        if entry.get("legacy_kind") != v1_item.get("kind"):
+            result.errors.append(
+                f"{label}: legacy_kind {entry.get('legacy_kind')!r} disagrees with "
+                f"the v1 catalog ({v1_item.get('kind')!r})"
+            )
+
+        change_type = entry.get("change_type")
+        if change_type not in VALID_CHANGE_TYPES:
+            result.errors.append(
+                f"{label}: change_type {change_type!r} not in {sorted(VALID_CHANGE_TYPES)}"
+            )
+            continue
+        successors = entry.get("successors") or []
+        if change_type == "split":
+            if len(successors) < 2:
+                result.errors.append(f"{label}: split entry needs >= 2 successors")
+            if entry.get("deprecated") is not True:
+                result.errors.append(f"{label}: split parent must be deprecated")
+        else:
+            if len(successors) != 1 or successors[0].get("id") != legacy_id:
+                result.errors.append(
+                    f"{label}: non-split entry must have exactly one successor keeping the legacy id"
+                )
+            if entry.get("deprecated"):
+                result.errors.append(f"{label}: non-split entry must not be deprecated")
+
+        kind_changed = False
+        for succ in successors:
+            succ_id = succ.get("id")
+            v2_item = v2_by_id.get(succ_id)
+            if v2_item is None:
+                result.errors.append(f"{label}: successor {succ_id!r} not in the v2 catalog")
+                continue
+            if v2_item.get("kind") != succ.get("kind"):
+                result.errors.append(
+                    f"{label}: successor {succ_id!r} kind {succ.get('kind')!r} disagrees "
+                    f"with the v2 catalog ({v2_item.get('kind')!r})"
+                )
+            if succ_id in successor_parents:
+                result.errors.append(
+                    f"{label}: successor {succ_id!r} already claimed by "
+                    f"{successor_parents[succ_id]!r}"
+                )
+            else:
+                successor_parents[succ_id] = str(legacy_id)
+            if succ.get("kind") != v1_item.get("kind"):
+                kind_changed = True
+
+        must_re_resolve = change_type == "split" or kind_changed
+        if bool(entry.get("requires_re_resolution")) != must_re_resolve:
+            result.errors.append(
+                f"{label}: requires_re_resolution must be {must_re_resolve} "
+                f"(change_type={change_type}, kind_changed={kind_changed})"
+            )
+        if not str(entry.get("atomicity_rationale") or "").strip():
+            result.errors.append(f"{label}: atomicity_rationale missing")
+
+    missing = set(v1_by_id) - seen_legacy
+    if missing:
+        result.errors.append(f"<manifest>: legacy ids without an entry: {sorted(missing)}")
+    orphans = set(v2_by_id) - set(successor_parents)
+    if orphans:
+        result.errors.append(f"<manifest>: v2 items with no manifest parent: {sorted(orphans)}")
+
+    return result
+
+
 def load_shipped_catalog() -> Dict[str, Any]:
     path = Path(__file__).resolve().parent / "issue_catalog.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_shipped_catalog_v2() -> Dict[str, Any]:
+    path = Path(__file__).resolve().parent / "issue_catalog_kind_v2.json"
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def load_shipped_manifest() -> Dict[str, Any]:
+    path = Path(__file__).resolve().parent / "catalog_migrations" / "2.1_to_3.0.json"
     return json.loads(path.read_text(encoding="utf-8"))
 
 

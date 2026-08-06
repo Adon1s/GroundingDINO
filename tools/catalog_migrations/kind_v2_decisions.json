@@ -1,0 +1,3396 @@
+{
+  "migration": "2.1_to_3.0",
+  "ontology_version": "observation-kind-v2",
+  "policy": "Approved state-based reclassification: asserted failures stay defect; visible soiling, wear, fading, overgrowth, surface rust, and deferred upkeep are degradation; presentation-only or dated/basic opportunities are modernization. Paving: cracking/surface wear/minor settlement = degradation, heaving/trip edges/crumbling = defect. Water stains = defect (moisture evidence); cosmetic staining = degradation. Dents without stated functional impact = degradation (mix-022).",
+  "entries": [
+    {
+      "legacy_id": "water_stain_ceiling",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "water_stain_ceiling",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "ceiling",
+            "state": "water staining indicating moisture intrusion",
+            "ontology_basis": "moisture_evidence"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "peeling_or_discolored_paint",
+      "legacy_kind": "defect",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "peeling_or_discolored_paint",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "interior paint",
+            "state": "peeling, bubbling, or visibly aged finish",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "visible_mold_or_mildew",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "visible_mold_or_mildew",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "interior surfaces",
+            "state": "visible mold or mildew growth",
+            "ontology_basis": "mold_growth"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "damaged_drywall_or_cracks",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "damaged_drywall_or_cracks",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "drywall",
+            "state": "cracks, holes, or impact damage",
+            "ontology_basis": "crack_non_paving"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "ceiling_cracks_or_sagging",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "ceiling_cracks_or_sagging",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "ceiling",
+            "state": "cracking, joint separation, or sagging",
+            "ontology_basis": "crack_non_paving"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "damaged_soffit_or_porch_ceiling",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated failure (sagging/loose/missing panels) with finish deterioration (patchy/weathered) — different evidence and remediation.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
+        "estimate_scope": "none",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "parent package_affinity (exterior) not carried to successors; re-author post-Task 3"
+      },
+      "successors": [
+        {
+          "id": "soffit_or_porch_ceiling_failed",
+          "kind": "defect",
+          "severity": 2,
+          "name": "Failed or Missing Soffit/Porch Ceiling Panels",
+          "description": "Sagging, loose, misaligned, or missing soffit or porch ceiling panels under an overhang or covered entry.",
+          "embed_text": "Failed or missing soffit or porch ceiling panels. Sagging porch ceiling, loose or detached soffit panels, missing soffit sections under an eave, overhang, carport, or covered entry. Repair or replace failed exterior ceiling panels.",
+          "support_any": [
+            "soffit",
+            "porch ceiling",
+            "sagging",
+            "loose panel",
+            "missing panel",
+            "detached"
+          ],
+          "atomic_claim": {
+            "subject": "soffit or porch ceiling panels",
+            "state": "sagging, loose, or missing panels",
+            "ontology_basis": "asserted_failure"
+          }
+        },
+        {
+          "id": "soffit_or_porch_ceiling_weathered",
+          "kind": "degradation",
+          "severity": 2,
+          "name": "Weathered Soffit/Porch Ceiling Finish",
+          "description": "Soffit or porch ceiling panels are intact but show a patchy, peeling, or weathered finish.",
+          "embed_text": "Weathered soffit or porch ceiling finish. Patchy, faded, peeling, or discolored finish on intact soffit or porch ceiling panels under an eave or covered entry. Refinish or repaint exterior ceiling panels.",
+          "support_any": [
+            "soffit",
+            "porch ceiling",
+            "patchy",
+            "faded",
+            "peeling",
+            "weathered"
+          ],
+          "atomic_claim": {
+            "subject": "soffit or porch ceiling finish",
+            "state": "patchy, peeling, or weathered finish on intact panels",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "worn_or_stained_carpet",
+      "legacy_kind": "defect",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "worn_or_stained_carpet",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "carpet",
+            "state": "visible wear, staining, or fraying",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "worn_or_stained_vinyl_linoleum",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated damage (torn/worn through/lifting) with cosmetic wear (stains/discoloration) — a torn floor and a stained floor are different claims.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
+        "estimate_scope": "none",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "parent package_affinity (bedroom, kitchen, living) not carried to successors; re-author post-Task 3"
+      },
+      "successors": [
+        {
+          "id": "vinyl_linoleum_torn_or_lifted",
+          "kind": "defect",
+          "severity": 1,
+          "name": "Torn or Lifting Vinyl / Linoleum Flooring",
+          "description": "Vinyl sheet, linoleum, or resilient flooring that is torn, worn through, peeling up, or lifting.",
+          "embed_text": "Torn or lifting vinyl or linoleum flooring. Torn, worn through, peeling, lifted, or delaminating resilient flooring. Replace damaged flooring.",
+          "support_any": [
+            "linoleum",
+            "vinyl",
+            "vinyl sheet",
+            "sheet flooring",
+            "resilient flooring",
+            "torn",
+            "peeling",
+            "lifted"
+          ],
+          "atomic_claim": {
+            "subject": "vinyl or linoleum flooring",
+            "state": "torn, worn through, or lifting material",
+            "ontology_basis": "asserted_failure"
+          }
+        },
+        {
+          "id": "vinyl_linoleum_worn_or_stained",
+          "kind": "degradation",
+          "severity": 1,
+          "name": "Worn or Stained Vinyl / Linoleum Flooring",
+          "description": "Vinyl sheet, linoleum, or resilient flooring that is visibly stained, discolored, or worn but intact.",
+          "embed_text": "Worn or stained vinyl or linoleum flooring. Stained, discolored, dull, or worn resilient flooring that remains intact. Replace or resurface tired flooring.",
+          "support_any": [
+            "linoleum",
+            "vinyl",
+            "vinyl sheet",
+            "sheet flooring",
+            "resilient flooring",
+            "worn vinyl",
+            "stained vinyl",
+            "discolored flooring"
+          ],
+          "atomic_claim": {
+            "subject": "vinyl or linoleum flooring",
+            "state": "staining, discoloration, or wear on intact material",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "scratched_or_damaged_flooring",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated damage (chips/warping/broken tiles) with finish wear (scratches/scuffs) — hard-flooring damage and worn finish differ in kind and remediation.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
+        "estimate_scope": "parent estimate_scope override 'marketability_rehab' not carried to successors",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "parent package_affinity (bedroom, kitchen, living) not carried to successors; re-author post-Task 3"
+      },
+      "successors": [
+        {
+          "id": "hard_flooring_broken_or_warped",
+          "kind": "defect",
+          "severity": 1,
+          "name": "Broken or Warped Hard Flooring",
+          "description": "Hardwood/laminate/vinyl/tile with chips, warping, broken tiles, or visible damage.",
+          "embed_text": "Broken or warped hard flooring. Chips, warping, cupping, broken pieces, cracked or broken floor tiles. Repair or replace damaged flooring.",
+          "support_any": [
+            "damaged floor",
+            "warped",
+            "chip",
+            "broken tile",
+            "cupping",
+            "cracked tile"
+          ],
+          "atomic_claim": {
+            "subject": "hard flooring",
+            "state": "chips, warping, or broken pieces",
+            "ontology_basis": "asserted_failure"
+          }
+        },
+        {
+          "id": "hard_flooring_scratched_or_worn",
+          "kind": "degradation",
+          "severity": 1,
+          "name": "Scratched or Worn Hard Flooring Finish",
+          "description": "Hardwood/laminate/vinyl/tile with scratches, scuffs, or a dull worn finish, structurally intact.",
+          "embed_text": "Scratched or worn hard flooring finish. Scratches, scuffs, dull or worn floor finish on intact flooring. Refinish or recoat flooring.",
+          "support_any": [
+            "scratch",
+            "scuff",
+            "worn floor",
+            "dull finish",
+            "worn finish"
+          ],
+          "atomic_claim": {
+            "subject": "hard flooring finish",
+            "state": "scratches, scuffs, or worn finish on intact flooring",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "trip_hazard_or_unlevel_floor",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "trip_hazard_or_unlevel_floor",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "floor",
+            "state": "unlevel surface or loose threshold posing a trip hazard",
+            "ontology_basis": "safety_hazard"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "damaged_or_rotted_siding_or_trim",
+      "legacy_kind": "defect",
+      "change_type": "narrowed",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Failure claims are atomic; the trailing generic 'deterioration' invited wear-band matches that belong to exterior_siding_discoloration_fading (degradation).",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> defect; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'defect' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'defect' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "damaged_or_rotted_siding_or_trim",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "exterior siding or trim",
+            "state": "rot, warping, cracks, or missing sections",
+            "ontology_basis": "asserted_failure"
+          },
+          "overrides": {
+            "description": "Exterior siding/trim showing rot, warping, cracks, or missing sections."
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "damaged_or_aged_roof_shingles",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated failed weather protection (missing/curling/torn) with aging (worn granules, moss, discoloration) — an aged-but-sealed roof and an open roof are different claims.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
+        "estimate_scope": "none",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "none inherited; successors carry no package metadata"
+      },
+      "successors": [
+        {
+          "id": "roof_shingles_missing_or_curling",
+          "kind": "defect",
+          "severity": 3,
+          "name": "Missing or Curling Roof Shingles",
+          "description": "Missing, curling, torn, or patched shingles compromising the weather envelope.",
+          "embed_text": "Missing or curling roof shingles. Missing shingles, curling or lifting shingle edges, torn shingles, patched or open roof areas. Roof repair.",
+          "support_any": [
+            "roof",
+            "shingle",
+            "curling",
+            "missing",
+            "torn",
+            "patched"
+          ],
+          "atomic_claim": {
+            "subject": "roof shingles",
+            "state": "missing, curling, or torn shingles",
+            "ontology_basis": "asserted_failure"
+          }
+        },
+        {
+          "id": "roof_shingles_aged_or_worn",
+          "kind": "degradation",
+          "severity": 2,
+          "name": "Aged or Worn Roof Shingles",
+          "description": "Shingles intact but visibly aged: worn granules, discoloration, moss or algae growth, debris buildup.",
+          "embed_text": "Aged or worn roof shingles. Worn shingle granules, roof surface discoloration, moss or algae growth on roof, debris-covered or dirty shingles suggesting reduced remaining life. Roof maintenance or replacement planning.",
+          "support_any": [
+            "roof",
+            "shingle",
+            "worn",
+            "moss",
+            "algae",
+            "discoloration",
+            "debris"
+          ],
+          "atomic_claim": {
+            "subject": "roof shingles",
+            "state": "aging, moss, or wear on intact roof",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "damaged_or_unsafe_deck_or_porch",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "damaged_or_unsafe_deck_or_porch",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "deck or porch structure",
+            "state": "loose, rotted, or missing boards or railings",
+            "ontology_basis": "asserted_failure"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "broken_or_fogged_windows",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "broken_or_fogged_windows",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "windows",
+            "state": "cracked glass, damaged frames, or failed seals",
+            "ontology_basis": "asserted_failure"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dirty_or_grimy_window_screens",
+      "legacy_kind": "defect",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dirty_or_grimy_window_screens",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "window screens",
+            "state": "heavy grime or debris buildup",
+            "ontology_basis": "soiling_deferred_upkeep"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_or_older_windows",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dated_or_older_windows",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "windows",
+            "state": "dated style or aging window units, functional",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "outdated_or_damaged_cabinets",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated damage (broken doors/drawers, water staining), finish wear, and dated style — three kinds in one id; a photo of missing doors and a photo of oak cabinets resolved to the same item and price.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation, modernization); re-resolution required at cutover",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "parent package_affinity (kitchen) not carried to successors; re-author post-Task 3"
+      },
+      "successors": [
+        {
+          "id": "cabinets_damaged_or_water_stained",
+          "kind": "defect",
+          "severity": 2,
+          "name": "Damaged or Water-Stained Cabinets",
+          "description": "Cabinets with broken or damaged doors/drawers, water staining, or swollen panels.",
+          "embed_text": "Damaged or water-stained cabinets. Broken cabinet doors or drawers, water-stained or swollen cabinet panels, damaged boxes or hinges. Cabinet repair or replacement.",
+          "support_any": [
+            "cabinet",
+            "drawer",
+            "damaged",
+            "water stain",
+            "broken",
+            "swollen"
+          ],
+          "atomic_claim": {
+            "subject": "cabinets",
+            "state": "broken components or water staining",
+            "ontology_basis": "asserted_failure"
+          }
+        },
+        {
+          "id": "cabinets_worn_finish",
+          "kind": "degradation",
+          "severity": 2,
+          "name": "Worn Cabinet Finish",
+          "description": "Cabinets with visibly worn, faded, or chipped finish; boxes and doors intact.",
+          "embed_text": "Worn cabinet finish. Worn, faded, chipped, or deteriorated cabinet finish on intact cabinetry. Refinish or repaint cabinets.",
+          "support_any": [
+            "cabinet",
+            "worn",
+            "faded finish",
+            "chipped finish",
+            "worn finish"
+          ],
+          "atomic_claim": {
+            "subject": "cabinet finish",
+            "state": "worn or faded finish on intact cabinets",
+            "ontology_basis": "visible_deterioration"
+          }
+        },
+        {
+          "id": "cabinets_dated_style",
+          "kind": "modernization",
+          "severity": 2,
+          "name": "Dated Cabinet Style",
+          "description": "Functional, maintained cabinets in a dated style or basic grade.",
+          "embed_text": "Dated cabinet style. Oak, golden oak, builder-grade, flat-panel, or otherwise dated cabinetry in functional condition. Cabinet modernization opportunity.",
+          "support_any": [
+            "cabinet",
+            "dated",
+            "outdated",
+            "oak cabinets",
+            "builder grade"
+          ],
+          "atomic_claim": {
+            "subject": "cabinets",
+            "state": "dated style or basic grade, functional",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "countertop_damage",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "countertop_damage",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "kitchen countertop",
+            "state": "burns, chips, cracks, swollen seams, or missing sections",
+            "ontology_basis": "asserted_failure"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "tile_or_grout_damage",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "tile_or_grout_damage",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "tile or grout",
+            "state": "broken, loose, or missing tile or grout",
+            "ontology_basis": "asserted_failure"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "appliance_damage_or_missing",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated missing/broken appliances with aged/neglected and dated/basic ones — failure, deterioration, and style are three claims.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation, modernization); re-resolution required at cutover",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine); parent estimate_scope override 'marketability_rehab' not carried to successors",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "parent package_affinity (kitchen) not carried to successors; re-author post-Task 3"
+      },
+      "successors": [
+        {
+          "id": "appliances_damaged_or_missing",
+          "kind": "defect",
+          "severity": 2,
+          "name": "Damaged or Missing Appliances",
+          "description": "Key appliances missing or visibly broken.",
+          "embed_text": "Damaged or missing appliances. Missing range, oven, or dishwasher; visibly broken appliance components. Replace appliances.",
+          "support_any": [
+            "appliance",
+            "missing",
+            "broken",
+            "range",
+            "oven",
+            "dishwasher"
+          ],
+          "atomic_claim": {
+            "subject": "kitchen appliances",
+            "state": "missing or broken units",
+            "ontology_basis": "asserted_failure"
+          }
+        },
+        {
+          "id": "appliances_worn_or_neglected",
+          "kind": "degradation",
+          "severity": 2,
+          "name": "Worn or Neglected Appliances",
+          "description": "Appliances present and working but significantly aged, soiled, or neglected.",
+          "embed_text": "Worn or neglected appliances. Heavily aged, soiled, greasy, or neglected kitchen appliances that still function. Replace tired appliances.",
+          "support_any": [
+            "appliance",
+            "old",
+            "aged",
+            "greasy",
+            "neglected",
+            "dirty appliance"
+          ],
+          "atomic_claim": {
+            "subject": "kitchen appliances",
+            "state": "aged or neglected but working units",
+            "ontology_basis": "visible_deterioration"
+          }
+        },
+        {
+          "id": "appliances_dated_or_basic",
+          "kind": "modernization",
+          "severity": 2,
+          "name": "Dated or Basic Appliances",
+          "description": "Functional, maintained appliances that are dated in style or basic grade.",
+          "embed_text": "Dated or basic appliances. Older-style, mismatched, white or bisque, or builder-grade kitchen appliances in working condition. Appliance modernization opportunity.",
+          "support_any": [
+            "appliance",
+            "dated",
+            "older appliances",
+            "white appliances",
+            "builder grade"
+          ],
+          "atomic_claim": {
+            "subject": "kitchen appliances",
+            "state": "dated style or basic grade, functional",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "plumbing_fixture_leaking_stained",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated active leaks with staining/mineral buildup — a leak is failure (rule: asserted failure); staining and buildup without a leak are deterioration.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
+        "estimate_scope": "none",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "none inherited; successors carry no package metadata"
+      },
+      "successors": [
+        {
+          "id": "plumbing_fixture_leaking",
+          "kind": "defect",
+          "severity": 3,
+          "name": "Leaking Plumbing Fixture",
+          "description": "Active leaks at sinks, toilets, tubs, or showers.",
+          "embed_text": "Leaking plumbing fixture. Active leak, drip, or water escape at sink, toilet, tub, or shower connections. Plumbing repair.",
+          "support_any": [
+            "leak",
+            "leaking",
+            "drip",
+            "sink",
+            "toilet",
+            "faucet"
+          ],
+          "atomic_claim": {
+            "subject": "plumbing fixture",
+            "state": "active leak",
+            "ontology_basis": "asserted_failure"
+          }
+        },
+        {
+          "id": "plumbing_fixture_stained_or_corroded",
+          "kind": "degradation",
+          "severity": 2,
+          "name": "Stained or Corroded Plumbing Fixture",
+          "description": "Staining, surface corrosion, or mineral buildup at fixtures without an active leak.",
+          "embed_text": "Stained or corroded plumbing fixture. Staining, surface rust, corrosion, or mineral buildup at sink, toilet, tub, or shower fixtures without active leaking. Clean, descale, or replace fixture components.",
+          "support_any": [
+            "corrosion",
+            "rust",
+            "mineral buildup",
+            "stained fixture",
+            "sink",
+            "faucet"
+          ],
+          "atomic_claim": {
+            "subject": "plumbing fixture",
+            "state": "staining, corrosion, or buildup without leak",
+            "ontology_basis": "surface_rust"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "stained_or_damaged_bath_fixtures",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated damage (chipped enamel) with staining/wear — a chipped tub and a stained tub are different claims and remediations.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
+        "estimate_scope": "none",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "parent package_affinity (bathroom) not carried to successors; re-author post-Task 3"
+      },
+      "successors": [
+        {
+          "id": "bath_fixtures_chipped_or_damaged",
+          "kind": "defect",
+          "severity": 1,
+          "name": "Chipped or Damaged Bath Fixtures",
+          "description": "Tubs, showers, or toilets with chipped enamel or damaged surfaces.",
+          "embed_text": "Chipped or damaged bath fixtures. Chipped enamel on tub or sink, cracked or damaged toilet or shower fixture surfaces. Fixture repair or replacement.",
+          "support_any": [
+            "tub$",
+            "shower",
+            "toilet",
+            "chipped enamel",
+            "cracked",
+            "bathtub"
+          ],
+          "atomic_claim": {
+            "subject": "bath fixtures",
+            "state": "chipped enamel or damaged surfaces",
+            "ontology_basis": "asserted_failure"
+          }
+        },
+        {
+          "id": "bath_fixtures_stained_or_worn",
+          "kind": "degradation",
+          "severity": 1,
+          "name": "Stained or Worn Bath Fixtures",
+          "description": "Tubs, showers, or toilets with heavy staining or worn finishes; undamaged.",
+          "embed_text": "Stained or worn bath fixtures. Heavy staining, discoloration, worn finishes, perimeter grime at shower pan or tub edges. Fixture update or replacement.",
+          "support_any": [
+            "tub$",
+            "shower",
+            "toilet",
+            "stained",
+            "worn",
+            "bathtub",
+            "grime"
+          ],
+          "atomic_claim": {
+            "subject": "bath fixtures",
+            "state": "heavy staining or worn finish, undamaged",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "visible_electrical_risks",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "visible_electrical_risks",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "electrical components",
+            "state": "exposed wiring, scorch marks, or unsafe components",
+            "ontology_basis": "safety_hazard"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "missing_or_damaged_handrails",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "missing_or_damaged_handrails",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "handrails",
+            "state": "missing, loose, or broken railings",
+            "ontology_basis": "missing_required_component"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "garage_or_basement_damage",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "garage_or_basement_damage",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "garage or basement walls/floors",
+            "state": "cracking, moisture intrusion, or efflorescence",
+            "ontology_basis": "asserted_failure"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "major_foundation_or_settlement_signs",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "major_foundation_or_settlement_signs",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "foundation",
+            "state": "step cracks, sloped floors, or notable settlement",
+            "ontology_basis": "asserted_failure"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "pest_or_rodent_evidence",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "pest_or_rodent_evidence",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "structure interior",
+            "state": "droppings, chewed materials, or nests evidencing infestation",
+            "ontology_basis": "asserted_failure"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "standing_water_or_poor_grading",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "standing_water_or_poor_grading",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "site drainage",
+            "state": "standing water or negative grading at the structure",
+            "ontology_basis": "asserted_failure"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "driveway_or_walkway_cracking",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated the paving rule's two sides: heaving/trip edges/crumbling are defects; cracking, spalling, and minor settlement are degradation (Steven's def-009 ruling).",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
+        "estimate_scope": "parent estimate_scope override 'marketability_rehab' not carried to successors",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "none inherited; successors carry no package metadata"
+      },
+      "successors": [
+        {
+          "id": "paving_heaved_or_trip_hazard",
+          "kind": "defect",
+          "severity": 2,
+          "name": "Heaved or Trip-Hazard Paving",
+          "description": "Concrete or paved surfaces with heaving, raised trip edges, crumbling, or displaced sections.",
+          "embed_text": "Heaved or trip-hazard paving. Heaved, displaced, or crumbling concrete, stone, or paver surfaces with raised trip edges at driveways, walkways, or entry paths. Concrete repair.",
+          "support_any": [
+            "driveway",
+            "walkway",
+            "heaving",
+            "trip edge",
+            "displaced",
+            "crumbling"
+          ],
+          "atomic_claim": {
+            "subject": "paved surfaces",
+            "state": "heaving, trip edges, or crumbling",
+            "ontology_basis": "paving_defect_heave_trip_crumble"
+          }
+        },
+        {
+          "id": "paving_cracked_or_settled",
+          "kind": "degradation",
+          "severity": 1,
+          "name": "Cracked or Settled Paving",
+          "description": "Concrete or paved surfaces with cracking, spalling, or minor settlement; no heaving or trip edges.",
+          "embed_text": "Cracked or settled paving. Cracked, spalling, or slightly settled concrete, stone, paver, or flagstone surfaces at driveways, walkways, or entry paths without heaving or trip edges. Concrete maintenance or resurfacing.",
+          "support_any": [
+            "driveway",
+            "walkway",
+            "crack",
+            "spalling",
+            "settlement"
+          ],
+          "atomic_claim": {
+            "subject": "paved surfaces",
+            "state": "cracking, spalling, or minor settlement",
+            "ontology_basis": "paving_degradation_cracking_wear"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "clogged_or_damaged_gutters",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "clogged_or_damaged_gutters",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "gutters and downspouts",
+            "state": "clogged, sagging, or disconnected drainage",
+            "ontology_basis": "asserted_failure"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "trees_or_vegetation_too_close",
+      "legacy_kind": "defect",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "task3_flags": [
+        "Steven (Pause A): this concept is a common model hallucination and is likely not worth costing. Classification is correct under the ontology (overgrowth = degradation), so the kind is unchanged and the economic fields are untouched here — Task 2 does not make pricing decisions. Task 3 should decide whether to strip its cost/estimate blocks, demote it to defaultHidden/drop_if_generic, or retire the concept; the grounding half belongs to 2a/2b evidence work, not to kind classification."
+      ],
+      "successors": [
+        {
+          "id": "trees_or_vegetation_too_close",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "site vegetation",
+            "state": "vegetation contacting or crowding the structure",
+            "ontology_basis": "overgrowth_deferred_upkeep"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "outdated_kitchen_finishes",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "outdated_kitchen_finishes",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "kitchen finishes",
+            "state": "dated cabinetry, counters, or finishes",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "outdated_bathroom_finishes",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "outdated_bathroom_finishes",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "bathroom finishes",
+            "state": "dated tile, vanity, or fixtures",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "older_flooring_style",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "older_flooring_style",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "flooring",
+            "state": "clean but visually outdated flooring",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_lighting_fixtures",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dated_lighting_fixtures",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "lighting fixtures",
+            "state": "dated fixture styles",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_bathroom_vanity_light",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dated_bathroom_vanity_light",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "bathroom vanity light",
+            "state": "dated or builder-grade fixture",
+            "ontology_basis": "low_grade_material"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "paint_refresh_recommended",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "paint_refresh_recommended",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "interior paint color",
+            "state": "dated or highly personalized colors",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "landscape_improvement_needed",
+      "legacy_kind": "upgrade",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated deferred maintenance (overgrown/tired yard) with discretionary improvement (sparse/plain landscaping) — degradation vs modernization.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (degradation, modernization); re-resolution required at cutover",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "none inherited; successors carry no package metadata"
+      },
+      "successors": [
+        {
+          "id": "landscaping_overgrown_or_neglected",
+          "kind": "degradation",
+          "severity": 2,
+          "name": "Overgrown or Neglected Landscaping",
+          "description": "Yard is overgrown, weedy, patchy, or tired from deferred maintenance.",
+          "embed_text": "Overgrown or neglected landscaping. Overgrown shrubs and weeds, patchy or bare lawn, dormant or thin turf, dirt and debris buildup needing cleanup, trimming, or overseeding.",
+          "support_any": [
+            "overgrown",
+            "weeds",
+            "patchy",
+            "lawn",
+            "grass",
+            "yard",
+            "cleanup"
+          ],
+          "atomic_claim": {
+            "subject": "landscaping",
+            "state": "overgrowth or deferred maintenance",
+            "ontology_basis": "overgrowth_deferred_upkeep"
+          }
+        },
+        {
+          "id": "landscaping_enhancement_opportunity",
+          "kind": "modernization",
+          "severity": 1,
+          "name": "Landscaping Enhancement Opportunity",
+          "description": "Yard is maintained but sparse or plain; discretionary landscaping would improve curb appeal.",
+          "embed_text": "Landscaping enhancement opportunity. Maintained but sparse, plain, or minimal landscaping where planting beds, shrubs, or hardscape additions would improve curb appeal.",
+          "support_any": [
+            "landscaping",
+            "sparse",
+            "curb appeal",
+            "yard",
+            "plain yard"
+          ],
+          "atomic_claim": {
+            "subject": "landscaping",
+            "state": "sparse or plain, discretionary enhancement",
+            "ontology_basis": "discretionary_improvement"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "curb_appeal_upgrade",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "curb_appeal_upgrade",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "entry/porch/facade",
+            "state": "cosmetic enhancement opportunity",
+            "ontology_basis": "discretionary_improvement"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "unfinished_basement_present",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "unfinished_basement_present",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "basement",
+            "state": "unfinished space as a finishing opportunity",
+            "ontology_basis": "discretionary_improvement"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "staging_or_decluttering_opportunity",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "staging_or_decluttering_opportunity",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "room presentation",
+            "state": "cluttered or personalized presentation",
+            "ontology_basis": "presentation_only"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "baseboard_wear_scuffs",
+      "legacy_kind": "defect",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "baseboard_wear_scuffs",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "baseboards",
+            "state": "scuffs, paint loss, dents, or general wear",
+            "ontology_basis": "dent_without_functional_impact"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "wall_scuffs_marks_or_dents",
+      "legacy_kind": "defect",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "wall_scuffs_marks_or_dents",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "walls",
+            "state": "scuffs, marks, or minor dents from use",
+            "ontology_basis": "dent_without_functional_impact"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "ceiling_fan_mismatched_blades",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated damaged blades (failure) with merely mismatched blades (visual) — a damaged blade needs repair; mismatched is presentation.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, modernization); re-resolution required at cutover",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine); parent estimate_scope override 'marketability_rehab' not carried to successors",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "none inherited; successors carry no package metadata"
+      },
+      "successors": [
+        {
+          "id": "ceiling_fan_blades_damaged",
+          "kind": "defect",
+          "severity": 1,
+          "name": "Damaged Ceiling Fan Blades",
+          "description": "Ceiling fan has damaged, warped, or missing blades.",
+          "embed_text": "Damaged ceiling fan blades. Broken, warped, drooping, or missing fan blades. Replace fan or blades.",
+          "support_any": [
+            "ceiling fan",
+            "fan",
+            "damaged blade",
+            "missing blade",
+            "warped blade"
+          ],
+          "atomic_claim": {
+            "subject": "ceiling fan blades",
+            "state": "damaged, warped, or missing blades",
+            "ontology_basis": "asserted_failure"
+          }
+        },
+        {
+          "id": "ceiling_fan_blades_mismatched",
+          "kind": "modernization",
+          "severity": 1,
+          "name": "Mismatched Ceiling Fan Blades",
+          "description": "Ceiling fan blades are mismatched or visually inconsistent; fan functional.",
+          "embed_text": "Mismatched ceiling fan blades. Mismatched, mixed-color, or visually uneven fan blades on a working ceiling fan. Replace fan or blades for a consistent look.",
+          "support_any": [
+            "ceiling fan",
+            "fan",
+            "mismatched blades",
+            "mismatched",
+            "uneven blades"
+          ],
+          "atomic_claim": {
+            "subject": "ceiling fan blades",
+            "state": "mismatched appearance, functional",
+            "ontology_basis": "presentation_only"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "older_ceiling_fan_style",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "older_ceiling_fan_style",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "ceiling fan",
+            "state": "older or builder-grade style, functional",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "popcorn_or_acoustic_ceiling_texture",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "popcorn_or_acoustic_ceiling_texture",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "ceiling texture",
+            "state": "dated popcorn/stipple texture",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "suspended_drop_ceiling",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "suspended_drop_ceiling",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "ceiling",
+            "state": "dated suspended acoustic-tile grid",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "unfinished_interior_wall_osb_exposed",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "unfinished_interior_wall_osb_exposed",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "interior wall",
+            "state": "exposed OSB/sheathing on an unfinished assembly",
+            "ontology_basis": "missing_required_component"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "floor_dirty_or_heavily_soiled",
+      "legacy_kind": "defect",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "floor_dirty_or_heavily_soiled",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "floor",
+            "state": "heavy visible soiling",
+            "ontology_basis": "soiling_deferred_upkeep"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "vintage_tile_pattern_style",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "vintage_tile_pattern_style",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "bathroom tile",
+            "state": "vintage or dated pattern, intact",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "ornate_vintage_mirror",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "ornate_vintage_mirror",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "bathroom mirror",
+            "state": "ornate or vintage style",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "outdated_or_damaged_vanity",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated damage (water-damaged base, broken hinges), worn finish, and dated styling — three kinds in one id.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation, modernization); re-resolution required at cutover",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine); parent estimate_scope override 'marketability_rehab' not carried to successors",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "parent package_affinity (bathroom) not carried to successors; re-author post-Task 3"
+      },
+      "successors": [
+        {
+          "id": "vanity_damaged_or_water_stained",
+          "kind": "defect",
+          "severity": 3,
+          "name": "Damaged or Water-Stained Vanity",
+          "description": "Bathroom vanity with water-damaged base, swollen particle board, peeling laminate, or broken doors/hinges.",
+          "embed_text": "Damaged or water-stained vanity. Water-damaged vanity base, swollen particle board, peeling laminate, broken hinges or drawer fronts. Replace bathroom vanity.",
+          "support_any": [
+            "vanity",
+            "bathroom cabinet",
+            "damaged vanity",
+            "water damage",
+            "swollen",
+            "broken"
+          ],
+          "atomic_claim": {
+            "subject": "bathroom vanity",
+            "state": "water damage or broken components",
+            "ontology_basis": "asserted_failure"
+          }
+        },
+        {
+          "id": "vanity_worn_finish",
+          "kind": "degradation",
+          "severity": 2,
+          "name": "Worn Vanity Finish",
+          "description": "Bathroom vanity with worn, faded, or deteriorated finish; structurally intact.",
+          "embed_text": "Worn vanity finish. Worn, faded, chipped, or deteriorated finish on an intact bathroom vanity. Refinish or replace vanity.",
+          "support_any": [
+            "vanity",
+            "worn vanity",
+            "worn finish",
+            "faded"
+          ],
+          "atomic_claim": {
+            "subject": "bathroom vanity finish",
+            "state": "worn or faded finish on intact vanity",
+            "ontology_basis": "visible_deterioration"
+          }
+        },
+        {
+          "id": "vanity_dated_style",
+          "kind": "modernization",
+          "severity": 2,
+          "name": "Dated Vanity Style",
+          "description": "Functional bathroom vanity in a dated style: oak, golden oak, builder-grade, or 1990s-era cabinetry.",
+          "embed_text": "Dated vanity style. Oak, golden oak, builder-grade flat-panel, or 1990s-style bathroom vanity in functional condition. Vanity modernization opportunity.",
+          "support_any": [
+            "vanity",
+            "dated vanity",
+            "outdated vanity",
+            "oak vanity",
+            "builder grade"
+          ],
+          "atomic_claim": {
+            "subject": "bathroom vanity",
+            "state": "dated style, functional",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "tub_surround_or_shower_pan_damage",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "tub_surround_or_shower_pan_damage",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "tub surround or shower pan",
+            "state": "cracked, chipped, or damaged wet-area enclosure",
+            "ontology_basis": "asserted_failure"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "bathroom_plumbing_visible_issue",
+      "legacy_kind": "defect",
+      "change_type": "narrowed",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Failure claims dominate; staining-only language removed so cosmetic corrosion routes to the plumbing degradation successor instead.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> defect; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'defect' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'defect' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "bathroom_plumbing_visible_issue",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "bathroom plumbing",
+            "state": "leaking, failing, or compromised supply/drain components",
+            "ontology_basis": "asserted_failure"
+          },
+          "overrides": {
+            "embed_text": "Bathroom plumbing visible issue. Leaking supply line under vanity, corroded shutoff valves, failing or improvised drain assembly, missing P-trap. Active drip at sink or toilet supply, water on cabinet base from plumbing concern. Plumbing repair required."
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "bathroom_gfci_missing_or_damaged",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "bathroom_gfci_missing_or_damaged",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "bathroom outlets",
+            "state": "missing or non-functional GFCI protection near water",
+            "ontology_basis": "safety_hazard"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "active_water_damage_bathroom",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "active_water_damage_bathroom",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "bathroom surfaces",
+            "state": "active or recent water damage",
+            "ontology_basis": "moisture_evidence"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "mold_or_mildew_visible_bathroom",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "mold_or_mildew_visible_bathroom",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "bathroom surfaces",
+            "state": "visible mold or mildew growth",
+            "ontology_basis": "mold_growth"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "missing_bathroom_tile_exposed_substrate",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "missing_bathroom_tile_exposed_substrate",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "bathroom tile",
+            "state": "missing tile exposing substrate",
+            "ontology_basis": "missing_required_component"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "missing_vanity_exposed_plumbing",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "missing_vanity_exposed_plumbing",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "bathroom vanity",
+            "state": "vanity missing with exposed plumbing",
+            "ontology_basis": "missing_required_component"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "vanity_countertop_damage",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "vanity_countertop_damage",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "vanity countertop",
+            "state": "cracks, chips, burns, or deep staining damage",
+            "ontology_basis": "asserted_failure"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "missing_or_damaged_caulk_at_tub_or_shower",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "missing_or_damaged_caulk_at_tub_or_shower",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "wet-area caulk",
+            "state": "failed, missing, or moldy sealant",
+            "ontology_basis": "asserted_failure"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "exhaust_fan_missing_or_damaged",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated missing/broken fan (failure, code) with grime-clogged (soiling) and visibly aged (dated) — three kinds.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation, modernization); re-resolution required at cutover",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "parent package_affinity (bathroom) not carried to successors; re-author post-Task 3"
+      },
+      "successors": [
+        {
+          "id": "exhaust_fan_missing_or_broken",
+          "kind": "defect",
+          "severity": 1,
+          "name": "Bathroom Exhaust Fan Missing or Broken",
+          "description": "Bathroom exhaust fan is missing or broken - needed for moisture management and code compliance.",
+          "embed_text": "Bathroom exhaust fan missing or broken. No visible exhaust fan in bathroom, broken or dangling exhaust fan cover, fan that does not appear operational. Install or replace bathroom exhaust fan.",
+          "support_any": [
+            "exhaust fan",
+            "bathroom fan",
+            "ventilation fan",
+            "broken fan",
+            "missing fan",
+            "no exhaust"
+          ],
+          "atomic_claim": {
+            "subject": "bathroom exhaust fan",
+            "state": "missing or broken unit",
+            "ontology_basis": "missing_required_component"
+          }
+        },
+        {
+          "id": "exhaust_fan_grime_clogged",
+          "kind": "degradation",
+          "severity": 1,
+          "name": "Grime-Clogged Bathroom Exhaust Fan",
+          "description": "Bathroom exhaust fan present but grime-clogged or heavily soiled.",
+          "embed_text": "Grime-clogged bathroom exhaust fan. Dust- or grime-clogged exhaust fan grille or housing, heavily soiled but present fan. Clean or replace fan cover.",
+          "support_any": [
+            "exhaust fan",
+            "bathroom fan",
+            "grime",
+            "dusty fan",
+            "dirty fan"
+          ],
+          "atomic_claim": {
+            "subject": "bathroom exhaust fan",
+            "state": "grime-clogged but present",
+            "ontology_basis": "soiling_deferred_upkeep"
+          }
+        },
+        {
+          "id": "exhaust_fan_dated",
+          "kind": "modernization",
+          "severity": 1,
+          "name": "Dated Bathroom Exhaust Fan",
+          "description": "Bathroom exhaust fan is functional but visibly aged or dated in style.",
+          "embed_text": "Dated bathroom exhaust fan. Visibly aged, yellowed, or dated exhaust fan unit that appears functional. Exhaust fan update opportunity.",
+          "support_any": [
+            "exhaust fan",
+            "bathroom fan",
+            "old fan",
+            "dated fan",
+            "yellowed"
+          ],
+          "atomic_claim": {
+            "subject": "bathroom exhaust fan",
+            "state": "dated unit, functional",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "peeling_or_damaged_bathroom_paint",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated moisture-evidence failure (bubbling near shower, efflorescence) with plain peeling/worn finish; the dated-color half already exists as bathroom_paint_refresh_recommended.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
+        "estimate_scope": "none",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "parent package_affinity (bathroom) not carried to successors; re-author post-Task 3"
+      },
+      "successors": [
+        {
+          "id": "bathroom_paint_moisture_damage",
+          "kind": "defect",
+          "severity": 2,
+          "name": "Moisture-Damaged Bathroom Paint",
+          "description": "Bathroom paint failure with moisture evidence: bubbling near shower, moisture-related discoloration, or efflorescence.",
+          "embed_text": "Moisture-damaged bathroom paint. Bubbling paint near tub or shower, moisture-related discoloration, efflorescence on bathroom walls or ceiling near plumbing fixtures. Prep, prime with moisture-resistant primer, and repaint with bathroom-rated paint.",
+          "support_any": [
+            "bubbling paint",
+            "moisture stain",
+            "efflorescence",
+            "bathroom paint",
+            "shower wall paint"
+          ],
+          "atomic_claim": {
+            "subject": "bathroom paint",
+            "state": "moisture-evidence failure: bubbling, discoloration, efflorescence",
+            "ontology_basis": "moisture_evidence"
+          }
+        },
+        {
+          "id": "bathroom_paint_peeling_or_worn",
+          "kind": "degradation",
+          "severity": 1,
+          "name": "Peeling or Worn Bathroom Paint",
+          "description": "Bathroom paint peeling, flaking, or worn without moisture evidence.",
+          "embed_text": "Peeling or worn bathroom paint. Peeling, flaking, or worn paint finish on bathroom walls or ceiling without moisture staining. Prep and repaint bathroom surfaces.",
+          "support_any": [
+            "peeling paint",
+            "flaking paint",
+            "worn paint",
+            "bathroom paint"
+          ],
+          "atomic_claim": {
+            "subject": "bathroom paint",
+            "state": "peeling or worn finish without moisture evidence",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "worn_or_damaged_bathroom_flooring",
+      "legacy_kind": "defect",
+      "change_type": "narrowed",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Evidence is already atomic (every listed state is moisture damage); the 'worn' in the name/id was misleading, not a second claim. Wording narrowed, no split.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> defect; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'defect' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'defect' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "worn_or_damaged_bathroom_flooring",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "bathroom flooring",
+            "state": "moisture damage: lifted vinyl, soft subfloor, cracked tile",
+            "ontology_basis": "moisture_evidence"
+          },
+          "overrides": {
+            "name": "Moisture-Damaged Bathroom Flooring",
+            "embed_text": "Moisture-damaged bathroom flooring. Lifted or peeling vinyl tile near toilet base, soft or spongy subfloor at vanity or tub, cracked or missing bathroom floor tile, buckled or water-damaged laminate. Bathroom flooring replacement with moisture-rated material."
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_or_worn_vanity_countertop",
+      "legacy_kind": "upgrade",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Style+wear pair: yellowed/worn surface is deterioration; a dated-but-pristine laminate pattern is modernization.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (degradation, modernization); re-resolution required at cutover",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "parent package_affinity (bathroom) not carried to successors; re-author post-Task 3"
+      },
+      "successors": [
+        {
+          "id": "vanity_countertop_worn",
+          "kind": "degradation",
+          "severity": 2,
+          "name": "Worn Vanity Countertop",
+          "description": "Vanity countertop with yellowed cultured marble, worn synthetic surface, or dulled finish; intact.",
+          "embed_text": "Worn vanity countertop. Yellowed cultured marble, worn or dulled integral sink top, deteriorated synthetic vanity surface. Vanity countertop replacement.",
+          "support_any": [
+            "vanity top",
+            "yellowed cultured marble",
+            "worn vanity top",
+            "worn countertop"
+          ],
+          "atomic_claim": {
+            "subject": "vanity countertop",
+            "state": "yellowed or worn surface, intact",
+            "ontology_basis": "visible_deterioration"
+          }
+        },
+        {
+          "id": "vanity_countertop_dated",
+          "kind": "modernization",
+          "severity": 2,
+          "name": "Dated Vanity Countertop Style",
+          "description": "Intact vanity countertop in a dated pattern or material: dated laminate, builder-grade synthetic top.",
+          "embed_text": "Dated vanity countertop style. Dated laminate pattern, builder-grade synthetic vanity top in good condition. Vanity countertop update for marketability.",
+          "support_any": [
+            "vanity top",
+            "dated vanity top",
+            "old laminate top",
+            "outdated vanity countertop"
+          ],
+          "atomic_claim": {
+            "subject": "vanity countertop",
+            "state": "dated pattern or material, intact",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_bathroom_flooring_style",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dated_bathroom_flooring_style",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "bathroom flooring",
+            "state": "intact but visually dated",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "stained_glass_or_vintage_light_fixture",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "stained_glass_or_vintage_light_fixture",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "light fixture",
+            "state": "vintage style reading dated",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_window_treatment_valance",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dated_window_treatment_valance",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "window treatments",
+            "state": "dated valance or treatments",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_wallpaper_present",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dated_wallpaper_present",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "wallpaper",
+            "state": "dated or visually busy wallpaper",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_wood_paneling",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dated_wood_paneling",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "wall paneling",
+            "state": "dated wood paneling",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_fireplace_surround",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dated_fireplace_surround",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "fireplace surround",
+            "state": "dated surround, mantel, or facing",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "mismatched_or_inconsistent_furniture_staging",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "mismatched_or_inconsistent_furniture_staging",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "furniture staging",
+            "state": "mismatched or distracting presentation",
+            "ontology_basis": "presentation_only"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_overall_decor_style",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dated_overall_decor_style",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "overall decor",
+            "state": "dated finish selections",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "yard_debris_overgrown_leaves",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "yard_debris_overgrown_leaves",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "yard",
+            "state": "overgrowth, fallen leaves, or debris accumulation",
+            "ontology_basis": "overgrowth_deferred_upkeep"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "roofline_water_damage_suspected",
+      "legacy_kind": "defect",
+      "change_type": "narrowed",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Water staining at the roofline is moisture evidence (rule 7) — already one claim; wording keeps the inspection framing.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> defect; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'defect' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'defect' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "roofline_water_damage_suspected",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "roofline (eaves/fascia/soffit)",
+            "state": "water staining indicating possible moisture intrusion",
+            "ontology_basis": "moisture_evidence"
+          },
+          "overrides": {
+            "description": "Water staining or moisture-related deterioration near the roofline suggesting possible intrusion requiring evaluation."
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "gutter_maintenance_needed",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "gutter_maintenance_needed",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "gutters and downspouts",
+            "state": "deferred cleaning or minor service need",
+            "ontology_basis": "overgrowth_deferred_upkeep"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "shed_exterior_paint_failure",
+      "legacy_kind": "defect",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "shed_exterior_paint_failure",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "shed exterior paint",
+            "state": "peeling or failing paint finish",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "concrete_driveway_surface_wear",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "concrete_driveway_surface_wear",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "concrete driveway",
+            "state": "spalling, pitting, or surface patch breakdown",
+            "ontology_basis": "paving_degradation_cracking_wear"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "indoor_storage_clutter_heavy",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "indoor_storage_clutter_heavy",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "indoor storage",
+            "state": "heavy clutter harming presentation",
+            "ontology_basis": "presentation_only"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "metal_carport_rust_corrosion",
+      "legacy_kind": "defect",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "metal_carport_rust_corrosion",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "metal carport",
+            "state": "surface rust or corrosion along seams and panels",
+            "ontology_basis": "surface_rust"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "fence_damaged_or_weathered",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated structural failure (rotting/leaning/broken) with weathering (graying/faded boards) — different evidence and remediation.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
+        "estimate_scope": "parent estimate_scope override 'marketability_rehab' not carried to successors",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "none inherited; successors carry no package metadata"
+      },
+      "successors": [
+        {
+          "id": "fence_broken_or_leaning",
+          "kind": "defect",
+          "severity": 2,
+          "name": "Broken or Leaning Fence",
+          "description": "Fence sections rotting, leaning, broken, or with missing boards.",
+          "embed_text": "Broken or leaning fence. Rotted fence posts or boards, leaning or collapsed fence sections, broken or missing fence boards. Repair or replace fencing.",
+          "support_any": [
+            "fence",
+            "fencing",
+            "leaning",
+            "rotted",
+            "broken",
+            "missing boards"
+          ],
+          "atomic_claim": {
+            "subject": "fence",
+            "state": "rot, leaning, or broken sections",
+            "ontology_basis": "asserted_failure"
+          }
+        },
+        {
+          "id": "fence_weathered",
+          "kind": "degradation",
+          "severity": 1,
+          "name": "Weathered Fence",
+          "description": "Fence structurally sound but weathered: graying, faded, or tired boards.",
+          "embed_text": "Weathered fence. Graying, faded, or weathered fence boards on an upright, intact fence. Clean, stain, or refinish fencing.",
+          "support_any": [
+            "fence",
+            "fencing",
+            "weathered",
+            "graying",
+            "faded"
+          ],
+          "atomic_claim": {
+            "subject": "fence",
+            "state": "weathered or faded boards, structurally sound",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "exterior_siding_discoloration_fading",
+      "legacy_kind": "defect",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "exterior_siding_discoloration_fading",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "exterior siding finish",
+            "state": "fading, chalking, or uneven discoloration",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "uneven_gravel_drive_or_parking",
+      "legacy_kind": "defect",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "uneven_gravel_drive_or_parking",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "gravel drive or parking",
+            "state": "rutted, uneven, or scattered gravel surface",
+            "ontology_basis": "paving_degradation_cracking_wear"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_exterior_finishes",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dated_exterior_finishes",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "exterior finishes",
+            "state": "dated palette, materials, or trim details",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "layout_modernization_opportunity",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "layout_modernization_opportunity",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "interior layout",
+            "state": "reconfiguration opportunity",
+            "ontology_basis": "discretionary_improvement"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "exposed_sheathing_or_missing_siding",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "exposed_sheathing_or_missing_siding",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "exterior wall",
+            "state": "exposed sheathing or missing siding panels",
+            "ontology_basis": "missing_required_component"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "deck_surface_weathering",
+      "legacy_kind": "defect",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "deck_surface_weathering",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "deck surface",
+            "state": "fading, graying, or surface wear from exposure",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "tree_stump_present_in_yard",
+      "legacy_kind": "defect",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single discretionary claim: nothing has failed and nothing is deteriorating — removal is a curb-appeal choice. Kept as one generic observation (no safety split) per Steven's Pause A review; id, wording, and economics unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "task3_flags": [
+        "Steven (Pause A): a stump is not a trip hazard; the proposed safety-defect successor was dropped and the concept stays a single generic, discretionary observation. It remains defaultHidden with its v1 economics intact; Task 3 owns whether it is costed at all."
+      ],
+      "successors": [
+        {
+          "id": "tree_stump_present_in_yard",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "tree stump",
+            "state": "stump remaining in yard affecting curb appeal",
+            "ontology_basis": "discretionary_improvement"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "exterior_door_paint_failure",
+      "legacy_kind": "defect",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "exterior_door_paint_failure",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "exterior door paint",
+            "state": "worn, chipped, or peeling finish",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_door_hardware",
+      "legacy_kind": "upgrade",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated dated style with worn finish — style+wear pair whose halves classify differently under the three-kind ontology.",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (degradation, modernization); re-resolution required at cutover",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "none inherited; successors carry no package metadata"
+      },
+      "successors": [
+        {
+          "id": "door_hardware_worn",
+          "kind": "degradation",
+          "severity": 1,
+          "name": "Worn Door Hardware",
+          "description": "Door knobs, levers, locksets, or entry hardware with visibly worn, tarnished, or deteriorated finish.",
+          "embed_text": "Worn door hardware. Door knobs, levers, locksets, deadbolts, or entry hardware with worn, tarnished, pitted, or deteriorated finish. Hardware replacement.",
+          "support_any": [
+            "door hardware",
+            "door knob",
+            "lockset",
+            "deadbolt",
+            "worn hardware",
+            "tarnished"
+          ],
+          "atomic_claim": {
+            "subject": "door hardware",
+            "state": "worn or tarnished finish",
+            "ontology_basis": "visible_deterioration"
+          }
+        },
+        {
+          "id": "door_hardware_dated_style",
+          "kind": "modernization",
+          "severity": 1,
+          "name": "Dated Door Hardware Style",
+          "description": "Functional door hardware in a dated style: aged brass, old-style deadbolts, dated knobs or levers.",
+          "embed_text": "Dated door hardware style. Brass door handles, old-style deadbolts, dated knobs or lever hardware in working condition. Hardware replacement opportunity.",
+          "support_any": [
+            "door hardware",
+            "door knob",
+            "brass",
+            "dated hardware",
+            "old-style",
+            "lockset"
+          ],
+          "atomic_claim": {
+            "subject": "door hardware",
+            "state": "dated style, functional",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "brick_weathering_or_mortar_deterioration",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated failing mortar joints (integrity failure needing repointing) with brick weathering/discoloration (cosmetic deterioration).",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
+        "estimate_scope": "parent estimate_scope override 'marketability_rehab' not carried to successors",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "parent package_affinity (exterior) not carried to successors; re-author post-Task 3"
+      },
+      "successors": [
+        {
+          "id": "mortar_joints_deteriorated",
+          "kind": "defect",
+          "severity": 2,
+          "name": "Deteriorated Mortar Joints",
+          "description": "Crumbling, receding, or failing mortar joints requiring repointing.",
+          "embed_text": "Deteriorated mortar joints. Crumbling, receding, cracked, or failing mortar joints in brickwork requiring repointing. Masonry repair.",
+          "support_any": [
+            "mortar deterioration",
+            "crumbling mortar",
+            "repoint",
+            "failing mortar"
+          ],
+          "atomic_claim": {
+            "subject": "mortar joints",
+            "state": "crumbling or failing joints",
+            "ontology_basis": "asserted_failure"
+          }
+        },
+        {
+          "id": "brick_weathered_or_discolored",
+          "kind": "degradation",
+          "severity": 1,
+          "name": "Weathered or Discolored Brick",
+          "description": "Brickwork with weathering, staining, or discoloration; mortar intact.",
+          "embed_text": "Weathered or discolored brick. Brick staining, weathering, efflorescence haze, or discoloration with intact mortar joints. Clean or seal masonry.",
+          "support_any": [
+            "brick weathering",
+            "discolored brick",
+            "brick staining"
+          ],
+          "atomic_claim": {
+            "subject": "brickwork",
+            "state": "weathering or discoloration with intact mortar",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "patio_or_porch_surface_wear",
+      "legacy_kind": "defect",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves defect -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "patio_or_porch_surface_wear",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "patio or porch surface",
+            "state": "aging, surface wear, or coating breakdown",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "missing_base_cabinets_exposed_subfloor",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "missing_base_cabinets_exposed_subfloor",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "base cabinets",
+            "state": "cabinets missing with exposed subfloor or plumbing",
+            "ontology_basis": "missing_required_component"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "rotted_subfloor_or_structural_framing",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "rotted_subfloor_or_structural_framing",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "subfloor or framing",
+            "state": "saturated or structurally compromised members",
+            "ontology_basis": "asserted_failure"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "interior_wall_stripped_to_studs",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "interior_wall_stripped_to_studs",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "interior wall",
+            "state": "drywall removed exposing studs",
+            "ontology_basis": "missing_required_component"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "boarded_up_entry_or_window",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "boarded_up_entry_or_window",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "entry or window opening",
+            "state": "opening boarded over",
+            "ontology_basis": "asserted_failure"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "retaining_wall_failure_or_missing_section",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "retaining_wall_failure_or_missing_section",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "retaining wall",
+            "state": "collapsed, missing, or structurally compromised section",
+            "ontology_basis": "asserted_failure"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "empty_or_deteriorated_inground_pool",
+      "legacy_kind": "defect",
+      "change_type": "split",
+      "deprecated": true,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Conflated an empty/unserviceable pool (failure, safety) with deteriorated finishes on a serviceable pool (deterioration).",
+      "expected_effects": {
+        "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
+        "estimate_scope": "parent estimate_scope override 'marketability_rehab' not carried to successors",
+        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "packages": "none inherited; successors carry no package metadata"
+      },
+      "successors": [
+        {
+          "id": "inground_pool_empty_or_unserviceable",
+          "kind": "defect",
+          "severity": 3,
+          "name": "Empty or Unserviceable In-Ground Pool",
+          "description": "In-ground pool is empty, drained, abandoned, or clearly non-operational.",
+          "embed_text": "Empty or unserviceable in-ground pool. Drained, abandoned, or non-operational pool shell. Pool rehabilitation, repair, or secure removal/fill-in.",
+          "support_any": [
+            "empty pool",
+            "drained pool",
+            "pool shell",
+            "abandoned pool",
+            "damaged pool"
+          ],
+          "atomic_claim": {
+            "subject": "in-ground pool",
+            "state": "empty or non-operational",
+            "ontology_basis": "asserted_failure"
+          }
+        },
+        {
+          "id": "inground_pool_finishes_deteriorated",
+          "kind": "degradation",
+          "severity": 2,
+          "name": "Deteriorated In-Ground Pool Finishes",
+          "description": "Filled, operational pool with visibly deteriorated finishes, coping, or surrounding surfaces.",
+          "embed_text": "Deteriorated in-ground pool finishes. Stained or worn pool plaster, deteriorated coping, faded or tired pool surfaces on a filled, functioning pool. Pool resurfacing or finish restoration.",
+          "support_any": [
+            "in-ground pool",
+            "pool coping",
+            "pool plaster",
+            "stained pool",
+            "worn pool finish"
+          ],
+          "atomic_claim": {
+            "subject": "in-ground pool finishes",
+            "state": "deteriorated finishes on operational pool",
+            "ontology_basis": "visible_deterioration"
+          },
+          "overrides": {
+            "deny_any": [
+              "clean pool"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "worn_or_stained_flooring",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single visible-deterioration claim; the v1 kind was the wear-band misfile. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> degradation; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "none",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'degradation' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'degradation' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "worn_or_stained_flooring",
+          "kind": "degradation",
+          "atomic_claim": {
+            "subject": "flooring",
+            "state": "wear, staining, or discoloration without structural concern",
+            "ontology_basis": "visible_deterioration"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "bare_or_missing_finish_flooring",
+      "legacy_kind": "defect",
+      "change_type": "unchanged",
+      "deprecated": false,
+      "requires_re_resolution": false,
+      "atomicity_rationale": "Single asserted-failure claim; kind and id unchanged.",
+      "expected_effects": {
+        "routing": "none: same id and kind; exact-kind retrieval unchanged",
+        "estimate_scope": "none",
+        "pricing": "none",
+        "packages": "none"
+      },
+      "successors": [
+        {
+          "id": "bare_or_missing_finish_flooring",
+          "kind": "defect",
+          "atomic_claim": {
+            "subject": "finish flooring",
+            "state": "floor stripped to subfloor or missing finish layer",
+            "ontology_basis": "missing_required_component"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_electrical_outlets_switches",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dated_electrical_outlets_switches",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "outlets and switches",
+            "state": "dated or discolored devices and plates",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_interior_trim",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dated_interior_trim",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "interior trim",
+            "state": "plain, thin, or builder-grade trim package",
+            "ontology_basis": "low_grade_material"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_interior_doors",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dated_interior_doors",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "interior doors",
+            "state": "hollow-core or dated door styles",
+            "ontology_basis": "low_grade_material"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_entry_or_patio_door",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dated_entry_or_patio_door",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "entry or patio door",
+            "state": "dated door as replacement candidate",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "dated_bathroom_wallpaper",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "dated_bathroom_wallpaper",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "bathroom wallpaper",
+            "state": "dated wallpaper or borders",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "bathroom_layout_modernization_opportunity",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "bathroom_layout_modernization_opportunity",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "bathroom layout",
+            "state": "awkward or constrained layout",
+            "ontology_basis": "discretionary_improvement"
+          }
+        }
+      ]
+    },
+    {
+      "legacy_id": "bathroom_paint_refresh_recommended",
+      "legacy_kind": "upgrade",
+      "change_type": "reclassified",
+      "deprecated": false,
+      "requires_re_resolution": true,
+      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "expected_effects": {
+        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
+        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
+        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
+        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+      },
+      "successors": [
+        {
+          "id": "bathroom_paint_refresh_recommended",
+          "kind": "modernization",
+          "atomic_claim": {
+            "subject": "bathroom paint color",
+            "state": "intact but dated or dull paint",
+            "ontology_basis": "dated_style"
+          }
+        }
+      ]
+    }
+  ]
+}
