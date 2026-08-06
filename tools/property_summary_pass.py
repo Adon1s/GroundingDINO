@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, Set, Tuple
 
+from tools.observation_kinds import OBSERVATION_KINDS
 from tools.project_scopes import get_project_scope
 
 logger = logging.getLogger(__name__)
@@ -36,12 +37,15 @@ SCOPE_BOOST: Dict[str, int] = {
     "service": 1,
     "unknown": 0,
 }
-KIND_BOOST: Dict[str, int] = {"defect": 0, "upgrade": -1}
+KIND_BOOST: Dict[str, int] = {"defect": 0, "degradation": 0, "modernization": -1}
 MULTI_SCENE_BOOST = 2
-MAX_UPGRADE_SEVERITY = 4
+MAX_MODERNIZATION_SEVERITY = 4
 
 VALID_SCOPES = frozenset(SCOPE_BOOST.keys())
-VALID_KINDS = frozenset({"defect", "upgrade"})
+
+# Display rank when a block mixes kinds: the most condition-like kind wins
+# (v1 rule was "defect wins over upgrade").
+_KIND_RANK: Dict[str, int] = {"defect": 0, "degradation": 1, "modernization": 2}
 
 # Scope ordering for "max scope" within a block (higher index wins)
 SCOPE_RANK = {"unknown": 0, "cosmetic": 1, "service": 2, "repair": 3, "replace": 4}
@@ -58,7 +62,7 @@ class CatalogItem:
     severity: int       # 1-4 (clamped)
     trade_bucket: str
     scope: str          # cosmetic|repair|replace|service|unknown
-    kind: str           # defect|upgrade
+    kind: str           # defect|degradation|modernization (legacy upgrade aliased)
 
 
 @dataclass
@@ -73,8 +77,20 @@ def _norm_scope(raw: Any) -> str:
 
 
 def _norm_kind(raw: Any) -> str:
+    """Normalize an artifact/catalog kind to the three-kind ontology.
+
+    Legacy "upgrade" (v1 catalogs, historical artifacts) maps to its v2 display
+    role, modernization. This is an artifact-reading path, so junk stays
+    tolerant (warn + defect) rather than failing the whole summary.
+    """
     s = str(raw or "").lower().strip()
-    return s if s in VALID_KINDS else "defect"
+    if s == "upgrade":
+        return "modernization"
+    if s in OBSERVATION_KINDS:
+        return s
+    if s:
+        logger.warning("property_summary: unknown kind %r coerced to defect", raw)
+    return "defect"
 
 
 def load_catalog_index(issue_catalog: dict) -> CatalogIndex:
@@ -216,9 +232,9 @@ def build_property_summary_v1(
         if photo_key:
             acc.photo_keys.add(photo_key)
         acc.scope_max = _max_scope(acc.scope_max, cat_item.scope)
-        # defect wins over upgrade if mixed
-        if kind == "defect":
-            acc.kind = "defect"
+        # most condition-like kind wins if mixed (defect < degradation < modernization)
+        if _KIND_RANK.get(kind, 0) < _KIND_RANK.get(acc.kind, 0):
+            acc.kind = kind
 
     if not block_map:
         return _empty_summary(property_key, run_id)
@@ -250,9 +266,9 @@ def build_property_summary_v1(
 
         display_severity = _clamp(1, 5, raw)
 
-        # Cap upgrades at MAX_UPGRADE_SEVERITY (Fix 2)
-        if acc.kind == "upgrade":
-            display_severity = min(display_severity, MAX_UPGRADE_SEVERITY)
+        # Cap discretionary modernization at MAX_MODERNIZATION_SEVERITY (Fix 2)
+        if acc.kind == "modernization":
+            display_severity = min(display_severity, MAX_MODERNIZATION_SEVERITY)
 
         finalized_blocks.append({
             "block_id": f"{acc.trade_bucket}:{acc.scene_group}:{acc.catalog_item_id}",
@@ -319,10 +335,12 @@ def build_property_summary_v1(
         scenes.sort(key=lambda s: (-s["top_severity"], -s["issue_count"], s["scene_group"]))
 
         bucket_issue_count = sum(len(b["issue_ids"]) for b in all_bucket_blocks)
-        bucket_defect_count = sum(
-            len(b["issue_ids"]) for b in all_bucket_blocks if b["kind"] == "defect"
-        )
-        bucket_upgrade_count = bucket_issue_count - bucket_defect_count
+        bucket_kind_counts = {
+            kind: sum(
+                len(b["issue_ids"]) for b in all_bucket_blocks if b["kind"] == kind
+            )
+            for kind in sorted(OBSERVATION_KINDS)
+        }
         bucket_top_sev = max(b["display_severity"] for b in all_bucket_blocks)
 
         # Max base severity among defect blocks (for ranking)
@@ -340,8 +358,7 @@ def build_property_summary_v1(
             "project_scope": get_project_scope(tb_id, strict=False),
             "top_severity": bucket_top_sev,
             "issue_count": bucket_issue_count,
-            "defect_count": bucket_defect_count,
-            "upgrade_count": bucket_upgrade_count,
+            "kind_counts": bucket_kind_counts,
             "max_base_severity_defect": max_base_sev_defect,
             "summary_line": summary_line,
             "scenes": scenes,
@@ -352,28 +369,29 @@ def build_property_summary_v1(
     # pure-upgrade buckets at same severity. Then max_base_severity_defect
     # to prefer high-base defects (Electrical base-4 > Landscaping base-2).
     buckets.sort(key=lambda b: (
-        -(b["top_severity"] + (1 if b["defect_count"] > 0 else 0)),
+        -(b["top_severity"] + (1 if b["kind_counts"]["defect"] > 0 else 0)),
         -b["max_base_severity_defect"],
-        -b["defect_count"],
+        -b["kind_counts"]["defect"],
         -b["issue_count"],
         b["bucket_name"],
     ))
 
     # ── Step F: Listing-level summary ─────────────────────────────────────
-    total_defect_count = sum(b["defect_count"] for b in buckets)
-    total_upgrade_count = sum(b["upgrade_count"] for b in buckets)
+    total_kind_counts = {
+        kind: sum(b["kind_counts"][kind] for b in buckets)
+        for kind in sorted(OBSERVATION_KINDS)
+    }
     listing_top_sev = max(b["top_severity"] for b in buckets) if buckets else 0
     buckets_touched = [b["bucket_id"] for b in buckets]
     one_liner = _make_listing_one_liner(buckets)
 
     return {
-        "version": "1.0",
+        "version": "2.0",
         "property_key": property_key,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "listing": {
             "top_severity": listing_top_sev,
-            "defect_count": total_defect_count,
-            "upgrade_count": total_upgrade_count,
+            "kind_counts": total_kind_counts,
             "buckets_touched": buckets_touched,
             "one_liner": one_liner,
         },
@@ -447,13 +465,12 @@ def _make_listing_one_liner(buckets: List[dict]) -> str:
 
 def _empty_summary(property_key: str, run_id: str) -> dict:
     return {
-        "version": "1.0",
+        "version": "2.0",
         "property_key": property_key,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "listing": {
             "top_severity": 0,
-            "defect_count": 0,
-            "upgrade_count": 0,
+            "kind_counts": {kind: 0 for kind in sorted(OBSERVATION_KINDS)},
             "buckets_touched": [],
             "one_liner": "",
         },

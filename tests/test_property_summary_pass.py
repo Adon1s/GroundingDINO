@@ -5,7 +5,7 @@ import pytest
 from tools.property_summary_pass import (
     CatalogIndex,
     CatalogItem,
-    MAX_UPGRADE_SEVERITY,
+    MAX_MODERNIZATION_SEVERITY,
     build_property_summary_v1,
     load_catalog_index,
     _evidence_boost,
@@ -201,9 +201,14 @@ class TestHelpers:
 
     def test_norm_kind(self):
         assert _norm_kind("defect") == "defect"
-        assert _norm_kind("upgrade") == "upgrade"
+        assert _norm_kind("degradation") == "degradation"
+        assert _norm_kind("modernization") == "modernization"
+        # legacy upgrade (v1 catalogs, historical artifacts) maps to its v2 role
+        assert _norm_kind("upgrade") == "modernization"
+        # junk stays tolerant on this artifact-reading path
         assert _norm_kind(None) == "defect"
         assert _norm_kind("") == "defect"
+        assert _norm_kind("bogus") == "defect"
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -219,11 +224,12 @@ class TestEmptyInput:
             issues_flat=[],
             catalog_index=catalog_index,
         )
-        assert result["version"] == "1.0"
+        assert result["version"] == "2.0"
         assert result["property_key"] == "test_prop"
         assert result["listing"]["top_severity"] == 0
-        assert result["listing"]["defect_count"] == 0
-        assert result["listing"]["upgrade_count"] == 0
+        assert result["listing"]["kind_counts"] == {
+            "defect": 0, "degradation": 0, "modernization": 0,
+        }
         assert result["listing"]["one_liner"] == ""
         assert result["buckets"] == []
 
@@ -278,8 +284,9 @@ class TestSingleBucketSingleScene:
         assert bucket["bucket_id"] == "moisture_mold"
         assert bucket["bucket_name"] == "Moisture & Mold"
         assert bucket["issue_count"] == 1
-        assert bucket["defect_count"] == 1
-        assert bucket["upgrade_count"] == 0
+        assert bucket["kind_counts"] == {
+            "defect": 1, "degradation": 0, "modernization": 0,
+        }
         assert len(bucket["scenes"]) == 1
         assert bucket["scenes"][0]["scene_group"] == "kitchen"
         assert len(bucket["scenes"][0]["blocks"]) == 1
@@ -384,11 +391,14 @@ class TestKindBoost:
             catalog_index=catalog_index,
         )
         # Paint (defect): base=1, cosmetic=0, defect=0 → display=1
-        # Kitchen (upgrade): base=1, replace=+2, upgrade=-1 → display=2
+        # Kitchen (upgrade→modernization): base=1, replace=+2, modernization=-1 → display=2
         # Kitchen has higher display, but Paint (defect) gets rank_score bonus
         assert len(result["buckets"]) == 2
-        # First bucket has higher defect_count
-        assert result["buckets"][0]["defect_count"] >= result["buckets"][1]["defect_count"]
+        # First bucket has higher defect count
+        assert (
+            result["buckets"][0]["kind_counts"]["defect"]
+            >= result["buckets"][1]["kind_counts"]["defect"]
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -619,8 +629,9 @@ class TestListingStats:
             catalog_index=catalog_index,
         )
         listing = result["listing"]
-        assert listing["defect_count"] == 2
-        assert listing["upgrade_count"] == 1
+        assert listing["kind_counts"] == {
+            "defect": 2, "degradation": 0, "modernization": 1,
+        }
         assert len(listing["buckets_touched"]) == 3
         assert listing["top_severity"] > 0
 
@@ -677,11 +688,11 @@ class TestSceneAwareSummaryLine:
 # Refinement: Upgrade severity cap (Fix 2)
 # ═══════════════════════════════════════════════════════════════════════════════
 
-class TestUpgradeSeverityCap:
+class TestModernizationSeverityCap:
 
-    def test_upgrade_capped_at_4(self, catalog_index):
-        """Upgrade with multi-scene boost → display_severity capped at MAX_UPGRADE_SEVERITY."""
-        # outdated_flooring_style: base=2, scope(replace)=+2, kind(upgrade)=-1, multi_scene=+2
+    def test_modernization_capped_at_4(self, catalog_index):
+        """Modernization with multi-scene boost → capped at MAX_MODERNIZATION_SEVERITY."""
+        # outdated_flooring_style: base=2, scope(replace)=+2, kind(modernization)=-1, multi_scene=+2
         # raw = 2 + 2 - 1 + 2 = 5 → should be capped to 4
         issues = [
             _make_issue("i1", "outdated_flooring_style", scene_group="bathroom",
@@ -695,14 +706,17 @@ class TestUpgradeSeverityCap:
             issues_flat=issues,
             catalog_index=catalog_index,
         )
+        capped_blocks = 0
         for bucket in result["buckets"]:
             for scene in bucket["scenes"]:
                 for block in scene["blocks"]:
-                    if block["kind"] == "upgrade":
-                        assert block["display_severity"] <= MAX_UPGRADE_SEVERITY
+                    if block["kind"] == "modernization":
+                        capped_blocks += 1
+                        assert block["display_severity"] <= MAX_MODERNIZATION_SEVERITY
                         # Verify the cap was applied (severity_calc shows capped=True)
                         assert block["severity_calc"]["raw_total"] == 5
                         assert block["severity_calc"]["capped"] is True
+        assert capped_blocks == 2
 
     def test_defect_not_capped_at_4(self, catalog_index):
         """Defects can reach severity 5 — cap only applies to upgrades."""
@@ -753,10 +767,10 @@ class TestDefectAwareBucketRanking:
         assert len(buckets) == 2
         # Electrical (defect, rank_score = 5+1=6) should be first
         assert buckets[0]["bucket_id"] == "electrical"
-        assert buckets[0]["defect_count"] > 0
-        # Flooring (upgrade, rank_score = 4+0=4) should be second
+        assert buckets[0]["kind_counts"]["defect"] > 0
+        # Flooring (modernization, rank_score = 4+0=4) should be second
         assert buckets[1]["bucket_id"] == "flooring"
-        assert buckets[1]["defect_count"] == 0
+        assert buckets[1]["kind_counts"]["defect"] == 0
 
     def test_max_base_severity_defect_field(self, catalog_index):
         """Bucket should include max_base_severity_defect for ranking."""
@@ -800,9 +814,9 @@ class TestSeverityCalcDebug:
         assert calc["capped"] is False      # raw == display, no clamping
         assert block["display_severity"] == 4
 
-    def test_severity_calc_with_upgrade_cap(self, catalog_index):
-        """severity_calc.capped is True when upgrade cap is applied."""
-        # outdated_flooring_style in 2 scenes: base=2, replace(+2), upgrade(-1), multi(+2) → raw=5
+    def test_severity_calc_with_modernization_cap(self, catalog_index):
+        """severity_calc.capped is True when the modernization cap is applied."""
+        # outdated_flooring_style in 2 scenes: base=2, replace(+2), modernization(-1), multi(+2) → raw=5
         issues = [
             _make_issue("i1", "outdated_flooring_style", scene_group="bathroom",
                         catalog_item_kind="upgrade"),
@@ -821,4 +835,72 @@ class TestSeverityCalcDebug:
                     calc = block["severity_calc"]
                     assert calc["raw_total"] == 5
                     assert calc["capped"] is True
-                    assert block["display_severity"] == MAX_UPGRADE_SEVERITY
+                    assert block["display_severity"] == MAX_MODERNIZATION_SEVERITY
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Three-kind ontology (observation-kind-v2)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+class TestThreeKindOntology:
+
+    def _v2_catalog_index(self):
+        return load_catalog_index({
+            "items": [
+                {"id": "worn_carpet", "name": "Worn Carpet", "kind": "degradation",
+                 "severity": 2, "trade_bucket": "flooring", "scope": "replace"},
+                {"id": "dated_kitchen", "name": "Dated Kitchen", "kind": "modernization",
+                 "severity": 2, "trade_bucket": "kitchen_cabinets_counters",
+                 "scope": "replace"},
+                {"id": "roof_leak", "name": "Roof Leak", "kind": "defect",
+                 "severity": 4, "trade_bucket": "roof_gutters", "scope": "repair"},
+            ],
+            "trade_buckets": [
+                {"id": "flooring", "name": "Flooring"},
+                {"id": "kitchen_cabinets_counters", "name": "Kitchen"},
+                {"id": "roof_gutters", "name": "Roof & Gutters"},
+            ],
+        })
+
+    def test_degradation_not_penalized_and_not_capped(self):
+        idx = self._v2_catalog_index()
+        issues = [
+            _make_issue("i1", "worn_carpet", scene_group="bedroom",
+                        catalog_item_kind="degradation"),
+            _make_issue("i2", "worn_carpet", scene_group="living_areas",
+                        catalog_item_kind="degradation"),
+        ]
+        result = build_property_summary_v1(
+            property_key="p", run_id="r", issues_flat=issues, catalog_index=idx)
+        block = result["buckets"][0]["scenes"][0]["blocks"][0]
+        assert block["kind"] == "degradation"
+        # base=2, replace(+2), degradation(0), multi_scene(+2) → raw=6 → clamp 5, no cap
+        assert block["severity_calc"]["kind_boost"] == 0
+        assert block["display_severity"] == 5
+
+    def test_kind_counts_cover_all_three_kinds(self):
+        idx = self._v2_catalog_index()
+        issues = [
+            _make_issue("i1", "roof_leak", catalog_item_kind="defect"),
+            _make_issue("i2", "worn_carpet", catalog_item_kind="degradation"),
+            _make_issue("i3", "dated_kitchen", catalog_item_kind="modernization"),
+        ]
+        result = build_property_summary_v1(
+            property_key="p", run_id="r", issues_flat=issues, catalog_index=idx)
+        assert result["listing"]["kind_counts"] == {
+            "defect": 1, "degradation": 1, "modernization": 1,
+        }
+
+    def test_mixed_kind_block_keeps_most_condition_like(self):
+        """defect < degradation < modernization: min rank wins on merge."""
+        idx = self._v2_catalog_index()
+        issues = [
+            _make_issue("i1", "worn_carpet", scene_group="bedroom",
+                        catalog_item_kind="modernization"),
+            _make_issue("i2", "worn_carpet", scene_group="bedroom",
+                        catalog_item_kind="degradation"),
+        ]
+        result = build_property_summary_v1(
+            property_key="p", run_id="r", issues_flat=issues, catalog_index=idx)
+        block = result["buckets"][0]["scenes"][0]["blocks"][0]
+        assert block["kind"] == "degradation"

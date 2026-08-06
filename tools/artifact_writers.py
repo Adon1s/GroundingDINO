@@ -849,11 +849,10 @@ def write_photo_intel(
         )
         photo_intel["summary_v1"] = summary_v1
         logger.info(
-            "Summary V1: %d buckets, top_severity=%d, defects=%d, upgrades=%d",
+            "Summary V1: %d buckets, top_severity=%d, kind_counts=%s",
             len(summary_v1.get("buckets", [])),
             summary_v1.get("listing", {}).get("top_severity", 0),
-            summary_v1.get("listing", {}).get("defect_count", 0),
-            summary_v1.get("listing", {}).get("upgrade_count", 0),
+            summary_v1.get("listing", {}).get("kind_counts", {}),
         )
     except Exception as exc:
         logger.error(f"Failed to compute summary_v1: {exc}", exc_info=True)
