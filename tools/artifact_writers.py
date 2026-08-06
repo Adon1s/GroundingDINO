@@ -22,10 +22,12 @@ from tools.pipeline_common import (
     PHOTO_INTEL_SCHEMA_VERSION,
     NORMALIZATION_POLICY_VERSION,
     PRODUCT_POLICY_VERSION,
+    LEGACY_ONTOLOGY_VERSION,
     make_photo_id,
     make_issue_id,
     safe_list,
 )
+from tools.publication_gate import validate_publication_payload
 
 from tools.rehab_evidence_projection import (
     EVIDENCE_PROJECTION_POLICY_VERSION,
@@ -408,36 +410,36 @@ def write_photo_intel(
     dependency_status: Optional[Dict[str, str]] = None,
 ) -> Path:
     """Persist per-photo intelligence (including scene classifier fields)."""
-    # ── observation-kind-v2 publish guards ───────────────────────────────────
-    # Two independent gates, both of which must survive until the pricing and
-    # package metadata for the v2 catalog is authored (after Task 3).
+    # ── permanent publication guards ─────────────────────────────────────────
+    # Two independent gates, plus validate_publication_payload() on the fully
+    # assembled payload right before the write.
     #
     # 1. Catalog gate: a catalog that declares itself non-publishable must never
-    #    produce published artifacts. Absent status = publishable, so the
-    #    shipped v1 catalog is unaffected (same tolerant-read pattern as the
-    #    product_quarantined trade-bucket flag).
+    #    produce published artifacts. The shipped v1 catalog carries no status
+    #    and stays tolerant-absent; a catalog stamped with the v2 ontology must
+    #    say "publishable" explicitly.
     _publication_status = (issue_catalog or {}).get("publication_status")
-    if _publication_status not in (None, "publishable"):
+    _catalog_is_v2 = (issue_catalog or {}).get("ontology_version") is not None
+    if _publication_status not in (None, "publishable") or (
+        _catalog_is_v2 and _publication_status != "publishable"
+    ):
         raise RuntimeError(
             f"write_photo_intel: refusing to publish with catalog "
-            f"publication_status={_publication_status!r}. The observation-kind-v2 "
-            "catalog carries no pricing or package metadata for its split "
-            "successors; publication stays blocked until that is authored after "
-            "Task 3. See docs/HANDOFF_kind_ontology_task2.md."
+            f"publication_status={_publication_status!r}. Only a catalog that "
+            "declares publication_status='publishable' (or the unversioned v1 "
+            "catalog) may produce published artifacts."
         )
 
-    # 2. Result gate: classification-only results carry three-kind observations
-    #    that no downstream consumer (catalog, estimates, scoring, packages) can
-    #    handle yet. Publishing one would overwrite canonical artifacts with an
-    #    incomplete pipeline output.
+    # 2. Result gate: classification-only output is never publishable — it ends
+    #    after Pass 2c and carries no catalog resolution, so publishing it would
+    #    overwrite canonical artifacts with an incomplete pipeline output.
     for _res in getattr(job, "results", []) or []:
         _payload = getattr(_res, "scene_classifier", None) or getattr(_res, "scene_data", None) or {}
         if isinstance(_payload, dict) and _payload.get("classification_only"):
             raise RuntimeError(
                 "write_photo_intel: refusing to publish a classification_only "
-                "(observation-kind-v2) result. The pipeline ends after Pass 2c "
-                "until the catalog migration (Task 2) and downstream cutover "
-                "(Task 3) land. See docs/HANDOFF_kind_ontology_task1.md."
+                "result. Publishable runs use pipeline_mode='publish' "
+                "(KIND_ONTOLOGY_VERSION=observation_kind_v2)."
             )
 
     created_at = datetime.utcnow().isoformat() + "Z"
@@ -742,6 +744,10 @@ def write_photo_intel(
         "normalization_policy_version": NORMALIZATION_POLICY_VERSION,
         "product_policy_version":       PRODUCT_POLICY_VERSION,
         "catalog_version":              str(issue_catalog.get("version") or ""),
+        # v1 artifacts stamp legacy_v1 explicitly; a missing stamp still reads
+        # as legacy_v1 (artifact_ontology_version) for pre-4A history.
+        "ontology_version":             str(issue_catalog.get("ontology_version")
+                                            or LEGACY_ONTOLOGY_VERSION),
         "product_projection_status":    "native",
         "run": {
             "run_id":              job.job_id,
@@ -1059,6 +1065,10 @@ def write_photo_intel(
 
     output_path = output_path or Path(job.artifacts_dir) / "photo_intel.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # -- Publication gate: nothing hits disk unless the payload is consistent
+    # with the selected catalog (stamps, ids, kinds, no mixed ontologies).
+    validate_publication_payload(photo_intel, issue_catalog)
 
     # -- Write full debug file first (all pass outputs, intermediates, timings) --
     debug_path = output_path.parent / "photo_intel_debug.json"

@@ -24,6 +24,10 @@ from tools.pipeline_common import (
     LEGACY_ONTOLOGY_VERSION,
     artifact_ontology_version,
 )
+from tools.publication_gate import (
+    deprecated_legacy_ids,
+    validate_publication_payload,
+)
 from tools.scene_classifier_passes import ONTOLOGY_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -142,6 +146,124 @@ def test_shipped_v2_catalog_clears_the_publication_status_gate():
             _job_with_payload({"scene": "exterior_front", "classification_only": True}),
             catalog,
         )
+
+
+# ── publication payload gate (Task 4A) ───────────────────────────────────────
+
+@pytest.fixture(scope="module")
+def v2_catalog():
+    return load_issue_catalog(ROOT / "tools" / "issue_catalog_kind_v2.json")
+
+
+@pytest.fixture(scope="module")
+def v1_catalog():
+    return load_issue_catalog(ROOT / "tools" / "issue_catalog.json")
+
+
+def _v2_payload(v2_catalog, issue_overrides=None, **root_overrides):
+    item = next(it for it in v2_catalog["items"] if it["kind"] == "degradation")
+    issue = {
+        "issue_id": "i-1",
+        "description": "Visible wear.",
+        "catalog_item_id": item["id"],
+        "catalog_item_kind": item["kind"],
+    }
+    issue.update(issue_overrides or {})
+    payload = {
+        "ontology_version": ONTOLOGY_VERSION,
+        "catalog_version": "3.0",
+        "issues_flat": [issue],
+    }
+    payload.update(root_overrides)
+    return payload
+
+
+def test_gate_accepts_consistent_v2_payload(v2_catalog):
+    validate_publication_payload(_v2_payload(v2_catalog), v2_catalog)
+
+
+def test_gate_rejects_stale_upgrade_kind(v2_catalog):
+    payload = _v2_payload(v2_catalog, issue_overrides={"catalog_item_kind": "upgrade"})
+    with pytest.raises(RuntimeError, match="stale kind or a mixed"):
+        validate_publication_payload(payload, v2_catalog)
+
+
+def test_gate_rejects_deprecated_split_parent(v2_catalog):
+    payload = _v2_payload(v2_catalog, issue_overrides={
+        "catalog_item_id": "damaged_soffit_or_porch_ceiling",
+        "catalog_item_kind": "defect",
+    })
+    with pytest.raises(RuntimeError, match="deprecated split parent") as exc:
+        validate_publication_payload(payload, v2_catalog)
+    assert "soffit_or_porch_ceiling_failed" in str(exc.value)
+
+
+def test_gate_rejects_unknown_catalog_id(v2_catalog):
+    payload = _v2_payload(v2_catalog, issue_overrides={"catalog_item_id": "no_such_item"})
+    with pytest.raises(RuntimeError, match="does not exist in"):
+        validate_publication_payload(payload, v2_catalog)
+
+
+def test_gate_rejects_kind_mismatched_with_catalog_entry(v2_catalog):
+    payload = _v2_payload(v2_catalog, issue_overrides={"catalog_item_kind": "defect"})
+    with pytest.raises(RuntimeError, match="canonical kind"):
+        validate_publication_payload(payload, v2_catalog)
+
+
+def test_gate_rejects_missing_ontology_stamp(v2_catalog):
+    payload = _v2_payload(v2_catalog)
+    del payload["ontology_version"]
+    with pytest.raises(RuntimeError, match="no root ontology_version"):
+        validate_publication_payload(payload, v2_catalog)
+
+
+def test_gate_rejects_catalog_version_mismatch(v2_catalog):
+    payload = _v2_payload(v2_catalog, catalog_version="2.1")
+    with pytest.raises(RuntimeError, match="catalog_version"):
+        validate_publication_payload(payload, v2_catalog)
+
+
+def test_gate_rejects_mixed_ontology_payload(v2_catalog):
+    """A payload stamped legacy_v1 can never publish against the v2 catalog."""
+    payload = _v2_payload(v2_catalog, ontology_version=LEGACY_ONTOLOGY_VERSION)
+    with pytest.raises(RuntimeError, match="ontology_version"):
+        validate_publication_payload(payload, v2_catalog)
+
+
+def test_gate_accepts_v1_payload_against_v1_catalog(v1_catalog):
+    item = next(it for it in v1_catalog["items"] if it.get("kind") == "upgrade")
+    payload = {
+        "ontology_version": LEGACY_ONTOLOGY_VERSION,
+        "catalog_version": str(v1_catalog["version"]),
+        "issues_flat": [{
+            "issue_id": "i-1",
+            "description": "Dated finishes.",
+            "catalog_item_id": item["id"],
+            "catalog_item_kind": item["kind"],
+        }],
+    }
+    validate_publication_payload(payload, v1_catalog)
+
+
+def test_gate_rejects_v2_kind_against_v1_catalog(v1_catalog):
+    """Mixed payload in the other direction: three-kind rows under legacy_v1."""
+    payload = {
+        "ontology_version": LEGACY_ONTOLOGY_VERSION,
+        "catalog_version": str(v1_catalog["version"]),
+        "issues_flat": [{
+            "issue_id": "i-1",
+            "description": "Visible wear.",
+            "catalog_item_kind": "degradation",
+        }],
+    }
+    with pytest.raises(RuntimeError, match="stale kind or a mixed"):
+        validate_publication_payload(payload, v1_catalog)
+
+
+def test_deprecated_legacy_ids_are_the_split_parents():
+    ids = deprecated_legacy_ids()
+    assert len(ids) == 19
+    assert "damaged_soffit_or_porch_ceiling" in ids
 
 
 def test_load_issue_catalog_passes_root_metadata_through(tmp_path):
