@@ -481,7 +481,6 @@ class SceneClassifierOrchestrator:
                     "tier": item.get("tier", "work"),
                     "drop_if_generic": bool(item.get("drop_if_generic", False)),
                     "defaultHidden": bool(item.get("defaultHidden", False)),
-                    "kind": item.get("kind", "defect"),
                     "trade_bucket": item.get("trade_bucket", ""),
                 }
         if self.catalog_meta_by_id:
@@ -843,10 +842,10 @@ class SceneClassifierOrchestrator:
         # ─────────────────────────────────────────────────────────────────────
         # observation-kind-v2: pipeline mode dispatch
         # ─────────────────────────────────────────────────────────────────────
-        # Normal analysis ends after Pass 2c. Catalog-resolution benchmarking may
-        # additionally run the strict exact-kind Pass 2d below, but results stay
-        # classification_only (non-publishable) in BOTH modes and Pass 2e never
-        # runs until the Task 3 cutover. write_photo_intel rejects these payloads.
+        # Normal analysis ends after Pass 2c. Catalog-resolution benchmarking
+        # additionally runs the strict exact-kind Pass 2d and the deterministic
+        # Pass 2e below, but results stay classification_only (non-publishable)
+        # in BOTH modes. write_photo_intel rejects these payloads.
         mode = getattr(options, "pipeline_mode", PIPELINE_MODE_CLASSIFICATION_ONLY)
         if mode not in ALLOWED_PIPELINE_MODES:
             raise ValueError(
@@ -909,7 +908,8 @@ class SceneClassifierOrchestrator:
             by_kind, len(to_resolve_all),
         )
 
-        if not (pass_2d_toggle and pass_2d_provider_present and to_resolve_all):
+        run_2d = bool(pass_2d_toggle and pass_2d_provider_present and to_resolve_all)
+        if not run_2d:
             if to_resolve_all and pass_2d_toggle and not pass_2d_provider_present:
                 # Entry points fail closed at preflight when 2d is enabled, so this
                 # should be unreachable; it is the assertion that keeps it that way.
@@ -926,87 +926,77 @@ class SceneClassifierOrchestrator:
                 "resolved_total": 0,
                 "resolved_by_kind": {kind: 0 for kind in sorted(OBSERVATION_KINDS)},
             }
-            return
+        else:
+            model_config = self._get_model_config('2d', options)
+            model_name = self._get_model_name('2d', options)
+            self._record_model_routing('2d', options, model_config, result)
 
-        model_config = self._get_model_config('2d', options)
-        model_name = self._get_model_name('2d', options)
-        self._record_model_routing('2d', options, model_config, result)
+            logger.debug("Running Pass 2d with %s for %d observations", model_name, len(to_resolve_all))
+            t0 = time.perf_counter()
 
-        logger.debug("Running Pass 2d with %s for %d observations", model_name, len(to_resolve_all))
-        t0 = time.perf_counter()
+            base_ctx_for_provider = {
+                **context,
+                "top_k_candidates": self.top_k_candidates,
+                "scene": result.scene,
+                "scene_group": _scene_group_for_2d,
+            }
 
-        base_ctx_for_provider = {
-            **context,
-            "top_k_candidates": self.top_k_candidates,
-            "scene": result.scene,
-            "scene_group": _scene_group_for_2d,
-        }
+            pass_2d_results: List[Pass2dResult] = []
+            resolved_items: List[Dict[str, Any]] = []
+            result.debug["pass_2d_per_observation"] = []
 
-        pass_2d_results: List[Pass2dResult] = []
-        resolved_items: List[Dict[str, Any]] = []
-        result.debug["pass_2d_per_observation"] = []
+            for obs in to_resolve_all:
+                obs.setdefault("scene", _scene_for_2d)
+                obs.setdefault("scene_group", _scene_group_for_2d)
+                resolved_row, debug_row, pass_2d_result = await resolve_observation_against_catalog(
+                    vlm_client=self.vlm_client,
+                    model_config=model_config,
+                    candidate_provider=self.candidate_provider,
+                    observation=obs,
+                    base_context=base_ctx_for_provider,
+                    top_k=self.top_k_candidates,
+                    source_image_path=str(image_path),
+                )
+                result.debug["pass_2d_per_observation"].append(debug_row)
+                if pass_2d_result is not None:
+                    pass_2d_results.append(pass_2d_result)
+                if resolved_row is not None:
+                    resolved_items.append(resolved_row)
 
-        for obs in to_resolve_all:
-            obs.setdefault("scene", _scene_for_2d)
-            obs.setdefault("scene_group", _scene_group_for_2d)
-            resolved_row, debug_row, pass_2d_result = await resolve_observation_against_catalog(
-                vlm_client=self.vlm_client,
-                model_config=model_config,
-                candidate_provider=self.candidate_provider,
-                observation=obs,
-                base_context=base_ctx_for_provider,
-                top_k=self.top_k_candidates,
-                source_image_path=str(image_path),
+            result.pass_timings['2d'] = time.perf_counter() - t0
+            result.pass_2d = pass_2d_results
+            result.resolved_items = resolved_items
+            result.passes_run.append('2d')
+            result.models_used['2d'] = model_name
+
+            resolved_by_kind = {
+                kind: sum(1 for row in resolved_items if row.get("resolved_kind") == kind)
+                for kind in sorted(OBSERVATION_KINDS)
+            }
+            result.debug["pass_2d_summary"] = {
+                "attempted_total": len(to_resolve_all),
+                "resolved_total": len(resolved_items),
+                "resolved_by_kind": resolved_by_kind,
+            }
+            logger.info(
+                "Pass 2d summary: attempted=%d resolved=%d by_kind=%s",
+                len(to_resolve_all), len(resolved_items), resolved_by_kind,
             )
-            result.debug["pass_2d_per_observation"].append(debug_row)
-            if pass_2d_result is not None:
-                pass_2d_results.append(pass_2d_result)
-            if resolved_row is not None:
-                resolved_items.append(resolved_row)
-
-        result.pass_timings['2d'] = time.perf_counter() - t0
-        result.pass_2d = pass_2d_results
-        result.resolved_items = resolved_items
-        result.passes_run.append('2d')
-        result.models_used['2d'] = model_name
-
-        resolved_by_kind = {
-            kind: sum(1 for row in resolved_items if row.get("resolved_kind") == kind)
-            for kind in sorted(OBSERVATION_KINDS)
-        }
-        result.debug["pass_2d_summary"] = {
-            "attempted_total": len(to_resolve_all),
-            "resolved_total": len(resolved_items),
-            "resolved_by_kind": resolved_by_kind,
-        }
-        logger.info(
-            "Pass 2d summary: attempted=%d resolved=%d by_kind=%s",
-            len(to_resolve_all), len(resolved_items), resolved_by_kind,
-        )
-
-        # Pass 2e stays dormant in every mode until Task 3: run_pass_2e still
-        # hard-drops any issue whose kind is not defect/upgrade
-        # (scene_classifier_passes: "Sanity — kind must be defect or upgrade"),
-        # which would silently delete every degradation and modernization issue.
-        # The block below is preserved for that migration, not reachable now.
-        return
 
         # ─────────────────────────────────────────────────────────────────────
         # Pass 2e: Normalize / Filter / Deduplicate Verified Issues (rule-based)
         # Output: result.verified_issues — clean, deduplicated, scoring-free
         #
-        # TASK 3 MIGRATION TARGET — unreachable (see the return above). Still
-        # written against the retired v1 contract: it reads `labeled_forward`
-        # and calls `_label_to_kind`, neither of which exists any more, so this
-        # block will NameError/AttributeError if the return is removed without
-        # rewiring it onto `result.observations`. That is deliberate: loud, not
-        # silent. Task 3 must also lift 2e's own two-kind sanity drop.
+        # Runs whether or not 2d resolved anything (v1 semantics): unresolved
+        # observations carry no catalogItemId and pass through the catalog-keyed
+        # policy gates on defaults.
         # ─────────────────────────────────────────────────────────────────────
         if self._t(toggles, '2e'):
             model_config = self._get_model_config('2e', options)
             model_name = self._get_model_name('2e', options)
 
-            # Build input: start from labeled_forward; enrich with resolution data where available
+            # Build input: observations enriched with 2d resolution data where
+            # available, joined by issue_id.
             resolution_index: Dict[str, Dict[str, Any]] = {
                 row["issue_id"]: row
                 for row in (result.resolved_items or [])
@@ -1014,21 +1004,20 @@ class SceneClassifierOrchestrator:
             }
 
             issues_for_2e: List[Dict[str, Any]] = []
-            for obs in (result.labeled_forward or []):
+            for obs in (result.observations or []):
                 if not isinstance(obs, dict):
                     continue
-                issue = dict(obs)  # shallow copy — don't mutate labeled_forward
-                # Merge resolution data if available (catalogItemId etc.)
+                issue = dict(obs)  # shallow copy — don't mutate observations
+                # Merge resolution data if available (catalogItemId etc.).
+                # Kind purity: an off-kind resolution already raised in 2d, so
+                # the kind stamp is a no-op in practice but is the artifact
+                # contract for resolved issues.
                 res = resolution_index.get(str(issue.get("issue_id") or ""))
                 if res and res.get("resolved_item_id"):
                     issue.setdefault("catalogItemId", res["resolved_item_id"])
-                    if res.get("resolved_kind") in {"defect", "upgrade"}:
+                    if res.get("resolved_kind") in OBSERVATION_KINDS:
                         issue["kind"] = res["resolved_kind"]
                         issue["catalogItemKind"] = res["resolved_kind"]
-                # kind is already stamped by the normalization block above;
-                # this setdefault is a safety net for any item that somehow slipped through.
-                if not issue.get("kind"):
-                    issue["kind"] = _label_to_kind(issue.get("label", ""))
                 issues_for_2e.append(issue)
 
             # Inject catalog metadata and policy into context for Pass 2e
@@ -1110,11 +1099,11 @@ class SceneClassifierOrchestrator:
                 result.pass_timings['2e'] = time.perf_counter() - t0
                 raise
             except Exception as exc:
-                # No passthrough fallback. 2e is what turns labeled observations
-                # into *verified* issues; promoting labeled_forward on failure
-                # published unverified findings as verified — precisely the class
-                # of error the fail-closed contract exists to prevent. Record the
-                # failure and fail the run instead.
+                # No passthrough fallback. 2e is what turns observations into
+                # *verified* issues; promoting observations on failure published
+                # unverified findings as verified — precisely the class of error
+                # the fail-closed contract exists to prevent. Record the failure
+                # and fail the run instead.
                 logger.error(f"Pass 2e failed: {exc}", exc_info=True)
                 result.passes["2e"] = {"error": str(exc)}
                 result.debug["pass_2e_summary"] = {"error": str(exc)}
@@ -1127,18 +1116,13 @@ class SceneClassifierOrchestrator:
                 ) from exc
             result.pass_timings['2e'] = time.perf_counter() - t0
         else:
-            # 2e skipped — promote labeled_forward to verified_issues with minimal normalization
-            # so downstream always gets a valid kind regardless of which path ran.
-            _out: List[Dict[str, Any]] = []
-            for _obs in (result.labeled_forward or []):
-                if not isinstance(_obs, dict):
-                    continue
-                _x = dict(_obs)
-                # Trust existing kind if valid; derive from label via _label_to_kind otherwise.
-                # _label_to_kind is defined in the 2d normalization block above.
-                _existing = (_x.get("kind") or "").strip().lower()
-                _x["kind"] = _existing if _existing in {"defect", "upgrade"} else _label_to_kind(_x.get("label", ""))
-                _out.append(_x)
+            # 2e disabled by toggle (deliberate diagnostics config): promote
+            # observations verbatim. No kind derivation — the 2c fail-closed
+            # contract already guarantees a valid kind on every observation.
+            _out: List[Dict[str, Any]] = [
+                dict(_obs) for _obs in (result.observations or [])
+                if isinstance(_obs, dict)
+            ]
             result.verified_issues = _out
             result.display_issues = _out
             result.matched_issues = list(_out)

@@ -735,7 +735,7 @@ class TestPass2eCanonicalDisplaySplit:
     def test_optional_suppression_keeps_canonical_issue(self):
         issues = [{
             "issue_id": "iss_1",
-            "kind": "upgrade",
+            "kind": "modernization",
             "description": "Dated but functional light fixture.",
             "catalogItemId": "dated_lighting",
         }]
@@ -787,6 +787,71 @@ class TestPass2eCanonicalDisplaySplit:
 
         assert len(result.canonical_issues) == 2
         assert len(result.display_issues) == 2
+
+
+class TestPass2eThreeKindSanity:
+    """observation-kind-v2: 2e accepts exactly the three ontology kinds. Legacy
+    "upgrade" is invalid here — 2e only ever consumes fresh 2c output."""
+
+    def _run(self, issues):
+        return _run_async(
+            run_pass_2e(
+                vlm_client=None,
+                model_config={},
+                verified_issues=issues,
+                context={"deny_phrases": [], "policy": {"include_optional": False}},
+            )
+        )
+
+    def _issue(self, kind, *, issue_id=None, description="Roof shingles look worn and aged."):
+        return {
+            "issue_id": issue_id or f"iss_{kind}",
+            "kind": kind,
+            "description": description,
+            "source_photo_key": "p1.jpg",
+        }
+
+    def test_all_three_kinds_pass_sanity(self):
+        result = self._run([
+            self._issue("defect"),
+            self._issue("degradation", description="Carpet is worn through in traffic paths."),
+            self._issue("modernization", description="Kitchen finishes are dated."),
+        ])
+        assert result.removed_count == 0
+        assert len(result.canonical_issues) == 3
+
+    def test_legacy_upgrade_is_removed_as_invalid(self):
+        result = self._run([self._issue("upgrade")])
+        assert result.canonical_issues == []
+        assert result.removed_reason_counts == {"invalid_kind:upgrade": 1}
+
+    def test_speculation_gate_fires_on_modernization_only(self):
+        # "might" is a speculation marker but not a deny phrase or advice
+        # pattern, so only Gate 3 (modernization-only) can suppress this text.
+        spec = "Vanity styling might be original to the 1990s build."
+        result = self._run([
+            self._issue("modernization", issue_id="iss_spec_mod", description=spec),
+            self._issue("degradation", issue_id="iss_spec_deg", description=spec),
+        ])
+        # both survive sanity; only the modernization one is display-suppressed
+        assert len(result.canonical_issues) == 2
+        suppressed = {
+            row["issue_id"]: row["suppressed_reason"]
+            for row in result.display_suppressed_issues
+        }
+        assert suppressed.get("iss_spec_mod") == "speculative_modernization"
+        assert "iss_spec_deg" not in suppressed
+
+    def test_dedupe_keeps_paired_kinds_distinct(self):
+        """Paired split observations (same photo/description, different kinds)
+        must never collapse — the kind component of the dedupe key is
+        load-bearing under the split catalog."""
+        desc = "Bathroom vanity is worn and dated."
+        result = self._run([
+            self._issue("degradation", issue_id="iss_a", description=desc),
+            self._issue("modernization", issue_id="iss_b", description=desc),
+        ])
+        assert len(result.canonical_issues) == 2
 
 
 # ─── Phase 5: group estimate engine ──────────────────────────────────────────

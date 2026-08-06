@@ -335,17 +335,20 @@ def test_benchmark_mode_resolves_but_stays_non_publishable():
     assert result.classification_only is True
 
 
-def test_benchmark_mode_never_runs_2e(monkeypatch):
-    def explode(*args, **kwargs):
-        raise AssertionError("Pass 2e must stay dormant until Task 3")
-
-    monkeypatch.setattr(orchestrator_module, "run_pass_2e", explode)
+def test_benchmark_mode_runs_deterministic_2e():
+    """Task 3 revived 2e: benchmark mode continues past 2d into the rule-based
+    2e, which promotes resolved observations into the verified lanes. The
+    result stays classification_only, so write_photo_intel still refuses it."""
     result = _analyze(_two_arg)
 
-    assert result.verified_issues == []
-    assert result.canonical_issues == []
-    assert result.display_issues == []
-    assert result.matched_issues == []
+    assert '2e' in result.passes_run
+    assert len(result.verified_issues) == 1
+    issue = result.verified_issues[0]
+    assert issue["kind"] == "degradation"
+    assert issue["catalogItemId"] == "roof_shingles_aged_or_worn"
+    assert issue["catalogItemKind"] == "degradation"
+    assert result.canonical_issues == result.matched_issues
+    assert result.classification_only is True
 
 
 def test_benchmark_mode_gate_counts_are_three_kind():

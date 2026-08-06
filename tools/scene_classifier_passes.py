@@ -1348,7 +1348,7 @@ def _2e_policy_reason(
     Policy gates (in priority order):
       1. drop_if_generic (catalog-driven kill switch)
       2. tier == optional (suppressed unless policy says include)
-      3. speculative upgrade (speculation word in upgrade description)
+      3. speculative modernization (speculation word in modernization description)
       4. deny_phrase / generic_advice pattern match
     """
     policy = policy or {}
@@ -1371,12 +1371,14 @@ def _2e_policy_reason(
         if not _has_high_signal_damage(desc_lower):
             return "tier_optional_suppressed"
 
-    # Gate 3 — Speculation suppression (upgrades only)
+    # Gate 3 — Speculation suppression (modernization only). Degradation stays
+    # ungated: its claims are evidence-anchored, and 2c's
+    # unsupported_or_speculative exclusion lane handles speculation upstream.
     # Use prefix match (\b but no trailing \b) so "potential" catches "potentially" etc.
-    if kind == "upgrade":
+    if kind == "modernization":
         for marker in _SPECULATION_MARKERS:
             if re.search(r"\b" + re.escape(marker), desc_lower):
-                return "speculative_upgrade"
+                return "speculative_modernization"
 
     # Gate 4 — Deny phrases / generic advice patterns
     for phrase in deny_phrases:
@@ -1396,6 +1398,9 @@ def _2e_dedupe_key(issue: Dict[str, Any]) -> str:
     This intentionally does not collapse by catalogItemId alone. Multiple rooms
     can legitimately share a catalog item; broad consolidation belongs in the
     display lane or the estimate-unit builder, not canonical 2e output.
+
+    The kind component is load-bearing under observation-kind-v2: paired split
+    observations (same photo/subject, different kinds) must stay distinct.
     """
     source = _2e_norm_text(
         issue.get("source_photo_key")
@@ -1445,7 +1450,7 @@ async def run_pass_2e(
     Policy gates (applied to matched to decide final):
       - drop_if_generic (catalog-driven kill switch)
       - tier == optional suppression
-      - speculation suppression for upgrades
+      - speculation suppression for modernization
       - deny phrase / generic advice suppression
 
     Context may include:
@@ -1493,9 +1498,11 @@ async def run_pass_2e(
             removed_reason_counts[sanity_reason] = removed_reason_counts.get(sanity_reason, 0) + 1
             continue
 
-        # Stage 1b: Sanity — kind must be defect or upgrade
+        # Stage 1b: Sanity — kind must be in the observation-kind-v2 ontology.
+        # Strict: 2e only ever consumes fresh 2c output, never historical
+        # artifacts, so there is no legacy "upgrade" tolerance here.
         kind = (issue.get("kind") or "").strip().lower()
-        if kind not in {"defect", "upgrade"}:
+        if kind not in OBSERVATION_KINDS:
             reason = f"invalid_kind:{kind or 'missing'}"
             removed.append({**issue, "removed_reason": reason})
             removed_reason_counts[reason] = removed_reason_counts.get(reason, 0) + 1
