@@ -4,7 +4,7 @@
   "target_version": "3.0",
   "ontology_version": "observation-kind-v2",
   "audit_only": true,
-  "note": "Audit record of the v1->v2 kind migration. NOT a runtime alias table: no analysis runs against v2 until the Task 3 cutover, and historical artifacts are re-resolved then, never aliased.",
+  "note": "Audit record of the v1->v2 kind migration. NOT a runtime alias table: historical artifacts are migrated by re-resolution (Task 4B), never aliased in place.",
   "entries": [
     {
       "legacy_id": "water_stain_ceiling",
@@ -129,7 +129,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
         "estimate_scope": "none",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "parent package_affinity (exterior) not carried to successors; re-author post-Task 3"
       }
     },
@@ -173,7 +173,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
         "estimate_scope": "none",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "parent package_affinity (bedroom, kitchen, living) not carried to successors; re-author post-Task 3"
       }
     },
@@ -197,7 +197,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
         "estimate_scope": "parent estimate_scope override 'marketability_rehab' not carried to successors",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "parent package_affinity (bedroom, kitchen, living) not carried to successors; re-author post-Task 3"
       }
     },
@@ -261,7 +261,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
         "estimate_scope": "none",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "none inherited; successors carry no package metadata"
       }
     },
@@ -369,7 +369,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation, modernization); re-resolution required at cutover",
         "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "parent package_affinity (kitchen) not carried to successors; re-author post-Task 3"
       }
     },
@@ -437,7 +437,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation, modernization); re-resolution required at cutover",
         "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine); parent estimate_scope override 'marketability_rehab' not carried to successors",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "parent package_affinity (kitchen) not carried to successors; re-author post-Task 3"
       }
     },
@@ -461,7 +461,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
         "estimate_scope": "none",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "none inherited; successors carry no package metadata"
       }
     },
@@ -485,7 +485,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
         "estimate_scope": "none",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "parent package_affinity (bathroom) not carried to successors; re-author post-Task 3"
       }
     },
@@ -629,7 +629,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
         "estimate_scope": "parent estimate_scope override 'marketability_rehab' not carried to successors",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "none inherited; successors carry no package metadata"
       }
     },
@@ -816,7 +816,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (degradation, modernization); re-resolution required at cutover",
         "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "none inherited; successors carry no package metadata"
       }
     },
@@ -943,7 +943,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, modernization); re-resolution required at cutover",
         "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine); parent estimate_scope override 'marketability_rehab' not carried to successors",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "none inherited; successors carry no package metadata"
       }
     },
@@ -1111,7 +1111,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation, modernization); re-resolution required at cutover",
         "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine); parent estimate_scope override 'marketability_rehab' not carried to successors",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "parent package_affinity (bathroom) not carried to successors; re-author post-Task 3"
       }
     },
@@ -1322,7 +1322,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation, modernization); re-resolution required at cutover",
         "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "parent package_affinity (bathroom) not carried to successors; re-author post-Task 3"
       }
     },
@@ -1346,7 +1346,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
         "estimate_scope": "none",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "parent package_affinity (bathroom) not carried to successors; re-author post-Task 3"
       }
     },
@@ -1390,7 +1390,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (degradation, modernization); re-resolution required at cutover",
         "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "parent package_affinity (bathroom) not carried to successors; re-author post-Task 3"
       }
     },
@@ -1717,7 +1717,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
         "estimate_scope": "parent estimate_scope override 'marketability_rehab' not carried to successors",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "none inherited; successors carry no package metadata"
       }
     },
@@ -1904,7 +1904,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (degradation, modernization); re-resolution required at cutover",
         "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "none inherited; successors carry no package metadata"
       }
     },
@@ -1928,7 +1928,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
         "estimate_scope": "parent estimate_scope override 'marketability_rehab' not carried to successors",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "parent package_affinity (exterior) not carried to successors; re-author post-Task 3"
       }
     },
@@ -2072,7 +2072,7 @@
       "expected_effects": {
         "routing": "observations previously resolving to the parent id now resolve to the kind-matching successor (defect, degradation); re-resolution required at cutover",
         "estimate_scope": "parent estimate_scope override 'marketability_rehab' not carried to successors",
-        "pricing": "successors defer pricing (deferred_post_task3); parent cost/estimate/work-item metadata is not inherited and must be re-authored after Task 3",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge); real successor pricing is authored in the dedicated pricing project",
         "packages": "none inherited; successors carry no package metadata"
       }
     },

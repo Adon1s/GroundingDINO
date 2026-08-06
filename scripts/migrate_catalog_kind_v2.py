@@ -4,7 +4,7 @@ Deterministic, byte-stable transformation:
 
     tools/issue_catalog.json  (v1, untouched)
   + tools/catalog_migrations/kind_v2_decisions.json  (the reviewable source of truth)
-  ->  tools/issue_catalog_kind_v2.json               (catalog version 3.0, non-publishable)
+  ->  tools/issue_catalog_kind_v2.json               (catalog version 3.0, publishable)
       tools/catalog_migrations/2.1_to_3.0.json       (audit-only manifest, one entry per legacy id)
       tools/catalog_migrations/2.1_to_3.0_audit.md   (generated audit report)
 
@@ -13,9 +13,11 @@ Inheritance rules are code, not authoring discipline:
   v2 kind + atomic_claim + optional wording overrides, and KEEP every economic
   field byte-identical.
 - split successors are authored fresh (name/description/embed_text/support_any/
-  severity/kind/atomic_claim required), inherit only non-economic structural
-  fields from the parent, are stamped pricing_status=deferred_post_task3, and
-  can never carry an economic field (hard error, not convention).
+  severity/kind/atomic_claim required), inherit non-economic structural fields
+  from the parent, and — as the Task 4A bridge until the dedicated pricing
+  project — inherit the parent's economic fields verbatim, stamped
+  pricing_status=inherited_from_split_parent. Successor overrides can never
+  rewrite an economic field (hard error, not convention).
 
 Run:  .venv/Scripts/python.exe scripts/migrate_catalog_kind_v2.py
 Running twice produces byte-identical outputs (pinned by the parity test in
@@ -23,6 +25,7 @@ tests/test_catalog_kind_v2.py).
 """
 from __future__ import annotations
 
+import copy
 import json
 import sys
 from collections import Counter
@@ -31,7 +34,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from tools.catalog_validation import ECONOMIC_FIELDS  # noqa: E402
+from tools.catalog_validation import ECONOMIC_FIELDS, PRICING_STATUS_INHERITED  # noqa: E402
 from tools.observation_kinds import OBSERVATION_KINDS, ONTOLOGY_VERSION  # noqa: E402
 
 V1_PATH = ROOT / "tools" / "issue_catalog.json"
@@ -41,7 +44,12 @@ MANIFEST_PATH = ROOT / "tools" / "catalog_migrations" / "2.1_to_3.0.json"
 AUDIT_PATH = ROOT / "tools" / "catalog_migrations" / "2.1_to_3.0_audit.md"
 
 TARGET_VERSION = "3.0"
-PUBLICATION_STATUS = "blocked_pending_pricing"
+PUBLICATION_STATUS = "publishable"
+
+# The one pricing policy generate() accepts from the decisions file. Split
+# successors carry their parent's economics verbatim until the dedicated
+# pricing project authors real successor prices.
+SPLIT_SUCCESSOR_PRICING_POLICY = "inherit_parent_economics_v1"
 
 # Structural, non-economic fields a split successor inherits from its parent
 # when it does not author its own value.
@@ -96,7 +104,10 @@ def _build_split_successor(parent: dict, succ: dict) -> dict:
     item["embed_text"] = succ["embed_text"]
     item["support_any"] = succ["support_any"]
     item["atomic_claim"] = succ["atomic_claim"]
-    item["pricing_status"] = "deferred_post_task3"
+    for field in ECONOMIC_FIELDS:
+        if field in parent:
+            item[field] = copy.deepcopy(parent[field])
+    item["pricing_status"] = PRICING_STATUS_INHERITED
     return item
 
 
@@ -116,6 +127,13 @@ def generate(v1: dict, decisions: dict) -> tuple[dict, dict]:
     v1_items = v1.get("items") or []
     v1_by_id = {it["id"]: it for it in v1_items}
     entries = decisions.get("entries") or []
+
+    pricing_policy = (decisions.get("split_successor_pricing") or {}).get("policy")
+    if pricing_policy != SPLIT_SUCCESSOR_PRICING_POLICY:
+        _fail(
+            f"decisions must declare split_successor_pricing.policy == "
+            f"{SPLIT_SUCCESSOR_PRICING_POLICY!r} (got {pricing_policy!r})"
+        )
 
     decided = [e["legacy_id"] for e in entries]
     if len(decided) != len(set(decided)):
@@ -165,8 +183,8 @@ def generate(v1: dict, decisions: dict) -> tuple[dict, dict]:
         "audit_only": True,
         "note": (
             "Audit record of the v1->v2 kind migration. NOT a runtime alias table: "
-            "no analysis runs against v2 until the Task 3 cutover, and historical "
-            "artifacts are re-resolved then, never aliased."
+            "historical artifacts are migrated by re-resolution (Task 4B), never "
+            "aliased in place."
         ),
         "entries": [
             {
@@ -191,7 +209,12 @@ def render_audit(catalog: dict, manifest: dict, decisions: dict) -> str:
     ct = Counter(e["change_type"] for e in entries)
     v1_kinds = Counter(e["legacy_kind"] for e in entries)
     v2_kinds = Counter(it["kind"] for it in catalog["items"])
-    deferred = [it["id"] for it in catalog["items"] if it.get("pricing_status") == "deferred_post_task3"]
+    inherited = [it for it in catalog["items"] if it.get("pricing_status") == PRICING_STATUS_INHERITED]
+    successor_parent = {
+        s["id"]: e["legacy_id"]
+        for e in entries if e["change_type"] == "split"
+        for s in e["successors"]
+    }
 
     lines = [
         "# Catalog kind migration audit — 2.1 -> 3.0 (observation-kind-v2)",
@@ -210,7 +233,7 @@ def render_audit(catalog: dict, manifest: dict, decisions: dict) -> str:
         f"({v2_kinds['defect']} defect / {v2_kinds['degradation']} degradation / {v2_kinds['modernization']} modernization)",
         f"- Dispositions: {ct['unchanged']} unchanged, {ct['reclassified']} reclassified, "
         f"{ct['narrowed']} narrowed, {ct['split']} split",
-        f"- Split successors with deferred pricing: {len(deferred)}",
+        f"- Split successors with inherited v1 parent economics: {len(inherited)}",
         f"- Merges: 0 (no legacy concepts were combined)",
         "",
         "## Dispositions",
@@ -238,13 +261,21 @@ def render_audit(catalog: dict, manifest: dict, decisions: dict) -> str:
         lines.append("")
 
     lines += [
-        "## Deferred-pricing successors",
+        "## Inherited-economics successors (Task 4A bridge)",
         "",
-        "Every split successor omits cost, estimate, work-item, and package metadata",
-        "(`pricing_status: deferred_post_task3`); authoring happens after Task 3.",
+        "Every split successor inherits its parent's economic fields verbatim",
+        "(`pricing_status: inherited_from_split_parent`). This is temporary",
+        "compatibility so the v2 catalog can publish — not approval of v1 pricing;",
+        "the dedicated pricing project authors real successor prices.",
         "",
     ]
-    lines += [f"- `{i}`" for i in deferred]
+    for it in inherited:
+        carried = [f for f in ECONOMIC_FIELDS if f in it]
+        absent = [f for f in ECONOMIC_FIELDS if f not in it]
+        parts = [f"inherits {', '.join(carried) if carried else 'nothing'}"]
+        if absent:
+            parts.append(f"absent on parent: {', '.join(absent)}")
+        lines.append(f"- `{it['id']}` <- `{successor_parent[it['id']]}`: {'; '.join(parts)}")
 
     flagged = [e for e in entries if e.get("task3_flags")]
     if flagged:
@@ -258,21 +289,15 @@ def render_audit(catalog: dict, manifest: dict, decisions: dict) -> str:
 
     lines += [
         "",
-        "## Unresolved downstream effects (Task 3 scope)",
+        "## Downstream effects",
         "",
-        "Aggregated from per-entry `expected_effects`; none of these are live while the",
-        "v2 catalog is offline (`publication_status: blocked_pending_pricing`).",
+        "The per-consumer concerns previously tracked here were resolved by Task 3",
+        "(three-kind consumers) and Task 4A (multipliers, inherited successor",
+        "economics, publication validation). Per-entry `expected_effects` remain in",
+        "the manifest as the historical record.",
         "",
-        "- `costing.KIND_MULT` has no degradation/modernization entries; silent `.get(kind, 1.0)` default.",
-        "- `estimate_scope`: kind token 'modernization' collides with `_VALUE_ADD_TERMS` text matching.",
-        "- `rehab_packages`: driver/support predicates key on defect/upgrade; "
-        "`PACKAGE_CATEGORY_MODERNIZATION` shares the 'modernization' token.",
-        "- `property_summary_pass`: second two-kind VALID_KINDS with unknown->defect coercion.",
-        "- `catalog_cost_model`: upgrade->ROOM_ALLOWANCE routing has no three-kind mapping.",
-        "- Pass 2e: `invalid_kind` hard-drop for anything outside {defect, upgrade}.",
-        "- Split parents with estimate_scope overrides lose them on successors (re-author post-Task 3).",
-        "- Historical artifacts are legacy_v1 and require re-resolution at cutover (see manifest "
-        "`requires_re_resolution`).",
+        "- Historical artifacts are legacy_v1 and require re-resolution (Task 4B; see "
+        "manifest `requires_re_resolution`).",
         "",
     ]
     return "\n".join(lines)

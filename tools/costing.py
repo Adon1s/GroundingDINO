@@ -46,8 +46,14 @@ class CatalogDataError(Exception):
 # ═══════════════════════════════════════════════════════════════════════════════
 
 KIND_MULT: Dict[str, float] = {
-    "defect":  1.0,
-    "upgrade": 0.6,
+    "defect":       1.0,
+    # degradation/modernization are temporary Task 4A bridge values; the
+    # dedicated pricing project replaces them with measured multipliers.
+    "degradation":  1.0,
+    "modernization": 0.6,
+    # Legacy v1 kind: kept only so stored legacy_v1 artifacts can still be
+    # scored/reprojected. Removed in Task 4C with the two-kind compatibility.
+    "upgrade":      0.6,
 }
 
 
@@ -60,8 +66,7 @@ def kind_multiplier(kind: Any, *, phase: str, item_id: str = "") -> float:
         raise CatalogDataError(
             f"{phase}: no KIND_MULT entry for kind {kind!r}"
             + (f" (catalog item {item_id!r})" if item_id else "")
-            + f"; priced kinds: {sorted(KIND_MULT)}. Degradation/modernization "
-            "multipliers are authored in the post-Task-3 pricing work."
+            + f"; priced kinds: {sorted(KIND_MULT)}."
         ) from None
 
 SCOPE_MULT: Dict[str, float] = {

@@ -1,20 +1,17 @@
 """
-observation-kind-v2 freeze guards.
+observation-kind-v2 publication guards.
 
-Task 1 ended the pipeline after Pass 2c (classification only); Task 2 added a
-non-publishable v2 catalog. These tests pin the invariants that keep v2 output
-from leaking into canonical artifacts or being misread later:
+These tests pin the permanent invariants that keep incomplete or mismatched
+output from leaking into canonical artifacts:
 
 1. write_photo_intel refuses to publish a classification_only payload —
-   the enforcement point of the analysis freeze until Task 3 lands.
+   classification-only output is never publishable.
 2. write_photo_intel refuses to publish against a catalog whose
-   publication_status is not publishable — the v2 catalog has no pricing or
-   package metadata for its split successors.
+   publication_status is anything but publishable (or absent, for v1).
+   As of Task 4A the shipped v2 catalog IS publishable; the gate is pinned
+   with synthetic blocked catalogs.
 3. Stored artifacts without an ontology_version read as legacy_v1 and are
    never reinterpreted against the three-kind ontology.
-
-Task 3 must remove neither guard.
-See docs/HANDOFF_kind_ontology_task1.md and docs/HANDOFF_kind_ontology_task2.md.
 """
 import json
 from pathlib import Path
@@ -133,14 +130,18 @@ def test_absent_publication_status_is_treated_as_publishable():
         )
 
 
-def test_shipped_v2_catalog_can_never_be_published():
+def test_shipped_v2_catalog_clears_the_publication_status_gate():
     """End-to-end pin: the real v2 catalog, loaded the way production loads a
-    catalog, is rejected by the writer."""
+    catalog, is publishable as of Task 4A. Reaching the classification_only
+    guard proves the catalog gate passed."""
     catalog = load_issue_catalog(ROOT / "tools" / "issue_catalog_kind_v2.json")
-    assert catalog["publication_status"] == "blocked_pending_pricing"
+    assert catalog["publication_status"] == "publishable"
     assert catalog["ontology_version"] == ONTOLOGY_VERSION
-    with pytest.raises(RuntimeError, match="publication_status"):
-        _write(_publishable_job(), catalog)
+    with pytest.raises(RuntimeError, match="classification_only"):
+        _write(
+            _job_with_payload({"scene": "exterior_front", "classification_only": True}),
+            catalog,
+        )
 
 
 def test_load_issue_catalog_passes_root_metadata_through(tmp_path):

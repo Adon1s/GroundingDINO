@@ -62,10 +62,11 @@ VALID_KINDS_V2 = OBSERVATION_KINDS
 VALID_PUBLICATION_STATUSES = frozenset({"blocked_pending_pricing", "publishable"})
 V2_CATALOG_VERSION = "3.0"
 
-# Fields that carry economic behavior. A v2 item stamped
-# pricing_status == "deferred_post_task3" (split successors) must carry none of
-# them; the migration generator (scripts/migrate_catalog_kind_v2.py) imports
-# this list so generator and validator can never disagree.
+# Fields that carry economic behavior. Split successors inherit them verbatim
+# from their v1 parent (pricing_status == "inherited_from_split_parent" — the
+# Task 4A bridge until the dedicated pricing project authors real successor
+# prices). The migration generator (scripts/migrate_catalog_kind_v2.py)
+# imports this list so generator and validator can never disagree.
 ECONOMIC_FIELDS = (
     "cost",
     "estimate",
@@ -76,7 +77,8 @@ ECONOMIC_FIELDS = (
     "estimate_scope",
     "estimate_scope_reason",
 )
-VALID_PRICING_STATUSES = frozenset({"deferred_post_task3"})
+PRICING_STATUS_INHERITED = "inherited_from_split_parent"
+VALID_PRICING_STATUSES = frozenset({PRICING_STATUS_INHERITED})
 
 VALID_CHANGE_TYPES = frozenset({"unchanged", "reclassified", "narrowed", "split"})
 
@@ -451,11 +453,11 @@ def _validate_v2_item(item: Dict[str, Any], label: str,
                 f"{label}: pricing_status {pricing_status!r} not in "
                 f"{sorted(VALID_PRICING_STATUSES)}"
             )
-        carried = [f for f in ECONOMIC_FIELDS if f in item]
-        if carried:
-            result.errors.append(
-                f"{label}: pricing_status {pricing_status!r} forbids economic "
-                f"fields, found {carried}"
+        elif not any(f in item for f in ECONOMIC_FIELDS):
+            # Allowed (the parent may have carried nothing), but worth surfacing.
+            result.warnings.append(
+                f"{label}: pricing_status {pricing_status!r} with no inherited "
+                "economic fields (parent carried none)"
             )
 
 

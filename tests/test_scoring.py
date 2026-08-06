@@ -62,26 +62,36 @@ def test_scoring_contains_no_dollar_totals_or_per_item_costs():
 
 
 class TestKindMultiplierFailLoud:
-    """Unknown kinds must never silently price at 1.0 (Task 3, deferred to
-    the pricing phase). defect/upgrade keep their v1 values."""
+    """Unknown kinds must never silently price at 1.0. defect/upgrade keep
+    their v1 values; degradation/modernization carry the temporary Task 4A
+    bridge values until the dedicated pricing project."""
 
     def test_v1_kinds_unchanged(self):
         assert kind_multiplier("defect", phase="costing") == 1.0
         assert kind_multiplier("upgrade", phase="costing") == 0.6
 
-    @pytest.mark.parametrize("kind", ["degradation", "modernization", "", None, "junk"])
+    def test_v2_bridge_multipliers(self):
+        assert kind_multiplier("degradation", phase="costing") == 1.0
+        assert kind_multiplier("modernization", phase="costing") == 0.6
+
+    @pytest.mark.parametrize("kind", ["", None, "junk"])
     def test_unpriced_kind_raises(self, kind):
         with pytest.raises(CatalogDataError) as exc:
             kind_multiplier(kind, phase="scoring", item_id="worn_roof_shingles")
         msg = str(exc.value)
         assert "scoring" in msg
         assert "worn_roof_shingles" in msg
-        assert "pricing" in msg
+        assert "priced kinds" in msg
 
     def test_cost_range_raises_for_unpriced_kind(self):
         cost = {"mode": "allowance", "cost_source": "catalog", "base_low": 100, "base_high": 400}
         with pytest.raises(CatalogDataError):
-            compute_item_cost_range(cost, 1, "modernization", "repair", "paint_drywall")
+            compute_item_cost_range(cost, 1, "junk", "repair", "paint_drywall")
+
+    def test_v2_kind_cost_ranges(self):
+        cost = {"mode": "allowance", "cost_source": "catalog", "base_low": 100, "base_high": 400}
+        assert compute_item_cost_range(cost, 1, "degradation", "repair", "safety_general") == (100, 400)
+        assert compute_item_cost_range(cost, 1, "modernization", "repair", "safety_general") == (60, 240)
 
     def test_manual_allowance_stays_exempt_from_kind_multiplier(self):
         cost = {"mode": "allowance", "cost_source": "manual", "base_low": 100, "base_high": 400}
@@ -97,7 +107,7 @@ class TestKindMultiplierFailLoud:
         catalog = {
             "items": [{
                 "id": "worn_or_stained_carpet",
-                "kind": "degradation",
+                "kind": "junk",
                 "severity": 2,
                 "scope": "replace",
                 "trade_bucket": "flooring",

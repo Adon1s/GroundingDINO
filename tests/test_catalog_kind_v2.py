@@ -2,13 +2,13 @@
 
 The v2 catalog (tools/issue_catalog_kind_v2.json) is generated from
 tools/catalog_migrations/kind_v2_decisions.json by
-scripts/migrate_catalog_kind_v2.py and is used only by validation and the
-catalog-resolution benchmark until the Task 3 cutover. These tests pin:
+scripts/migrate_catalog_kind_v2.py. These tests pin:
 
 1. the shipped v2 catalog and manifest validate clean;
-2. root metadata (version 3.0, ontology stamp, non-publishable status);
+2. root metadata (version 3.0, ontology stamp, publishable status);
 3. the versioned kind vocabulary (three kinds only under the v2 stamp);
-4. atomic-claim and deferred-pricing rules;
+4. atomic-claim rules and Task 4A inherited-economics rules (every split
+   successor carries its parent's economic fields byte-identically);
 5. manifest integrity over all 107 legacy ids;
 6. byte-parity: regenerating from the decisions file reproduces the committed
    catalog + manifest exactly.
@@ -89,7 +89,7 @@ def test_shipped_v2_catalog_has_no_errors(v2_catalog):
 def test_shipped_v2_root_metadata(v2_catalog):
     assert v2_catalog["version"] == "3.0"
     assert v2_catalog["ontology_version"] == ONTOLOGY_VERSION
-    assert v2_catalog["publication_status"] == "blocked_pending_pricing"
+    assert v2_catalog["publication_status"] == "publishable"
 
 
 def test_shipped_v2_kinds_are_exactly_the_ontology(v2_catalog):
@@ -105,13 +105,33 @@ def test_shipped_v2_every_item_has_an_atomic_claim(v2_catalog):
         assert claim["ontology_basis"].strip()
 
 
-def test_shipped_v2_deferred_successors_carry_no_economic_fields(v2_catalog):
-    deferred = [it for it in v2_catalog["items"] if it.get("pricing_status")]
-    assert deferred, "expected split successors with deferred pricing"
-    for item in deferred:
-        assert item["pricing_status"] == "deferred_post_task3"
-        carried = [f for f in ECONOMIC_FIELDS if f in item]
-        assert carried == [], f"{item['id']} carries {carried}"
+def test_shipped_v2_split_successors_inherit_parent_economics(
+    v1_catalog, v2_catalog, manifest
+):
+    """Task 4A bridge: every split successor carries exactly the economic
+    fields its v1 parent carried, byte-identically; absent stays absent."""
+    inherited = [it for it in v2_catalog["items"] if it.get("pricing_status")]
+    assert len(inherited) == 42
+    v1_by_id = {it["id"]: it for it in v1_catalog["items"]}
+    parent_of = {
+        s["id"]: e["legacy_id"]
+        for e in manifest["entries"] if e["change_type"] == "split"
+        for s in e["successors"]
+    }
+    for item in inherited:
+        assert item["pricing_status"] == "inherited_from_split_parent"
+        parent = v1_by_id[parent_of[item["id"]]]
+        for field in ECONOMIC_FIELDS:
+            assert (field in parent) == (field in item), (item["id"], field)
+            if field in parent:
+                assert parent[field] == item[field], (item["id"], field)
+
+
+def test_shipped_v2_has_no_deferred_pricing_status(v2_catalog):
+    assert not any(
+        it.get("pricing_status") == "deferred_post_task3"
+        for it in v2_catalog["items"]
+    )
 
 
 def test_shipped_v2_trade_buckets_preserved_verbatim(v1_catalog, v2_catalog):
@@ -186,13 +206,29 @@ def test_v2_item_blank_atomic_claim_field_errors():
     assert any("atomic_claim.state" in e for e in result.errors)
 
 
-def test_v2_deferred_item_with_cost_block_errors():
+def test_v2_retired_deferred_pricing_status_errors():
+    """deferred_post_task3 was retired in Task 4A; it must not resurface."""
+    catalog = _minimal_v2_catalog(item_overrides={"pricing_status": "deferred_post_task3"})
+    result = validate_issue_catalog(catalog)
+    assert any("pricing_status 'deferred_post_task3'" in e for e in result.errors)
+
+
+def test_v2_inherited_item_with_economics_is_clean():
     catalog = _minimal_v2_catalog(item_overrides={
-        "pricing_status": "deferred_post_task3",
-        "cost": {"mode": "heuristic"},
+        "pricing_status": "inherited_from_split_parent",
+        "cost": {"mode": "allowance", "cost_source": "catalog", "base_low": 100, "base_high": 400},
     })
     result = validate_issue_catalog(catalog)
-    assert any("forbids economic fields" in e for e in result.errors)
+    assert result.errors == []
+
+
+def test_v2_inherited_item_without_economics_warns_but_validates():
+    catalog = _minimal_v2_catalog(item_overrides={
+        "pricing_status": "inherited_from_split_parent",
+    })
+    result = validate_issue_catalog(catalog)
+    assert result.errors == []
+    assert any("no inherited economic fields" in w for w in result.warnings)
 
 
 def test_v2_unknown_pricing_status_errors():
@@ -305,6 +341,17 @@ def test_generator_refuses_economic_override_on_split_successor(v1_catalog):
     split = next(e for e in broken["entries"] if e["change_type"] == "split")
     split["successors"][0].setdefault("overrides", {})["cost"] = {"mode": "heuristic"}
     with pytest.raises(SystemExit, match="economic fields"):
+        gen.generate(v1_catalog, broken)
+
+
+def test_generator_refuses_missing_pricing_policy(v1_catalog):
+    gen = _load_generator()
+    decisions = json.loads(
+        (ROOT / "tools" / "catalog_migrations" / "kind_v2_decisions.json").read_text(encoding="utf-8")
+    )
+    broken = copy.deepcopy(decisions)
+    del broken["split_successor_pricing"]
+    with pytest.raises(SystemExit, match="split_successor_pricing"):
         gen.generate(v1_catalog, broken)
 
 

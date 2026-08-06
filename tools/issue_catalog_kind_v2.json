@@ -1,7 +1,7 @@
 {
   "version": "3.0",
   "ontology_version": "observation-kind-v2",
-  "publication_status": "blocked_pending_pricing",
+  "publication_status": "publishable",
   "trade_buckets": [
     {
       "id": "flooring",
@@ -412,7 +412,23 @@
         "state": "sagging, loose, or missing panels",
         "ontology_basis": "asserted_failure"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 400,
+        "base_high": 3500,
+        "per_occurrence_low": 350,
+        "per_occurrence_high": 900,
+        "cap_low": 3500,
+        "cap_high": 9000,
+        "cost_source": "manual"
+      },
+      "package_affinity": {
+        "exterior": {
+          "package_type": "exterior_repair",
+          "package_role": "package_driver"
+        }
+      },
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "soffit_or_porch_ceiling_weathered",
@@ -442,7 +458,23 @@
         "state": "patchy, peeling, or weathered finish on intact panels",
         "ontology_basis": "visible_deterioration"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 400,
+        "base_high": 3500,
+        "per_occurrence_low": 350,
+        "per_occurrence_high": 900,
+        "cap_low": 3500,
+        "cap_high": 9000,
+        "cost_source": "manual"
+      },
+      "package_affinity": {
+        "exterior": {
+          "package_type": "exterior_repair",
+          "package_role": "package_driver"
+        }
+      },
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "name": "Worn or Stained Carpet",
@@ -565,7 +597,33 @@
         "state": "torn, worn through, or lifting material",
         "ontology_basis": "asserted_failure"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 300,
+        "base_high": 3500,
+        "per_occurrence_low": 270,
+        "per_occurrence_high": 690,
+        "cap_low": 3500,
+        "cap_high": 7000,
+        "cost_source": "manual"
+      },
+      "work_item_code": "FLOORING_REPLACE",
+      "package_affinity": {
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_driver"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_driver"
+        }
+      },
+      "package_role": "ignore",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "vinyl_linoleum_worn_or_stained",
@@ -607,7 +665,33 @@
         "state": "staining, discoloration, or wear on intact material",
         "ontology_basis": "visible_deterioration"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 300,
+        "base_high": 3500,
+        "per_occurrence_low": 270,
+        "per_occurrence_high": 690,
+        "cap_low": 3500,
+        "cap_high": 7000,
+        "cost_source": "manual"
+      },
+      "work_item_code": "FLOORING_REPLACE",
+      "package_affinity": {
+        "bedroom": {
+          "package_type": "bedroom_modernization",
+          "package_role": "package_driver"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_modernization",
+          "package_role": "package_driver"
+        }
+      },
+      "package_role": "ignore",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "hard_flooring_broken_or_warped",
@@ -644,7 +728,42 @@
         "state": "chips, warping, or broken pieces",
         "ontology_basis": "asserted_failure"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 300,
+        "base_high": 5000,
+        "per_occurrence_low": 360,
+        "per_occurrence_high": 1050,
+        "cap_low": 5000,
+        "cap_high": 12000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_or_replace",
+        "group": "flooring",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_room"
+      },
+      "work_item_code": "FLOORING_REPLACE",
+      "package_affinity": {
+        "bedroom": {
+          "package_type": "bedroom_repair",
+          "package_role": "package_driver"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_repair",
+          "package_role": "package_driver"
+        }
+      },
+      "package_role": "ignore",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_cosmetic_flooring_marketability",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "hard_flooring_scratched_or_worn",
@@ -680,7 +799,42 @@
         "state": "scratches, scuffs, or worn finish on intact flooring",
         "ontology_basis": "visible_deterioration"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 300,
+        "base_high": 5000,
+        "per_occurrence_low": 360,
+        "per_occurrence_high": 1050,
+        "cap_low": 5000,
+        "cap_high": 12000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_or_replace",
+        "group": "flooring",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_room"
+      },
+      "work_item_code": "FLOORING_REPLACE",
+      "package_affinity": {
+        "bedroom": {
+          "package_type": "bedroom_repair",
+          "package_role": "package_driver"
+        },
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        },
+        "living": {
+          "package_type": "living_repair",
+          "package_role": "package_driver"
+        }
+      },
+      "package_role": "ignore",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_cosmetic_flooring_marketability",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "name": "Trip Hazard or Unlevel Floor",
@@ -827,7 +981,25 @@
         "state": "missing, curling, or torn shingles",
         "ontology_basis": "asserted_failure"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 10000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 2250,
+        "cap_low": 10000,
+        "cap_high": 25000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "repair_or_replace",
+        "group": "roof",
+        "stack_behavior": "max_only",
+        "unit_policy": "per_property"
+      },
+      "work_item_code": "ROOF_REPAIR",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "roof_shingles_aged_or_worn",
@@ -861,7 +1033,25 @@
         "state": "aging, moss, or wear on intact roof",
         "ontology_basis": "visible_deterioration"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 10000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 2250,
+        "cap_low": 10000,
+        "cap_high": 25000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "repair_or_replace",
+        "group": "roof",
+        "stack_behavior": "max_only",
+        "unit_policy": "per_property"
+      },
+      "work_item_code": "ROOF_REPAIR",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "name": "Damaged or Unsafe Deck/Porch",
@@ -1093,7 +1283,31 @@
         "state": "broken components or water staining",
         "ontology_basis": "asserted_failure"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 10000,
+        "per_occurrence_low": 750,
+        "per_occurrence_high": 2100,
+        "cap_low": 10000,
+        "cap_high": 30000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "repair_or_replace",
+        "group": "kitchen",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_kitchen"
+      },
+      "work_item_code": "CABINET_REPLACE",
+      "package_affinity": {
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_driver"
+        }
+      },
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "cabinets_worn_finish",
@@ -1125,7 +1339,31 @@
         "state": "worn or faded finish on intact cabinets",
         "ontology_basis": "visible_deterioration"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 10000,
+        "per_occurrence_low": 750,
+        "per_occurrence_high": 2100,
+        "cap_low": 10000,
+        "cap_high": 30000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "repair_or_replace",
+        "group": "kitchen",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_kitchen"
+      },
+      "work_item_code": "CABINET_REPLACE",
+      "package_affinity": {
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_driver"
+        }
+      },
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "cabinets_dated_style",
@@ -1157,7 +1395,31 @@
         "state": "dated style or basic grade, functional",
         "ontology_basis": "dated_style"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 10000,
+        "per_occurrence_low": 750,
+        "per_occurrence_high": 2100,
+        "cap_low": 10000,
+        "cap_high": 30000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "repair_or_replace",
+        "group": "kitchen",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_kitchen"
+      },
+      "work_item_code": "CABINET_REPLACE",
+      "package_affinity": {
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_driver"
+        }
+      },
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "name": "Damaged Countertops",
@@ -1304,7 +1566,33 @@
         "state": "missing or broken units",
         "ontology_basis": "asserted_failure"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 6000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 1050,
+        "cap_low": 6000,
+        "cap_high": 12000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "kitchen",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_kitchen"
+      },
+      "work_item_code": "APPLIANCE_REPLACE",
+      "package_affinity": {
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        }
+      },
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_appliance_renewal_not_required",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "appliances_worn_or_neglected",
@@ -1337,7 +1625,33 @@
         "state": "aged or neglected but working units",
         "ontology_basis": "visible_deterioration"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 6000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 1050,
+        "cap_low": 6000,
+        "cap_high": 12000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "kitchen",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_kitchen"
+      },
+      "work_item_code": "APPLIANCE_REPLACE",
+      "package_affinity": {
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        }
+      },
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_appliance_renewal_not_required",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "appliances_dated_or_basic",
@@ -1369,7 +1683,33 @@
         "state": "dated style or basic grade, functional",
         "ontology_basis": "dated_style"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 6000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 1050,
+        "cap_low": 6000,
+        "cap_high": 12000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "kitchen",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_kitchen"
+      },
+      "work_item_code": "APPLIANCE_REPLACE",
+      "package_affinity": {
+        "kitchen": {
+          "package_type": "kitchen_modernization",
+          "package_role": "package_support"
+        }
+      },
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_appliance_renewal_not_required",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "plumbing_fixture_leaking",
@@ -1405,7 +1745,19 @@
         "state": "active leak",
         "ontology_basis": "asserted_failure"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 200,
+        "base_high": 4000,
+        "per_occurrence_low": 240,
+        "per_occurrence_high": 900,
+        "cap_low": 4000,
+        "cap_high": 12000,
+        "cost_source": "manual"
+      },
+      "work_item_code": "PLUMBING_REPAIR",
+      "package_role": "standalone",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "plumbing_fixture_stained_or_corroded",
@@ -1441,7 +1793,19 @@
         "state": "staining, corrosion, or buildup without leak",
         "ontology_basis": "surface_rust"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 200,
+        "base_high": 4000,
+        "per_occurrence_low": 240,
+        "per_occurrence_high": 900,
+        "cap_low": 4000,
+        "cap_high": 12000,
+        "cost_source": "manual"
+      },
+      "work_item_code": "PLUMBING_REPAIR",
+      "package_role": "standalone",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "bath_fixtures_chipped_or_damaged",
@@ -1474,7 +1838,31 @@
         "state": "chipped enamel or damaged surfaces",
         "ontology_basis": "asserted_failure"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 200,
+        "base_high": 4000,
+        "per_occurrence_low": 240,
+        "per_occurrence_high": 900,
+        "cap_low": 4000,
+        "cap_high": 10000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "work_item_code": "FIXTURES_UPDATE",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_support"
+        }
+      },
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "bath_fixtures_stained_or_worn",
@@ -1508,7 +1896,31 @@
         "state": "heavy staining or worn finish, undamaged",
         "ontology_basis": "visible_deterioration"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 200,
+        "base_high": 4000,
+        "per_occurrence_low": 240,
+        "per_occurrence_high": 900,
+        "cap_low": 4000,
+        "cap_high": 10000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "work_item_code": "FIXTURES_UPDATE",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_support"
+        }
+      },
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "name": "Visible Electrical Risks",
@@ -1860,7 +2272,28 @@
         "state": "heaving, trip edges, or crumbling",
         "ontology_basis": "paving_defect_heave_trip_crumble"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 400,
+        "base_high": 8000,
+        "per_occurrence_low": 480,
+        "per_occurrence_high": 1800,
+        "cap_low": 8000,
+        "cap_high": 20000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_or_replace",
+        "group": "landscaping",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_area",
+        "requires_2f_for_estimate": true
+      },
+      "work_item_code": "CONCRETE_REPAIR",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_curb_appeal_paving_not_required",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "paving_cracked_or_settled",
@@ -1893,7 +2326,28 @@
         "state": "cracking, spalling, or minor settlement",
         "ontology_basis": "paving_degradation_cracking_wear"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 400,
+        "base_high": 8000,
+        "per_occurrence_low": 480,
+        "per_occurrence_high": 1800,
+        "cap_low": 8000,
+        "cap_high": 20000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_or_replace",
+        "group": "landscaping",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_area",
+        "requires_2f_for_estimate": true
+      },
+      "work_item_code": "CONCRETE_REPAIR",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_curb_appeal_paving_not_required",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "name": "Clogged or Damaged Gutters/Downspouts",
@@ -2416,7 +2870,18 @@
         "state": "overgrowth or deferred maintenance",
         "ontology_basis": "overgrowth_deferred_upkeep"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 8000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 1650,
+        "cap_low": 8000,
+        "cap_high": 20000,
+        "cost_source": "manual"
+      },
+      "work_item_code": "LANDSCAPE_CLEANUP",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "landscaping_enhancement_opportunity",
@@ -2449,7 +2914,18 @@
         "state": "sparse or plain, discretionary enhancement",
         "ontology_basis": "discretionary_improvement"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 8000,
+        "per_occurrence_low": 600,
+        "per_occurrence_high": 1650,
+        "cap_low": 8000,
+        "cap_high": 20000,
+        "cost_source": "manual"
+      },
+      "work_item_code": "LANDSCAPE_CLEANUP",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "name": "Curb Appeal Upgrade",
@@ -2749,7 +3225,13 @@
         "state": "damaged, warped, or missing blades",
         "ontology_basis": "asserted_failure"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "heuristic"
+      },
+      "work_item_code": "FIXTURES_UPDATE",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_cosmetic_fan_not_required",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "ceiling_fan_blades_mismatched",
@@ -2786,7 +3268,13 @@
         "state": "mismatched appearance, functional",
         "ontology_basis": "presentation_only"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "heuristic"
+      },
+      "work_item_code": "FIXTURES_UPDATE",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_cosmetic_fan_not_required",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "name": "Outdated Ceiling Fan Style",
@@ -3200,7 +3688,33 @@
         "state": "water damage or broken components",
         "ontology_basis": "asserted_failure"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 6000,
+        "per_occurrence_low": 540,
+        "per_occurrence_high": 1500,
+        "cap_low": 5000,
+        "cap_high": 10000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "work_item_code": "VANITY_REPLACE",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_driver"
+        }
+      },
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_dated_vanity_marketability",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "vanity_worn_finish",
@@ -3235,7 +3749,33 @@
         "state": "worn or faded finish on intact vanity",
         "ontology_basis": "visible_deterioration"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 6000,
+        "per_occurrence_low": 540,
+        "per_occurrence_high": 1500,
+        "cap_low": 5000,
+        "cap_high": 10000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "work_item_code": "VANITY_REPLACE",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_driver"
+        }
+      },
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_dated_vanity_marketability",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "vanity_dated_style",
@@ -3271,7 +3811,33 @@
         "state": "dated style, functional",
         "ontology_basis": "dated_style"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 500,
+        "base_high": 6000,
+        "per_occurrence_low": 540,
+        "per_occurrence_high": 1500,
+        "cap_low": 5000,
+        "cap_high": 10000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "work_item_code": "VANITY_REPLACE",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_driver"
+        }
+      },
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_dated_vanity_marketability",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "name": "Tub Surround or Shower Pan Damage",
@@ -3849,7 +4415,31 @@
         "state": "missing or broken unit",
         "ontology_basis": "missing_required_component"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 120,
+        "base_high": 1200,
+        "per_occurrence_low": 150,
+        "per_occurrence_high": 420,
+        "cap_low": 800,
+        "cap_high": 1800,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "minor",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "work_item_code": "EXHAUST_FAN_REPLACE",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_support"
+        }
+      },
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "exhaust_fan_grime_clogged",
@@ -3885,7 +4475,31 @@
         "state": "grime-clogged but present",
         "ontology_basis": "soiling_deferred_upkeep"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 120,
+        "base_high": 1200,
+        "per_occurrence_low": 150,
+        "per_occurrence_high": 420,
+        "cap_low": 800,
+        "cap_high": 1800,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "minor",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "work_item_code": "EXHAUST_FAN_REPLACE",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_support"
+        }
+      },
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "exhaust_fan_dated",
@@ -3921,7 +4535,31 @@
         "state": "dated unit, functional",
         "ontology_basis": "dated_style"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 120,
+        "base_high": 1200,
+        "per_occurrence_low": 150,
+        "per_occurrence_high": 420,
+        "cap_low": 800,
+        "cap_high": 1800,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "minor",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "work_item_code": "EXHAUST_FAN_REPLACE",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_support"
+        }
+      },
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "bathroom_paint_moisture_damage",
@@ -3960,7 +4598,31 @@
         "state": "moisture-evidence failure: bubbling, discoloration, efflorescence",
         "ontology_basis": "moisture_evidence"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 180,
+        "base_high": 2200,
+        "per_occurrence_low": 180,
+        "per_occurrence_high": 480,
+        "cap_low": 2000,
+        "cap_high": 4500,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_only",
+        "group": "paint_drywall",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_room"
+      },
+      "work_item_code": "PAINT_INTERIOR",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_support"
+        }
+      },
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "bathroom_paint_peeling_or_worn",
@@ -3998,7 +4660,31 @@
         "state": "peeling or worn finish without moisture evidence",
         "ontology_basis": "visible_deterioration"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 180,
+        "base_high": 2200,
+        "per_occurrence_low": 180,
+        "per_occurrence_high": 480,
+        "cap_low": 2000,
+        "cap_high": 4500,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "repair_only",
+        "group": "paint_drywall",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_room"
+      },
+      "work_item_code": "PAINT_INTERIOR",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_repair",
+          "package_role": "package_support"
+        }
+      },
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "name": "Moisture-Damaged Bathroom Flooring",
@@ -4099,7 +4785,31 @@
         "state": "yellowed or worn surface, intact",
         "ontology_basis": "visible_deterioration"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 250,
+        "base_high": 2500,
+        "per_occurrence_low": 270,
+        "per_occurrence_high": 750,
+        "cap_low": 3000,
+        "cap_high": 7000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "work_item_code": "VANITY_TOP_UPDATE",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        }
+      },
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "vanity_countertop_dated",
@@ -4134,7 +4844,31 @@
         "state": "dated pattern or material, intact",
         "ontology_basis": "dated_style"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 250,
+        "base_high": 2500,
+        "per_occurrence_low": 270,
+        "per_occurrence_high": 750,
+        "cap_low": 3000,
+        "cap_high": 7000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "medium",
+        "strategy": "replace_only",
+        "group": "bathroom",
+        "stack_behavior": "group_cap",
+        "unit_policy": "per_bathroom"
+      },
+      "work_item_code": "VANITY_TOP_UPDATE",
+      "package_affinity": {
+        "bathroom": {
+          "package_type": "bathroom_modernization",
+          "package_role": "package_support"
+        }
+      },
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "name": "Dated Bathroom Flooring Style",
@@ -4894,7 +5628,12 @@
         "state": "rot, leaning, or broken sections",
         "ontology_basis": "asserted_failure"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "heuristic"
+      },
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_weathered_fence_curb_appeal",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "fence_weathered",
@@ -4923,7 +5662,12 @@
         "state": "weathered or faded boards, structurally sound",
         "ontology_basis": "visible_deterioration"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "heuristic"
+      },
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_weathered_fence_curb_appeal",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "name": "Exterior Siding Discoloration or Fading",
@@ -5349,7 +6093,8 @@
         "state": "worn or tarnished finish",
         "ontology_basis": "visible_deterioration"
       },
-      "pricing_status": "deferred_post_task3"
+      "package_role": "ignore",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "door_hardware_dated_style",
@@ -5385,7 +6130,8 @@
         "state": "dated style, functional",
         "ontology_basis": "dated_style"
       },
-      "pricing_status": "deferred_post_task3"
+      "package_role": "ignore",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "mortar_joints_deteriorated",
@@ -5416,7 +6162,19 @@
         "state": "crumbling or failing joints",
         "ontology_basis": "asserted_failure"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "heuristic"
+      },
+      "work_item_code": "MASONRY_REPAIR",
+      "package_affinity": {
+        "exterior": {
+          "package_type": "exterior_repair",
+          "package_role": "package_support"
+        }
+      },
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_masonry_weathering_cosmetic",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "brick_weathered_or_discolored",
@@ -5446,7 +6204,19 @@
         "state": "weathering or discoloration with intact mortar",
         "ontology_basis": "visible_deterioration"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "heuristic"
+      },
+      "work_item_code": "MASONRY_REPAIR",
+      "package_affinity": {
+        "exterior": {
+          "package_type": "exterior_repair",
+          "package_role": "package_support"
+        }
+      },
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_masonry_weathering_cosmetic",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "name": "Patio or Porch Surface Wear",
@@ -5775,7 +6545,27 @@
         "state": "empty or non-operational",
         "ontology_basis": "asserted_failure"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 2000,
+        "base_high": 15000,
+        "per_occurrence_low": 3000,
+        "per_occurrence_high": 9000,
+        "cap_low": 15000,
+        "cap_high": 40000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "inspect_only",
+        "group": "pool",
+        "stack_behavior": "max_only",
+        "unit_policy": "per_property"
+      },
+      "work_item_code": "POOL_REHAB",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_pool_restoration_discretionary",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "id": "inground_pool_finishes_deteriorated",
@@ -5814,7 +6604,27 @@
         "state": "deteriorated finishes on operational pool",
         "ontology_basis": "visible_deterioration"
       },
-      "pricing_status": "deferred_post_task3"
+      "cost": {
+        "mode": "allowance",
+        "base_low": 2000,
+        "base_high": 15000,
+        "per_occurrence_low": 3000,
+        "per_occurrence_high": 9000,
+        "cap_low": 15000,
+        "cap_high": 40000,
+        "cost_source": "manual"
+      },
+      "estimate": {
+        "estimate_tier": "high",
+        "strategy": "inspect_only",
+        "group": "pool",
+        "stack_behavior": "max_only",
+        "unit_policy": "per_property"
+      },
+      "work_item_code": "POOL_REHAB",
+      "estimate_scope": "marketability_rehab",
+      "estimate_scope_reason": "catalog_override_pool_restoration_discretionary",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "name": "Worn or Stained Flooring",
