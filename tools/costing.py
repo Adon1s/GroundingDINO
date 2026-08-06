@@ -50,6 +50,20 @@ KIND_MULT: Dict[str, float] = {
     "upgrade": 0.6,
 }
 
+
+def kind_multiplier(kind: Any, *, phase: str, item_id: str = "") -> float:
+    """Multiplier for a catalog kind. Unknown kinds are a pricing decision that
+    has not been made yet, so they must never silently price at 1.0."""
+    try:
+        return KIND_MULT[kind]
+    except (KeyError, TypeError):
+        raise CatalogDataError(
+            f"{phase}: no KIND_MULT entry for kind {kind!r}"
+            + (f" (catalog item {item_id!r})" if item_id else "")
+            + f"; priced kinds: {sorted(KIND_MULT)}. Degradation/modernization "
+            "multipliers are authored in the post-Task-3 pricing work."
+        ) from None
+
 SCOPE_MULT: Dict[str, float] = {
     "repair":   1.0,
     "replace":  1.3,
@@ -145,11 +159,12 @@ def compute_issue_points(
     kind: str,
     scope: str,
     trade_bucket: str,
+    item_id: str = "",
 ) -> float:
     """Per-issue impact points: severity * kind_mult * scope_mult * trade_mult."""
     return (
         severity
-        * KIND_MULT.get(kind, 1.0)
+        * kind_multiplier(kind, phase="scoring", item_id=item_id)
         * SCOPE_MULT.get(scope, 1.0)
         * TRADE_MULT.get(trade_bucket, 1.0)
     )
@@ -276,7 +291,7 @@ def compute_item_cost_range(
         high = round(raw_high)
     else:
         mult = (
-            KIND_MULT.get(kind, 1.0)
+            kind_multiplier(kind, phase="costing")
             * SCOPE_MULT.get(scope, 1.0)
             * TRADE_MULT.get(trade_bucket, 1.0)
         )
@@ -371,7 +386,7 @@ def compute_scoring(
     for cat_id, occurrences in grouped.items():
         cat = catalog_lookup[cat_id]
         sev = cat.get("severity", 2)
-        kind = cat.get("kind", "defect")
+        kind = cat.get("kind")
         scope = cat.get("scope", "repair")
         if not isinstance(scope, str):
             raise CatalogDataError(
@@ -382,7 +397,7 @@ def compute_scoring(
         if tb in MAJOR_SYSTEM_BUCKETS:
             has_major_systems = True
 
-        base_pts = compute_issue_points(sev, kind, scope, tb)
+        base_pts = compute_issue_points(sev, kind, scope, tb, item_id=cat_id)
         group_pts = round(compute_group_points(base_pts, len(occurrences)), 3)
         total_raw += group_pts
 
