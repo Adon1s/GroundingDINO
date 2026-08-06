@@ -1,0 +1,12 @@
+{
+  "backend": "openai_compatible",
+  "base_url": "http://127.0.0.1:8081/v1",
+  "model_name": "jinaai/jina-embeddings-v5-text-small-text-matching-GGUF:Q8_0",
+  "st_model_name": "jinaai/jina-embeddings-v3",
+  "dimension": 1024,
+  "device": "cpu",
+  "trust_remote_code": true,
+  "topk": 5,
+  "top_k_candidates": 8,
+  "note": "Explicit, never read from env. Mirrors tools/pipeline_config defaults as of Task 2. Constructing the retriever embeds the whole catalog, which is the real-POST sidecar probe: /health has been observed returning 200 while every embeddings call fails."
+}

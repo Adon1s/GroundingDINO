@@ -1,0 +1,5 @@
+{
+  "label": "Qwen 3.6 27B",
+  "provider": "lmstudio",
+  "model": "unsloth/qwen3.6-27b@q6_k"
+}

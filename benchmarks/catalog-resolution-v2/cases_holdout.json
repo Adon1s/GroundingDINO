@@ -1,0 +1,1348 @@
+{
+  "benchmark": "catalog-resolution-v2",
+  "schema_version": 1,
+  "slice": "holdout",
+  "status": "draft",
+  "cases": [
+    {
+      "case_id": "res-cab-004",
+      "family": "cabinets",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "kitchen",
+      "scene_group": "kitchen",
+      "input": "Dark water staining runs down the cabinet box beside the dishwasher.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "cabinets_damaged_or_water_stained",
+        "acceptable_candidate_ids": [
+          "cabinets_damaged_or_water_stained"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "outdated_or_damaged_cabinets",
+        "acceptable_candidate_ids": [
+          "outdated_or_damaged_cabinets"
+        ]
+      }
+    },
+    {
+      "case_id": "res-cab-005",
+      "family": "cabinets",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "kitchen",
+      "scene_group": "kitchen",
+      "input": "Cabinets are builder-grade flat-panel units that read dated but are intact.",
+      "kind": "modernization",
+      "gold": {
+        "resolved_id": "cabinets_dated_style",
+        "acceptable_candidate_ids": [
+          "cabinets_dated_style"
+        ]
+      },
+      "legacy": {
+        "kind": "upgrade",
+        "resolved_id": "outdated_or_damaged_cabinets",
+        "acceptable_candidate_ids": [
+          "outdated_or_damaged_cabinets"
+        ]
+      }
+    },
+    {
+      "case_id": "res-flr-003",
+      "family": "flooring_hard",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "kitchen",
+      "scene_group": "kitchen",
+      "input": "A section of laminate flooring has warped and lifted at the seam.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "hard_flooring_broken_or_warped",
+        "acceptable_candidate_ids": [
+          "hard_flooring_broken_or_warped"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "scratched_or_damaged_flooring",
+        "acceptable_candidate_ids": [
+          "scratched_or_damaged_flooring"
+        ]
+      }
+    },
+    {
+      "case_id": "res-vin-001",
+      "family": "flooring_vinyl",
+      "paired_group": "flooring-vinyl-pair",
+      "case_type": "resolution",
+      "scene": "kitchen",
+      "scene_group": "kitchen",
+      "input": "The sheet vinyl is torn open in front of the range and curling away from the floor.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "vinyl_linoleum_torn_or_lifted",
+        "acceptable_candidate_ids": [
+          "vinyl_linoleum_torn_or_lifted"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "worn_or_stained_vinyl_linoleum",
+        "acceptable_candidate_ids": [
+          "worn_or_stained_vinyl_linoleum"
+        ]
+      }
+    },
+    {
+      "case_id": "res-vin-002",
+      "family": "flooring_vinyl",
+      "paired_group": "flooring-vinyl-pair",
+      "case_type": "resolution",
+      "scene": "kitchen",
+      "scene_group": "kitchen",
+      "input": "Linoleum is fully adhered but discolored and dingy across the room.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "vinyl_linoleum_worn_or_stained",
+        "acceptable_candidate_ids": [
+          "vinyl_linoleum_worn_or_stained"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "worn_or_stained_vinyl_linoleum",
+        "acceptable_candidate_ids": [
+          "worn_or_stained_vinyl_linoleum"
+        ]
+      }
+    },
+    {
+      "case_id": "res-vin-003",
+      "family": "flooring_vinyl",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "laundry_utility",
+      "scene_group": "utility",
+      "input": "Resilient flooring has worn through to the backing beside the washer.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "vinyl_linoleum_torn_or_lifted",
+        "acceptable_candidate_ids": [
+          "vinyl_linoleum_torn_or_lifted"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "worn_or_stained_vinyl_linoleum",
+        "acceptable_candidate_ids": [
+          "worn_or_stained_vinyl_linoleum"
+        ]
+      }
+    },
+    {
+      "case_id": "res-car-002",
+      "family": "carpet",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "living_room",
+      "scene_group": "living_areas",
+      "input": "Bedroom carpet looks heavily worn with dark marks near the closet.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "worn_or_stained_carpet",
+        "acceptable_candidate_ids": [
+          "worn_or_stained_carpet"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "worn_or_stained_carpet",
+        "acceptable_candidate_ids": [
+          "worn_or_stained_carpet"
+        ]
+      }
+    },
+    {
+      "case_id": "res-sid-004",
+      "family": "siding",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "Bare sheathing is exposed where siding panels are absent on the side wall.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "exposed_sheathing_or_missing_siding",
+        "acceptable_candidate_ids": [
+          "exposed_sheathing_or_missing_siding"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "exposed_sheathing_or_missing_siding",
+        "acceptable_candidate_ids": [
+          "exposed_sheathing_or_missing_siding"
+        ]
+      }
+    },
+    {
+      "case_id": "res-roof-001",
+      "family": "roofing",
+      "paired_group": "roofing-pair",
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "Shingles are missing in patches and the edges are curling up along the ridge.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "roof_shingles_missing_or_curling",
+        "acceptable_candidate_ids": [
+          "roof_shingles_missing_or_curling"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "damaged_or_aged_roof_shingles",
+        "acceptable_candidate_ids": [
+          "damaged_or_aged_roof_shingles"
+        ]
+      }
+    },
+    {
+      "case_id": "res-roof-002",
+      "family": "roofing",
+      "paired_group": "roofing-pair",
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "Roof surface looks weathered with green moss growth and thin granule cover.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "roof_shingles_aged_or_worn",
+        "acceptable_candidate_ids": [
+          "roof_shingles_aged_or_worn"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "damaged_or_aged_roof_shingles",
+        "acceptable_candidate_ids": [
+          "damaged_or_aged_roof_shingles"
+        ]
+      }
+    },
+    {
+      "case_id": "res-roof-003",
+      "family": "roofing",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "Brown water staining runs along the fascia below the gutter line.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "roofline_water_damage_suspected",
+        "acceptable_candidate_ids": [
+          "roofline_water_damage_suspected"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "roofline_water_damage_suspected",
+        "acceptable_candidate_ids": [
+          "roofline_water_damage_suspected"
+        ]
+      }
+    },
+    {
+      "case_id": "res-roof-004",
+      "family": "roofing",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "The roof is covered in leaf debris and the shingle color has faded unevenly.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "roof_shingles_aged_or_worn",
+        "acceptable_candidate_ids": [
+          "roof_shingles_aged_or_worn"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "damaged_or_aged_roof_shingles",
+        "acceptable_candidate_ids": [
+          "damaged_or_aged_roof_shingles"
+        ]
+      }
+    },
+    {
+      "case_id": "res-pnt-005",
+      "family": "paint",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "bathroom",
+      "scene_group": "bathroom",
+      "input": "Bathroom paint is sound but the color reads dull and dated.",
+      "kind": "modernization",
+      "gold": {
+        "resolved_id": "bathroom_paint_refresh_recommended",
+        "acceptable_candidate_ids": [
+          "bathroom_paint_refresh_recommended"
+        ]
+      },
+      "legacy": {
+        "kind": "upgrade",
+        "resolved_id": "bathroom_paint_refresh_recommended",
+        "acceptable_candidate_ids": [
+          "bathroom_paint_refresh_recommended"
+        ]
+      }
+    },
+    {
+      "case_id": "res-van-001",
+      "family": "vanity",
+      "paired_group": "vanity-trio",
+      "case_type": "resolution",
+      "scene": "bathroom",
+      "scene_group": "bathroom",
+      "input": "The vanity base is swollen and delaminating where water has soaked the particle board.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "vanity_damaged_or_water_stained",
+        "acceptable_candidate_ids": [
+          "vanity_damaged_or_water_stained"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "outdated_or_damaged_vanity",
+        "acceptable_candidate_ids": [
+          "outdated_or_damaged_vanity"
+        ]
+      }
+    },
+    {
+      "case_id": "res-van-002",
+      "family": "vanity",
+      "paired_group": "vanity-trio",
+      "case_type": "resolution",
+      "scene": "bathroom",
+      "scene_group": "bathroom",
+      "input": "Vanity cabinet finish is worn and faded but the box is solid.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "vanity_worn_finish",
+        "acceptable_candidate_ids": [
+          "vanity_worn_finish"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "outdated_or_damaged_vanity",
+        "acceptable_candidate_ids": [
+          "outdated_or_damaged_vanity"
+        ]
+      }
+    },
+    {
+      "case_id": "res-van-003",
+      "family": "vanity",
+      "paired_group": "vanity-trio",
+      "case_type": "resolution",
+      "scene": "bathroom",
+      "scene_group": "bathroom",
+      "input": "The bathroom vanity is an oak unit in working order that looks dated.",
+      "kind": "modernization",
+      "gold": {
+        "resolved_id": "vanity_dated_style",
+        "acceptable_candidate_ids": [
+          "vanity_dated_style"
+        ]
+      },
+      "legacy": {
+        "kind": "upgrade",
+        "resolved_id": "outdated_or_damaged_vanity",
+        "acceptable_candidate_ids": [
+          "outdated_or_damaged_vanity"
+        ]
+      }
+    },
+    {
+      "case_id": "res-vct-003",
+      "family": "vanity_top",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "bathroom",
+      "scene_group": "bathroom",
+      "input": "There is a crack running through the vanity countertop beside the basin.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "vanity_countertop_damage",
+        "acceptable_candidate_ids": [
+          "vanity_countertop_damage"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "vanity_countertop_damage",
+        "acceptable_candidate_ids": [
+          "vanity_countertop_damage"
+        ]
+      }
+    },
+    {
+      "case_id": "res-plm-003",
+      "family": "plumbing_fixtures",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "bathroom",
+      "scene_group": "bathroom",
+      "input": "The shutoff valve under the bathroom sink is leaking onto the cabinet floor.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "bathroom_plumbing_visible_issue",
+        "acceptable_candidate_ids": [
+          "bathroom_plumbing_visible_issue"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "bathroom_plumbing_visible_issue",
+        "acceptable_candidate_ids": [
+          "bathroom_plumbing_visible_issue"
+        ]
+      }
+    },
+    {
+      "case_id": "res-fan-001",
+      "family": "exhaust_fan",
+      "paired_group": "exhaust-trio",
+      "case_type": "resolution",
+      "scene": "bathroom",
+      "scene_group": "bathroom",
+      "input": "There is no exhaust fan anywhere in this bathroom.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "exhaust_fan_missing_or_broken",
+        "acceptable_candidate_ids": [
+          "exhaust_fan_missing_or_broken"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "exhaust_fan_missing_or_damaged",
+        "acceptable_candidate_ids": [
+          "exhaust_fan_missing_or_damaged"
+        ]
+      }
+    },
+    {
+      "case_id": "res-fan-002",
+      "family": "exhaust_fan",
+      "paired_group": "exhaust-trio",
+      "case_type": "resolution",
+      "scene": "bathroom",
+      "scene_group": "bathroom",
+      "input": "The bathroom fan grille is packed with dust and grime.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "exhaust_fan_grime_clogged",
+        "acceptable_candidate_ids": [
+          "exhaust_fan_grime_clogged"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "exhaust_fan_missing_or_damaged",
+        "acceptable_candidate_ids": [
+          "exhaust_fan_missing_or_damaged"
+        ]
+      }
+    },
+    {
+      "case_id": "res-fan-003",
+      "family": "exhaust_fan",
+      "paired_group": "exhaust-trio",
+      "case_type": "resolution",
+      "scene": "bathroom",
+      "scene_group": "bathroom",
+      "input": "The exhaust fan cover is yellowed and dated-looking but appears to work.",
+      "kind": "modernization",
+      "gold": {
+        "resolved_id": "exhaust_fan_dated",
+        "acceptable_candidate_ids": [
+          "exhaust_fan_dated"
+        ]
+      },
+      "legacy": {
+        "kind": "upgrade",
+        "resolved_id": "exhaust_fan_missing_or_damaged",
+        "acceptable_candidate_ids": [
+          "exhaust_fan_missing_or_damaged"
+        ]
+      }
+    },
+    {
+      "case_id": "res-pav-001",
+      "family": "paving",
+      "paired_group": "paving-pair",
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "A walkway slab has heaved up leaving a raised lip across the path.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "paving_heaved_or_trip_hazard",
+        "acceptable_candidate_ids": [
+          "paving_heaved_or_trip_hazard"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "driveway_or_walkway_cracking",
+        "acceptable_candidate_ids": [
+          "driveway_or_walkway_cracking"
+        ]
+      }
+    },
+    {
+      "case_id": "res-pav-002",
+      "family": "paving",
+      "paired_group": "paving-pair",
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "The driveway has hairline cracking and some surface spalling, all flat.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "paving_cracked_or_settled",
+        "acceptable_candidate_ids": [
+          "paving_cracked_or_settled"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "driveway_or_walkway_cracking",
+        "acceptable_candidate_ids": [
+          "driveway_or_walkway_cracking"
+        ]
+      }
+    },
+    {
+      "case_id": "res-brk-001",
+      "family": "masonry",
+      "paired_group": "masonry-pair",
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "Mortar between the bricks is crumbling out of the joints.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "mortar_joints_deteriorated",
+        "acceptable_candidate_ids": [
+          "mortar_joints_deteriorated"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "brick_weathering_or_mortar_deterioration",
+        "acceptable_candidate_ids": [
+          "brick_weathering_or_mortar_deterioration"
+        ]
+      }
+    },
+    {
+      "case_id": "res-brk-002",
+      "family": "masonry",
+      "paired_group": "masonry-pair",
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "Brick face is stained and weathered though the joints look sound.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "brick_weathered_or_discolored",
+        "acceptable_candidate_ids": [
+          "brick_weathered_or_discolored"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "brick_weathering_or_mortar_deterioration",
+        "acceptable_candidate_ids": [
+          "brick_weathering_or_mortar_deterioration"
+        ]
+      }
+    },
+    {
+      "case_id": "res-pool-001",
+      "family": "pool",
+      "paired_group": "pool-pair",
+      "case_type": "resolution",
+      "scene": "pool",
+      "scene_group": "pool",
+      "input": "The in-ground pool is drained and sitting empty.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "inground_pool_empty_or_unserviceable",
+        "acceptable_candidate_ids": [
+          "inground_pool_empty_or_unserviceable"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "empty_or_deteriorated_inground_pool",
+        "acceptable_candidate_ids": [
+          "empty_or_deteriorated_inground_pool"
+        ]
+      }
+    },
+    {
+      "case_id": "res-pool-002",
+      "family": "pool",
+      "paired_group": "pool-pair",
+      "case_type": "resolution",
+      "scene": "pool",
+      "scene_group": "pool",
+      "input": "Pool is full and running but the plaster is stained and the coping looks tired.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "inground_pool_finishes_deteriorated",
+        "acceptable_candidate_ids": [
+          "inground_pool_finishes_deteriorated"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "empty_or_deteriorated_inground_pool",
+        "acceptable_candidate_ids": [
+          "empty_or_deteriorated_inground_pool"
+        ]
+      }
+    },
+    {
+      "case_id": "res-lnd-003",
+      "family": "landscaping",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "Fallen leaves and yard debris have piled up across the lawn.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "yard_debris_overgrown_leaves",
+        "acceptable_candidate_ids": [
+          "yard_debris_overgrown_leaves"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "yard_debris_overgrown_leaves",
+        "acceptable_candidate_ids": [
+          "yard_debris_overgrown_leaves"
+        ]
+      }
+    },
+    {
+      "case_id": "res-lnd-004",
+      "family": "landscaping",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "A cut tree stump is still sitting in the middle of the side yard.",
+      "kind": "modernization",
+      "gold": {
+        "resolved_id": "tree_stump_present_in_yard",
+        "acceptable_candidate_ids": [
+          "tree_stump_present_in_yard"
+        ]
+      },
+      "legacy": {
+        "kind": "upgrade",
+        "resolved_id": "tree_stump_present_in_yard",
+        "acceptable_candidate_ids": [
+          "tree_stump_present_in_yard"
+        ]
+      }
+    },
+    {
+      "case_id": "res-hdw-001",
+      "family": "door_hardware",
+      "paired_group": "hardware-pair",
+      "case_type": "resolution",
+      "scene": "bedroom",
+      "scene_group": "bedroom",
+      "input": "The door lever finish is worn through and tarnished at the grip.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "door_hardware_worn",
+        "acceptable_candidate_ids": [
+          "door_hardware_worn"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "dated_door_hardware",
+        "acceptable_candidate_ids": [
+          "dated_door_hardware"
+        ]
+      }
+    },
+    {
+      "case_id": "res-hdw-002",
+      "family": "door_hardware",
+      "paired_group": "hardware-pair",
+      "case_type": "resolution",
+      "scene": "bedroom",
+      "scene_group": "bedroom",
+      "input": "Doors have shiny brass knobs that look dated but operate fine.",
+      "kind": "modernization",
+      "gold": {
+        "resolved_id": "door_hardware_dated_style",
+        "acceptable_candidate_ids": [
+          "door_hardware_dated_style"
+        ]
+      },
+      "legacy": {
+        "kind": "upgrade",
+        "resolved_id": "dated_door_hardware",
+        "acceptable_candidate_ids": [
+          "dated_door_hardware"
+        ]
+      }
+    },
+    {
+      "case_id": "res-moi-003",
+      "family": "moisture",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "bathroom",
+      "scene_group": "bathroom",
+      "input": "There is standing water on the bathroom floor and the drywall is wet.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "active_water_damage_bathroom",
+        "acceptable_candidate_ids": [
+          "active_water_damage_bathroom"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "active_water_damage_bathroom",
+        "acceptable_candidate_ids": [
+          "active_water_damage_bathroom"
+        ]
+      }
+    },
+    {
+      "case_id": "res-str-004",
+      "family": "structure",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "living_room",
+      "scene_group": "living_areas",
+      "input": "Drywall has been stripped off leaving bare studs and insulation exposed.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "interior_wall_stripped_to_studs",
+        "acceptable_candidate_ids": [
+          "interior_wall_stripped_to_studs"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "interior_wall_stripped_to_studs",
+        "acceptable_candidate_ids": [
+          "interior_wall_stripped_to_studs"
+        ]
+      }
+    },
+    {
+      "case_id": "res-str-005",
+      "family": "structure",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "A window opening has been boarded over with plywood.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "boarded_up_entry_or_window",
+        "acceptable_candidate_ids": [
+          "boarded_up_entry_or_window"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "boarded_up_entry_or_window",
+        "acceptable_candidate_ids": [
+          "boarded_up_entry_or_window"
+        ]
+      }
+    },
+    {
+      "case_id": "res-ele-002",
+      "family": "electrical",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "bathroom",
+      "scene_group": "bathroom",
+      "input": "The outlet beside the bathroom sink has no GFCI protection.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "bathroom_gfci_missing_or_damaged",
+        "acceptable_candidate_ids": [
+          "bathroom_gfci_missing_or_damaged"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "bathroom_gfci_missing_or_damaged",
+        "acceptable_candidate_ids": [
+          "bathroom_gfci_missing_or_damaged"
+        ]
+      }
+    },
+    {
+      "case_id": "res-mod-006",
+      "family": "modernization_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "bedroom",
+      "scene_group": "bedroom",
+      "input": "Interior doors are hollow-core six-panel units.",
+      "kind": "modernization",
+      "gold": {
+        "resolved_id": "dated_interior_doors",
+        "acceptable_candidate_ids": [
+          "dated_interior_doors"
+        ]
+      },
+      "legacy": {
+        "kind": "upgrade",
+        "resolved_id": "dated_interior_doors",
+        "acceptable_candidate_ids": [
+          "dated_interior_doors"
+        ]
+      }
+    },
+    {
+      "case_id": "res-mod-007",
+      "family": "modernization_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "living_room",
+      "scene_group": "living_areas",
+      "input": "The room is cluttered with personal belongings throughout.",
+      "kind": "modernization",
+      "gold": {
+        "resolved_id": "staging_or_decluttering_opportunity",
+        "acceptable_candidate_ids": [
+          "staging_or_decluttering_opportunity"
+        ]
+      },
+      "legacy": {
+        "kind": "upgrade",
+        "resolved_id": "staging_or_decluttering_opportunity",
+        "acceptable_candidate_ids": [
+          "staging_or_decluttering_opportunity"
+        ]
+      }
+    },
+    {
+      "case_id": "res-mod-008",
+      "family": "modernization_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "kitchen",
+      "scene_group": "kitchen",
+      "input": "Busy patterned wallpaper covers the kitchen walls.",
+      "kind": "modernization",
+      "gold": {
+        "resolved_id": "dated_wallpaper_present",
+        "acceptable_candidate_ids": [
+          "dated_wallpaper_present"
+        ]
+      },
+      "legacy": {
+        "kind": "upgrade",
+        "resolved_id": "dated_wallpaper_present",
+        "acceptable_candidate_ids": [
+          "dated_wallpaper_present"
+        ]
+      }
+    },
+    {
+      "case_id": "res-mod-009",
+      "family": "modernization_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "kitchen",
+      "scene_group": "kitchen",
+      "input": "The kitchen finishes overall feel out of date.",
+      "kind": "modernization",
+      "gold": {
+        "resolved_id": "outdated_kitchen_finishes",
+        "acceptable_candidate_ids": [
+          "outdated_kitchen_finishes"
+        ]
+      },
+      "legacy": {
+        "kind": "upgrade",
+        "resolved_id": "outdated_kitchen_finishes",
+        "acceptable_candidate_ids": [
+          "outdated_kitchen_finishes"
+        ]
+      }
+    },
+    {
+      "case_id": "res-mod-010",
+      "family": "modernization_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "living_room",
+      "scene_group": "living_areas",
+      "input": "The closed-off layout could be opened up between the rooms.",
+      "kind": "modernization",
+      "gold": {
+        "resolved_id": "layout_modernization_opportunity",
+        "acceptable_candidate_ids": [
+          "layout_modernization_opportunity"
+        ]
+      },
+      "legacy": {
+        "kind": "upgrade",
+        "resolved_id": "layout_modernization_opportunity",
+        "acceptable_candidate_ids": [
+          "layout_modernization_opportunity"
+        ]
+      }
+    },
+    {
+      "case_id": "res-deg-006",
+      "family": "degradation_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "kitchen",
+      "scene_group": "kitchen",
+      "input": "The floor is heavily soiled and grimy underfoot.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "floor_dirty_or_heavily_soiled",
+        "acceptable_candidate_ids": [
+          "floor_dirty_or_heavily_soiled"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "floor_dirty_or_heavily_soiled",
+        "acceptable_candidate_ids": [
+          "floor_dirty_or_heavily_soiled"
+        ]
+      }
+    },
+    {
+      "case_id": "res-deg-007",
+      "family": "degradation_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "Paint on the front door is chipped and peeling at the edges.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "exterior_door_paint_failure",
+        "acceptable_candidate_ids": [
+          "exterior_door_paint_failure"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "exterior_door_paint_failure",
+        "acceptable_candidate_ids": [
+          "exterior_door_paint_failure"
+        ]
+      }
+    },
+    {
+      "case_id": "res-deg-008",
+      "family": "degradation_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "Gutters look like they need cleaning out.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "gutter_maintenance_needed",
+        "acceptable_candidate_ids": [
+          "gutter_maintenance_needed"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "gutter_maintenance_needed",
+        "acceptable_candidate_ids": [
+          "gutter_maintenance_needed"
+        ]
+      }
+    },
+    {
+      "case_id": "res-deg-009",
+      "family": "degradation_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "Window screens are caked with dirt and debris.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "dirty_or_grimy_window_screens",
+        "acceptable_candidate_ids": [
+          "dirty_or_grimy_window_screens"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "dirty_or_grimy_window_screens",
+        "acceptable_candidate_ids": [
+          "dirty_or_grimy_window_screens"
+        ]
+      }
+    },
+    {
+      "case_id": "res-deg-010",
+      "family": "degradation_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "The shed's paint is peeling off in sheets.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": "shed_exterior_paint_failure",
+        "acceptable_candidate_ids": [
+          "shed_exterior_paint_failure"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "shed_exterior_paint_failure",
+        "acceptable_candidate_ids": [
+          "shed_exterior_paint_failure"
+        ]
+      }
+    },
+    {
+      "case_id": "res-def-011",
+      "family": "defect_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "kitchen",
+      "scene_group": "kitchen",
+      "input": "Lower cabinets are gone, exposing bare subfloor and plumbing.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "missing_base_cabinets_exposed_subfloor",
+        "acceptable_candidate_ids": [
+          "missing_base_cabinets_exposed_subfloor"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "missing_base_cabinets_exposed_subfloor",
+        "acceptable_candidate_ids": [
+          "missing_base_cabinets_exposed_subfloor"
+        ]
+      }
+    },
+    {
+      "case_id": "res-def-012",
+      "family": "defect_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "laundry_utility",
+      "scene_group": "utility",
+      "input": "An interior wall is finished only in bare OSB sheathing.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "unfinished_interior_wall_osb_exposed",
+        "acceptable_candidate_ids": [
+          "unfinished_interior_wall_osb_exposed"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "unfinished_interior_wall_osb_exposed",
+        "acceptable_candidate_ids": [
+          "unfinished_interior_wall_osb_exposed"
+        ]
+      }
+    },
+    {
+      "case_id": "res-def-013",
+      "family": "defect_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "laundry_utility",
+      "scene_group": "utility",
+      "input": "Rodent droppings and chewed insulation are visible in the corner.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "pest_or_rodent_evidence",
+        "acceptable_candidate_ids": [
+          "pest_or_rodent_evidence"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "pest_or_rodent_evidence",
+        "acceptable_candidate_ids": [
+          "pest_or_rodent_evidence"
+        ]
+      }
+    },
+    {
+      "case_id": "res-def-014",
+      "family": "defect_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "A section of the retaining wall has collapsed outward.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "retaining_wall_failure_or_missing_section",
+        "acceptable_candidate_ids": [
+          "retaining_wall_failure_or_missing_section"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "retaining_wall_failure_or_missing_section",
+        "acceptable_candidate_ids": [
+          "retaining_wall_failure_or_missing_section"
+        ]
+      }
+    },
+    {
+      "case_id": "res-def-015",
+      "family": "defect_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "bedroom",
+      "scene_group": "bedroom",
+      "input": "The room is down to bare subfloor with no finish flooring.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "bare_or_missing_finish_flooring",
+        "acceptable_candidate_ids": [
+          "bare_or_missing_finish_flooring"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "bare_or_missing_finish_flooring",
+        "acceptable_candidate_ids": [
+          "bare_or_missing_finish_flooring"
+        ]
+      }
+    },
+    {
+      "case_id": "res-def-016",
+      "family": "defect_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "bathroom",
+      "scene_group": "bathroom",
+      "input": "Caulk at the tub edge is cracked away and mouldy.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "missing_or_damaged_caulk_at_tub_or_shower",
+        "acceptable_candidate_ids": [
+          "missing_or_damaged_caulk_at_tub_or_shower"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "missing_or_damaged_caulk_at_tub_or_shower",
+        "acceptable_candidate_ids": [
+          "missing_or_damaged_caulk_at_tub_or_shower"
+        ]
+      }
+    },
+    {
+      "case_id": "res-def-017",
+      "family": "defect_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "Deck boards are rotted through and the railing is loose.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "damaged_or_unsafe_deck_or_porch",
+        "acceptable_candidate_ids": [
+          "damaged_or_unsafe_deck_or_porch"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "damaged_or_unsafe_deck_or_porch",
+        "acceptable_candidate_ids": [
+          "damaged_or_unsafe_deck_or_porch"
+        ]
+      }
+    },
+    {
+      "case_id": "res-def-018",
+      "family": "defect_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "living_room",
+      "scene_group": "living_areas",
+      "input": "The ceiling is sagging with a crack opening along the joint.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "ceiling_cracks_or_sagging",
+        "acceptable_candidate_ids": [
+          "ceiling_cracks_or_sagging"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "ceiling_cracks_or_sagging",
+        "acceptable_candidate_ids": [
+          "ceiling_cracks_or_sagging"
+        ]
+      }
+    },
+    {
+      "case_id": "res-def-019",
+      "family": "defect_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "bathroom",
+      "scene_group": "bathroom",
+      "input": "Mildew is growing across the bathroom grout lines and ceiling.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "mold_or_mildew_visible_bathroom",
+        "acceptable_candidate_ids": [
+          "mold_or_mildew_visible_bathroom"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "mold_or_mildew_visible_bathroom",
+        "acceptable_candidate_ids": [
+          "mold_or_mildew_visible_bathroom"
+        ]
+      }
+    },
+    {
+      "case_id": "res-def-020",
+      "family": "defect_misc",
+      "paired_group": null,
+      "case_type": "resolution",
+      "scene": "laundry_utility",
+      "scene_group": "utility",
+      "input": "The basement wall is cracked with white efflorescence and damp patches.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": "garage_or_basement_damage",
+        "acceptable_candidate_ids": [
+          "garage_or_basement_damage"
+        ]
+      },
+      "legacy": {
+        "kind": "defect",
+        "resolved_id": "garage_or_basement_damage",
+        "acceptable_candidate_ids": [
+          "garage_or_basement_damage"
+        ]
+      }
+    },
+    {
+      "case_id": "res-nm-003",
+      "family": "no_match",
+      "paired_group": null,
+      "case_type": "no_match",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "The mailbox post at the street leans slightly.",
+      "kind": "degradation",
+      "gold": {
+        "resolved_id": null,
+        "acceptable_candidate_ids": []
+      },
+      "legacy": null
+    },
+    {
+      "case_id": "res-nm-004",
+      "family": "no_match",
+      "paired_group": null,
+      "case_type": "no_match",
+      "scene": "other",
+      "scene_group": "other",
+      "input": "A parked vehicle blocks the view of the lower wall.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": null,
+        "acceptable_candidate_ids": []
+      },
+      "legacy": null
+    },
+    {
+      "case_id": "res-inv-002",
+      "family": "probe",
+      "paired_group": null,
+      "case_type": "invalid_kind",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "Shingles are missing in patches along the ridge.",
+      "kind": "safety",
+      "gold": {
+        "resolved_id": null,
+        "acceptable_candidate_ids": []
+      },
+      "legacy": null
+    },
+    {
+      "case_id": "res-inv-003",
+      "family": "probe",
+      "paired_group": null,
+      "case_type": "invalid_kind",
+      "scene": "bathroom",
+      "scene_group": "bathroom",
+      "input": "The vanity base is swollen from water.",
+      "kind": "",
+      "gold": {
+        "resolved_id": null,
+        "acceptable_candidate_ids": []
+      },
+      "legacy": null
+    },
+    {
+      "case_id": "res-emp-002",
+      "family": "probe",
+      "paired_group": null,
+      "case_type": "empty_filter",
+      "scene": "exterior_front",
+      "scene_group": "exterior",
+      "input": "Shingles are missing in patches along the ridge.",
+      "kind": "defect",
+      "gold": {
+        "resolved_id": null,
+        "acceptable_candidate_ids": []
+      },
+      "legacy": null
+    }
+  ]
+}
