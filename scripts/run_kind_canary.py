@@ -97,9 +97,22 @@ def main(argv=None) -> int:
     out_root.mkdir(parents=True, exist_ok=True)
 
     env = dict(os.environ)
+    # The analyzer CLI reads os.environ (the Node bridge normally injects
+    # .env); for direct runs, bridge the backend .env ourselves without
+    # overriding anything already set in the shell.
+    env_file = ROOT / ".env"
+    if env_file.is_file():
+        for line in env_file.read_text(encoding="utf-8").splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                env.setdefault(key.strip(), value.strip())
+    # ARTIFACTS_ROOT in .env is stale and must not misdirect output; the CLI's
+    # --artifacts-root argument is authoritative, but drop it anyway.
+    env.pop("ARTIFACTS_ROOT", None)
+    env.pop("ISSUE_CATALOG_PATH", None)
     if args.side == "candidate":
         env["KIND_ONTOLOGY_VERSION"] = "observation_kind_v2"
-        env.pop("ISSUE_CATALOG_PATH", None)
     else:
         # The pinned legacy build has no selector; make sure this shell's env
         # cannot leak one into a future build either.
