@@ -613,6 +613,8 @@ async def run_pass_2a(
         vlm_client: Any,
         model_config: dict,
         context: Optional[Dict[str, Any]] = None,
+        *,
+        user_prompt: Optional[str] = None,
 ) -> Pass2aResult:
     """
     Pass 2a: Detect observations in the image (freeform notes).
@@ -625,6 +627,7 @@ async def run_pass_2a(
         vlm_client: VLM client instance
         model_config: Model configuration
         context: Optional context from previous passes
+        user_prompt: Benchmark-only override of PASS_2A_USER_PROMPT
 
     Returns:
         Pass2aResult with freeform observations
@@ -635,7 +638,7 @@ async def run_pass_2a(
         response = await vlm_client.analyze_image(
             image_path=image_path,
             system_prompt=PASS_2A_SYSTEM_PROMPT,
-            user_prompt=PASS_2A_USER_PROMPT,
+            user_prompt=PASS_2A_USER_PROMPT if user_prompt is None else user_prompt,
             **_with_analysis_pass(model_config, "Pass 2a (observations freeform)"),
         )
     except Exception as e:

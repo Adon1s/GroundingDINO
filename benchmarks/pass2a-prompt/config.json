@@ -1,0 +1,38 @@
+{
+  "note": "Pass 2a prompt-ablation benchmark configuration. Model routing mirrors benchmarks/configs/kind_canary_model_map.json for 2a/2b/2c; 2d deliberately absent so it runs on local Qwen; 2e rule-based; 2f DISABLED (totals are pre-2f with all packages force-confirmed). Judge is gpt-5.6-sol.",
+  "properties": ["redfin_11000447", "redfin_10806500"],
+  "images_root": "C:/Users/Steven/IntelliJProjects/renointel-prod/public/images/properties",
+  "source_artifacts_root": "C:/Users/Steven/PycharmProjects/realtorvision-backend/artifacts_canary/candidate",
+  "repeats": 3,
+  "photo_concurrency": 3,
+  "model_overrides": {
+    "2a": "gpt-5.6-terra",
+    "2b": "gpt-5.6-terra",
+    "2c": "gpt-5.6-terra"
+  },
+  "reasoning_efforts": {
+    "2a": "low",
+    "2b": "low",
+    "2c": "low"
+  },
+  "pass_toggles": {
+    "2f": false
+  },
+  "judge": {
+    "model": "gpt-5.6-sol",
+    "reasoning_effort": "medium",
+    "max_tokens": 16000
+  },
+  "gates": {
+    "attribution_flip_abs_usd": 10000,
+    "attribution_flip_pct": 15,
+    "unsupported_rate_pp": 2,
+    "unsupported_min_claims": 2,
+    "recall_drop_pp": 5,
+    "midpoint_shift_pct": 10,
+    "jaccard_gain": 0.05,
+    "spread_reduction_pct": 25,
+    "supported_audit_rate": 0.10,
+    "expensive_line_high_usd": 5000
+  }
+}

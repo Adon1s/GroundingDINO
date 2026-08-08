@@ -1,0 +1,14 @@
+{
+  "baseline": {
+    "note": "Production PASS_2A_USER_PROMPT, byte-identical (tools/scene_classifier_passes.py).",
+    "text": "What stands out here to a renovator"
+  },
+  "checklist": {
+    "note": "Variant 2: whole-image inventory framing; one concept changed vs baseline.",
+    "text": "Inspect the whole image and produce a complete renovation-condition inventory. Check each building component, fixture, finish, and surface shown for: damage or failure; wear or aging; staining or discoloration; and dated or basic style or materials. State each condition separately. Do not give repair advice."
+  },
+  "evidence": {
+    "note": "Variant 3: checklist + visible-evidence boundary. Run ONLY if checklist materially raises unsupported claims.",
+    "text": "Inspect the whole image and produce a complete renovation-condition inventory. Check each building component, fixture, finish, and surface shown for: damage or failure; wear or aging; staining or discoloration; and dated or basic style or materials. State each condition separately. Do not give repair advice. Only state conditions directly supported by visible evidence in this photo. Do not infer hidden problems, causes, consequences, absent items outside the frame, or inspection needs."
+  }
+}

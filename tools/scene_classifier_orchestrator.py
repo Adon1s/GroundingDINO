@@ -744,24 +744,42 @@ class SceneClassifierOrchestrator:
         observations_freeform = ""
 
         if self._t(toggles, '2a'):
-            model_config = self._get_model_config('2a', options)
-            model_name = self._get_model_name('2a', options)
-            self._record_model_routing('2a', options, model_config, result)
+            # Benchmark hooks (options.meta, absent in production requests):
+            #   pass_2a_frozen_freeform — replay downstream passes from a stored
+            #     2a capture without any vision call (attribution measurement).
+            #   pass_2a_user_prompt — ablation wording override for the 2a call.
+            _meta = getattr(options, "meta", None) or {}
+            _frozen_2a = _meta.get("pass_2a_frozen_freeform")
+            if _frozen_2a is not None:
+                result.pass_2a = Pass2aResult(
+                    observations_freeform=str(_frozen_2a).strip(),
+                    raw_response=str(_frozen_2a),
+                )
+                result.pass_timings['2a'] = 0.0
+                observations_freeform = result.pass_2a.observations_freeform
+                result.observations_freeform = observations_freeform
+                result.passes_run.append('2a')
+                result.models_used['2a'] = "frozen_replay"
+            else:
+                model_config = self._get_model_config('2a', options)
+                model_name = self._get_model_name('2a', options)
+                self._record_model_routing('2a', options, model_config, result)
 
-            logger.debug(f"Running Pass 2a with {model_name}")
-            t0 = time.perf_counter()
-            result.pass_2a = await run_pass_2a(
-                image_path=image_path,
-                vlm_client=self.vlm_client,
-                model_config=model_config,
-                context=context,
-            )
-            result.pass_timings['2a'] = time.perf_counter() - t0
+                logger.debug(f"Running Pass 2a with {model_name}")
+                t0 = time.perf_counter()
+                result.pass_2a = await run_pass_2a(
+                    image_path=image_path,
+                    vlm_client=self.vlm_client,
+                    model_config=model_config,
+                    context=context,
+                    user_prompt=_meta.get("pass_2a_user_prompt"),
+                )
+                result.pass_timings['2a'] = time.perf_counter() - t0
 
-            observations_freeform = result.pass_2a.observations_freeform
-            result.observations_freeform = observations_freeform
-            result.passes_run.append('2a')
-            result.models_used['2a'] = model_name
+                observations_freeform = result.pass_2a.observations_freeform
+                result.observations_freeform = observations_freeform
+                result.passes_run.append('2a')
+                result.models_used['2a'] = model_name
 
         # ─────────────────────────────────────────────────────────────────────
         # Pass 2b: Observations -> JSON (text-only)
