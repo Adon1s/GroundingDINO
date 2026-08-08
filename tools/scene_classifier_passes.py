@@ -779,24 +779,27 @@ Assign exactly one decision per observation: either a "kind" or an "exclude" rea
 Kinds (the condition of the item):
 - defect: expected function, safety, integrity, or protection has FAILED. Failure is stated or visible: broken or missing required parts, active leaks, rot, structural damage, unsafe conditions (exposed wiring, tripping hazards), failed weather protection, rusted-through metal.
 - degradation: the item still works and nothing has failed, but it has visibly deteriorated: wear, fading, staining, scuffing, surface rust or corrosion, peeling finish, aging, weathering.
-- modernization: the item is functional and acceptably maintained, but dated, basic, low-grade, or an improvement opportunity a renovator might take.
+- modernization: a specific component is functional and acceptably maintained, but the text asserts it is dated, old-fashioned, basic, or low-grade in style, material, or age.
 
 Kind rules:
 - Choose defect only when failure is stated or visible. Deterioration without failure is degradation.
 - Visible deterioration wins over dated/style language. Purely dated or basic appearance is modernization.
-- A required or protective component asserted to be missing or broken is a defect. An absent optional feature is modernization.
+- A required or protective component asserted to be missing or broken is a defect. An absent optional feature is modernization only when the absence is stated as fact ("there is no dishwasher"); absence inferred from visibility ("no dishwasher is visible", "does not appear to have") is unsupported_or_speculative.
 - Paving only (driveways, walkways, patios): cracking, surface wear, or minor unevenness (including uneven joints) is degradation; heaving, raised trip edges, or crumbling is a defect.
 - Everywhere except paving, cracks are defects: cracked walls, ceilings, tiles, panes, basins, or fixtures.
 - Mold or mildew growth is a defect.
 - Explicit water stains or water damage (on ceilings, walls, cabinetry, or floors) evidence moisture intrusion: defect. Ordinary dirt or cosmetic staining is degradation.
-- An item described only by a low-grade or dated material or grade (laminate, hollow-core, builder-grade, basic) is modernization, not neutral_presence.
+- An item described only by a low-grade or intrinsically dated material or grade (laminate, hollow-core, builder-grade, basic, popcorn or heavily textured ceilings, appliances mismatched in age) is modernization, not neutral_presence.
+- A kind describes the CONDITION of a component. Text about the layout, size, shape, or use of a room or space — narrow/compact/galley layouts, tight clearance or circulation, fixture placement or arrangement, door swings, ceiling height, window or room size, storage or counter capacity, natural light, brightness, or how a space feels — asserts no component condition: exclude it as not_renovation_related.
+- Describing what an item is (its color, material, type, or style) without asserting it is dated, low-grade, worn, or damaged is neutral_presence. Style commentary and aesthetic-taste remarks (busy pattern, contrasting colors, mixed metal finishes, traditional appearance) are not_renovation_related.
+- Staining is a defect only when the text explicitly attributes it to water, moisture, or a leak; staining with no stated cause is degradation.
 - If something is merely "not visible" or "cannot be determined", exclude it as unsupported_or_speculative.
 
 Exclude reasons (text that gets no kind):
 - good_condition: says the item looks good, intact, well maintained, clean, or new.
 - neutral_presence: neutral existence of an item ("there is a door").
-- advice_or_process: advice, process, or verification language ("needs inspection", "recommend evaluation", "cannot determine from photo").
-- unsupported_or_speculative: possible or hidden problems with no visible sign; absence inferred only because something is not visible in the photo; hidden systems (structural/foundation, electrical, plumbing, HVAC) mentioned without a specific visible sign (stain, crack, leak, rust, exposed wire, damage).
+- advice_or_process: recommendations and next steps ("needs inspection", "recommend evaluation", "verify operation").
+- unsupported_or_speculative: uncertainty, non-visibility, or hidden-condition inference ("cannot determine", "not visible", "may be damaged"); possible or hidden problems with no visible sign; absence inferred only because something is not visible in the photo; hidden systems (structural/foundation, electrical, plumbing, HVAC) mentioned without a specific visible sign (stain, crack, leak, rust, exposed wire, damage).
 - measurement_overlay: room-dimension text from floorplan overlays ("Primary Bedroom 12'6 x 10'").
 - not_renovation_related: anything else that is not about the renovation-relevant condition of the property.
 
@@ -820,7 +823,7 @@ OBSERVATIONS:
 {numbered_observations}
 """
 
-PASS_2C_PROMPT_VERSION = "pass_2c_kind_v2"
+PASS_2C_PROMPT_VERSION = "pass_2c_kind_v3"
 PASS_2C_PROMPT_SHA256 = hashlib.sha256(
     json.dumps(
         {

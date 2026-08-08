@@ -67,8 +67,41 @@ def test_openai_analyze_images_uses_one_text_block_then_multiple_images():
     }
     assert [block["type"] for block in user_content[1:]] == ["input_image", "input_image"]
     assert all(block["image_url"].startswith("data:image/jpeg;base64,") for block in user_content[1:])
+    assert all(block["detail"] == "original" for block in user_content[1:])
     assert client.usage_stats["calls"] == 1
     assert client.usage_stats["metered_calls"] == 0
+
+
+def test_openai_analyze_image_requests_original_detail():
+    tmp_dir = Path("tests") / "_tmp_openai_image_detail"
+    tmp_dir.mkdir(exist_ok=True)
+    image_path = tmp_dir / "room.jpg"
+    image_path.write_bytes(b"image")
+    fake = _FakeOpenAIClient()
+    client = VLMClient()
+    client._get_openai_client = lambda api_key=None: fake
+
+    try:
+        result = asyncio.run(client.analyze_image(
+            image_path=image_path,
+            system_prompt="system",
+            user_prompt="Inspect every visible detail.",
+            model="gpt-5.6-terra",
+            provider="openai",
+            max_tokens=200,
+        ))
+    finally:
+        if image_path.exists():
+            image_path.unlink()
+        try:
+            tmp_dir.rmdir()
+        except OSError:
+            pass
+
+    assert json.loads(result) == {"ok": True}
+    image_block = fake.responses.request["input"][1]["content"][1]
+    assert image_block["type"] == "input_image"
+    assert image_block["detail"] == "original"
 
 
 

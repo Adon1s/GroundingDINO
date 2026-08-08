@@ -520,7 +520,7 @@ def test_prompt_version_constants_are_pinned():
     prompt edit must change the SHA (it hashes the prompt text) and should
     bump the version string."""
     assert PASS_2B_PROMPT_VERSION == "pass_2b_atomic_v2"
-    assert PASS_2C_PROMPT_VERSION == "pass_2c_kind_v2"
+    assert PASS_2C_PROMPT_VERSION == "pass_2c_kind_v3"
     assert PASS_2D_PROMPT_VERSION == "pass_2d_exact_kind_v2"
     assert len(PASS_2B_PROMPT_SHA256) == 64
     assert len(PASS_2C_PROMPT_SHA256) == 64

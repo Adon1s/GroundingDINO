@@ -481,8 +481,7 @@ class VLMClient:
                             {
                                 "type": "input_image",
                                 "image_url": data_url,
-                                # optional knob from your docs:
-                                # "detail": "low",
+                                "detail": "original",
                             },
                         ],
                     },
@@ -545,6 +544,7 @@ class VLMClient:
             content.append({
                 "type": "input_image",
                 "image_url": f"data:{media_type};base64,{image_data}",
+                "detail": "original",
             })
 
         text_config = self._openai_text_config(
