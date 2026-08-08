@@ -1,0 +1,3206 @@
+{
+  "gate_status": "fail",
+  "compared_properties": 18,
+  "missing_from_candidate": [],
+  "missing_from_baseline": [],
+  "failures": [
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_10803207",
+      "detail": {
+        "baseline_count": 12,
+        "candidate_count": 84,
+        "baseline_rate": 0.35294117647058826,
+        "candidate_rate": 0.6363636363636364
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_10803207",
+      "bound": "low_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 25650,
+          "high": 66450
+        },
+        "candidate": {
+          "low": 21285,
+          "high": 80000
+        },
+        "low_delta_pct": -0.17017543859649123,
+        "high_delta_pct": 0.2039127163280662
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_10803207",
+      "bound": "high_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 25650,
+          "high": 66450
+        },
+        "candidate": {
+          "low": 21285,
+          "high": 80000
+        },
+        "low_delta_pct": -0.17017543859649123,
+        "high_delta_pct": 0.2039127163280662
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_10806500",
+      "detail": {
+        "baseline_count": 7,
+        "candidate_count": 27,
+        "baseline_rate": 0.25925925925925924,
+        "candidate_rate": 0.4576271186440678
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_10806500",
+      "bound": "low_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 20000,
+          "high": 63455
+        },
+        "candidate": {
+          "low": 38500,
+          "high": 134000
+        },
+        "low_delta_pct": 0.925,
+        "high_delta_pct": 1.111732723977622
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_10806500",
+      "bound": "high_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 20000,
+          "high": 63455
+        },
+        "candidate": {
+          "low": 38500,
+          "high": 134000
+        },
+        "low_delta_pct": 0.925,
+        "high_delta_pct": 1.111732723977622
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_10952874",
+      "detail": {
+        "baseline_count": 65,
+        "candidate_count": 139,
+        "baseline_rate": 0.39156626506024095,
+        "candidate_rate": 0.516728624535316
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_10952874",
+      "bound": "low_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 45293,
+          "high": 149305
+        },
+        "candidate": {
+          "low": 58378,
+          "high": 195883
+        },
+        "low_delta_pct": 0.2888967390104431,
+        "high_delta_pct": 0.3119654398714042
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_10952874",
+      "bound": "high_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 45293,
+          "high": 149305
+        },
+        "candidate": {
+          "low": 58378,
+          "high": 195883
+        },
+        "low_delta_pct": 0.2888967390104431,
+        "high_delta_pct": 0.3119654398714042
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_11000447",
+      "detail": {
+        "baseline_count": 10,
+        "candidate_count": 33,
+        "baseline_rate": 0.25,
+        "candidate_rate": 0.4583333333333333
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_11000447",
+      "bound": "low_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 25590,
+          "high": 78570
+        },
+        "candidate": {
+          "low": 30100,
+          "high": 120675
+        },
+        "low_delta_pct": 0.17624071903087143,
+        "high_delta_pct": 0.5358915616647575
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_11000447",
+      "bound": "high_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 25590,
+          "high": 78570
+        },
+        "candidate": {
+          "low": 30100,
+          "high": 120675
+        },
+        "low_delta_pct": 0.17624071903087143,
+        "high_delta_pct": 0.5358915616647575
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_11077450",
+      "detail": {
+        "baseline_count": 52,
+        "candidate_count": 128,
+        "baseline_rate": 0.37142857142857144,
+        "candidate_rate": 0.5638766519823789
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_11077450",
+      "bound": "low_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 31915,
+          "high": 104840
+        },
+        "candidate": {
+          "low": 19115,
+          "high": 121750
+        },
+        "low_delta_pct": -0.4010653297822341,
+        "high_delta_pct": 0.16129339946585272
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_11077450",
+      "bound": "high_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 31915,
+          "high": 104840
+        },
+        "candidate": {
+          "low": 19115,
+          "high": 121750
+        },
+        "low_delta_pct": -0.4010653297822341,
+        "high_delta_pct": 0.16129339946585272
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_11079485",
+      "detail": {
+        "baseline_count": 10,
+        "candidate_count": 37,
+        "baseline_rate": 0.2222222222222222,
+        "candidate_rate": 0.5068493150684932
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_11185681",
+      "detail": {
+        "baseline_count": 64,
+        "candidate_count": 112,
+        "baseline_rate": 0.39263803680981596,
+        "candidate_rate": 0.45528455284552843
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_11185681",
+      "bound": "low_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 49408,
+          "high": 163100
+        },
+        "candidate": {
+          "low": 58900,
+          "high": 186250
+        },
+        "low_delta_pct": 0.19211463730569947,
+        "high_delta_pct": 0.14193746167995094
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_125779232",
+      "detail": {
+        "baseline_count": 32,
+        "candidate_count": 68,
+        "baseline_rate": 0.32323232323232326,
+        "candidate_rate": 0.46258503401360546
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_125779232",
+      "bound": "low_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 32780,
+          "high": 102960
+        },
+        "candidate": {
+          "low": 43119,
+          "high": 121816
+        },
+        "low_delta_pct": 0.3154057352043929,
+        "high_delta_pct": 0.18313908313908314
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_125779232",
+      "bound": "high_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 32780,
+          "high": 102960
+        },
+        "candidate": {
+          "low": 43119,
+          "high": 121816
+        },
+        "low_delta_pct": 0.3154057352043929,
+        "high_delta_pct": 0.18313908313908314
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_125970550",
+      "detail": {
+        "baseline_count": 63,
+        "candidate_count": 100,
+        "baseline_rate": 0.2971698113207547,
+        "candidate_rate": 0.42735042735042733
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_126224899",
+      "detail": {
+        "baseline_count": 62,
+        "candidate_count": 138,
+        "baseline_rate": 0.2938388625592417,
+        "candidate_rate": 0.42724458204334365
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_126224899",
+      "bound": "low_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 51796,
+          "high": 188757
+        },
+        "candidate": {
+          "low": 65012,
+          "high": 203520
+        },
+        "low_delta_pct": 0.2551548382114449,
+        "high_delta_pct": 0.07821166897121697
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_126418713",
+      "detail": {
+        "baseline_count": 25,
+        "candidate_count": 100,
+        "baseline_rate": 0.2808988764044944,
+        "candidate_rate": 0.5
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_127468088",
+      "detail": {
+        "baseline_count": 50,
+        "candidate_count": 92,
+        "baseline_rate": 0.3968253968253968,
+        "candidate_rate": 0.46
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_127468088",
+      "bound": "low_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 25984,
+          "high": 82790
+        },
+        "candidate": {
+          "low": 39507,
+          "high": 109368
+        },
+        "low_delta_pct": 0.5204356527093597,
+        "high_delta_pct": 0.32102910979586907
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_127468088",
+      "bound": "high_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 25984,
+          "high": 82790
+        },
+        "candidate": {
+          "low": 39507,
+          "high": 109368
+        },
+        "low_delta_pct": 0.5204356527093597,
+        "high_delta_pct": 0.32102910979586907
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_166147710",
+      "detail": {
+        "baseline_count": 57,
+        "candidate_count": 149,
+        "baseline_rate": 0.29842931937172773,
+        "candidate_rate": 0.5120274914089347
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_166147710",
+      "bound": "low_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 53212,
+          "high": 170576
+        },
+        "candidate": {
+          "low": 35803,
+          "high": 128994
+        },
+        "low_delta_pct": -0.3271630459294896,
+        "high_delta_pct": -0.24377403620673482
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_166147710",
+      "bound": "high_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 53212,
+          "high": 170576
+        },
+        "candidate": {
+          "low": 35803,
+          "high": 128994
+        },
+        "low_delta_pct": -0.3271630459294896,
+        "high_delta_pct": -0.24377403620673482
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_25809814",
+      "detail": {
+        "baseline_count": 21,
+        "candidate_count": 74,
+        "baseline_rate": 0.4375,
+        "candidate_rate": 0.6788990825688074
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_25809814",
+      "bound": "high_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 23800,
+          "high": 70000
+        },
+        "candidate": {
+          "low": 25752,
+          "high": 98500
+        },
+        "low_delta_pct": 0.08201680672268907,
+        "high_delta_pct": 0.40714285714285714
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_80877597",
+      "detail": {
+        "baseline_count": 5,
+        "candidate_count": 12,
+        "baseline_rate": 0.18518518518518517,
+        "candidate_rate": 0.2222222222222222
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_80877597",
+      "bound": "low_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 30440,
+          "high": 84794
+        },
+        "candidate": {
+          "low": 36591,
+          "high": 108502
+        },
+        "low_delta_pct": 0.20206964520367937,
+        "high_delta_pct": 0.2795952543812062
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_80877597",
+      "bound": "high_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 30440,
+          "high": 84794
+        },
+        "candidate": {
+          "low": 36591,
+          "high": 108502
+        },
+        "low_delta_pct": 0.20206964520367937,
+        "high_delta_pct": 0.2795952543812062
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_80925528",
+      "detail": {
+        "baseline_count": 81,
+        "candidate_count": 160,
+        "baseline_rate": 0.38028169014084506,
+        "candidate_rate": 0.5111821086261981
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_80925528",
+      "bound": "low_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 28350,
+          "high": 94000
+        },
+        "candidate": {
+          "low": 44840,
+          "high": 131000
+        },
+        "low_delta_pct": 0.581657848324515,
+        "high_delta_pct": 0.39361702127659576
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_80925528",
+      "bound": "high_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 28350,
+          "high": 94000
+        },
+        "candidate": {
+          "low": 44840,
+          "high": 131000
+        },
+        "low_delta_pct": 0.581657848324515,
+        "high_delta_pct": 0.39361702127659576
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_80990371",
+      "detail": {
+        "baseline_count": 30,
+        "candidate_count": 77,
+        "baseline_rate": 0.24390243902439024,
+        "candidate_rate": 0.3888888888888889
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_80990371",
+      "bound": "low_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 42843,
+          "high": 148995
+        },
+        "candidate": {
+          "low": 60488,
+          "high": 202178
+        },
+        "low_delta_pct": 0.41185257801741243,
+        "high_delta_pct": 0.3569448639216081
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_80990371",
+      "bound": "high_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 42843,
+          "high": 148995
+        },
+        "candidate": {
+          "low": 60488,
+          "high": 202178
+        },
+        "low_delta_pct": 0.41185257801741243,
+        "high_delta_pct": 0.3569448639216081
+      }
+    },
+    {
+      "gate": "unresolved_rate",
+      "property_key": "redfin_81000709",
+      "detail": {
+        "baseline_count": 46,
+        "candidate_count": 123,
+        "baseline_rate": 0.42990654205607476,
+        "candidate_rate": 0.6758241758241759
+      }
+    },
+    {
+      "gate": "unapproved_headline_delta",
+      "property_key": "redfin_81000709",
+      "bound": "high_delta_pct",
+      "detail": {
+        "baseline": {
+          "low": 22456,
+          "high": 110648
+        },
+        "candidate": {
+          "low": 19710,
+          "high": 92382
+        },
+        "low_delta_pct": -0.12228357677235482,
+        "high_delta_pct": -0.16508206203456005
+      }
+    }
+  ],
+  "properties": [
+    {
+      "property_key": "redfin_10803207",
+      "pass_2c_classification": {
+        "shared_descriptions": 0,
+        "changes": []
+      },
+      "unresolved": {
+        "baseline_count": 12,
+        "candidate_count": 84,
+        "baseline_rate": 0.35294117647058826,
+        "candidate_rate": 0.6363636363636364
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 12,
+          "baseboard_wear_scuffs": 1,
+          "dated_or_worn_vanity_countertop": 2,
+          "older_flooring_style": 2,
+          "outdated_bathroom_finishes": 6,
+          "outdated_kitchen_finishes": 7,
+          "scratched_or_damaged_flooring": 2,
+          "vintage_tile_pattern_style": 1,
+          "water_stain_ceiling": 1
+        },
+        "candidate": {
+          "<missing>": 84,
+          "appliances_dated_or_basic": 1,
+          "cabinets_dated_style": 10,
+          "dated_bathroom_flooring_style": 1,
+          "exterior_door_paint_failure": 1,
+          "hard_flooring_scratched_or_worn": 4,
+          "older_flooring_style": 9,
+          "ornate_vintage_mirror": 1,
+          "outdated_bathroom_finishes": 6,
+          "outdated_kitchen_finishes": 7,
+          "patio_or_porch_surface_wear": 1,
+          "vanity_dated_style": 4,
+          "wall_scuffs_marks_or_dents": 1,
+          "worn_or_stained_flooring": 2
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 8,
+          "upgrade": 26
+        },
+        "candidate": {
+          "defect": 3,
+          "degradation": 14,
+          "modernization": 115
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 47,
+        "candidate_issue_count": 154,
+        "delta_rate": 2.276595744680851
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 25650,
+          "high": 66450
+        },
+        "candidate": {
+          "low": 21285,
+          "high": 80000
+        },
+        "low_delta_pct": -0.17017543859649123,
+        "high_delta_pct": 0.2039127163280662
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_modernization__bathroom_primary",
+          "bedroom_repair__bedroom_1",
+          "kitchen_modernization__kitchen_primary"
+        ],
+        "candidate": [
+          "bathroom_repair__bathroom_primary",
+          "bedroom_repair__bedroom_1",
+          "kitchen_modernization__kitchen_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 5,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 6,
+          "listing_kind_counts": {
+            "defect": 0,
+            "degradation": 9,
+            "modernization": 39
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_10806500",
+      "pass_2c_classification": {
+        "shared_descriptions": 0,
+        "changes": []
+      },
+      "unresolved": {
+        "baseline_count": 7,
+        "candidate_count": 27,
+        "baseline_rate": 0.25925925925925924,
+        "candidate_rate": 0.4576271186440678
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 7,
+          "ceiling_cracks_or_sagging": 1,
+          "clogged_or_damaged_gutters": 1,
+          "damaged_soffit_or_porch_ceiling": 1,
+          "garage_or_basement_damage": 1,
+          "missing_or_damaged_caulk_at_tub_or_shower": 1,
+          "outdated_bathroom_finishes": 1,
+          "outdated_kitchen_finishes": 3,
+          "outdated_or_damaged_cabinets": 2,
+          "outdated_or_damaged_vanity": 1,
+          "popcorn_or_acoustic_ceiling_texture": 1,
+          "visible_mold_or_mildew": 1,
+          "wall_scuffs_marks_or_dents": 2,
+          "water_stain_ceiling": 2,
+          "worn_or_stained_vinyl_linoleum": 2
+        },
+        "candidate": {
+          "<missing>": 27,
+          "appliances_dated_or_basic": 2,
+          "bath_fixtures_stained_or_worn": 1,
+          "bathroom_layout_modernization_opportunity": 1,
+          "cabinets_dated_style": 4,
+          "cabinets_worn_finish": 2,
+          "ceiling_cracks_or_sagging": 1,
+          "older_flooring_style": 2,
+          "outdated_bathroom_finishes": 4,
+          "outdated_kitchen_finishes": 2,
+          "patio_or_porch_surface_wear": 1,
+          "peeling_or_discolored_paint": 2,
+          "popcorn_or_acoustic_ceiling_texture": 1,
+          "soffit_or_porch_ceiling_weathered": 1,
+          "suspended_drop_ceiling": 1,
+          "vanity_damaged_or_water_stained": 1,
+          "vanity_worn_finish": 1,
+          "wall_scuffs_marks_or_dents": 3,
+          "worn_or_stained_flooring": 2
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 18,
+          "upgrade": 9
+        },
+        "candidate": {
+          "defect": 3,
+          "degradation": 19,
+          "modernization": 37
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 30,
+        "candidate_issue_count": 65,
+        "delta_rate": 1.1666666666666667
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 20000,
+          "high": 63455
+        },
+        "candidate": {
+          "low": 38500,
+          "high": 134000
+        },
+        "low_delta_pct": 0.925,
+        "high_delta_pct": 1.111732723977622
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_repair__bathroom_primary",
+          "bedroom_modernization__bedroom_1",
+          "kitchen_modernization__kitchen_primary"
+        ],
+        "candidate": [
+          "bathroom_modernization__bathroom_primary",
+          "kitchen_modernization__kitchen_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 8,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 6,
+          "listing_kind_counts": {
+            "defect": 2,
+            "degradation": 13,
+            "modernization": 17
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_10952874",
+      "pass_2c_classification": {
+        "shared_descriptions": 1,
+        "changes": [
+          {
+            "description": "wall paint appears uneven",
+            "baseline": "upgrade",
+            "candidate": "degradation"
+          }
+        ]
+      },
+      "unresolved": {
+        "baseline_count": 65,
+        "candidate_count": 139,
+        "baseline_rate": 0.39156626506024095,
+        "candidate_rate": 0.516728624535316
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 65,
+          "baseboard_wear_scuffs": 6,
+          "damaged_drywall_or_cracks": 5,
+          "damaged_or_rotted_siding_or_trim": 1,
+          "damaged_or_unsafe_deck_or_porch": 2,
+          "dated_or_worn_vanity_countertop": 3,
+          "fence_damaged_or_weathered": 3,
+          "floor_dirty_or_heavily_soiled": 3,
+          "garage_or_basement_damage": 2,
+          "missing_or_damaged_handrails": 6,
+          "missing_vanity_exposed_plumbing": 1,
+          "outdated_bathroom_finishes": 3,
+          "outdated_kitchen_finishes": 6,
+          "outdated_or_damaged_cabinets": 2,
+          "outdated_or_damaged_vanity": 2,
+          "peeling_or_discolored_paint": 1,
+          "plumbing_fixture_leaking_stained": 1,
+          "scratched_or_damaged_flooring": 7,
+          "stained_or_damaged_bath_fixtures": 1,
+          "tile_or_grout_damage": 1,
+          "trees_or_vegetation_too_close": 3,
+          "trip_hazard_or_unlevel_floor": 2,
+          "unfinished_interior_wall_osb_exposed": 1,
+          "wall_scuffs_marks_or_dents": 18,
+          "water_stain_ceiling": 6,
+          "worn_or_stained_carpet": 14,
+          "worn_or_stained_vinyl_linoleum": 1
+        },
+        "candidate": {
+          "<missing>": 139,
+          "appliances_dated_or_basic": 6,
+          "appliances_worn_or_neglected": 1,
+          "bare_or_missing_finish_flooring": 1,
+          "baseboard_wear_scuffs": 7,
+          "bath_fixtures_stained_or_worn": 1,
+          "cabinets_dated_style": 2,
+          "cabinets_worn_finish": 1,
+          "ceiling_cracks_or_sagging": 1,
+          "damaged_drywall_or_cracks": 4,
+          "damaged_or_rotted_siding_or_trim": 1,
+          "damaged_or_unsafe_deck_or_porch": 1,
+          "dated_bathroom_flooring_style": 1,
+          "deck_surface_weathering": 1,
+          "fence_broken_or_leaning": 3,
+          "fence_weathered": 2,
+          "floor_dirty_or_heavily_soiled": 4,
+          "hard_flooring_scratched_or_worn": 4,
+          "missing_or_damaged_handrails": 2,
+          "outdated_bathroom_finishes": 7,
+          "outdated_kitchen_finishes": 4,
+          "peeling_or_discolored_paint": 7,
+          "plumbing_fixture_stained_or_corroded": 1,
+          "trees_or_vegetation_too_close": 2,
+          "trip_hazard_or_unlevel_floor": 1,
+          "unfinished_interior_wall_osb_exposed": 3,
+          "vanity_damaged_or_water_stained": 3,
+          "vanity_dated_style": 1,
+          "vanity_worn_finish": 3,
+          "vintage_tile_pattern_style": 1,
+          "wall_scuffs_marks_or_dents": 23,
+          "worn_or_stained_carpet": 19,
+          "worn_or_stained_flooring": 12
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 139,
+          "upgrade": 27
+        },
+        "candidate": {
+          "defect": 37,
+          "degradation": 132,
+          "modernization": 100
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 186,
+        "candidate_issue_count": 311,
+        "delta_rate": 0.6720430107526881
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 45293,
+          "high": 149305
+        },
+        "candidate": {
+          "low": 58378,
+          "high": 195883
+        },
+        "low_delta_pct": 0.2888967390104431,
+        "high_delta_pct": 0.3119654398714042
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_modernization__bathroom_primary",
+          "bedroom_modernization__bedroom_1",
+          "bedroom_modernization__bedroom_3",
+          "bedroom_modernization__bedroom_4",
+          "bedroom_modernization__bedroom_7",
+          "bedroom_repair__bedroom_3",
+          "bedroom_repair__bedroom_5",
+          "bedroom_repair__bedroom_6",
+          "bedroom_repair__scratched_or_damaged_flooring:catalogscratched_or_damaged_flooringscene_groupbedroomroomcloset",
+          "exterior_repair__exterior_primary",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary"
+        ],
+        "candidate": [
+          "bathroom_modernization__bathroom_primary",
+          "bedroom_modernization__bedroom_1",
+          "bedroom_modernization__bedroom_3",
+          "bedroom_modernization__bedroom_4",
+          "bedroom_modernization__bedroom_7",
+          "bedroom_repair__bedroom_3",
+          "bedroom_repair__bedroom_5",
+          "bedroom_repair__bedroom_7",
+          "bedroom_repair__hard_flooring_scratched_or_worn:cataloghard_flooring_scratched_or_wornscene_groupbedroomroomcloset",
+          "exterior_repair__exterior_primary",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 12,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 11,
+          "listing_kind_counts": {
+            "defect": 20,
+            "degradation": 88,
+            "modernization": 22
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_11000447",
+      "pass_2c_classification": {
+        "shared_descriptions": 0,
+        "changes": []
+      },
+      "unresolved": {
+        "baseline_count": 10,
+        "candidate_count": 33,
+        "baseline_rate": 0.25,
+        "candidate_rate": 0.4583333333333333
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 10,
+          "baseboard_wear_scuffs": 3,
+          "ceiling_cracks_or_sagging": 1,
+          "damaged_drywall_or_cracks": 3,
+          "damaged_or_rotted_siding_or_trim": 1,
+          "dated_or_worn_vanity_countertop": 1,
+          "floor_dirty_or_heavily_soiled": 1,
+          "outdated_kitchen_finishes": 1,
+          "outdated_or_damaged_vanity": 1,
+          "peeling_or_discolored_paint": 2,
+          "scratched_or_damaged_flooring": 4,
+          "wall_scuffs_marks_or_dents": 5,
+          "water_stain_ceiling": 5,
+          "worn_or_stained_vinyl_linoleum": 2
+        },
+        "candidate": {
+          "<missing>": 33,
+          "appliances_dated_or_basic": 1,
+          "baseboard_wear_scuffs": 1,
+          "bathroom_layout_modernization_opportunity": 1,
+          "cabinets_dated_style": 1,
+          "ceiling_cracks_or_sagging": 2,
+          "damaged_drywall_or_cracks": 4,
+          "dated_bathroom_flooring_style": 1,
+          "hard_flooring_broken_or_warped": 1,
+          "hard_flooring_scratched_or_worn": 3,
+          "outdated_bathroom_finishes": 1,
+          "patio_or_porch_surface_wear": 1,
+          "peeling_or_discolored_paint": 5,
+          "trip_hazard_or_unlevel_floor": 3,
+          "vanity_damaged_or_water_stained": 1,
+          "vanity_worn_finish": 2,
+          "wall_scuffs_marks_or_dents": 6,
+          "worn_or_stained_flooring": 5
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 33,
+          "upgrade": 7
+        },
+        "candidate": {
+          "defect": 18,
+          "degradation": 35,
+          "modernization": 19
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 44,
+        "candidate_issue_count": 82,
+        "delta_rate": 0.8636363636363636
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 25590,
+          "high": 78570
+        },
+        "candidate": {
+          "low": 30100,
+          "high": 120675
+        },
+        "low_delta_pct": 0.17624071903087143,
+        "high_delta_pct": 0.5358915616647575
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_repair__bathroom_primary",
+          "bedroom_modernization__bedroom_2",
+          "bedroom_repair__bedroom_1",
+          "bedroom_repair__bedroom_2",
+          "kitchen_modernization__kitchen_primary",
+          "living_repair__living_room_primary"
+        ],
+        "candidate": [
+          "bathroom_modernization__bathroom_primary",
+          "bedroom_repair__bedroom_1",
+          "bedroom_repair__bedroom_2",
+          "kitchen_modernization__kitchen_primary",
+          "living_repair__living_room_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 9,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 8,
+          "listing_kind_counts": {
+            "defect": 11,
+            "degradation": 23,
+            "modernization": 5
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_11077450",
+      "pass_2c_classification": {
+        "shared_descriptions": 0,
+        "changes": []
+      },
+      "unresolved": {
+        "baseline_count": 52,
+        "candidate_count": 128,
+        "baseline_rate": 0.37142857142857144,
+        "candidate_rate": 0.5638766519823789
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 52,
+          "baseboard_wear_scuffs": 13,
+          "brick_weathering_or_mortar_deterioration": 1,
+          "ceiling_cracks_or_sagging": 3,
+          "damaged_drywall_or_cracks": 3,
+          "damaged_or_rotted_siding_or_trim": 2,
+          "dated_or_worn_vanity_countertop": 1,
+          "exterior_door_paint_failure": 2,
+          "exterior_siding_discoloration_fading": 1,
+          "floor_dirty_or_heavily_soiled": 1,
+          "garage_or_basement_damage": 1,
+          "missing_or_damaged_handrails": 1,
+          "older_flooring_style": 2,
+          "outdated_bathroom_finishes": 2,
+          "outdated_kitchen_finishes": 3,
+          "outdated_or_damaged_cabinets": 2,
+          "patio_or_porch_surface_wear": 1,
+          "peeling_or_discolored_paint": 1,
+          "popcorn_or_acoustic_ceiling_texture": 2,
+          "retaining_wall_failure_or_missing_section": 1,
+          "scratched_or_damaged_flooring": 2,
+          "suspended_drop_ceiling": 3,
+          "trees_or_vegetation_too_close": 2,
+          "trip_hazard_or_unlevel_floor": 3,
+          "unfinished_interior_wall_osb_exposed": 1,
+          "wall_scuffs_marks_or_dents": 13,
+          "water_stain_ceiling": 13,
+          "worn_or_stained_carpet": 5,
+          "worn_or_stained_vinyl_linoleum": 3
+        },
+        "candidate": {
+          "<missing>": 128,
+          "appliances_dated_or_basic": 2,
+          "baseboard_wear_scuffs": 13,
+          "bath_fixtures_stained_or_worn": 2,
+          "bathroom_layout_modernization_opportunity": 1,
+          "cabinets_dated_style": 3,
+          "cabinets_worn_finish": 6,
+          "ceiling_cracks_or_sagging": 3,
+          "damaged_drywall_or_cracks": 1,
+          "door_hardware_worn": 1,
+          "exterior_door_paint_failure": 4,
+          "floor_dirty_or_heavily_soiled": 1,
+          "hard_flooring_broken_or_warped": 1,
+          "hard_flooring_scratched_or_worn": 3,
+          "missing_or_damaged_handrails": 1,
+          "older_flooring_style": 1,
+          "ornate_vintage_mirror": 1,
+          "outdated_bathroom_finishes": 4,
+          "outdated_kitchen_finishes": 1,
+          "patio_or_porch_surface_wear": 1,
+          "peeling_or_discolored_paint": 5,
+          "popcorn_or_acoustic_ceiling_texture": 2,
+          "suspended_drop_ceiling": 3,
+          "trip_hazard_or_unlevel_floor": 2,
+          "vanity_dated_style": 1,
+          "wall_scuffs_marks_or_dents": 18,
+          "water_stain_ceiling": 2,
+          "worn_or_stained_carpet": 7,
+          "worn_or_stained_flooring": 9
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 112,
+          "upgrade": 28
+        },
+        "candidate": {
+          "defect": 19,
+          "degradation": 121,
+          "modernization": 87
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 157,
+        "candidate_issue_count": 248,
+        "delta_rate": 0.5796178343949044
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 31915,
+          "high": 104840
+        },
+        "candidate": {
+          "low": 19115,
+          "high": 121750
+        },
+        "low_delta_pct": -0.4010653297822341,
+        "high_delta_pct": 0.16129339946585272
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_modernization__bathroom_primary",
+          "bedroom_modernization__bedroom_1",
+          "bedroom_modernization__bedroom_2",
+          "kitchen_modernization__kitchen_primary",
+          "living_repair__living_room_primary"
+        ],
+        "candidate": [
+          "bathroom_modernization__bathroom_primary",
+          "bedroom_modernization__bedroom_1",
+          "bedroom_modernization__bedroom_2",
+          "living_modernization__living_room_primary",
+          "living_repair__living_room_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 12,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 10,
+          "listing_kind_counts": {
+            "defect": 10,
+            "degradation": 70,
+            "modernization": 19
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_11079485",
+      "pass_2c_classification": {
+        "shared_descriptions": 0,
+        "changes": []
+      },
+      "unresolved": {
+        "baseline_count": 10,
+        "candidate_count": 37,
+        "baseline_rate": 0.2222222222222222,
+        "candidate_rate": 0.5068493150684932
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 10,
+          "baseboard_wear_scuffs": 3,
+          "boarded_up_entry_or_window": 3,
+          "ceiling_cracks_or_sagging": 1,
+          "damaged_drywall_or_cracks": 2,
+          "floor_dirty_or_heavily_soiled": 3,
+          "garage_or_basement_damage": 1,
+          "older_flooring_style": 1,
+          "outdated_bathroom_finishes": 3,
+          "outdated_kitchen_finishes": 2,
+          "outdated_or_damaged_vanity": 1,
+          "scratched_or_damaged_flooring": 2,
+          "stained_or_damaged_bath_fixtures": 1,
+          "trip_hazard_or_unlevel_floor": 1,
+          "wall_scuffs_marks_or_dents": 6,
+          "water_stain_ceiling": 2,
+          "worn_or_stained_carpet": 1,
+          "worn_or_stained_vinyl_linoleum": 2
+        },
+        "candidate": {
+          "<missing>": 37,
+          "appliances_dated_or_basic": 1,
+          "appliances_worn_or_neglected": 1,
+          "baseboard_wear_scuffs": 2,
+          "bath_fixtures_stained_or_worn": 2,
+          "boarded_up_entry_or_window": 2,
+          "cabinets_dated_style": 1,
+          "ceiling_cracks_or_sagging": 1,
+          "damaged_drywall_or_cracks": 2,
+          "exterior_siding_discoloration_fading": 1,
+          "hard_flooring_broken_or_warped": 1,
+          "hard_flooring_scratched_or_worn": 2,
+          "older_flooring_style": 2,
+          "outdated_bathroom_finishes": 2,
+          "peeling_or_discolored_paint": 2,
+          "vanity_damaged_or_water_stained": 1,
+          "vanity_worn_finish": 1,
+          "vintage_tile_pattern_style": 1,
+          "wall_scuffs_marks_or_dents": 7,
+          "worn_or_stained_flooring": 4
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 35,
+          "upgrade": 10
+        },
+        "candidate": {
+          "defect": 11,
+          "degradation": 40,
+          "modernization": 22
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 45,
+        "candidate_issue_count": 78,
+        "delta_rate": 0.7333333333333333
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 35673,
+          "high": 115520
+        },
+        "candidate": {
+          "low": 37633,
+          "high": 125040
+        },
+        "low_delta_pct": 0.05494351470299667,
+        "high_delta_pct": 0.08240997229916898
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_modernization__bathroom_primary",
+          "bedroom_modernization__bedroom_2",
+          "bedroom_modernization__bedroom_3",
+          "bedroom_repair__bedroom_1",
+          "kitchen_modernization__kitchen_primary"
+        ],
+        "candidate": [
+          "bathroom_modernization__bathroom_primary",
+          "bedroom_modernization__bedroom_1",
+          "bedroom_modernization__bedroom_3",
+          "bedroom_repair__bedroom_1",
+          "bedroom_repair__bedroom_2",
+          "kitchen_modernization__kitchen_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 9,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 7,
+          "listing_kind_counts": {
+            "defect": 7,
+            "degradation": 22,
+            "modernization": 7
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_11185681",
+      "pass_2c_classification": {
+        "shared_descriptions": 3,
+        "changes": [
+          {
+            "description": "faint ceiling discoloration is visible near the fan",
+            "baseline": "defect",
+            "candidate": "degradation"
+          },
+          {
+            "description": "original hardwood floors are heavily worn and scratched",
+            "baseline": "defect",
+            "candidate": "degradation"
+          },
+          {
+            "description": "original hardwood floors are heavily worn and scuffed",
+            "baseline": "defect",
+            "candidate": "degradation"
+          }
+        ]
+      },
+      "unresolved": {
+        "baseline_count": 64,
+        "candidate_count": 112,
+        "baseline_rate": 0.39263803680981596,
+        "candidate_rate": 0.45528455284552843
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 64,
+          "appliance_damage_or_missing": 2,
+          "baseboard_wear_scuffs": 4,
+          "bathroom_paint_refresh_recommended": 1,
+          "countertop_damage": 1,
+          "damaged_drywall_or_cracks": 2,
+          "damaged_or_aged_roof_shingles": 2,
+          "damaged_or_rotted_siding_or_trim": 2,
+          "damaged_or_unsafe_deck_or_porch": 3,
+          "damaged_soffit_or_porch_ceiling": 1,
+          "dated_or_worn_vanity_countertop": 2,
+          "deck_surface_weathering": 2,
+          "driveway_or_walkway_cracking": 1,
+          "exterior_siding_discoloration_fading": 6,
+          "fence_damaged_or_weathered": 1,
+          "missing_or_damaged_handrails": 1,
+          "outdated_bathroom_finishes": 11,
+          "outdated_kitchen_finishes": 5,
+          "outdated_or_damaged_cabinets": 4,
+          "outdated_or_damaged_vanity": 2,
+          "patio_or_porch_surface_wear": 2,
+          "peeling_or_discolored_paint": 3,
+          "scratched_or_damaged_flooring": 23,
+          "stained_or_damaged_bath_fixtures": 1,
+          "tile_or_grout_damage": 2,
+          "trees_or_vegetation_too_close": 1,
+          "trip_hazard_or_unlevel_floor": 2,
+          "vanity_countertop_damage": 1,
+          "wall_scuffs_marks_or_dents": 7,
+          "water_stain_ceiling": 1,
+          "worn_or_stained_carpet": 2,
+          "worn_or_stained_flooring": 1
+        },
+        "candidate": {
+          "<missing>": 112,
+          "appliances_damaged_or_missing": 1,
+          "appliances_dated_or_basic": 2,
+          "baseboard_wear_scuffs": 6,
+          "bath_fixtures_stained_or_worn": 2,
+          "cabinets_dated_style": 3,
+          "cabinets_worn_finish": 3,
+          "countertop_damage": 2,
+          "damaged_drywall_or_cracks": 3,
+          "dated_interior_doors": 1,
+          "deck_surface_weathering": 4,
+          "exterior_siding_discoloration_fading": 9,
+          "fence_weathered": 1,
+          "floor_dirty_or_heavily_soiled": 1,
+          "hard_flooring_scratched_or_worn": 23,
+          "older_flooring_style": 2,
+          "ornate_vintage_mirror": 3,
+          "outdated_bathroom_finishes": 19,
+          "outdated_kitchen_finishes": 5,
+          "patio_or_porch_surface_wear": 1,
+          "peeling_or_discolored_paint": 10,
+          "roof_shingles_aged_or_worn": 3,
+          "soffit_or_porch_ceiling_failed": 1,
+          "soffit_or_porch_ceiling_weathered": 1,
+          "vanity_countertop_dated": 3,
+          "vanity_dated_style": 4,
+          "vanity_worn_finish": 5,
+          "vintage_tile_pattern_style": 4,
+          "wall_scuffs_marks_or_dents": 7,
+          "worn_or_stained_carpet": 1,
+          "worn_or_stained_flooring": 4
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 114,
+          "upgrade": 49
+        },
+        "candidate": {
+          "defect": 15,
+          "degradation": 114,
+          "modernization": 117
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 199,
+        "candidate_issue_count": 310,
+        "delta_rate": 0.5577889447236181
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 49408,
+          "high": 163100
+        },
+        "candidate": {
+          "low": 58900,
+          "high": 186250
+        },
+        "low_delta_pct": 0.19211463730569947,
+        "high_delta_pct": 0.14193746167995094
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_modernization__bathroom_primary",
+          "bathroom_repair__bathroom_primary",
+          "bedroom_modernization__bedroom_4",
+          "bedroom_modernization__bedroom_5",
+          "bedroom_repair__bedroom_1",
+          "bedroom_repair__bedroom_2",
+          "bedroom_repair__bedroom_3",
+          "bedroom_repair__bedroom_4",
+          "bedroom_repair__bedroom_5",
+          "bedroom_repair__bedroom_6",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary",
+          "living_repair__living_room_primary"
+        ],
+        "candidate": [
+          "bathroom_modernization__bathroom_primary",
+          "bathroom_repair__bathroom_primary",
+          "bedroom_modernization__bedroom_4",
+          "bedroom_repair__bedroom_1",
+          "bedroom_repair__bedroom_2",
+          "bedroom_repair__bedroom_3",
+          "bedroom_repair__bedroom_4",
+          "bedroom_repair__bedroom_5",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary",
+          "living_repair__living_room_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 10,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 9,
+          "listing_kind_counts": {
+            "defect": 7,
+            "degradation": 81,
+            "modernization": 46
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_125779232",
+      "pass_2c_classification": {
+        "shared_descriptions": 0,
+        "changes": []
+      },
+      "unresolved": {
+        "baseline_count": 32,
+        "candidate_count": 68,
+        "baseline_rate": 0.32323232323232326,
+        "candidate_rate": 0.46258503401360546
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 32,
+          "baseboard_wear_scuffs": 1,
+          "brick_weathering_or_mortar_deterioration": 2,
+          "damaged_drywall_or_cracks": 1,
+          "damaged_or_aged_roof_shingles": 5,
+          "damaged_or_rotted_siding_or_trim": 2,
+          "dated_or_worn_vanity_countertop": 2,
+          "driveway_or_walkway_cracking": 2,
+          "exterior_door_paint_failure": 1,
+          "exterior_siding_discoloration_fading": 4,
+          "fence_damaged_or_weathered": 1,
+          "floor_dirty_or_heavily_soiled": 1,
+          "interior_wall_stripped_to_studs": 1,
+          "older_flooring_style": 3,
+          "outdated_bathroom_finishes": 3,
+          "outdated_kitchen_finishes": 6,
+          "outdated_or_damaged_cabinets": 3,
+          "patio_or_porch_surface_wear": 1,
+          "peeling_or_discolored_paint": 1,
+          "popcorn_or_acoustic_ceiling_texture": 4,
+          "roofline_water_damage_suspected": 1,
+          "scratched_or_damaged_flooring": 2,
+          "trees_or_vegetation_too_close": 1,
+          "trip_hazard_or_unlevel_floor": 1,
+          "tub_surround_or_shower_pan_damage": 1,
+          "visible_mold_or_mildew": 1,
+          "wall_scuffs_marks_or_dents": 6,
+          "water_stain_ceiling": 2,
+          "worn_or_stained_carpet": 4,
+          "worn_or_stained_vinyl_linoleum": 4
+        },
+        "candidate": {
+          "<missing>": 68,
+          "appliances_dated_or_basic": 3,
+          "baseboard_wear_scuffs": 3,
+          "bath_fixtures_stained_or_worn": 3,
+          "brick_weathered_or_discolored": 2,
+          "cabinets_damaged_or_water_stained": 1,
+          "cabinets_dated_style": 2,
+          "cabinets_worn_finish": 2,
+          "clogged_or_damaged_gutters": 1,
+          "damaged_drywall_or_cracks": 1,
+          "damaged_or_rotted_siding_or_trim": 1,
+          "exterior_door_paint_failure": 1,
+          "exterior_siding_discoloration_fading": 3,
+          "fence_weathered": 2,
+          "hard_flooring_scratched_or_worn": 1,
+          "interior_wall_stripped_to_studs": 1,
+          "older_flooring_style": 3,
+          "outdated_bathroom_finishes": 7,
+          "outdated_kitchen_finishes": 3,
+          "patio_or_porch_surface_wear": 2,
+          "paving_cracked_or_settled": 2,
+          "popcorn_or_acoustic_ceiling_texture": 4,
+          "roof_shingles_aged_or_worn": 3,
+          "soffit_or_porch_ceiling_weathered": 5,
+          "trip_hazard_or_unlevel_floor": 1,
+          "vanity_countertop_dated": 1,
+          "vanity_dated_style": 3,
+          "vanity_worn_finish": 1,
+          "vinyl_linoleum_worn_or_stained": 3,
+          "wall_scuffs_marks_or_dents": 5,
+          "water_stain_ceiling": 1,
+          "worn_or_stained_carpet": 4,
+          "worn_or_stained_flooring": 4
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 72,
+          "upgrade": 27
+        },
+        "candidate": {
+          "defect": 18,
+          "degradation": 75,
+          "modernization": 54
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 115,
+        "candidate_issue_count": 182,
+        "delta_rate": 0.5826086956521739
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 32780,
+          "high": 102960
+        },
+        "candidate": {
+          "low": 43119,
+          "high": 121816
+        },
+        "low_delta_pct": 0.3154057352043929,
+        "high_delta_pct": 0.18313908313908314
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_modernization__bathroom_primary__bathroom_1",
+          "bathroom_modernization__bathroom_primary__bathroom_2",
+          "exterior_repair__exterior_primary",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary"
+        ],
+        "candidate": [
+          "bathroom_modernization__bathroom_primary__bathroom_1",
+          "bathroom_modernization__bathroom_primary__bathroom_2",
+          "exterior_repair__exterior_primary",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 12,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 11,
+          "listing_kind_counts": {
+            "defect": 7,
+            "degradation": 46,
+            "modernization": 26
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_125970550",
+      "pass_2c_classification": {
+        "shared_descriptions": 2,
+        "changes": [
+          {
+            "description": "the ceiling has a textured finish",
+            "baseline": "upgrade",
+            "candidate": "modernization"
+          }
+        ]
+      },
+      "unresolved": {
+        "baseline_count": 63,
+        "candidate_count": 100,
+        "baseline_rate": 0.2971698113207547,
+        "candidate_rate": 0.42735042735042733
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 63,
+          "bare_or_missing_finish_flooring": 4,
+          "baseboard_wear_scuffs": 4,
+          "boarded_up_entry_or_window": 1,
+          "brick_weathering_or_mortar_deterioration": 1,
+          "ceiling_cracks_or_sagging": 3,
+          "damaged_drywall_or_cracks": 7,
+          "damaged_or_rotted_siding_or_trim": 3,
+          "damaged_or_unsafe_deck_or_porch": 1,
+          "dated_or_worn_vanity_countertop": 1,
+          "dated_wallpaper_present": 1,
+          "driveway_or_walkway_cracking": 5,
+          "exterior_door_paint_failure": 1,
+          "exterior_siding_discoloration_fading": 4,
+          "floor_dirty_or_heavily_soiled": 12,
+          "major_foundation_or_settlement_signs": 1,
+          "missing_or_damaged_handrails": 1,
+          "missing_vanity_exposed_plumbing": 1,
+          "mold_or_mildew_visible_bathroom": 2,
+          "ornate_vintage_mirror": 1,
+          "outdated_bathroom_finishes": 5,
+          "outdated_kitchen_finishes": 2,
+          "outdated_or_damaged_cabinets": 7,
+          "outdated_or_damaged_vanity": 5,
+          "peeling_or_discolored_paint": 3,
+          "plumbing_fixture_leaking_stained": 1,
+          "popcorn_or_acoustic_ceiling_texture": 6,
+          "scratched_or_damaged_flooring": 2,
+          "stained_or_damaged_bath_fixtures": 3,
+          "trees_or_vegetation_too_close": 3,
+          "trip_hazard_or_unlevel_floor": 8,
+          "tub_surround_or_shower_pan_damage": 2,
+          "unfinished_interior_wall_osb_exposed": 4,
+          "vanity_countertop_damage": 1,
+          "visible_mold_or_mildew": 2,
+          "wall_scuffs_marks_or_dents": 15,
+          "water_stain_ceiling": 18,
+          "worn_or_stained_carpet": 2,
+          "worn_or_stained_flooring": 1,
+          "worn_or_stained_vinyl_linoleum": 5
+        },
+        "candidate": {
+          "<missing>": 100,
+          "appliances_damaged_or_missing": 1,
+          "appliances_dated_or_basic": 1,
+          "bare_or_missing_finish_flooring": 2,
+          "baseboard_wear_scuffs": 5,
+          "bath_fixtures_stained_or_worn": 3,
+          "brick_weathered_or_discolored": 1,
+          "cabinets_damaged_or_water_stained": 3,
+          "cabinets_dated_style": 1,
+          "cabinets_worn_finish": 4,
+          "ceiling_cracks_or_sagging": 2,
+          "damaged_drywall_or_cracks": 5,
+          "dated_wallpaper_present": 1,
+          "deck_surface_weathering": 1,
+          "exterior_siding_discoloration_fading": 5,
+          "floor_dirty_or_heavily_soiled": 4,
+          "garage_or_basement_damage": 1,
+          "hard_flooring_broken_or_warped": 5,
+          "hard_flooring_scratched_or_worn": 3,
+          "missing_base_cabinets_exposed_subfloor": 1,
+          "missing_or_damaged_handrails": 2,
+          "missing_vanity_exposed_plumbing": 2,
+          "older_flooring_style": 1,
+          "outdated_bathroom_finishes": 6,
+          "outdated_kitchen_finishes": 1,
+          "patio_or_porch_surface_wear": 1,
+          "paving_cracked_or_settled": 5,
+          "peeling_or_discolored_paint": 7,
+          "plumbing_fixture_stained_or_corroded": 3,
+          "popcorn_or_acoustic_ceiling_texture": 7,
+          "roof_shingles_aged_or_worn": 1,
+          "shed_exterior_paint_failure": 1,
+          "soffit_or_porch_ceiling_weathered": 1,
+          "tile_or_grout_damage": 1,
+          "trip_hazard_or_unlevel_floor": 2,
+          "unfinished_interior_wall_osb_exposed": 2,
+          "vanity_countertop_dated": 1,
+          "vanity_damaged_or_water_stained": 2,
+          "vanity_worn_finish": 1,
+          "vinyl_linoleum_torn_or_lifted": 1,
+          "visible_mold_or_mildew": 1,
+          "wall_scuffs_marks_or_dents": 18,
+          "water_stain_ceiling": 2,
+          "worn_or_stained_carpet": 2,
+          "worn_or_stained_flooring": 14
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 181,
+          "upgrade": 31
+        },
+        "candidate": {
+          "defect": 62,
+          "degradation": 132,
+          "modernization": 40
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 226,
+        "candidate_issue_count": 267,
+        "delta_rate": 0.18141592920353983
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 61623,
+          "high": 219554
+        },
+        "candidate": {
+          "low": 63829,
+          "high": 201895
+        },
+        "low_delta_pct": 0.03579832205507684,
+        "high_delta_pct": -0.08043123787314282
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_modernization__bathroom_primary__bathroom_1",
+          "bathroom_modernization__bathroom_primary__bathroom_2",
+          "bathroom_modernization__bathroom_primary__bathroom_3",
+          "bathroom_repair__bathroom_primary",
+          "bedroom_modernization__bedroom_1",
+          "bedroom_modernization__bedroom_2",
+          "bedroom_repair__bedroom_1",
+          "bedroom_repair__bedroom_2",
+          "bedroom_repair__bedroom_3",
+          "bedroom_repair__bedroom_4",
+          "exterior_repair__exterior_primary",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary",
+          "living_repair__living_room_primary"
+        ],
+        "candidate": [
+          "bathroom_modernization__bathroom_primary__bathroom_1",
+          "bathroom_modernization__bathroom_primary__bathroom_2",
+          "bathroom_modernization__bathroom_primary__bathroom_3",
+          "bathroom_repair__bathroom_primary",
+          "bedroom_modernization__bedroom_4",
+          "bedroom_repair__bedroom_1",
+          "bedroom_repair__bedroom_3",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary",
+          "living_repair__living_room_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 14,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 16,
+          "listing_kind_counts": {
+            "defect": 35,
+            "degradation": 80,
+            "modernization": 19
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_126224899",
+      "pass_2c_classification": {
+        "shared_descriptions": 4,
+        "changes": [
+          {
+            "description": "the ceiling has a popcorn texture",
+            "baseline": "upgrade",
+            "candidate": "modernization"
+          },
+          {
+            "description": "the ceiling has a textured finish",
+            "baseline": "upgrade",
+            "candidate": "modernization"
+          },
+          {
+            "description": "the flooring is heavily worn and stained",
+            "baseline": "defect",
+            "candidate": "degradation"
+          },
+          {
+            "description": "the room has a popcorn ceiling",
+            "baseline": "upgrade",
+            "candidate": "modernization"
+          }
+        ]
+      },
+      "unresolved": {
+        "baseline_count": 62,
+        "candidate_count": 138,
+        "baseline_rate": 0.2938388625592417,
+        "candidate_rate": 0.42724458204334365
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 62,
+          "bare_or_missing_finish_flooring": 3,
+          "baseboard_wear_scuffs": 2,
+          "bathroom_layout_modernization_opportunity": 1,
+          "boarded_up_entry_or_window": 1,
+          "brick_weathering_or_mortar_deterioration": 2,
+          "ceiling_cracks_or_sagging": 1,
+          "countertop_damage": 1,
+          "damaged_drywall_or_cracks": 4,
+          "damaged_or_aged_roof_shingles": 5,
+          "damaged_or_rotted_siding_or_trim": 2,
+          "damaged_or_unsafe_deck_or_porch": 2,
+          "damaged_soffit_or_porch_ceiling": 3,
+          "dated_bathroom_flooring_style": 2,
+          "dated_or_worn_vanity_countertop": 2,
+          "dated_wallpaper_present": 1,
+          "dirty_or_grimy_window_screens": 1,
+          "driveway_or_walkway_cracking": 3,
+          "exterior_door_paint_failure": 1,
+          "exterior_siding_discoloration_fading": 1,
+          "fence_damaged_or_weathered": 3,
+          "floor_dirty_or_heavily_soiled": 7,
+          "major_foundation_or_settlement_signs": 1,
+          "metal_carport_rust_corrosion": 1,
+          "missing_or_damaged_caulk_at_tub_or_shower": 1,
+          "missing_or_damaged_handrails": 1,
+          "older_flooring_style": 3,
+          "outdated_bathroom_finishes": 7,
+          "outdated_kitchen_finishes": 4,
+          "outdated_or_damaged_cabinets": 1,
+          "outdated_or_damaged_vanity": 5,
+          "patio_or_porch_surface_wear": 4,
+          "peeling_or_discolored_paint": 3,
+          "popcorn_or_acoustic_ceiling_texture": 12,
+          "scratched_or_damaged_flooring": 5,
+          "stained_or_damaged_bath_fixtures": 3,
+          "standing_water_or_poor_grading": 1,
+          "tile_or_grout_damage": 1,
+          "trees_or_vegetation_too_close": 6,
+          "trip_hazard_or_unlevel_floor": 3,
+          "unfinished_interior_wall_osb_exposed": 2,
+          "vanity_countertop_damage": 2,
+          "vintage_tile_pattern_style": 1,
+          "visible_mold_or_mildew": 6,
+          "wall_scuffs_marks_or_dents": 9,
+          "water_stain_ceiling": 6,
+          "worn_or_stained_carpet": 6,
+          "worn_or_stained_vinyl_linoleum": 7
+        },
+        "candidate": {
+          "<missing>": 138,
+          "appliances_dated_or_basic": 4,
+          "bare_or_missing_finish_flooring": 2,
+          "baseboard_wear_scuffs": 3,
+          "bath_fixtures_stained_or_worn": 3,
+          "bathroom_layout_modernization_opportunity": 2,
+          "bathroom_paint_refresh_recommended": 1,
+          "boarded_up_entry_or_window": 1,
+          "brick_weathered_or_discolored": 1,
+          "cabinets_dated_style": 7,
+          "cabinets_worn_finish": 3,
+          "ceiling_cracks_or_sagging": 1,
+          "clogged_or_damaged_gutters": 1,
+          "concrete_driveway_surface_wear": 1,
+          "damaged_drywall_or_cracks": 4,
+          "dated_bathroom_flooring_style": 3,
+          "dated_bathroom_wallpaper": 2,
+          "dated_interior_trim": 3,
+          "dated_wallpaper_present": 4,
+          "deck_surface_weathering": 2,
+          "dirty_or_grimy_window_screens": 1,
+          "exterior_door_paint_failure": 1,
+          "exterior_siding_discoloration_fading": 3,
+          "fence_weathered": 4,
+          "floor_dirty_or_heavily_soiled": 4,
+          "hard_flooring_broken_or_warped": 1,
+          "hard_flooring_scratched_or_worn": 3,
+          "interior_wall_stripped_to_studs": 1,
+          "metal_carport_rust_corrosion": 1,
+          "older_flooring_style": 8,
+          "ornate_vintage_mirror": 1,
+          "outdated_bathroom_finishes": 10,
+          "outdated_kitchen_finishes": 5,
+          "patio_or_porch_surface_wear": 1,
+          "paving_cracked_or_settled": 4,
+          "peeling_or_discolored_paint": 5,
+          "popcorn_or_acoustic_ceiling_texture": 19,
+          "roof_shingles_aged_or_worn": 3,
+          "soffit_or_porch_ceiling_failed": 3,
+          "soffit_or_porch_ceiling_weathered": 6,
+          "trees_or_vegetation_too_close": 3,
+          "tub_surround_or_shower_pan_damage": 1,
+          "unfinished_interior_wall_osb_exposed": 2,
+          "vanity_countertop_dated": 1,
+          "vanity_countertop_worn": 1,
+          "vanity_dated_style": 2,
+          "vanity_worn_finish": 3,
+          "vintage_tile_pattern_style": 2,
+          "vinyl_linoleum_worn_or_stained": 4,
+          "visible_mold_or_mildew": 3,
+          "wall_scuffs_marks_or_dents": 15,
+          "worn_or_stained_carpet": 5,
+          "worn_or_stained_flooring": 11
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 153,
+          "upgrade": 58
+        },
+        "candidate": {
+          "defect": 38,
+          "degradation": 155,
+          "modernization": 130
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 250,
+        "candidate_issue_count": 401,
+        "delta_rate": 0.604
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 51796,
+          "high": 188757
+        },
+        "candidate": {
+          "low": 65012,
+          "high": 203520
+        },
+        "low_delta_pct": 0.2551548382114449,
+        "high_delta_pct": 0.07821166897121697
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_modernization__bathroom_primary__bathroom_2",
+          "bathroom_modernization__bathroom_primary__bathroom_3",
+          "bathroom_modernization__bathroom_primary__bathroom_4",
+          "bathroom_repair__bathroom_primary",
+          "bedroom_modernization__bedroom_2",
+          "bedroom_modernization__bedroom_3",
+          "bedroom_modernization__bedroom_4",
+          "bedroom_modernization__bedroom_primary",
+          "bedroom_repair__bedroom_3",
+          "bedroom_repair__bedroom_4",
+          "exterior_repair__exterior_primary",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary",
+          "living_repair__living_room_primary"
+        ],
+        "candidate": [
+          "bathroom_modernization__bathroom_primary__bathroom_1",
+          "bathroom_modernization__bathroom_primary__bathroom_2",
+          "bathroom_modernization__bathroom_primary__bathroom_4",
+          "bathroom_repair__bathroom_primary",
+          "bedroom_modernization__bedroom_2",
+          "bedroom_modernization__bedroom_3",
+          "bedroom_modernization__bedroom_primary",
+          "bedroom_repair__bedroom_4",
+          "exterior_repair__exterior_primary",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary",
+          "living_repair__living_room_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 14,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 13,
+          "listing_kind_counts": {
+            "defect": 20,
+            "degradation": 91,
+            "modernization": 74
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_126418713",
+      "pass_2c_classification": {
+        "shared_descriptions": 0,
+        "changes": []
+      },
+      "unresolved": {
+        "baseline_count": 25,
+        "candidate_count": 100,
+        "baseline_rate": 0.2808988764044944,
+        "candidate_rate": 0.5
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 25,
+          "damaged_drywall_or_cracks": 1,
+          "damaged_or_aged_roof_shingles": 4,
+          "damaged_soffit_or_porch_ceiling": 1,
+          "driveway_or_walkway_cracking": 8,
+          "fence_damaged_or_weathered": 3,
+          "older_flooring_style": 1,
+          "outdated_bathroom_finishes": 5,
+          "outdated_kitchen_finishes": 11,
+          "patio_or_porch_surface_wear": 4,
+          "popcorn_or_acoustic_ceiling_texture": 12,
+          "scratched_or_damaged_flooring": 5,
+          "trees_or_vegetation_too_close": 3,
+          "unfinished_interior_wall_osb_exposed": 2,
+          "vintage_tile_pattern_style": 1,
+          "water_stain_ceiling": 1,
+          "worn_or_stained_vinyl_linoleum": 2
+        },
+        "candidate": {
+          "<missing>": 100,
+          "appliances_dated_or_basic": 13,
+          "brick_weathered_or_discolored": 1,
+          "cabinets_dated_style": 6,
+          "dated_interior_trim": 1,
+          "fence_weathered": 5,
+          "hard_flooring_scratched_or_worn": 8,
+          "interior_wall_stripped_to_studs": 1,
+          "landscaping_overgrown_or_neglected": 1,
+          "older_flooring_style": 1,
+          "outdated_bathroom_finishes": 9,
+          "outdated_kitchen_finishes": 9,
+          "patio_or_porch_surface_wear": 7,
+          "paving_cracked_or_settled": 7,
+          "popcorn_or_acoustic_ceiling_texture": 16,
+          "roof_shingles_aged_or_worn": 3,
+          "soffit_or_porch_ceiling_weathered": 4,
+          "unfinished_interior_wall_osb_exposed": 1,
+          "vanity_dated_style": 4,
+          "vintage_tile_pattern_style": 2,
+          "worn_or_stained_flooring": 1
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 42,
+          "upgrade": 47
+        },
+        "candidate": {
+          "defect": 5,
+          "degradation": 44,
+          "modernization": 151
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 129,
+        "candidate_issue_count": 294,
+        "delta_rate": 1.2790697674418605
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 30903,
+          "high": 91640
+        },
+        "candidate": {
+          "low": 32761,
+          "high": 97036
+        },
+        "low_delta_pct": 0.06012361259424651,
+        "high_delta_pct": 0.05888258402444348
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_modernization__bathroom_primary__bathroom_1",
+          "bathroom_modernization__bathroom_primary__bathroom_2",
+          "bedroom_modernization__bedroom_2",
+          "bedroom_modernization__bedroom_4",
+          "bedroom_repair__bedroom_2",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary",
+          "living_repair__living_room_primary"
+        ],
+        "candidate": [
+          "bathroom_modernization__bathroom_primary__bathroom_1",
+          "bathroom_modernization__bathroom_primary__bathroom_2",
+          "bedroom_modernization__bedroom_4",
+          "bedroom_repair__bedroom_2",
+          "bedroom_repair__bedroom_4",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary",
+          "living_repair__living_room_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 8,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 9,
+          "listing_kind_counts": {
+            "defect": 2,
+            "degradation": 37,
+            "modernization": 61
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_127468088",
+      "pass_2c_classification": {
+        "shared_descriptions": 2,
+        "changes": [
+          {
+            "description": "the ceiling has a textured finish",
+            "baseline": "upgrade",
+            "candidate": "modernization"
+          },
+          {
+            "description": "the roof appears weathered",
+            "baseline": "defect",
+            "candidate": "degradation"
+          }
+        ]
+      },
+      "unresolved": {
+        "baseline_count": 50,
+        "candidate_count": 92,
+        "baseline_rate": 0.3968253968253968,
+        "candidate_rate": 0.46
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 50,
+          "baseboard_wear_scuffs": 1,
+          "brick_weathering_or_mortar_deterioration": 1,
+          "clogged_or_damaged_gutters": 1,
+          "damaged_drywall_or_cracks": 4,
+          "damaged_or_aged_roof_shingles": 7,
+          "damaged_or_rotted_siding_or_trim": 3,
+          "dated_bathroom_flooring_style": 1,
+          "driveway_or_walkway_cracking": 11,
+          "exterior_siding_discoloration_fading": 3,
+          "major_foundation_or_settlement_signs": 2,
+          "older_flooring_style": 1,
+          "outdated_bathroom_finishes": 3,
+          "outdated_kitchen_finishes": 5,
+          "outdated_or_damaged_cabinets": 4,
+          "patio_or_porch_surface_wear": 2,
+          "popcorn_or_acoustic_ceiling_texture": 5,
+          "retaining_wall_failure_or_missing_section": 1,
+          "roofline_water_damage_suspected": 1,
+          "standing_water_or_poor_grading": 1,
+          "trees_or_vegetation_too_close": 7,
+          "unfinished_interior_wall_osb_exposed": 1,
+          "wall_scuffs_marks_or_dents": 3,
+          "water_stain_ceiling": 1,
+          "worn_or_stained_carpet": 7
+        },
+        "candidate": {
+          "<missing>": 92,
+          "appliances_dated_or_basic": 4,
+          "baseboard_wear_scuffs": 1,
+          "brick_weathered_or_discolored": 1,
+          "cabinets_dated_style": 4,
+          "cabinets_worn_finish": 2,
+          "clogged_or_damaged_gutters": 2,
+          "concrete_driveway_surface_wear": 2,
+          "damaged_drywall_or_cracks": 1,
+          "damaged_or_rotted_siding_or_trim": 2,
+          "exterior_door_paint_failure": 1,
+          "exterior_siding_discoloration_fading": 8,
+          "fence_weathered": 1,
+          "older_flooring_style": 11,
+          "outdated_bathroom_finishes": 3,
+          "outdated_kitchen_finishes": 4,
+          "patio_or_porch_surface_wear": 8,
+          "paving_cracked_or_settled": 14,
+          "popcorn_or_acoustic_ceiling_texture": 7,
+          "roof_shingles_aged_or_worn": 6,
+          "soffit_or_porch_ceiling_weathered": 3,
+          "standing_water_or_poor_grading": 1,
+          "trees_or_vegetation_too_close": 5,
+          "trip_hazard_or_unlevel_floor": 1,
+          "vanity_countertop_dated": 1,
+          "vanity_dated_style": 1,
+          "vinyl_linoleum_worn_or_stained": 1,
+          "wall_scuffs_marks_or_dents": 4,
+          "worn_or_stained_carpet": 9
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 86,
+          "upgrade": 40
+        },
+        "candidate": {
+          "defect": 8,
+          "degradation": 91,
+          "modernization": 101
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 165,
+        "candidate_issue_count": 309,
+        "delta_rate": 0.8727272727272727
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 25984,
+          "high": 82790
+        },
+        "candidate": {
+          "low": 39507,
+          "high": 109368
+        },
+        "low_delta_pct": 0.5204356527093597,
+        "high_delta_pct": 0.32102910979586907
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_modernization__bathroom_primary",
+          "bedroom_modernization__bedroom_1",
+          "bedroom_modernization__bedroom_3",
+          "bedroom_repair__bedroom_3",
+          "exterior_repair__exterior_primary",
+          "kitchen_modernization__kitchen_primary"
+        ],
+        "candidate": [
+          "bathroom_modernization__bathroom_primary",
+          "bedroom_modernization__bedroom_3",
+          "bedroom_modernization__bedroom_primary",
+          "kitchen_modernization__kitchen_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 11,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 10,
+          "listing_kind_counts": {
+            "defect": 7,
+            "degradation": 66,
+            "modernization": 35
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_166147710",
+      "pass_2c_classification": {
+        "shared_descriptions": 1,
+        "changes": []
+      },
+      "unresolved": {
+        "baseline_count": 57,
+        "candidate_count": 149,
+        "baseline_rate": 0.29842931937172773,
+        "candidate_rate": 0.5120274914089347
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 57,
+          "active_water_damage_bathroom": 1,
+          "baseboard_wear_scuffs": 4,
+          "ceiling_cracks_or_sagging": 5,
+          "clogged_or_damaged_gutters": 1,
+          "damaged_drywall_or_cracks": 7,
+          "damaged_or_aged_roof_shingles": 6,
+          "damaged_or_rotted_siding_or_trim": 1,
+          "damaged_or_unsafe_deck_or_porch": 1,
+          "driveway_or_walkway_cracking": 3,
+          "exterior_door_paint_failure": 1,
+          "exterior_siding_discoloration_fading": 2,
+          "floor_dirty_or_heavily_soiled": 6,
+          "missing_base_cabinets_exposed_subfloor": 2,
+          "missing_or_damaged_caulk_at_tub_or_shower": 1,
+          "missing_or_damaged_handrails": 2,
+          "outdated_bathroom_finishes": 6,
+          "outdated_kitchen_finishes": 9,
+          "peeling_or_discolored_paint": 2,
+          "popcorn_or_acoustic_ceiling_texture": 4,
+          "rotted_subfloor_or_structural_framing": 2,
+          "scratched_or_damaged_flooring": 18,
+          "stained_or_damaged_bath_fixtures": 1,
+          "suspended_drop_ceiling": 3,
+          "tree_stump_present_in_yard": 1,
+          "trees_or_vegetation_too_close": 4,
+          "trip_hazard_or_unlevel_floor": 4,
+          "wall_scuffs_marks_or_dents": 16,
+          "water_stain_ceiling": 19,
+          "worn_or_stained_vinyl_linoleum": 2
+        },
+        "candidate": {
+          "<missing>": 149,
+          "appliances_dated_or_basic": 2,
+          "baseboard_wear_scuffs": 4,
+          "bath_fixtures_stained_or_worn": 2,
+          "boarded_up_entry_or_window": 2,
+          "cabinets_dated_style": 5,
+          "ceiling_cracks_or_sagging": 7,
+          "concrete_driveway_surface_wear": 2,
+          "damaged_drywall_or_cracks": 8,
+          "door_hardware_worn": 2,
+          "exterior_door_paint_failure": 2,
+          "exterior_siding_discoloration_fading": 3,
+          "fence_weathered": 1,
+          "floor_dirty_or_heavily_soiled": 5,
+          "hard_flooring_scratched_or_worn": 5,
+          "interior_wall_stripped_to_studs": 1,
+          "older_flooring_style": 2,
+          "outdated_bathroom_finishes": 5,
+          "outdated_kitchen_finishes": 3,
+          "patio_or_porch_surface_wear": 1,
+          "paving_cracked_or_settled": 2,
+          "paving_heaved_or_trip_hazard": 1,
+          "peeling_or_discolored_paint": 7,
+          "popcorn_or_acoustic_ceiling_texture": 5,
+          "roof_shingles_aged_or_worn": 8,
+          "suspended_drop_ceiling": 8,
+          "trees_or_vegetation_too_close": 4,
+          "unfinished_interior_wall_osb_exposed": 2,
+          "vinyl_linoleum_worn_or_stained": 2,
+          "wall_scuffs_marks_or_dents": 21,
+          "water_stain_ceiling": 3,
+          "worn_or_stained_flooring": 17
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 146,
+          "upgrade": 45
+        },
+        "candidate": {
+          "defect": 41,
+          "degradation": 141,
+          "modernization": 109
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 236,
+        "candidate_issue_count": 361,
+        "delta_rate": 0.5296610169491526
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 53212,
+          "high": 170576
+        },
+        "candidate": {
+          "low": 35803,
+          "high": 128994
+        },
+        "low_delta_pct": -0.3271630459294896,
+        "high_delta_pct": -0.24377403620673482
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_modernization__bathroom_primary",
+          "bathroom_repair__bathroom_primary",
+          "bedroom_modernization__bedroom_2",
+          "bedroom_repair__bedroom_1",
+          "bedroom_repair__bedroom_2",
+          "bedroom_repair__bedroom_3",
+          "exterior_repair__exterior_primary",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary",
+          "living_repair__living_room_primary"
+        ],
+        "candidate": [
+          "bathroom_modernization__bathroom_primary",
+          "bedroom_repair__bedroom_3",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary",
+          "living_repair__living_room_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 12,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 11,
+          "listing_kind_counts": {
+            "defect": 24,
+            "degradation": 88,
+            "modernization": 30
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_25809814",
+      "pass_2c_classification": {
+        "shared_descriptions": 0,
+        "changes": []
+      },
+      "unresolved": {
+        "baseline_count": 21,
+        "candidate_count": 74,
+        "baseline_rate": 0.4375,
+        "candidate_rate": 0.6788990825688074
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 21,
+          "countertop_damage": 1,
+          "dated_bathroom_flooring_style": 2,
+          "dated_or_worn_vanity_countertop": 1,
+          "driveway_or_walkway_cracking": 2,
+          "fence_damaged_or_weathered": 2,
+          "older_flooring_style": 1,
+          "outdated_bathroom_finishes": 1,
+          "outdated_kitchen_finishes": 11,
+          "outdated_or_damaged_cabinets": 1,
+          "outdated_or_damaged_vanity": 1,
+          "peeling_or_discolored_paint": 1,
+          "scratched_or_damaged_flooring": 1,
+          "vintage_tile_pattern_style": 1,
+          "worn_or_stained_vinyl_linoleum": 1
+        },
+        "candidate": {
+          "<missing>": 74,
+          "appliances_dated_or_basic": 1,
+          "bathroom_layout_modernization_opportunity": 2,
+          "cabinets_dated_style": 6,
+          "dated_bathroom_wallpaper": 1,
+          "fence_weathered": 1,
+          "hard_flooring_scratched_or_worn": 1,
+          "older_flooring_style": 7,
+          "ornate_vintage_mirror": 1,
+          "outdated_bathroom_finishes": 5,
+          "outdated_kitchen_finishes": 3,
+          "peeling_or_discolored_paint": 1,
+          "trees_or_vegetation_too_close": 1,
+          "vanity_countertop_dated": 1,
+          "vanity_dated_style": 2,
+          "vintage_tile_pattern_style": 2
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 19,
+          "upgrade": 29
+        },
+        "candidate": {
+          "defect": 2,
+          "degradation": 10,
+          "modernization": 97
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 58,
+        "candidate_issue_count": 142,
+        "delta_rate": 1.4482758620689655
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 23800,
+          "high": 70000
+        },
+        "candidate": {
+          "low": 25752,
+          "high": 98500
+        },
+        "low_delta_pct": 0.08201680672268907,
+        "high_delta_pct": 0.40714285714285714
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_modernization__bathroom_primary",
+          "kitchen_modernization__kitchen_primary"
+        ],
+        "candidate": [
+          "bathroom_modernization__bathroom_primary",
+          "kitchen_modernization__kitchen_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 5,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 5,
+          "listing_kind_counts": {
+            "defect": 0,
+            "degradation": 4,
+            "modernization": 31
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_80877597",
+      "pass_2c_classification": {
+        "shared_descriptions": 1,
+        "changes": [
+          {
+            "description": "the ceiling has a popcorn texture",
+            "baseline": "upgrade",
+            "candidate": "modernization"
+          }
+        ]
+      },
+      "unresolved": {
+        "baseline_count": 5,
+        "candidate_count": 12,
+        "baseline_rate": 0.18518518518518517,
+        "candidate_rate": 0.2222222222222222
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 5,
+          "dated_or_worn_vanity_countertop": 2,
+          "driveway_or_walkway_cracking": 1,
+          "older_flooring_style": 4,
+          "outdated_bathroom_finishes": 1,
+          "outdated_kitchen_finishes": 4,
+          "popcorn_or_acoustic_ceiling_texture": 6,
+          "vintage_tile_pattern_style": 1,
+          "worn_or_stained_carpet": 3
+        },
+        "candidate": {
+          "<missing>": 12,
+          "appliances_dated_or_basic": 2,
+          "baseboard_wear_scuffs": 1,
+          "bathroom_paint_refresh_recommended": 2,
+          "cabinets_dated_style": 2,
+          "older_flooring_style": 5,
+          "ornate_vintage_mirror": 1,
+          "outdated_bathroom_finishes": 5,
+          "outdated_kitchen_finishes": 4,
+          "popcorn_or_acoustic_ceiling_texture": 5,
+          "suspended_drop_ceiling": 2,
+          "vanity_countertop_dated": 3,
+          "vintage_tile_pattern_style": 2,
+          "wall_scuffs_marks_or_dents": 1,
+          "worn_or_stained_carpet": 7
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 5,
+          "upgrade": 22
+        },
+        "candidate": {
+          "degradation": 12,
+          "modernization": 42
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 35,
+        "candidate_issue_count": 76,
+        "delta_rate": 1.1714285714285715
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 30440,
+          "high": 84794
+        },
+        "candidate": {
+          "low": 36591,
+          "high": 108502
+        },
+        "low_delta_pct": 0.20206964520367937,
+        "high_delta_pct": 0.2795952543812062
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_modernization__bathroom_primary",
+          "bedroom_modernization__bedroom_1",
+          "bedroom_modernization__bedroom_2",
+          "bedroom_modernization__bedroom_3",
+          "kitchen_modernization__kitchen_primary"
+        ],
+        "candidate": [
+          "bathroom_modernization__bathroom_primary",
+          "bedroom_modernization__bedroom_1",
+          "bedroom_modernization__bedroom_2",
+          "bedroom_modernization__bedroom_3",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 5,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 5,
+          "listing_kind_counts": {
+            "defect": 0,
+            "degradation": 9,
+            "modernization": 33
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_80925528",
+      "pass_2c_classification": {
+        "shared_descriptions": 3,
+        "changes": [
+          {
+            "description": "the ceiling has a popcorn or textured finish",
+            "baseline": "upgrade",
+            "candidate": "modernization"
+          },
+          {
+            "description": "the ceiling has a textured finish",
+            "baseline": "upgrade",
+            "candidate": "modernization"
+          },
+          {
+            "description": "the metal railing is dated",
+            "baseline": "upgrade",
+            "candidate": "modernization"
+          }
+        ]
+      },
+      "unresolved": {
+        "baseline_count": 81,
+        "candidate_count": 160,
+        "baseline_rate": 0.38028169014084506,
+        "candidate_rate": 0.5111821086261981
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 81,
+          "baseboard_wear_scuffs": 2,
+          "brick_weathering_or_mortar_deterioration": 16,
+          "damaged_drywall_or_cracks": 7,
+          "damaged_or_aged_roof_shingles": 4,
+          "damaged_or_rotted_siding_or_trim": 1,
+          "damaged_or_unsafe_deck_or_porch": 3,
+          "damaged_soffit_or_porch_ceiling": 2,
+          "dated_fireplace_surround": 1,
+          "dated_interior_trim": 1,
+          "driveway_or_walkway_cracking": 6,
+          "exterior_door_paint_failure": 8,
+          "major_foundation_or_settlement_signs": 3,
+          "missing_or_damaged_handrails": 4,
+          "older_flooring_style": 1,
+          "outdated_kitchen_finishes": 13,
+          "patio_or_porch_surface_wear": 5,
+          "peeling_or_discolored_paint": 11,
+          "plumbing_fixture_leaking_stained": 2,
+          "popcorn_or_acoustic_ceiling_texture": 4,
+          "scratched_or_damaged_flooring": 8,
+          "trees_or_vegetation_too_close": 12,
+          "trip_hazard_or_unlevel_floor": 2,
+          "unfinished_interior_wall_osb_exposed": 2,
+          "visible_mold_or_mildew": 3,
+          "wall_scuffs_marks_or_dents": 3,
+          "water_stain_ceiling": 4,
+          "worn_or_stained_flooring": 1,
+          "worn_or_stained_vinyl_linoleum": 3
+        },
+        "candidate": {
+          "<missing>": 160,
+          "appliances_dated_or_basic": 7,
+          "appliances_worn_or_neglected": 1,
+          "baseboard_wear_scuffs": 3,
+          "brick_weathered_or_discolored": 8,
+          "cabinets_dated_style": 6,
+          "cabinets_worn_finish": 1,
+          "clogged_or_damaged_gutters": 2,
+          "concrete_driveway_surface_wear": 3,
+          "damaged_drywall_or_cracks": 10,
+          "damaged_or_rotted_siding_or_trim": 1,
+          "damaged_or_unsafe_deck_or_porch": 2,
+          "door_hardware_worn": 1,
+          "exterior_door_paint_failure": 11,
+          "exterior_siding_discoloration_fading": 5,
+          "hard_flooring_scratched_or_worn": 2,
+          "missing_or_damaged_handrails": 1,
+          "mortar_joints_deteriorated": 3,
+          "older_flooring_style": 10,
+          "outdated_kitchen_finishes": 8,
+          "patio_or_porch_surface_wear": 9,
+          "paving_cracked_or_settled": 8,
+          "peeling_or_discolored_paint": 10,
+          "plumbing_fixture_stained_or_corroded": 2,
+          "popcorn_or_acoustic_ceiling_texture": 5,
+          "retaining_wall_failure_or_missing_section": 1,
+          "roof_shingles_aged_or_worn": 6,
+          "standing_water_or_poor_grading": 1,
+          "trees_or_vegetation_too_close": 10,
+          "trip_hazard_or_unlevel_floor": 2,
+          "wall_scuffs_marks_or_dents": 4,
+          "water_stain_ceiling": 1,
+          "worn_or_stained_flooring": 9
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 166,
+          "upgrade": 47
+        },
+        "candidate": {
+          "defect": 42,
+          "degradation": 182,
+          "modernization": 89
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 248,
+        "candidate_issue_count": 368,
+        "delta_rate": 0.4838709677419355
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 28350,
+          "high": 94000
+        },
+        "candidate": {
+          "low": 44840,
+          "high": 131000
+        },
+        "low_delta_pct": 0.581657848324515,
+        "high_delta_pct": 0.39361702127659576
+      },
+      "package_selection": {
+        "baseline": [
+          "bedroom_repair__bedroom_1",
+          "exterior_repair__exterior_primary",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary",
+          "living_repair__living_room_primary"
+        ],
+        "candidate": [
+          "bedroom_modernization__bedroom_1",
+          "exterior_repair__exterior_primary",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary",
+          "living_repair__living_room_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 13,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 11,
+          "listing_kind_counts": {
+            "defect": 24,
+            "degradation": 93,
+            "modernization": 36
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_80990371",
+      "pass_2c_classification": {
+        "shared_descriptions": 0,
+        "changes": []
+      },
+      "unresolved": {
+        "baseline_count": 30,
+        "candidate_count": 77,
+        "baseline_rate": 0.24390243902439024,
+        "candidate_rate": 0.3888888888888889
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 30,
+          "baseboard_wear_scuffs": 2,
+          "boarded_up_entry_or_window": 3,
+          "brick_weathering_or_mortar_deterioration": 3,
+          "countertop_damage": 1,
+          "damaged_drywall_or_cracks": 7,
+          "damaged_or_aged_roof_shingles": 7,
+          "damaged_or_rotted_siding_or_trim": 1,
+          "damaged_or_unsafe_deck_or_porch": 2,
+          "dated_door_hardware": 1,
+          "dated_or_worn_vanity_countertop": 2,
+          "driveway_or_walkway_cracking": 5,
+          "exterior_siding_discoloration_fading": 1,
+          "floor_dirty_or_heavily_soiled": 2,
+          "older_flooring_style": 1,
+          "ornate_vintage_mirror": 1,
+          "outdated_bathroom_finishes": 5,
+          "outdated_kitchen_finishes": 5,
+          "outdated_or_damaged_cabinets": 3,
+          "outdated_or_damaged_vanity": 2,
+          "paint_refresh_recommended": 1,
+          "peeling_or_discolored_paint": 1,
+          "popcorn_or_acoustic_ceiling_texture": 1,
+          "roofline_water_damage_suspected": 1,
+          "scratched_or_damaged_flooring": 15,
+          "stained_or_damaged_bath_fixtures": 1,
+          "tile_or_grout_damage": 3,
+          "trees_or_vegetation_too_close": 2,
+          "uneven_gravel_drive_or_parking": 1,
+          "vanity_countertop_damage": 1,
+          "vintage_tile_pattern_style": 1,
+          "wall_scuffs_marks_or_dents": 7,
+          "water_stain_ceiling": 2,
+          "worn_or_stained_flooring": 2
+        },
+        "candidate": {
+          "<missing>": 77,
+          "baseboard_wear_scuffs": 7,
+          "bath_fixtures_stained_or_worn": 2,
+          "boarded_up_entry_or_window": 2,
+          "brick_weathered_or_discolored": 2,
+          "cabinets_damaged_or_water_stained": 1,
+          "cabinets_dated_style": 4,
+          "cabinets_worn_finish": 4,
+          "concrete_driveway_surface_wear": 3,
+          "damaged_drywall_or_cracks": 9,
+          "dated_interior_trim": 1,
+          "door_hardware_worn": 1,
+          "floor_dirty_or_heavily_soiled": 1,
+          "gutter_maintenance_needed": 1,
+          "hard_flooring_scratched_or_worn": 10,
+          "older_flooring_style": 5,
+          "outdated_bathroom_finishes": 6,
+          "outdated_kitchen_finishes": 5,
+          "paving_cracked_or_settled": 4,
+          "peeling_or_discolored_paint": 6,
+          "roof_shingles_aged_or_worn": 8,
+          "roof_shingles_missing_or_curling": 2,
+          "soffit_or_porch_ceiling_failed": 1,
+          "tile_or_grout_damage": 1,
+          "trees_or_vegetation_too_close": 1,
+          "trip_hazard_or_unlevel_floor": 2,
+          "vanity_countertop_dated": 2,
+          "vanity_dated_style": 2,
+          "vanity_worn_finish": 3,
+          "vintage_tile_pattern_style": 3,
+          "wall_scuffs_marks_or_dents": 15,
+          "worn_or_stained_flooring": 7
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 87,
+          "upgrade": 36
+        },
+        "candidate": {
+          "defect": 21,
+          "degradation": 113,
+          "modernization": 64
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 155,
+        "candidate_issue_count": 263,
+        "delta_rate": 0.6967741935483871
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 42843,
+          "high": 148995
+        },
+        "candidate": {
+          "low": 60488,
+          "high": 202178
+        },
+        "low_delta_pct": 0.41185257801741243,
+        "high_delta_pct": 0.3569448639216081
+      },
+      "package_selection": {
+        "baseline": [
+          "bathroom_modernization__bathroom_primary",
+          "bedroom_modernization__bedroom_2",
+          "bedroom_repair__bedroom_1",
+          "bedroom_repair__bedroom_2",
+          "exterior_repair__exterior_primary",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary",
+          "living_repair__living_room_primary"
+        ],
+        "candidate": [
+          "bathroom_modernization__bathroom_primary",
+          "bedroom_repair__bedroom_1",
+          "bedroom_repair__bedroom_2",
+          "bedroom_repair__damaged_drywall_or_cracks:catalogdamaged_drywall_or_cracksscene_groupbedroomroomcloset",
+          "bedroom_repair__hard_flooring_scratched_or_worn:cataloghard_flooring_scratched_or_wornscene_groupbedroomroomcloset",
+          "exterior_repair__exterior_primary",
+          "kitchen_modernization__kitchen_primary",
+          "living_modernization__living_room_primary",
+          "living_repair__dining_room_primary",
+          "living_repair__living_room_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 11,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 11,
+          "listing_kind_counts": {
+            "defect": 18,
+            "degradation": 75,
+            "modernization": 28
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    },
+    {
+      "property_key": "redfin_81000709",
+      "pass_2c_classification": {
+        "shared_descriptions": 0,
+        "changes": []
+      },
+      "unresolved": {
+        "baseline_count": 46,
+        "candidate_count": 123,
+        "baseline_rate": 0.42990654205607476,
+        "candidate_rate": 0.6758241758241759
+      },
+      "catalog_id_distribution": {
+        "baseline": {
+          "<missing>": 46,
+          "bare_or_missing_finish_flooring": 1,
+          "boarded_up_entry_or_window": 1,
+          "ceiling_cracks_or_sagging": 3,
+          "damaged_drywall_or_cracks": 9,
+          "damaged_or_aged_roof_shingles": 1,
+          "damaged_or_rotted_siding_or_trim": 2,
+          "damaged_soffit_or_porch_ceiling": 1,
+          "exterior_door_paint_failure": 1,
+          "floor_dirty_or_heavily_soiled": 1,
+          "older_flooring_style": 1,
+          "patio_or_porch_surface_wear": 2,
+          "popcorn_or_acoustic_ceiling_texture": 2,
+          "scratched_or_damaged_flooring": 2,
+          "unfinished_interior_wall_osb_exposed": 2,
+          "visible_mold_or_mildew": 1,
+          "wall_scuffs_marks_or_dents": 13,
+          "water_stain_ceiling": 13,
+          "worn_or_stained_vinyl_linoleum": 5
+        },
+        "candidate": {
+          "<missing>": 123,
+          "baseboard_wear_scuffs": 2,
+          "boarded_up_entry_or_window": 1,
+          "ceiling_cracks_or_sagging": 4,
+          "damaged_drywall_or_cracks": 5,
+          "damaged_or_unsafe_deck_or_porch": 1,
+          "dated_interior_doors": 1,
+          "deck_surface_weathering": 1,
+          "exterior_siding_discoloration_fading": 1,
+          "hard_flooring_scratched_or_worn": 4,
+          "interior_wall_stripped_to_studs": 1,
+          "older_flooring_style": 9,
+          "peeling_or_discolored_paint": 4,
+          "popcorn_or_acoustic_ceiling_texture": 4,
+          "roof_shingles_aged_or_worn": 2,
+          "unfinished_interior_wall_osb_exposed": 2,
+          "wall_scuffs_marks_or_dents": 7,
+          "worn_or_stained_carpet": 1,
+          "worn_or_stained_flooring": 9
+        }
+      },
+      "kind_distribution": {
+        "baseline": {
+          "defect": 89,
+          "upgrade": 18
+        },
+        "candidate": {
+          "defect": 28,
+          "degradation": 81,
+          "modernization": 73
+        }
+      },
+      "estimate_coverage": {
+        "baseline_issue_count": 127,
+        "candidate_issue_count": 209,
+        "delta_rate": 0.6456692913385826
+      },
+      "final_rehab": {
+        "baseline": {
+          "low": 22456,
+          "high": 110648
+        },
+        "candidate": {
+          "low": 19710,
+          "high": 92382
+        },
+        "low_delta_pct": -0.12228357677235482,
+        "high_delta_pct": -0.16508206203456005
+      },
+      "package_selection": {
+        "baseline": [
+          "bedroom_modernization__bedroom_1",
+          "bedroom_modernization__bedroom_3",
+          "bedroom_modernization__bedroom_4",
+          "bedroom_repair__bedroom_1",
+          "bedroom_repair__bedroom_4",
+          "exterior_repair__exterior_primary",
+          "living_repair__living_room_primary"
+        ],
+        "candidate": [
+          "bedroom_modernization__bedroom_1",
+          "bedroom_repair__bedroom_3",
+          "exterior_repair__exterior_primary",
+          "living_modernization__living_room_primary",
+          "living_repair__living_room_primary"
+        ]
+      },
+      "display_summary": {
+        "baseline": {
+          "version": "1.0",
+          "kind_counts": null,
+          "bucket_count": 8,
+          "listing_kind_counts": null
+        },
+        "candidate": {
+          "version": "2.0",
+          "kind_counts": null,
+          "bucket_count": 6,
+          "listing_kind_counts": {
+            "defect": 14,
+            "degradation": 31,
+            "modernization": 14
+          }
+        }
+      },
+      "stale_kinds": [],
+      "unresolved_successor_ids": []
+    }
+  ]
+}
