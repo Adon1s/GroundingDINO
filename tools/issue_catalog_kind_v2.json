@@ -1,5 +1,5 @@
 {
-  "version": "3.0",
+  "version": "3.1",
   "ontology_version": "observation-kind-v2",
   "publication_status": "publishable",
   "trade_buckets": [
@@ -2546,7 +2546,7 @@
       "severity": 3,
       "trade_bucket": "bathroom_fixtures_tile",
       "work_item_code": "FIXTURES_UPDATE",
-      "description": "Older tile, vanity, fixtures, or layout where an update would improve appeal.",
+      "description": "Older tile, vanity, or fixtures where an update would improve appeal.",
       "support_any": [
         "dated",
         "outdated",
@@ -5804,70 +5804,6 @@
       }
     },
     {
-      "name": "Layout Modernization Opportunity",
-      "category": "opportunity",
-      "severity": 3,
-      "trade_bucket": "foundation_structure",
-      "work_item_code": "LAYOUT_RECONFIGURE",
-      "description": "Interior layout suggests potential for modernization (e.g., opening walls, reconfiguring rooms) to improve flow and market appeal.",
-      "support_any": [
-        "dated layout",
-        "closed floor plan",
-        "compartmentalized",
-        "reconfigure",
-        "open concept",
-        "layout modernization",
-        "poor flow"
-      ],
-      "deny_any": [
-        "structural crack",
-        "foundation failure"
-      ],
-      "embed_text": "Layout modernization opportunity. Potential to open walls or reconfigure floor plan for improved flow and appeal.",
-      "kind": "modernization",
-      "id": "layout_modernization_opportunity",
-      "scope": "repair",
-      "defaultHidden": false,
-      "scene_groups": [
-        "kitchen",
-        "bathroom",
-        "bedroom",
-        "living_areas",
-        "utility",
-        "exterior",
-        "other"
-      ],
-      "tier": "optional",
-      "drop_if_generic": false,
-      "cost": {
-        "mode": "heuristic"
-      },
-      "require_any": [
-        "open up",
-        "open concept",
-        "open floor plan",
-        "open-concept",
-        "wall removal",
-        "remove wall",
-        "remove a wall",
-        "knock down",
-        "knock out",
-        "reconfigure",
-        "compartmentalized",
-        "closed floor plan",
-        "choppy layout",
-        "cramped layout",
-        "layout"
-      ],
-      "display_class": "marketability",
-      "package_role": "ignore",
-      "atomic_claim": {
-        "subject": "interior layout",
-        "state": "reconfiguration opportunity",
-        "ontology_basis": "discretionary_improvement"
-      }
-    },
-    {
       "name": "Exposed Sheathing or Missing Exterior Siding",
       "category": "exterior",
       "severity": 3,
@@ -7025,77 +6961,6 @@
         "subject": "bathroom wallpaper",
         "state": "dated wallpaper or borders",
         "ontology_basis": "dated_style"
-      }
-    },
-    {
-      "id": "bathroom_layout_modernization_opportunity",
-      "estimate_scope": "optional_value_add",
-      "estimate_scope_reason": "catalog_override_layout_redesign_optional",
-      "name": "Bathroom Layout Modernization Opportunity",
-      "category": "opportunity",
-      "severity": 3,
-      "trade_bucket": "bathroom_fixtures_tile",
-      "work_item_code": "BATHROOM_LAYOUT_REWORK",
-      "description": "Awkward or constrained bathroom layout where fixture relocation, vanity replacement, or broader redesign could improve function and appeal.",
-      "support_any": [
-        "awkward bathroom layout",
-        "cramped bathroom",
-        "corner toilet",
-        "no vanity",
-        "pedestal sink",
-        "fixture clearance",
-        "narrow bathroom",
-        "tight bathroom"
-      ],
-      "require_any": [
-        "awkward",
-        "cramped",
-        "corner toilet",
-        "no vanity",
-        "pedestal sink",
-        "fixture clearance",
-        "narrow bathroom",
-        "tight bathroom",
-        "wedge"
-      ],
-      "deny_any": [],
-      "embed_text": "Bathroom layout modernization opportunity. Awkward or constrained bathroom layout: corner toilet placement, narrow wedge bathroom, no vanity counter or only a pedestal sink in master, fixture clearance issues, tight shower-toilet sandwich. Layout reconfiguration or full bathroom redesign.",
-      "kind": "modernization",
-      "scope": "replace",
-      "defaultHidden": false,
-      "scene_groups": [
-        "bathroom"
-      ],
-      "tier": "work",
-      "drop_if_generic": false,
-      "cost": {
-        "mode": "allowance",
-        "base_low": 5000,
-        "base_high": 25000,
-        "per_occurrence_low": 4500,
-        "per_occurrence_high": 9000,
-        "cap_low": 15000,
-        "cap_high": 35000,
-        "cost_source": "manual"
-      },
-      "estimate": {
-        "estimate_tier": "high",
-        "strategy": "replace_only",
-        "group": "bathroom",
-        "stack_behavior": "group_cap",
-        "unit_policy": "per_bathroom"
-      },
-      "display_class": "marketability",
-      "package_affinity": {
-        "bathroom": {
-          "package_type": "bathroom_modernization",
-          "package_role": "package_support"
-        }
-      },
-      "atomic_claim": {
-        "subject": "bathroom layout",
-        "state": "awkward or constrained layout",
-        "ontology_basis": "discretionary_improvement"
       }
     },
     {

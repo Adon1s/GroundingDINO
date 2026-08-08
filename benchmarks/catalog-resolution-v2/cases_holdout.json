@@ -2,7 +2,7 @@
   "benchmark": "catalog-resolution-v2",
   "schema_version": 1,
   "slice": "holdout",
-  "status": "frozen-2026-08-05",
+  "status": "frozen-2026-08-08",
   "cases": [
     {
       "case_id": "res-cab-004",
@@ -880,26 +880,18 @@
     },
     {
       "case_id": "res-mod-010",
-      "family": "modernization_misc",
+      "family": "no_match",
       "paired_group": null,
-      "case_type": "resolution",
+      "case_type": "no_match",
       "scene": "living_room",
       "scene_group": "living_areas",
       "input": "The closed-off layout could be opened up between the rooms.",
       "kind": "modernization",
       "gold": {
-        "resolved_id": "layout_modernization_opportunity",
-        "acceptable_candidate_ids": [
-          "layout_modernization_opportunity"
-        ]
+        "resolved_id": null,
+        "acceptable_candidate_ids": []
       },
-      "legacy": {
-        "kind": "upgrade",
-        "resolved_id": "layout_modernization_opportunity",
-        "acceptable_candidate_ids": [
-          "layout_modernization_opportunity"
-        ]
-      }
+      "legacy": null
     },
     {
       "case_id": "res-deg-006",
@@ -1277,6 +1269,66 @@
       "legacy": null
     },
     {
+      "case_id": "res-nm-005",
+      "family": "no_match",
+      "paired_group": null,
+      "case_type": "no_match",
+      "scene": "bathroom",
+      "scene_group": "bathroom",
+      "input": "The bathroom layout is tight, with very little clearance between the toilet and the vanity.",
+      "kind": "modernization",
+      "gold": {
+        "resolved_id": null,
+        "acceptable_candidate_ids": []
+      },
+      "legacy": null
+    },
+    {
+      "case_id": "res-nm-006",
+      "family": "no_match",
+      "paired_group": null,
+      "case_type": "no_match",
+      "scene": "kitchen",
+      "scene_group": "kitchen",
+      "input": "The kitchen work triangle is inefficient, with the refrigerator placed far from the sink and stove.",
+      "kind": "modernization",
+      "gold": {
+        "resolved_id": null,
+        "acceptable_candidate_ids": []
+      },
+      "legacy": null
+    },
+    {
+      "case_id": "res-nm-007",
+      "family": "no_match",
+      "paired_group": null,
+      "case_type": "no_match",
+      "scene": "bedroom",
+      "scene_group": "bedroom",
+      "input": "The bedroom is small and feels cramped, with limited room for furniture.",
+      "kind": "modernization",
+      "gold": {
+        "resolved_id": null,
+        "acceptable_candidate_ids": []
+      },
+      "legacy": null
+    },
+    {
+      "case_id": "res-nm-008",
+      "family": "no_match",
+      "paired_group": null,
+      "case_type": "no_match",
+      "scene": "living_room",
+      "scene_group": "living_areas",
+      "input": "Circulation through the living area is awkward, with a narrow path between the fireplace and the stairs.",
+      "kind": "modernization",
+      "gold": {
+        "resolved_id": null,
+        "acceptable_candidate_ids": []
+      },
+      "legacy": null
+    },
+    {
       "case_id": "res-inv-002",
       "family": "probe",
       "paired_group": null,
@@ -1322,5 +1374,5 @@
       "legacy": null
     }
   ],
-  "case_fingerprint": "1a8b99145881bcaf99aca48d818868848c9dd27907859c650ed43ee24dc2910e"
+  "case_fingerprint": "01e3b157f8b553bbc2492de50097b7198bc9d0327a9c7615afb7ebd4000219ff"
 }

@@ -69,7 +69,7 @@ def _minimal_v2_catalog(item_overrides=None, root_overrides=None):
     }
     item.update(item_overrides or {})
     catalog = {
-        "version": "3.0",
+        "version": "3.1",
         "ontology_version": ONTOLOGY_VERSION,
         "publication_status": "blocked_pending_pricing",
         "trade_buckets": [{"id": "flooring", "name": "Flooring"}],
@@ -87,7 +87,7 @@ def test_shipped_v2_catalog_has_no_errors(v2_catalog):
 
 
 def test_shipped_v2_root_metadata(v2_catalog):
-    assert v2_catalog["version"] == "3.0"
+    assert v2_catalog["version"] == "3.1"
     assert v2_catalog["ontology_version"] == ONTOLOGY_VERSION
     assert v2_catalog["publication_status"] == "publishable"
 
@@ -239,7 +239,7 @@ def test_v2_unknown_pricing_status_errors():
 
 def test_v2_bad_root_metadata_errors():
     result = validate_issue_catalog(_minimal_v2_catalog(root_overrides={"version": "2.9"}))
-    assert any("must be '3.0'" in e for e in result.errors)
+    assert any("must be '3.1'" in e for e in result.errors)
     result = validate_issue_catalog(
         _minimal_v2_catalog(root_overrides={"publication_status": "shippable"})
     )

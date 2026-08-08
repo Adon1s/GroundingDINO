@@ -130,10 +130,14 @@ probably wrong and belongs back in Pause A.
 | res-mod-007 | modernization | `staging_or_decluttering_opportunity` |  | The room is cluttered with personal belongings throughout. |
 | res-mod-008 | modernization | `dated_wallpaper_present` |  | Busy patterned wallpaper covers the kitchen walls. |
 | res-mod-009 | modernization | `outdated_kitchen_finishes` |  | The kitchen finishes overall feel out of date. |
-| res-mod-010 | modernization | `layout_modernization_opportunity` |  | The closed-off layout could be opened up between the rooms. |
+| res-mod-010 | modernization (no_match) | `_(none)_` | re-golded 2026-08-08: `layout_modernization_opportunity` retired in catalog 3.1 (layout claims must not price) | The closed-off layout could be opened up between the rooms. |
 | res-moi-003 | defect | `active_water_damage_bathroom` |  | There is standing water on the bathroom floor and the drywall is wet. |
 | res-nm-003 | degradation (no_match) | `_(none)_` |  | The mailbox post at the street leans slightly. |
 | res-nm-004 | defect (no_match) | `_(none)_` |  | A parked vehicle blocks the view of the lower wall. |
+| res-nm-005 | modernization (no_match) | `_(none)_` | layout hard negative (catalog 3.1) | The bathroom layout is tight, with very little clearance between the toilet and the vanity. |
+| res-nm-006 | modernization (no_match) | `_(none)_` | layout hard negative (catalog 3.1) | The kitchen work triangle is inefficient, with the refrigerator placed far from the sink and stove. |
+| res-nm-007 | modernization (no_match) | `_(none)_` | layout hard negative (catalog 3.1) | The bedroom is small and feels cramped, with limited room for furniture. |
+| res-nm-008 | modernization (no_match) | `_(none)_` | layout hard negative (catalog 3.1) | Circulation through the living area is awkward, with a narrow path between the fireplace and the stairs. |
 | res-plm-003 | defect | `bathroom_plumbing_visible_issue` |  | The shutoff valve under the bathroom sink is leaking onto the cabinet floor. |
 | res-pnt-005 | modernization | `bathroom_paint_refresh_recommended` |  | Bathroom paint is sound but the color reads dull and dated. |
 | res-roof-003 | defect | `roofline_water_damage_suspected` |  | Brown water staining runs along the fascia below the gutter line. |

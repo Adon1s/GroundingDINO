@@ -60,7 +60,7 @@ VALID_KINDS_V2 = OBSERVATION_KINDS
 # v2 root metadata vocabulary. The writer guard (artifact_writers) treats any
 # non-"publishable" status as blocked; the validator pins the enum.
 VALID_PUBLICATION_STATUSES = frozenset({"blocked_pending_pricing", "publishable"})
-V2_CATALOG_VERSION = "3.0"
+V2_CATALOG_VERSION = "3.1"
 
 # Fields that carry economic behavior. Split successors inherit them verbatim
 # from their v1 parent (pricing_status == "inherited_from_split_parent" — the
@@ -80,7 +80,7 @@ ECONOMIC_FIELDS = (
 PRICING_STATUS_INHERITED = "inherited_from_split_parent"
 VALID_PRICING_STATUSES = frozenset({PRICING_STATUS_INHERITED})
 
-VALID_CHANGE_TYPES = frozenset({"unchanged", "reclassified", "narrowed", "split"})
+VALID_CHANGE_TYPES = frozenset({"unchanged", "reclassified", "narrowed", "split", "retired"})
 
 VALID_SCOPES = frozenset({"repair", "replace", "cosmetic", "service"})
 VALID_ITEM_TIERS = frozenset({"work", "optional"})
@@ -513,6 +513,11 @@ def validate_migration_manifest(
                 result.errors.append(f"{label}: split entry needs >= 2 successors")
             if entry.get("deprecated") is not True:
                 result.errors.append(f"{label}: split parent must be deprecated")
+        elif change_type == "retired":
+            if successors:
+                result.errors.append(f"{label}: retired entry must have no successors")
+            if entry.get("deprecated") is not True:
+                result.errors.append(f"{label}: retired entry must be deprecated")
         else:
             if len(successors) != 1 or successors[0].get("id") != legacy_id:
                 result.errors.append(
@@ -543,7 +548,7 @@ def validate_migration_manifest(
             if succ.get("kind") != v1_item.get("kind"):
                 kind_changed = True
 
-        must_re_resolve = change_type == "split" or kind_changed
+        must_re_resolve = change_type in ("split", "retired") or kind_changed
         if bool(entry.get("requires_re_resolution")) != must_re_resolve:
             result.errors.append(
                 f"{label}: requires_re_resolution must be {must_re_resolve} "

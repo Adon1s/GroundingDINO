@@ -1,4 +1,6 @@
 {
+  "catalog_version_v2": "3.1",
+  "catalog_version_v2_note": "3.1 (2026-08-08): retired bathroom_layout_modernization_opportunity and layout_modernization_opportunity — layout claims must not price (pre-cutover blocker, docs/HANDOFF_layout_item_audit.md). Canary deltas re-measured for the 5 affected candidate properties under 3.1.",
   "rollout": {
     "default": "legacy_v1",
     "production_switch": "KIND_ONTOLOGY_VERSION=observation_kind_v2",

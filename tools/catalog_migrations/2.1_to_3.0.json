@@ -1,7 +1,7 @@
 {
   "migration": "2.1_to_3.0",
   "source_version": "2.1",
-  "target_version": "3.0",
+  "target_version": "3.1",
   "ontology_version": "observation-kind-v2",
   "audit_only": true,
   "note": "Audit record of the v1->v2 kind migration. NOT a runtime alias table: historical artifacts are migrated by re-resolution (Task 4B), never aliased in place.",
@@ -1784,21 +1784,15 @@
     {
       "legacy_id": "layout_modernization_opportunity",
       "legacy_kind": "upgrade",
-      "change_type": "reclassified",
-      "deprecated": false,
+      "change_type": "retired",
+      "deprecated": true,
       "requires_re_resolution": true,
-      "successors": [
-        {
-          "id": "layout_modernization_opportunity",
-          "kind": "modernization"
-        }
-      ],
-      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "successors": [],
+      "atomicity_rationale": "Retired in catalog 3.1 (2026-08-08): prices a layout/spatial observation (floor-plan flow, wall openings, reconfiguration), not an observable renovation concept. Task 4A canary delta review ruling: layout claims must not price. No successor — the concept leaves the catalog.",
       "expected_effects": {
-        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
-        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
-        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
-        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+        "routing": "no v2 retrieval candidate; layout observations go unresolved instead of resolving to a priced item",
+        "pricing": "removes the heuristic layout line item from candidate estimates",
+        "publication": "publication gate rejects any artifact still carrying the id; historical artifacts carrying it need re-analysis"
       }
     },
     {
@@ -2219,21 +2213,15 @@
     {
       "legacy_id": "bathroom_layout_modernization_opportunity",
       "legacy_kind": "upgrade",
-      "change_type": "reclassified",
-      "deprecated": false,
+      "change_type": "retired",
+      "deprecated": true,
       "requires_re_resolution": true,
-      "successors": [
-        {
-          "id": "bathroom_layout_modernization_opportunity",
-          "kind": "modernization"
-        }
-      ],
-      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "successors": [],
+      "atomicity_rationale": "Retired in catalog 3.1 (2026-08-08): prices layout/spatial observations (tight layout, fixture placement, clearance) at $5,000-$25,000 per bathroom, not an observable renovation concept. Task 4A canary delta review ruling: layout claims must not price — this item was the largest driver of the unapproved headline-delta breaches. No successor — the concept leaves the catalog.",
       "expected_effects": {
-        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
-        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
-        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
-        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+        "routing": "no v2 retrieval candidate; bathroom layout observations go unresolved instead of resolving to a priced item",
+        "pricing": "removes the $5,000-$25,000 per-bathroom allowance from candidate estimates (5 of 18 canary properties)",
+        "publication": "publication gate rejects any artifact still carrying the id; historical artifacts carrying it need re-analysis"
       }
     },
     {

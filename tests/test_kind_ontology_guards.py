@@ -171,7 +171,7 @@ def _v2_payload(v2_catalog, issue_overrides=None, **root_overrides):
     issue.update(issue_overrides or {})
     payload = {
         "ontology_version": ONTOLOGY_VERSION,
-        "catalog_version": "3.0",
+        "catalog_version": str(v2_catalog["version"]),
         "issues_flat": [issue],
     }
     payload.update(root_overrides)
@@ -196,6 +196,15 @@ def test_gate_rejects_deprecated_split_parent(v2_catalog):
     with pytest.raises(RuntimeError, match="deprecated split parent") as exc:
         validate_publication_payload(payload, v2_catalog)
     assert "soffit_or_porch_ceiling_failed" in str(exc.value)
+
+
+def test_gate_rejects_retired_item(v2_catalog):
+    payload = _v2_payload(v2_catalog, issue_overrides={
+        "catalog_item_id": "bathroom_layout_modernization_opportunity",
+        "catalog_item_kind": "modernization",
+    })
+    with pytest.raises(RuntimeError, match="retired catalog id"):
+        validate_publication_payload(payload, v2_catalog)
 
 
 def test_gate_rejects_unknown_catalog_id(v2_catalog):
@@ -260,10 +269,12 @@ def test_gate_rejects_v2_kind_against_v1_catalog(v1_catalog):
         validate_publication_payload(payload, v1_catalog)
 
 
-def test_deprecated_legacy_ids_are_the_split_parents():
+def test_deprecated_legacy_ids_are_the_split_parents_and_retired_items():
     ids = deprecated_legacy_ids()
-    assert len(ids) == 19
+    assert len(ids) == 21  # 19 split parents + 2 retired layout items (catalog 3.1)
     assert "damaged_soffit_or_porch_ceiling" in ids
+    assert "bathroom_layout_modernization_opportunity" in ids
+    assert "layout_modernization_opportunity" in ids
 
 
 def test_load_issue_catalog_passes_root_metadata_through(tmp_path):

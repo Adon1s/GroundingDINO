@@ -141,9 +141,15 @@ def validate_publication_payload(
             if not item_id:
                 continue
             if item_id in deprecated:
+                succ_ids = list(successors.get(item_id, ()))
+                detail = (
+                    f"resolves to deprecated split parent {item_id!r}; "
+                    f"its successors are {succ_ids}"
+                    if succ_ids
+                    else f"resolves to retired catalog id {item_id!r}, which has no successor"
+                )
                 _reject(
-                    f"{label} resolves to deprecated split parent {item_id!r}; "
-                    f"its successors are {list(successors.get(item_id, ()))}. "
+                    f"{label} {detail}. "
                     "A current run must never emit a deprecated legacy id."
                 )
             item = items_by_id.get(item_id)

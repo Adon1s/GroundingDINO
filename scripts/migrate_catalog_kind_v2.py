@@ -4,7 +4,7 @@ Deterministic, byte-stable transformation:
 
     tools/issue_catalog.json  (v1, untouched)
   + tools/catalog_migrations/kind_v2_decisions.json  (the reviewable source of truth)
-  ->  tools/issue_catalog_kind_v2.json               (catalog version 3.0, publishable)
+  ->  tools/issue_catalog_kind_v2.json               (catalog version 3.1, publishable)
       tools/catalog_migrations/2.1_to_3.0.json       (audit-only manifest, one entry per legacy id)
       tools/catalog_migrations/2.1_to_3.0_audit.md   (generated audit report)
 
@@ -43,7 +43,7 @@ V2_PATH = ROOT / "tools" / "issue_catalog_kind_v2.json"
 MANIFEST_PATH = ROOT / "tools" / "catalog_migrations" / "2.1_to_3.0.json"
 AUDIT_PATH = ROOT / "tools" / "catalog_migrations" / "2.1_to_3.0_audit.md"
 
-TARGET_VERSION = "3.0"
+TARGET_VERSION = "3.1"
 PUBLICATION_STATUS = "publishable"
 
 # The one pricing policy generate() accepts from the decisions file. Split
@@ -232,7 +232,7 @@ def render_audit(catalog: dict, manifest: dict, decisions: dict) -> str:
         f"- v2 items: {len(catalog['items'])} "
         f"({v2_kinds['defect']} defect / {v2_kinds['degradation']} degradation / {v2_kinds['modernization']} modernization)",
         f"- Dispositions: {ct['unchanged']} unchanged, {ct['reclassified']} reclassified, "
-        f"{ct['narrowed']} narrowed, {ct['split']} split",
+        f"{ct['narrowed']} narrowed, {ct['split']} split, {ct['retired']} retired",
         f"- Split successors with inherited v1 parent economics: {len(inherited)}",
         f"- Merges: 0 (no legacy concepts were combined)",
         "",
@@ -247,6 +247,15 @@ def render_audit(catalog: dict, manifest: dict, decisions: dict) -> str:
             f"| {e['legacy_id']} | {e['legacy_kind']} | {e['change_type']} | {succ} | "
             f"{'yes' if e['requires_re_resolution'] else 'no'} |"
         )
+
+    retired = [e for e in entries if e["change_type"] == "retired"]
+    if retired:
+        lines += ["", "## Retired (no successor — the concept leaves the catalog)", ""]
+        for e in retired:
+            lines.append(f"### {e['legacy_id']} ({e['legacy_kind']}, deprecated)")
+            lines.append("")
+            lines.append(e["atomicity_rationale"])
+            lines.append("")
 
     lines += ["", "## Splits", ""]
     for e in entries:
