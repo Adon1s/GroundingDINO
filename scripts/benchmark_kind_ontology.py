@@ -668,7 +668,7 @@ def write_report(report: Dict[str, Any], out_dir: Path) -> Path:
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--contract", choices=("v2", "v1-baseline"), default="v2")
-    parser.add_argument("--cases", choices=("dev", "holdout"), required=True)
+    parser.add_argument("--cases", choices=("dev", "holdout", "boundary"), required=True)
     parser.add_argument("--model-config", required=True, help="Path to an explicit model config JSON")
     parser.add_argument("--repeats", type=int, default=5)
     parser.add_argument("--out-dir", default=None, help="Report directory (default: results/<auto>)")
