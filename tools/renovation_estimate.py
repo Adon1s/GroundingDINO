@@ -78,6 +78,7 @@ class CatalogEstimateMeta:
     unit_policy: EstimateUnitPolicy = "per_scope"
     affects_estimate: bool = False
     requires_2f_for_estimate: bool = False
+    min_photo_evidence: int = 0
 
 
 ESTIMATE_DEFAULTS = CatalogEstimateMeta()
@@ -110,6 +111,11 @@ def resolve_estimate_meta(raw: Optional[Dict[str, Any]]) -> CatalogEstimateMeta:
     unit_policy = raw.get("unit_policy", "per_scope")
     if unit_policy not in _VALID_UNIT_POLICIES:
         unit_policy = "per_scope"
+    min_photo_evidence = raw.get("min_photo_evidence")
+    if not isinstance(min_photo_evidence, int) or isinstance(min_photo_evidence, bool) \
+            or min_photo_evidence < 0:
+        # Opt-in, like the 2f guard: only an explicit non-negative int gates.
+        min_photo_evidence = 0
     return CatalogEstimateMeta(
         estimate_tier=tier,
         strategy=raw.get("strategy", "repair_only"),
@@ -118,6 +124,7 @@ def resolve_estimate_meta(raw: Optional[Dict[str, Any]]) -> CatalogEstimateMeta:
         unit_policy=unit_policy,
         affects_estimate=bool(affects_estimate),
         requires_2f_for_estimate=bool(requires_2f),
+        min_photo_evidence=min_photo_evidence,
     )
 
 
@@ -133,7 +140,7 @@ def resolve_catalog_estimate_meta(item: Dict[str, Any]) -> CatalogEstimateMeta:
         raw = dict(raw_estimate)
     else:
         raw = {}
-    for field_name in ("affects_estimate", "requires_2f_for_estimate"):
+    for field_name in ("affects_estimate", "requires_2f_for_estimate", "min_photo_evidence"):
         if field_name in item and field_name not in raw:
             raw[field_name] = item[field_name]
     return resolve_estimate_meta(raw or None)
@@ -147,7 +154,7 @@ _resolve_catalog_estimate_meta = resolve_catalog_estimate_meta
 # Estimate verification guard — gives requires_2f_for_estimate a consumer
 # ═══════════════════════════════════════════════════════════════════════════════
 
-ESTIMATE_GUARD_POLICY_VERSION = "requires_2f_guard_v1"
+ESTIMATE_GUARD_POLICY_VERSION = "estimate_guard_v2"
 
 # Why a candidate may (or may not) carry dollars into the headline.
 ESTIMATE_VERIFICATION_NOT_REQUIRED = "not_required"
@@ -155,8 +162,10 @@ ESTIMATE_VERIFICATION_CONFIRMED = "confirmed"
 ESTIMATE_VERIFICATION_CONFIRMED_BY_RULE = "confirmed_by_rule"
 ESTIMATE_VERIFICATION_UNCONFIRMED = "unconfirmed"
 ESTIMATE_VERIFICATION_INVALIDATED = "invalidated"
+ESTIMATE_VERIFICATION_INSUFFICIENT_EVIDENCE = "insufficient_evidence"
 
 WITHHELD_REASON_REQUIRES_2F = "requires_2f_confirmation"
+WITHHELD_REASON_INSUFFICIENT_PHOTO_EVIDENCE = "insufficient_photo_evidence"
 
 # Mirror of rehab_packages.PACKAGE_VERIFICATION_CONFIRMED_BY_RULE. That module
 # imports EstimateCandidate from here, so importing the constant back would be
@@ -170,16 +179,22 @@ def classify_estimate_verification(candidate: "EstimateCandidate") -> str:
     Precedence matters:
       1. An invalidated detection stays invalidated — it keeps the existing
          zero-dollar behaviour rather than moving into the withheld lane.
-      2. A catalog item that opts out of confirmation always prices.
-      3. ``pass_2f_applied`` covers both the active-confirmed-package path and
+      2. Too few distinct supporting photos withholds regardless of Pass 2f:
+         a 2f-confirmed one-photo finding is still single-view evidence.
+      3. A catalog item that opts out of confirmation always prices.
+      4. ``pass_2f_applied`` covers both the active-confirmed-package path and
          the case where 2f rejected the bundle but confirmed this issue.
-      4. A rule-confirmed package keeps its members priced, but they are never
+      5. A rule-confirmed package keeps its members priced, but they are never
          labelled image-validated (``pass_2f_applied`` stays False there).
-      5. Everything else requires confirmation and has not received it.
+      6. Everything else requires confirmation and has not received it.
     """
     if candidate.is_valid_detection is False:
         return ESTIMATE_VERIFICATION_INVALIDATED
-    if not candidate.estimate_meta.requires_2f_for_estimate:
+    meta = candidate.estimate_meta
+    if meta.min_photo_evidence > 0 \
+            and candidate.distinct_photo_count < meta.min_photo_evidence:
+        return ESTIMATE_VERIFICATION_INSUFFICIENT_EVIDENCE
+    if not meta.requires_2f_for_estimate:
         return ESTIMATE_VERIFICATION_NOT_REQUIRED
     if candidate.pass_2f_applied and candidate.is_valid_detection is True:
         return ESTIMATE_VERIFICATION_CONFIRMED
@@ -935,7 +950,10 @@ def partition_withheld_candidates(
     withheld: List[EstimateCandidate] = []
     for candidate in candidates:
         candidate.estimate_verification_status = classify_estimate_verification(candidate)
-        if candidate.estimate_verification_status == ESTIMATE_VERIFICATION_UNCONFIRMED:
+        if candidate.estimate_verification_status in (
+            ESTIMATE_VERIFICATION_UNCONFIRMED,
+            ESTIMATE_VERIFICATION_INSUFFICIENT_EVIDENCE,
+        ):
             withheld.append(candidate)
         else:
             priced.append(candidate)
@@ -956,7 +974,11 @@ def build_withheld_estimate(
     for candidate in withheld:
         line_item = _build_line_item(candidate)
         line_item["estimate_eligible"] = False
-        line_item["withheld_reason"] = WITHHELD_REASON_REQUIRES_2F
+        if (candidate.estimate_verification_status
+                == ESTIMATE_VERIFICATION_INSUFFICIENT_EVIDENCE):
+            line_item["withheld_reason"] = WITHHELD_REASON_INSUFFICIENT_PHOTO_EVIDENCE
+        else:
+            line_item["withheld_reason"] = WITHHELD_REASON_REQUIRES_2F
         line_items.append(line_item)
     return {
         "policy_version": ESTIMATE_GUARD_POLICY_VERSION,

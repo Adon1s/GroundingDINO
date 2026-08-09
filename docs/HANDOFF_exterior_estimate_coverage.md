@@ -203,7 +203,19 @@ collides with the `tests/` copy under a bare root collection in a clean checkout
 benchmark/model-comparison tests fail at `HEAD` (they pass in the working tree, which has newer
 config). Neither is touched by this work.
 
-## NEXT: the evidence-sufficiency gate (`min_photo_evidence`)
+## LANDED 2026-08-08: the evidence-sufficiency gate (`min_photo_evidence`)
+
+**Status: implemented**, with a narrower scope than step 4 below proposed. Gated at
+`min_photo_evidence: 2`: `damaged_or_aged_roof_shingles`, `roofline_water_damage_suspected`,
+`clogged_or_damaged_gutters`, `driveway_or_walkway_cracking`. `standing_water_or_poor_grading`,
+`trees_or_vegetation_too_close`, and the rest of population (a) are a possible follow-up.
+Precedence: `invalidated` outranks the photo gate; the photo gate outranks the whole 2f chain
+(2f confirmation cannot rescue a one-photo finding, photos cannot bypass `requires_2f`).
+`ESTIMATE_GUARD_POLICY_VERSION` is now `estimate_guard_v2`; the withheld lane stamps
+`withheld_reason` per line item (`insufficient_photo_evidence` vs `requires_2f_confirmation`).
+The v2 catalog inherits the gate through `scripts/migrate_catalog_kind_v2.py` regeneration,
+including the split successors (`roof_shingles_*`, `paving_*`). Tests:
+`tests/test_min_photo_evidence_gate.py`. The section below is kept as the design record.
 
 This is the second half of the same problem, not a separate project. It is the highest-value
 remaining work in this area and should be done before anything else here.
