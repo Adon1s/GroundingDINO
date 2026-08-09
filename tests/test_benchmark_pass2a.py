@@ -525,6 +525,10 @@ def test_config_routes_terra_low_and_disables_2f():
     assert config["pass_toggles"] == {"2f": False}
     assert config["judge"]["model"] == "gpt-5.6-sol"
     assert config["repeats"] == 3
+    # Raised caps apply to every variant identically (checklist output
+    # overflowed the production 2000-token cap).
+    assert set(config["openai_max_output_tokens"]) == {"2a", "2b", "2c"}
+    assert all(int(v) >= 8000 for v in config["openai_max_output_tokens"].values())
 
 
 # ---------------------------------------------------------------------------

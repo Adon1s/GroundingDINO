@@ -18,6 +18,12 @@
   "pass_toggles": {
     "2f": false
   },
+  "openai_max_output_tokens_note": "Inventory-framed 2a output overflows the production 2000-token cap (checklist rep1 hit status=incomplete on photo_004); raised for 2a/2b/2c across ALL variants. Baseline outputs completed untruncated under 2000, so the higher cap cannot change them.",
+  "openai_max_output_tokens": {
+    "2a": 8000,
+    "2b": 8000,
+    "2c": 8000
+  },
   "judge": {
     "model": "gpt-5.6-sol",
     "reasoning_effort": "medium",

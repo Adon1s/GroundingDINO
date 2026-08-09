@@ -80,6 +80,14 @@ def _setup_env() -> None:
     os.environ.pop("ARTIFACTS_ROOT", None)
     os.environ.pop("ISSUE_CATALOG_PATH", None)
     os.environ["KIND_ONTOLOGY_VERSION"] = "observation_kind_v2"
+    # Per-pass output caps must be exported BEFORE tools.pipeline_config is
+    # imported (it snapshots the env at import time). Inventory-framed 2a
+    # wording overflows the production 2000-token cap.
+    if CONFIG_PATH.is_file():
+        caps = json.loads(CONFIG_PATH.read_text(encoding="utf-8")).get(
+            "openai_max_output_tokens") or {}
+        for pass_key, cap in caps.items():
+            os.environ[f"OPENAI_PASS_{pass_key.upper()}_MAX_TOKENS"] = str(int(cap))
     if str(ROOT) not in sys.path:
         sys.path.insert(0, str(ROOT))
     _ENV_READY = True
@@ -171,6 +179,7 @@ def compute_fingerprint(
         "model_overrides": config["model_overrides"],
         "reasoning_efforts": config["reasoning_efforts"],
         "pass_toggles": config["pass_toggles"],
+        "openai_max_output_tokens": config.get("openai_max_output_tokens") or {},
         "catalog_sha256": sha256_file(Path(cfg.ISSUE_CATALOG_PATH)),
         "embeddings_model": cfg.EMBEDDINGS_MODEL_NAME,
         "pipeline_mode": "publish",
