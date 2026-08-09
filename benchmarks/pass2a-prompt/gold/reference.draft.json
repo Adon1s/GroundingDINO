@@ -1,7 +1,7 @@
 {
-  "note": "DRAFT v2 (merged): Claude draft cross-checked against an independent Sol draft; disagreements adjudicated with Steven 2026-08-09. Presence-only rewrites rejected; causal-inference wording stripped; material claims neutralized. Awaiting Steven's final read, then frozen to reference.json.",
+  "note": "DRAFT v3: Sol cross-check applied in full per Steven's adjudication 2026-08-09 (incl. tape reading, fan-blade row, presence rewrites, furnace deletion); Claude's uncontested stairwell-ceiling addition retained. Awaiting freeze.",
   "drafted_at": "2026-08-08",
-  "status": "draft_v2_awaiting_final_read",
+  "status": "draft_v3_awaiting_freeze",
   "photos": {
     "redfin_11000447/photo_001.jpg": [
       {
@@ -14,7 +14,7 @@
       },
       {
         "gold_id": "g3",
-        "condition": "Security-bar storm door on the entry is dated and worn"
+        "condition": "Front entry has a prominent metal security-bar door"
       },
       {
         "gold_id": "g4",
@@ -204,7 +204,7 @@
       },
       {
         "gold_id": "g6",
-        "condition": "Old round ceiling fixture/vent is dated"
+        "condition": "Ceiling fan blades show substantial scuffing and finish loss"
       },
       {
         "gold_id": "g7",
@@ -226,7 +226,7 @@
       },
       {
         "gold_id": "g4",
-        "condition": "Abandoned metal bracket/hardware remains mounted high on the wall with exposed screws"
+        "condition": "A rough rectangular wall opening or former fixture location is covered with black tape high on the left wall"
       },
       {
         "gold_id": "g5",
@@ -298,7 +298,7 @@
       },
       {
         "gold_id": "g3",
-        "condition": "Security bars on the front windows are dated"
+        "condition": "Front porch and window openings have prominent metal security bars or grilles"
       },
       {
         "gold_id": "g4",
@@ -440,7 +440,7 @@
       },
       {
         "gold_id": "g5",
-        "condition": "Cultured-marble vanity top and chrome faucet are dated"
+        "condition": "Vanity has a basic white sink and chrome faucet"
       },
       {
         "gold_id": "g6",
@@ -463,10 +463,6 @@
       {
         "gold_id": "g3",
         "condition": "Cords/wiring are strung across the ceiling (surface-run)"
-      },
-      {
-        "gold_id": "g4",
-        "condition": "Gas furnace and galvanized plenum appear older/aged"
       },
       {
         "gold_id": "g5",
