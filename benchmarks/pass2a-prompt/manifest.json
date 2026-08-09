@@ -123,5 +123,7 @@
       "source_catalog_version": "3.1",
       "source_run_dir": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\candidate\\redfin_11000447\\20260808_085243_19c4a4d0"
     }
-  }
+  },
+  "gold_sha256": "253075132988ac2a1abbdb6e0815c1bd75e89d9ad982e745ddb9ce5a9f424543",
+  "gold_frozen_at": "2026-08-09T20:19:43.081761+00:00"
 }

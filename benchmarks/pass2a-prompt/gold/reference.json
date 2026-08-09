@@ -1,7 +1,7 @@
 {
-  "note": "DRAFT v3: Sol cross-check applied in full per Steven's adjudication 2026-08-09 (incl. tape reading, fan-blade row, presence rewrites, furnace deletion); Claude's uncontested stairwell-ceiling addition retained. Awaiting freeze.",
-  "drafted_at": "2026-08-08",
-  "status": "superseded_by_frozen_reference",
+  "note": "FROZEN human gold for the Pass 2a prompt ablation. Authored from photos only: Claude draft + independent Sol cross-check, disagreements adjudicated and finalized by Steven 2026-08-09. Known caveat: basement photos (redfin_10806500 photo_003/007) include technically-true conditions that are normal-for-context; kept intact per Steven, context weighting tracked as a separate task.",
+  "frozen_at": "2026-08-09T20:19:43.081761+00:00",
+  "status": "frozen",
   "photos": {
     "redfin_11000447/photo_001.jpg": [
       {
