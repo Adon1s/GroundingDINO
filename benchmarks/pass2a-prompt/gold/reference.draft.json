@@ -1,152 +1,493 @@
 {
-  "note": "DRAFT human-gold visible-condition list for the Pass 2a prompt ablation. Drafted by Claude from the photos only (no model outputs viewed). Steven: edit/delete/add rows, then approve; the approved file is copied to reference.json and its SHA recorded before any variant results are examined. Each row is ONE visible, renovation-relevant condition; no hidden-system inference, no repair advice.",
+  "note": "DRAFT v2 (merged): Claude draft cross-checked against an independent Sol draft; disagreements adjudicated with Steven 2026-08-09. Presence-only rewrites rejected; causal-inference wording stripped; material claims neutralized. Awaiting Steven's final read, then frozen to reference.json.",
   "drafted_at": "2026-08-08",
-  "status": "draft_awaiting_steven_review",
+  "status": "draft_v2_awaiting_final_read",
   "photos": {
     "redfin_11000447/photo_001.jpg": [
-      {"gold_id": "g1", "condition": "Front concrete steps are worn and patched with visible cracking"},
-      {"gold_id": "g2", "condition": "Public sidewalk in front is cracked and uneven"},
-      {"gold_id": "g3", "condition": "Security-bar storm door on the entry is dated and worn"},
-      {"gold_id": "g4", "condition": "Windows are mismatched in age and style; sashes and frames show aging"},
-      {"gold_id": "g5", "condition": "Basement window openings are covered with worn metal grates"},
-      {"gold_id": "g6", "condition": "Cornice and upper trim show weathering and paint wear"},
-      {"gold_id": "g7", "condition": "Entry door and surround are dated with worn finish"}
+      {
+        "gold_id": "g1",
+        "condition": "Front concrete steps are worn and patched with visible cracking"
+      },
+      {
+        "gold_id": "g2",
+        "condition": "Public sidewalk in front has visible cracking"
+      },
+      {
+        "gold_id": "g3",
+        "condition": "Security-bar storm door on the entry is dated and worn"
+      },
+      {
+        "gold_id": "g4",
+        "condition": "Windows vary in sash/frame style, and several frames show visible grime or finish wear"
+      },
+      {
+        "gold_id": "g5",
+        "condition": "Basement window openings are covered with worn metal grates"
+      },
+      {
+        "gold_id": "g6",
+        "condition": "Cornice and upper trim show weathering and paint wear"
+      },
+      {
+        "gold_id": "g7",
+        "condition": "Entry transom and surrounding trim show dark staining and finish wear"
+      }
     ],
     "redfin_11000447/photo_002.jpg": [
-      {"gold_id": "g1", "condition": "Painted wood plank flooring is heavily worn, stained, and patched with uneven boards and gaps"},
-      {"gold_id": "g2", "condition": "Walls have unpainted patch repairs, scuffs, and marks needing full repaint"},
-      {"gold_id": "g3", "condition": "Header above the kitchen opening shows exposed unpainted joint compound"},
-      {"gold_id": "g4", "condition": "Kitchen beyond has an older basic range and refrigerator"},
-      {"gold_id": "g5", "condition": "Kitchen cabinetry visible beyond is minimal and dated"},
-      {"gold_id": "g6", "condition": "Ceiling fan is basic/dated"},
-      {"gold_id": "g7", "condition": "Floor register is old and discolored"},
-      {"gold_id": "g8", "condition": "Baseboards and door trim are scuffed with paint wear"}
+      {
+        "gold_id": "g1",
+        "condition": "Painted wood plank flooring is heavily worn, stained, and patched with uneven boards and gaps"
+      },
+      {
+        "gold_id": "g2",
+        "condition": "Walls have unpainted patch repairs, scuffs, and marks needing full repaint"
+      },
+      {
+        "gold_id": "g3",
+        "condition": "Header above the kitchen opening shows exposed unpainted joint compound"
+      },
+      {
+        "gold_id": "g4",
+        "condition": "Kitchen beyond has an older basic range and refrigerator"
+      },
+      {
+        "gold_id": "g5",
+        "condition": "Kitchen cabinetry visible beyond is minimal and dated"
+      },
+      {
+        "gold_id": "g6",
+        "condition": "Ceiling fan is basic/dated"
+      },
+      {
+        "gold_id": "g7",
+        "condition": "Floor register grille is visibly darkened and worn"
+      },
+      {
+        "gold_id": "g8",
+        "condition": "Baseboards and door trim are scuffed with paint wear"
+      }
     ],
     "redfin_11000447/photo_003.jpg": [
-      {"gold_id": "g1", "condition": "Walls are heavily patched with spackle marks, peeling paint, and scuffs needing full repaint"},
-      {"gold_id": "g2", "condition": "Window frames and sills show peeling paint and wear"},
-      {"gold_id": "g3", "condition": "Venetian blinds are damaged/bent"},
-      {"gold_id": "g4", "condition": "Laminate flooring has whitish stains, residue, and scratches"},
-      {"gold_id": "g5", "condition": "Loose cable wiring is coiled on the floor and surface-run along the wall"},
-      {"gold_id": "g6", "condition": "Abandoned shelf brackets remain mounted on the walls"},
-      {"gold_id": "g7", "condition": "Ceiling shows patch marks and staining near the fan"},
-      {"gold_id": "g8", "condition": "Ceiling fan is dated"}
+      {
+        "gold_id": "g1",
+        "condition": "Walls are heavily patched with spackle marks, peeling paint, and scuffs needing full repaint"
+      },
+      {
+        "gold_id": "g2",
+        "condition": "Window frames and sills show peeling paint and wear"
+      },
+      {
+        "gold_id": "g3",
+        "condition": "Venetian blinds are damaged/bent"
+      },
+      {
+        "gold_id": "g4",
+        "condition": "Wood-look plank flooring has whitish residue, stains, and scratches"
+      },
+      {
+        "gold_id": "g5",
+        "condition": "Loose cable wiring is coiled on the floor and surface-run along the wall"
+      },
+      {
+        "gold_id": "g6",
+        "condition": "Abandoned shelf brackets remain mounted on the walls"
+      },
+      {
+        "gold_id": "g7",
+        "condition": "Ceiling has long open cracks or failed seams radiating from the fan area, with dark staining along the right-side crack"
+      },
+      {
+        "gold_id": "g8",
+        "condition": "Ceiling fan is dated"
+      }
     ],
     "redfin_11000447/photo_004.jpg": [
-      {"gold_id": "g1", "condition": "Kitchen cabinetry is minimal, dated, and worn, with open/missing door fronts at the base by the sink"},
-      {"gold_id": "g2", "condition": "Long site-built painted counter/table along the wall is worn and stained (makeshift work surface, not cabinetry)"},
-      {"gold_id": "g3", "condition": "Free-standing electric range is older and worn"},
-      {"gold_id": "g4", "condition": "Sheet/laminate flooring is worn with marks and stained areas"},
-      {"gold_id": "g5", "condition": "Walls are scuffed and stained with patch marks, especially around the back door"},
-      {"gold_id": "g6", "condition": "Back door is old and worn with a dated curtain"},
-      {"gold_id": "g7", "condition": "Window has bent/damaged blinds and plastic sheeting remnants; valance is dated"},
-      {"gold_id": "g8", "condition": "Round ceiling light fixture is dated"},
-      {"gold_id": "g9", "condition": "Countertop/backsplash around the sink area is dated with plastic sheeting remnants on upper cabinets"}
+      {
+        "gold_id": "g1",
+        "condition": "Kitchen cabinetry is minimal, dated, and worn, with open/missing door fronts at the base by the sink"
+      },
+      {
+        "gold_id": "g2",
+        "condition": "Long site-built painted counter/table along the wall is worn and stained (makeshift work surface, not cabinetry)"
+      },
+      {
+        "gold_id": "g3",
+        "condition": "Free-standing electric range is older and worn"
+      },
+      {
+        "gold_id": "g4",
+        "condition": "Painted plank flooring is worn, marked, and discolored, with visible gaps and uneven joints"
+      },
+      {
+        "gold_id": "g5",
+        "condition": "Walls are scuffed and stained with patch marks, especially around the back door"
+      },
+      {
+        "gold_id": "g6",
+        "condition": "Back door is old and worn with a dated curtain"
+      },
+      {
+        "gold_id": "g7",
+        "condition": "Window has bent/damaged blinds and plastic sheeting remnants; valance is dated"
+      },
+      {
+        "gold_id": "g8",
+        "condition": "Round ceiling light fixture is dated"
+      },
+      {
+        "gold_id": "g9",
+        "condition": "Sink counter is worn, and the wall behind it lacks a finished backsplash"
+      },
+      {
+        "gold_id": "g10",
+        "condition": "Loose exposed cables hang beneath the long wall-mounted work surface"
+      }
     ],
     "redfin_11000447/photo_005.jpg": [
-      {"gold_id": "g1", "condition": "Exposed uninsulated flexible/metal duct runs across the ceiling and down through the room (unfinished HVAC run)"},
-      {"gold_id": "g2", "condition": "Walls are dingy with scuffs, marks, and patch spots; discolored patches near the windows"},
-      {"gold_id": "g3", "condition": "Older wood double-hung windows show worn frames; one sash sits open/askew"},
-      {"gold_id": "g4", "condition": "Venetian blinds are dated and bent/partial"},
-      {"gold_id": "g5", "condition": "Surface-run cables are strung along the walls"},
-      {"gold_id": "g6", "condition": "Laminate flooring shows worn/faded areas and stains"},
-      {"gold_id": "g7", "condition": "Ceiling fan is an older dated style"},
-      {"gold_id": "g8", "condition": "Closet doors have worn paint"}
+      {
+        "gold_id": "g1",
+        "condition": "Exposed uninsulated flexible/metal duct runs across the ceiling and down through the room (unfinished HVAC run)"
+      },
+      {
+        "gold_id": "g2",
+        "condition": "Walls are dingy with scuffs, marks, and patch spots; discolored patches near the windows"
+      },
+      {
+        "gold_id": "g3",
+        "condition": "Three double-hung windows have visibly worn and scuffed frames and sills"
+      },
+      {
+        "gold_id": "g4",
+        "condition": "Venetian blinds are dated and bent/partial"
+      },
+      {
+        "gold_id": "g5",
+        "condition": "Surface-run cables are strung along the walls"
+      },
+      {
+        "gold_id": "g6",
+        "condition": "Painted plank flooring shows worn, faded, and stained areas"
+      },
+      {
+        "gold_id": "g7",
+        "condition": "Ceiling fan is an older dated style"
+      },
+      {
+        "gold_id": "g8",
+        "condition": "Detached louvered door panels lean against the left wall and show worn paint"
+      },
+      {
+        "gold_id": "g9",
+        "condition": "Multiple empty shelf brackets remain mounted on the walls"
+      }
     ],
     "redfin_11000447/photo_006.jpg": [
-      {"gold_id": "g1", "condition": "Painted wood plank flooring is heavily worn and scuffed with inconsistent color and patched areas"},
-      {"gold_id": "g2", "condition": "Walls show patch marks, small holes, and scuffs needing repaint"},
-      {"gold_id": "g3", "condition": "Black-painted surround/platform at right has a rough, worn finish"},
-      {"gold_id": "g4", "condition": "Stair treads and stained-wood balusters are dated and worn"},
-      {"gold_id": "g5", "condition": "Trim and baseboards are worn"},
-      {"gold_id": "g6", "condition": "Old round ceiling fixture/vent is dated"}
+      {
+        "gold_id": "g1",
+        "condition": "Painted wood plank flooring is heavily worn and scuffed with inconsistent color and patched areas"
+      },
+      {
+        "gold_id": "g2",
+        "condition": "Walls show patch marks, small holes, and scuffs needing repaint"
+      },
+      {
+        "gold_id": "g3",
+        "condition": "Black-painted surround/platform at right has a rough, worn finish"
+      },
+      {
+        "gold_id": "g4",
+        "condition": "Stair treads, nosing, and stained-wood balusters show finish wear"
+      },
+      {
+        "gold_id": "g5",
+        "condition": "Baseboards and wall-to-floor edges are incomplete and rough in places"
+      },
+      {
+        "gold_id": "g6",
+        "condition": "Old round ceiling fixture/vent is dated"
+      },
+      {
+        "gold_id": "g7",
+        "condition": "Ceiling shows a broad discolored band toward the stairwell"
+      }
     ],
     "redfin_11000447/photo_007.jpg": [
-      {"gold_id": "g1", "condition": "Large area of failed/peeling paint with exposed patching on the striped accent wall"},
-      {"gold_id": "g2", "condition": "Additional paint patch marks on the accent wall stripes"},
-      {"gold_id": "g3", "condition": "Left wall has a damaged/patched brown spot with exposed filler"},
-      {"gold_id": "g4", "condition": "Abandoned metal bracket/hardware remains mounted high on the wall with exposed screws"},
-      {"gold_id": "g5", "condition": "Red cable is surface-run across the left wall"},
-      {"gold_id": "g6", "condition": "Laminate floor has paint specks and debris"},
-      {"gold_id": "g7", "condition": "Ceiling fan is dated"},
-      {"gold_id": "g8", "condition": "Door and casing show worn finish and hardware"}
+      {
+        "gold_id": "g1",
+        "condition": "Large area of failed/peeling paint with exposed patching on the striped accent wall"
+      },
+      {
+        "gold_id": "g2",
+        "condition": "Additional paint patch marks on the accent wall stripes"
+      },
+      {
+        "gold_id": "g3",
+        "condition": "Left wall has a damaged/patched brown spot with exposed filler"
+      },
+      {
+        "gold_id": "g4",
+        "condition": "Abandoned metal bracket/hardware remains mounted high on the wall with exposed screws"
+      },
+      {
+        "gold_id": "g5",
+        "condition": "Red cable is surface-run across the left wall"
+      },
+      {
+        "gold_id": "g6",
+        "condition": "Wood-look plank floor has paint specks and debris"
+      },
+      {
+        "gold_id": "g7",
+        "condition": "Ceiling fan is dated"
+      },
+      {
+        "gold_id": "g8",
+        "condition": "Door and casing show worn finish and hardware"
+      }
     ],
     "redfin_11000447/photo_008.jpg": [
-      {"gold_id": "g1", "condition": "Walls are scratched and scuffed with marks throughout"},
-      {"gold_id": "g2", "condition": "Open unfinished cutout/hole in the wall above (rough-edged opening)"},
-      {"gold_id": "g3", "condition": "Unpainted patched access panel area on the wall behind/beside the vanity"},
-      {"gold_id": "g4", "condition": "Open gap under the vanity where the toe-kick/panel is missing"},
-      {"gold_id": "g5", "condition": "Vanity cabinet is basic with worn edges"},
-      {"gold_id": "g6", "condition": "Cultured-marble vanity top with integral sink and basic faucet is dated"},
-      {"gold_id": "g7", "condition": "Partition wall edge is chipped/worn near the floor"},
-      {"gold_id": "g8", "condition": "Floor tile grout is discolored in places"},
-      {"gold_id": "g9", "condition": "Towel ring and over-toilet cabinet are dated"}
+      {
+        "gold_id": "g1",
+        "condition": "Walls are scratched and scuffed with marks throughout"
+      },
+      {
+        "gold_id": "g2",
+        "condition": "Open unfinished cutout/hole in the wall above (rough-edged opening)"
+      },
+      {
+        "gold_id": "g3",
+        "condition": "Two crudely fitted, screw-fastened access panels are visible behind and beside the vanity"
+      },
+      {
+        "gold_id": "g4",
+        "condition": "Open gap under the vanity where the toe-kick/panel is missing"
+      },
+      {
+        "gold_id": "g5",
+        "condition": "Vanity cabinet is basic with worn edges"
+      },
+      {
+        "gold_id": "g6",
+        "condition": "One-piece vanity top with integral sink and basic chrome faucet has dated styling"
+      },
+      {
+        "gold_id": "g7",
+        "condition": "Partition wall edge is chipped/worn near the floor"
+      },
+      {
+        "gold_id": "g8",
+        "condition": "Stone-pattern floor surface has white residue or staining and darkened grout/joint lines"
+      },
+      {
+        "gold_id": "g9",
+        "condition": "Towel ring and over-toilet cabinet have basic, mismatched styling"
+      },
+      {
+        "gold_id": "g10",
+        "condition": "Baseboard trim is missing along much of the left wall and partition"
+      }
     ],
     "redfin_10806500/photo_001.jpg": [
-      {"gold_id": "g1", "condition": "Long concrete entry steps are weathered and stained"},
-      {"gold_id": "g2", "condition": "Porch knee wall/fascia paint is peeling and weathered"},
-      {"gold_id": "g3", "condition": "Security bars on the front windows are dated"},
-      {"gold_id": "g4", "condition": "Corrugated downspout extension lies across the yard (makeshift drainage)"},
-      {"gold_id": "g5", "condition": "Foundation/basement wall area at right shows worn, discolored paint near grade"},
-      {"gold_id": "g6", "condition": "Storm/screen door is dated"},
-      {"gold_id": "g7", "condition": "Metal step handrail is older with worn paint"}
+      {
+        "gold_id": "g1",
+        "condition": "Long concrete entry steps are weathered and stained"
+      },
+      {
+        "gold_id": "g2",
+        "condition": "Porch knee wall, fascia, and ceiling/soffit surfaces show patchy paint, peeling, and dark staining"
+      },
+      {
+        "gold_id": "g3",
+        "condition": "Security bars on the front windows are dated"
+      },
+      {
+        "gold_id": "g4",
+        "condition": "Corrugated downspout extension terminates at grade close to the basement window and foundation"
+      },
+      {
+        "gold_id": "g6",
+        "condition": "Storm/screen door is dated"
+      },
+      {
+        "gold_id": "g7",
+        "condition": "Metal step handrail is older with worn paint"
+      }
     ],
     "redfin_10806500/photo_002.jpg": [
-      {"gold_id": "g1", "condition": "Countertops are basic/dated laminate"},
-      {"gold_id": "g2", "condition": "Backsplash is peel-and-stick mosaic sheeting (budget treatment)"},
-      {"gold_id": "g3", "condition": "Open upper cabinet bay is missing its door front with a makeshift wood shelf/board installed"},
-      {"gold_id": "g4", "condition": "Range is older with a worn/stained cooktop area"},
-      {"gold_id": "g5", "condition": "Sheet vinyl flooring is dated with wear and staining near the range"},
-      {"gold_id": "g6", "condition": "Flush-dome ceiling lights are basic/dated"},
-      {"gold_id": "g7", "condition": "Walls and door area at rear show scuffs and marks"},
-      {"gold_id": "g8", "condition": "Faucet and sink fittings are older/basic"}
+      {
+        "gold_id": "g1",
+        "condition": "Countertops are basic/dated laminate"
+      },
+      {
+        "gold_id": "g2",
+        "condition": "Backsplash has a small-format mosaic-look finish"
+      },
+      {
+        "gold_id": "g3",
+        "condition": "Large open upper-cabinet niche contains an exposed unfinished wood shelf or board"
+      },
+      {
+        "gold_id": "g5",
+        "condition": "Sheet vinyl flooring is dated with wear and staining near the range"
+      },
+      {
+        "gold_id": "g6",
+        "condition": "Flush-dome ceiling lights are basic/dated"
+      },
+      {
+        "gold_id": "g8",
+        "condition": "Faucet and sink fittings are older/basic"
+      }
     ],
     "redfin_10806500/photo_003.jpg": [
-      {"gold_id": "g1", "condition": "Basement ceiling is covered with fiberboard panels that sag and gap (deteriorating, unfinished)"},
-      {"gold_id": "g2", "condition": "Exposed ductwork with aged/deteriorating wrap runs across the ceiling"},
-      {"gold_id": "g3", "condition": "Painted masonry walls show peeling paint and staining"},
-      {"gold_id": "g4", "condition": "Old wood rear door is rough and weathered with gaps"},
-      {"gold_id": "g5", "condition": "Electrical panel is surface-mounted with exposed conduit and wiring nearby"},
-      {"gold_id": "g6", "condition": "Exposed plumbing/gas piping with old valves along the left wall"},
-      {"gold_id": "g7", "condition": "Concrete floor is stained and dusty with worn patches"},
-      {"gold_id": "g8", "condition": "Whitish mineral-like staining along the right wall base/floor joint"},
-      {"gold_id": "g9", "condition": "Water tank near the rear door appears older"}
+      {
+        "gold_id": "g1",
+        "condition": "Basement ceiling is covered with fiberboard panels that sag and gap (deteriorating, unfinished)"
+      },
+      {
+        "gold_id": "g2",
+        "condition": "Exposed ductwork with aged/deteriorating wrap runs across the ceiling"
+      },
+      {
+        "gold_id": "g3",
+        "condition": "Painted masonry walls show peeling paint and staining"
+      },
+      {
+        "gold_id": "g4",
+        "condition": "Old wood rear door is rough and weathered with gaps"
+      },
+      {
+        "gold_id": "g5",
+        "condition": "Electrical panel is surface-mounted with exposed conduit and wiring nearby"
+      },
+      {
+        "gold_id": "g6",
+        "condition": "Exposed plumbing/gas piping with old valves along the left wall"
+      },
+      {
+        "gold_id": "g7",
+        "condition": "Concrete floor is stained and dusty with worn patches"
+      },
+      {
+        "gold_id": "g8",
+        "condition": "Concrete slab has whitish residue and streaking near the rear and right side"
+      }
     ],
     "redfin_10806500/photo_004.jpg": [
-      {"gold_id": "g1", "condition": "Under-cabinet range vent/filter area shows dark grease staining"},
-      {"gold_id": "g2", "condition": "Cabinet faces and bulkhead above the range are scuffed with worn edges"},
-      {"gold_id": "g3", "condition": "Makeshift open wood shelves with exposed brackets on the left wall"},
-      {"gold_id": "g4", "condition": "Laminate countertop is worn/stained near the range"},
-      {"gold_id": "g5", "condition": "Peel-and-stick mosaic backsplash ends mid-wall (incomplete coverage)"},
-      {"gold_id": "g6", "condition": "Sheet vinyl flooring is dated with visible wear and seams"},
-      {"gold_id": "g7", "condition": "Hallway wall at right has large scuff smears"},
-      {"gold_id": "g8", "condition": "Ceiling light fixtures are basic/dated"},
-      {"gold_id": "g9", "condition": "Floor vent grille in the hallway is old/dusty"}
+      {
+        "gold_id": "g1",
+        "condition": "Under-cabinet range vent/filter area shows dark grease staining"
+      },
+      {
+        "gold_id": "g2",
+        "condition": "Cabinet faces and bulkhead above the range are scuffed with worn edges"
+      },
+      {
+        "gold_id": "g3",
+        "condition": "Makeshift open wood shelves with exposed brackets on the left wall"
+      },
+      {
+        "gold_id": "g4",
+        "condition": "Laminate countertop is worn/stained near the range"
+      },
+      {
+        "gold_id": "g5",
+        "condition": "Peel-and-stick mosaic backsplash ends mid-wall (incomplete coverage)"
+      },
+      {
+        "gold_id": "g6",
+        "condition": "Sheet vinyl flooring is dated with visible wear and seams"
+      },
+      {
+        "gold_id": "g7",
+        "condition": "Hallway wall at right has large scuff smears"
+      },
+      {
+        "gold_id": "g8",
+        "condition": "Ceiling light fixtures are basic/dated"
+      }
     ],
     "redfin_10806500/photo_005.jpg": [
-      {"gold_id": "g1", "condition": "Window air-conditioning unit is installed in the window"},
-      {"gold_id": "g2", "condition": "Textured ceiling shows minor discoloration near the light"},
-      {"gold_id": "g3", "condition": "Flush-dome ceiling light is basic/dated"},
-      {"gold_id": "g4", "condition": "Walls have minor scuffs, small holes, and applied decal stickers"}
+      {
+        "gold_id": "g1",
+        "condition": "Window air-conditioning unit is installed in the window"
+      },
+      {
+        "gold_id": "g3",
+        "condition": "Ceiling has a basic exposed-bulb light holder"
+      },
+      {
+        "gold_id": "g4",
+        "condition": "Walls have minor scuffs, small holes, and applied decal stickers"
+      }
     ],
     "redfin_10806500/photo_006.jpg": [
-      {"gold_id": "g1", "condition": "Vanity cabinet front is water-damaged with swollen/peeling material at the top edge"},
-      {"gold_id": "g2", "condition": "Framed sliding shower doors and track are aged/dated"},
-      {"gold_id": "g3", "condition": "Plain fiberglass tub/shower surround shows worn seams and edges"},
-      {"gold_id": "g4", "condition": "Window is located inside the tub/shower wet area with aging trim"},
-      {"gold_id": "g5", "condition": "Cultured-marble vanity top and chrome faucet are dated"},
-      {"gold_id": "g6", "condition": "Floor tile grout is darkened/dirty in places"}
+      {
+        "gold_id": "g1",
+        "condition": "Vanity front and countertop edge have swollen, peeling material with exposed substrate"
+      },
+      {
+        "gold_id": "g2",
+        "condition": "Framed sliding shower doors and track are aged/dated"
+      },
+      {
+        "gold_id": "g3",
+        "condition": "Plain fiberglass tub/shower surround shows worn seams and edges"
+      },
+      {
+        "gold_id": "g4",
+        "condition": "Window is located inside the tub/shower wet area with aging trim"
+      },
+      {
+        "gold_id": "g5",
+        "condition": "Cultured-marble vanity top and chrome faucet are dated"
+      },
+      {
+        "gold_id": "g6",
+        "condition": "Floor tile grout is darkened or stained in places"
+      },
+      {
+        "gold_id": "g7",
+        "condition": "Ceiling above the window has broad, uneven discoloration"
+      }
     ],
     "redfin_10806500/photo_007.jpg": [
-      {"gold_id": "g1", "condition": "Basement ceiling fiberboard panels sag with gaps and exposed joists/beam"},
-      {"gold_id": "g2", "condition": "Exposed wrapped ducts and piping run across the ceiling"},
-      {"gold_id": "g3", "condition": "Cords/wiring are strung across the ceiling (surface-run)"},
-      {"gold_id": "g4", "condition": "Gas furnace and galvanized plenum appear older/aged"},
-      {"gold_id": "g5", "condition": "Plastic utility sink is old and stained with a dated faucet"},
-      {"gold_id": "g6", "condition": "Painted masonry walls show peeling paint and staining"},
-      {"gold_id": "g7", "condition": "Bare concrete floor is stained with uneven patches; whitish streaks near the right wall"},
-      {"gold_id": "g8", "condition": "Bare-bulb light fixtures are dated/exposed"},
-      {"gold_id": "g9", "condition": "Open wood basement stairs are worn"}
+      {
+        "gold_id": "g1",
+        "condition": "Basement ceiling fiberboard panels are broadly stained and sagging, with gaps and exposed joists or beams"
+      },
+      {
+        "gold_id": "g2",
+        "condition": "Exposed wrapped ducts and piping run across the ceiling"
+      },
+      {
+        "gold_id": "g3",
+        "condition": "Cords/wiring are strung across the ceiling (surface-run)"
+      },
+      {
+        "gold_id": "g4",
+        "condition": "Gas furnace and galvanized plenum appear older/aged"
+      },
+      {
+        "gold_id": "g5",
+        "condition": "Plastic utility sink is old and stained with a dated faucet"
+      },
+      {
+        "gold_id": "g6",
+        "condition": "Painted masonry walls show peeling paint and staining"
+      },
+      {
+        "gold_id": "g7",
+        "condition": "Bare concrete floor is stained with uneven patches; whitish streaks near the right wall"
+      },
+      {
+        "gold_id": "g8",
+        "condition": "Bare-bulb light fixtures are dated/exposed"
+      },
+      {
+        "gold_id": "g9",
+        "condition": "Open wood basement stairs are worn"
+      }
     ]
   }
 }
