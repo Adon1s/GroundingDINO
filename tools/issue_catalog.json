@@ -741,7 +741,8 @@
         "strategy": "repair_or_replace",
         "group": "roof",
         "stack_behavior": "max_only",
-        "unit_policy": "per_property"
+        "unit_policy": "per_property",
+        "min_photo_evidence": 2
       }
     },
     {
@@ -1563,7 +1564,8 @@
         "group": "landscaping",
         "stack_behavior": "group_cap",
         "unit_policy": "per_area",
-        "requires_2f_for_estimate": true
+        "requires_2f_for_estimate": true,
+        "min_photo_evidence": 2
       }
     },
     {
@@ -1624,7 +1626,8 @@
         "group": "exterior",
         "stack_behavior": "group_cap",
         "unit_policy": "per_property",
-        "requires_2f_for_estimate": true
+        "requires_2f_for_estimate": true,
+        "min_photo_evidence": 2
       }
     },
     {
@@ -3902,7 +3905,8 @@
         "group": "roof",
         "stack_behavior": "max_only",
         "unit_policy": "per_property",
-        "requires_2f_for_estimate": false
+        "requires_2f_for_estimate": false,
+        "min_photo_evidence": 2
       }
     },
     {

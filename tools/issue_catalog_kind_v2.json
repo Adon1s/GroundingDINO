@@ -996,7 +996,8 @@
         "strategy": "repair_or_replace",
         "group": "roof",
         "stack_behavior": "max_only",
-        "unit_policy": "per_property"
+        "unit_policy": "per_property",
+        "min_photo_evidence": 2
       },
       "work_item_code": "ROOF_REPAIR",
       "pricing_status": "inherited_from_split_parent"
@@ -1048,7 +1049,8 @@
         "strategy": "repair_or_replace",
         "group": "roof",
         "stack_behavior": "max_only",
-        "unit_policy": "per_property"
+        "unit_policy": "per_property",
+        "min_photo_evidence": 2
       },
       "work_item_code": "ROOF_REPAIR",
       "pricing_status": "inherited_from_split_parent"
@@ -2288,7 +2290,8 @@
         "group": "landscaping",
         "stack_behavior": "group_cap",
         "unit_policy": "per_area",
-        "requires_2f_for_estimate": true
+        "requires_2f_for_estimate": true,
+        "min_photo_evidence": 2
       },
       "work_item_code": "CONCRETE_REPAIR",
       "estimate_scope": "marketability_rehab",
@@ -2342,7 +2345,8 @@
         "group": "landscaping",
         "stack_behavior": "group_cap",
         "unit_policy": "per_area",
-        "requires_2f_for_estimate": true
+        "requires_2f_for_estimate": true,
+        "min_photo_evidence": 2
       },
       "work_item_code": "CONCRETE_REPAIR",
       "estimate_scope": "marketability_rehab",
@@ -2407,7 +2411,8 @@
         "group": "exterior",
         "stack_behavior": "group_cap",
         "unit_policy": "per_property",
-        "requires_2f_for_estimate": true
+        "requires_2f_for_estimate": true,
+        "min_photo_evidence": 2
       },
       "atomic_claim": {
         "subject": "gutters and downspouts",
@@ -5357,7 +5362,8 @@
         "group": "roof",
         "stack_behavior": "max_only",
         "unit_policy": "per_property",
-        "requires_2f_for_estimate": false
+        "requires_2f_for_estimate": false,
+        "min_photo_evidence": 2
       },
       "atomic_claim": {
         "subject": "roofline (eaves/fascia/soffit)",

@@ -292,6 +292,14 @@ def _validate_estimate_block(item: Dict[str, Any], label: str,
             f"{label}: estimate group {estimate['group']!r} not in "
             f"GROUP_BUDGET_CAPS {sorted(GROUP_BUDGET_CAPS)}"
         )
+    if "min_photo_evidence" in estimate:
+        min_photos = estimate["min_photo_evidence"]
+        if not isinstance(min_photos, int) or isinstance(min_photos, bool) \
+                or min_photos < 0:
+            result.errors.append(
+                f"{label}: min_photo_evidence {min_photos!r} must be a "
+                f"non-negative int"
+            )
 
 
 def _validate_cost_block(item: Dict[str, Any], label: str,
