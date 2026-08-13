@@ -24,12 +24,40 @@
     "2b": 8000,
     "2c": 8000
   },
+  "judge_note": "LEGACY. The image-based Sol round the match stage replaces; kept so archived judgments stay readable.",
   "judge": {
     "model": "gpt-5.6-sol",
     "reasoning_effort": "medium",
     "max_tokens": 16000
   },
+  "matcher_note": "Text-only semantic matcher for the match stage. Set provider to lmstudio with the local Qwen model and url to run it locally; only the openai path gets a server-enforced schema, so the harness validates both.",
+  "matcher": {
+    "provider": "openai",
+    "model": "gpt-5.6-terra",
+    "reasoning_effort": "low",
+    "max_tokens": 8000,
+    "url": null
+  },
+  "package_eval": {
+    "note": "Package-outcome evaluation. pass_2f is the ONLY paid-model block; editing it invalidates the 2f layer, never tail resolutions. Gates touch scoring only; the package gold file is fingerprinted at scoring time.",
+    "pass_2f": {
+      "model": "gpt-5.6-sol",
+      "reasoning_effort": "medium",
+      "max_tokens": 4096,
+      "max_images": 3
+    },
+    "tail_resolution": {
+      "emergency_ceiling": 128,
+      "top_k": 8
+    },
+    "gates": {
+      "pass_reps_required": 2,
+      "cost_flag_pct": 20,
+      "cost_flag_abs_usd": 10000
+    }
+  },
   "gates": {
+    "match_tie_breaker_pct": 25,
     "attribution_flip_abs_usd": 10000,
     "attribution_flip_pct": 15,
     "unsupported_rate_pp": 2,

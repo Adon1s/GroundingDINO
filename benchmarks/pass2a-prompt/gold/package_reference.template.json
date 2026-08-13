@@ -1,0 +1,838 @@
+{
+  "_vocabulary": {
+    "catalog_items": [
+      {
+        "catalog_item_id": "water_stain_ceiling",
+        "name": "Water Stain on Ceiling",
+        "trade_bucket": "moisture_mold"
+      },
+      {
+        "catalog_item_id": "peeling_or_discolored_paint",
+        "name": "Peeling or Discolored Paint",
+        "trade_bucket": "paint_drywall"
+      },
+      {
+        "catalog_item_id": "visible_mold_or_mildew",
+        "name": "Visible Mold or Mildew",
+        "trade_bucket": "moisture_mold"
+      },
+      {
+        "catalog_item_id": "damaged_drywall_or_cracks",
+        "name": "Drywall Damage or Cracks",
+        "trade_bucket": "paint_drywall"
+      },
+      {
+        "catalog_item_id": "ceiling_cracks_or_sagging",
+        "name": "Ceiling Cracks or Sagging",
+        "trade_bucket": "foundation_structure"
+      },
+      {
+        "catalog_item_id": "soffit_or_porch_ceiling_failed",
+        "name": "Failed or Missing Soffit/Porch Ceiling Panels",
+        "trade_bucket": "exterior_siding_trim"
+      },
+      {
+        "catalog_item_id": "soffit_or_porch_ceiling_weathered",
+        "name": "Weathered Soffit/Porch Ceiling Finish",
+        "trade_bucket": "exterior_siding_trim"
+      },
+      {
+        "catalog_item_id": "worn_or_stained_carpet",
+        "name": "Worn or Stained Carpet",
+        "trade_bucket": "flooring"
+      },
+      {
+        "catalog_item_id": "vinyl_linoleum_torn_or_lifted",
+        "name": "Torn or Lifting Vinyl / Linoleum Flooring",
+        "trade_bucket": "flooring"
+      },
+      {
+        "catalog_item_id": "vinyl_linoleum_worn_or_stained",
+        "name": "Worn or Stained Vinyl / Linoleum Flooring",
+        "trade_bucket": "flooring"
+      },
+      {
+        "catalog_item_id": "hard_flooring_broken_or_warped",
+        "name": "Broken or Warped Hard Flooring",
+        "trade_bucket": "flooring"
+      },
+      {
+        "catalog_item_id": "hard_flooring_scratched_or_worn",
+        "name": "Scratched or Worn Hard Flooring Finish",
+        "trade_bucket": "flooring"
+      },
+      {
+        "catalog_item_id": "trip_hazard_or_unlevel_floor",
+        "name": "Trip Hazard or Unlevel Floor",
+        "trade_bucket": "safety_general"
+      },
+      {
+        "catalog_item_id": "damaged_or_rotted_siding_or_trim",
+        "name": "Damaged or Rotted Exterior Siding/Trim",
+        "trade_bucket": "exterior_siding_trim"
+      },
+      {
+        "catalog_item_id": "roof_shingles_missing_or_curling",
+        "name": "Missing or Curling Roof Shingles",
+        "trade_bucket": "roof_gutters"
+      },
+      {
+        "catalog_item_id": "roof_shingles_aged_or_worn",
+        "name": "Aged or Worn Roof Shingles",
+        "trade_bucket": "roof_gutters"
+      },
+      {
+        "catalog_item_id": "damaged_or_unsafe_deck_or_porch",
+        "name": "Damaged or Unsafe Deck/Porch",
+        "trade_bucket": "exterior_siding_trim"
+      },
+      {
+        "catalog_item_id": "broken_or_fogged_windows",
+        "name": "Broken or Fogged Windows",
+        "trade_bucket": "trim_doors_windows"
+      },
+      {
+        "catalog_item_id": "dirty_or_grimy_window_screens",
+        "name": "Dirty or Grimy Window Screens",
+        "trade_bucket": "cleaning_turnover"
+      },
+      {
+        "catalog_item_id": "dated_or_older_windows",
+        "name": "Dated or Older Windows",
+        "trade_bucket": "trim_doors_windows"
+      },
+      {
+        "catalog_item_id": "cabinets_damaged_or_water_stained",
+        "name": "Damaged or Water-Stained Cabinets",
+        "trade_bucket": "kitchen_cabinets_counters"
+      },
+      {
+        "catalog_item_id": "cabinets_worn_finish",
+        "name": "Worn Cabinet Finish",
+        "trade_bucket": "kitchen_cabinets_counters"
+      },
+      {
+        "catalog_item_id": "cabinets_dated_style",
+        "name": "Dated Cabinet Style",
+        "trade_bucket": "kitchen_cabinets_counters"
+      },
+      {
+        "catalog_item_id": "countertop_damage",
+        "name": "Damaged Countertops",
+        "trade_bucket": "kitchen_cabinets_counters"
+      },
+      {
+        "catalog_item_id": "tile_or_grout_damage",
+        "name": "Damaged Tile or Grout",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "appliances_damaged_or_missing",
+        "name": "Damaged or Missing Appliances",
+        "trade_bucket": "kitchen_cabinets_counters"
+      },
+      {
+        "catalog_item_id": "appliances_worn_or_neglected",
+        "name": "Worn or Neglected Appliances",
+        "trade_bucket": "kitchen_cabinets_counters"
+      },
+      {
+        "catalog_item_id": "appliances_dated_or_basic",
+        "name": "Dated or Basic Appliances",
+        "trade_bucket": "kitchen_cabinets_counters"
+      },
+      {
+        "catalog_item_id": "plumbing_fixture_leaking",
+        "name": "Leaking Plumbing Fixture",
+        "trade_bucket": "plumbing"
+      },
+      {
+        "catalog_item_id": "plumbing_fixture_stained_or_corroded",
+        "name": "Stained or Corroded Plumbing Fixture",
+        "trade_bucket": "plumbing"
+      },
+      {
+        "catalog_item_id": "bath_fixtures_chipped_or_damaged",
+        "name": "Chipped or Damaged Bath Fixtures",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "bath_fixtures_stained_or_worn",
+        "name": "Stained or Worn Bath Fixtures",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "missing_or_damaged_handrails",
+        "name": "Missing or Damaged Handrails/Guardrails",
+        "trade_bucket": "safety_general"
+      },
+      {
+        "catalog_item_id": "garage_or_basement_damage",
+        "name": "Basement or Garage Damage",
+        "trade_bucket": "foundation_structure"
+      },
+      {
+        "catalog_item_id": "major_foundation_or_settlement_signs",
+        "name": "Major Foundation or Settlement Signs",
+        "trade_bucket": "foundation_structure"
+      },
+      {
+        "catalog_item_id": "pest_or_rodent_evidence",
+        "name": "Visible Pest or Rodent Evidence",
+        "trade_bucket": "safety_general"
+      },
+      {
+        "catalog_item_id": "standing_water_or_poor_grading",
+        "name": "Standing Water or Poor Grading",
+        "trade_bucket": "landscaping_drains"
+      },
+      {
+        "catalog_item_id": "paving_heaved_or_trip_hazard",
+        "name": "Heaved or Trip-Hazard Paving",
+        "trade_bucket": "landscaping_drains"
+      },
+      {
+        "catalog_item_id": "paving_cracked_or_settled",
+        "name": "Cracked or Settled Paving",
+        "trade_bucket": "landscaping_drains"
+      },
+      {
+        "catalog_item_id": "clogged_or_damaged_gutters",
+        "name": "Clogged or Damaged Gutters/Downspouts",
+        "trade_bucket": "roof_gutters"
+      },
+      {
+        "catalog_item_id": "trees_or_vegetation_too_close",
+        "name": "Trees or Vegetation Too Close to Structure",
+        "trade_bucket": "landscaping_drains"
+      },
+      {
+        "catalog_item_id": "outdated_kitchen_finishes",
+        "name": "Outdated Kitchen Finishes",
+        "trade_bucket": "kitchen_cabinets_counters"
+      },
+      {
+        "catalog_item_id": "outdated_bathroom_finishes",
+        "name": "Outdated Bathroom Finishes",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "older_flooring_style",
+        "name": "Outdated Flooring Style",
+        "trade_bucket": "flooring"
+      },
+      {
+        "catalog_item_id": "paint_refresh_recommended",
+        "name": "Paint Refresh Opportunity",
+        "trade_bucket": "paint_drywall"
+      },
+      {
+        "catalog_item_id": "landscaping_overgrown_or_neglected",
+        "name": "Overgrown or Neglected Landscaping",
+        "trade_bucket": "landscaping_drains"
+      },
+      {
+        "catalog_item_id": "landscaping_enhancement_opportunity",
+        "name": "Landscaping Enhancement Opportunity",
+        "trade_bucket": "landscaping_drains"
+      },
+      {
+        "catalog_item_id": "curb_appeal_upgrade",
+        "name": "Curb Appeal Upgrade",
+        "trade_bucket": "exterior_siding_trim"
+      },
+      {
+        "catalog_item_id": "unfinished_basement_present",
+        "name": "Unfinished Basement",
+        "trade_bucket": "foundation_structure"
+      },
+      {
+        "catalog_item_id": "staging_or_decluttering_opportunity",
+        "name": "Staging or Decluttering Opportunity",
+        "trade_bucket": "safety_general"
+      },
+      {
+        "catalog_item_id": "baseboard_wear_scuffs",
+        "name": "Baseboard Wear or Scuffs",
+        "trade_bucket": "trim_doors_windows"
+      },
+      {
+        "catalog_item_id": "wall_scuffs_marks_or_dents",
+        "name": "Wall Scuffs, Marks, or Dents",
+        "trade_bucket": "paint_drywall"
+      },
+      {
+        "catalog_item_id": "popcorn_or_acoustic_ceiling_texture",
+        "name": "Popcorn Ceiling Texture",
+        "trade_bucket": "paint_drywall"
+      },
+      {
+        "catalog_item_id": "suspended_drop_ceiling",
+        "name": "Suspended/Drop Ceiling with Acoustic Tiles",
+        "trade_bucket": "paint_drywall"
+      },
+      {
+        "catalog_item_id": "unfinished_interior_wall_osb_exposed",
+        "name": "Unfinished Interior Wall (OSB Exposed)",
+        "trade_bucket": "paint_drywall"
+      },
+      {
+        "catalog_item_id": "floor_dirty_or_heavily_soiled",
+        "name": "Dirty or Heavily Soiled Floor",
+        "trade_bucket": "cleaning_turnover"
+      },
+      {
+        "catalog_item_id": "vintage_tile_pattern_style",
+        "name": "Vintage Tile Pattern/Style",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "ornate_vintage_mirror",
+        "name": "Ornate/Vintage Mirror Style",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "vanity_damaged_or_water_stained",
+        "name": "Damaged or Water-Stained Vanity",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "vanity_worn_finish",
+        "name": "Worn Vanity Finish",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "vanity_dated_style",
+        "name": "Dated Vanity Style",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "tub_surround_or_shower_pan_damage",
+        "name": "Tub Surround or Shower Pan Damage",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "bathroom_plumbing_visible_issue",
+        "name": "Bathroom Plumbing Visible Issue",
+        "trade_bucket": "plumbing"
+      },
+      {
+        "catalog_item_id": "active_water_damage_bathroom",
+        "name": "Active Water Damage in Bathroom",
+        "trade_bucket": "moisture_mold"
+      },
+      {
+        "catalog_item_id": "mold_or_mildew_visible_bathroom",
+        "name": "Mold or Mildew Visible in Bathroom",
+        "trade_bucket": "moisture_mold"
+      },
+      {
+        "catalog_item_id": "missing_bathroom_tile_exposed_substrate",
+        "name": "Missing Bathroom Tile Exposed Substrate",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "missing_vanity_exposed_plumbing",
+        "name": "Missing Vanity Exposed Plumbing",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "vanity_countertop_damage",
+        "name": "Vanity Countertop Damage",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "missing_or_damaged_caulk_at_tub_or_shower",
+        "name": "Missing or Damaged Caulk at Tub or Shower",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "bathroom_paint_moisture_damage",
+        "name": "Moisture-Damaged Bathroom Paint",
+        "trade_bucket": "paint_drywall"
+      },
+      {
+        "catalog_item_id": "bathroom_paint_peeling_or_worn",
+        "name": "Peeling or Worn Bathroom Paint",
+        "trade_bucket": "paint_drywall"
+      },
+      {
+        "catalog_item_id": "worn_or_damaged_bathroom_flooring",
+        "name": "Moisture-Damaged Bathroom Flooring",
+        "trade_bucket": "flooring"
+      },
+      {
+        "catalog_item_id": "vanity_countertop_worn",
+        "name": "Worn Vanity Countertop",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "vanity_countertop_dated",
+        "name": "Dated Vanity Countertop Style",
+        "trade_bucket": "bathroom_fixtures_tile"
+      },
+      {
+        "catalog_item_id": "dated_bathroom_flooring_style",
+        "name": "Dated Bathroom Flooring Style",
+        "trade_bucket": "flooring"
+      },
+      {
+        "catalog_item_id": "dated_window_treatment_valance",
+        "name": "Dated Window Treatment/Valance",
+        "trade_bucket": "trim_doors_windows"
+      },
+      {
+        "catalog_item_id": "dated_wallpaper_present",
+        "name": "Dated Wallpaper",
+        "trade_bucket": "interior_finishes"
+      },
+      {
+        "catalog_item_id": "dated_wood_paneling",
+        "name": "Dated Wood Paneling",
+        "trade_bucket": "paint_drywall"
+      },
+      {
+        "catalog_item_id": "dated_fireplace_surround",
+        "name": "Dated Fireplace Surround",
+        "trade_bucket": "interior_finishes"
+      },
+      {
+        "catalog_item_id": "mismatched_or_inconsistent_furniture_staging",
+        "name": "Mismatched Furniture/Staging Opportunity",
+        "trade_bucket": "safety_general"
+      },
+      {
+        "catalog_item_id": "dated_overall_decor_style",
+        "name": "Overall Decor Style Appears Dated",
+        "trade_bucket": "safety_general"
+      },
+      {
+        "catalog_item_id": "yard_debris_overgrown_leaves",
+        "name": "Yard Debris / Overgrown with Leaves",
+        "trade_bucket": "landscaping_drains"
+      },
+      {
+        "catalog_item_id": "roofline_water_damage_suspected",
+        "name": "Possible Water Damage at Roofline",
+        "trade_bucket": "roof_gutters"
+      },
+      {
+        "catalog_item_id": "gutter_maintenance_needed",
+        "name": "Gutter Maintenance Needed",
+        "trade_bucket": "roof_gutters"
+      },
+      {
+        "catalog_item_id": "shed_exterior_paint_failure",
+        "name": "Shed Exterior Paint Failure",
+        "trade_bucket": "exterior_paint_trim"
+      },
+      {
+        "catalog_item_id": "concrete_driveway_surface_wear",
+        "name": "Concrete Driveway Surface Wear",
+        "trade_bucket": "landscaping_drains"
+      },
+      {
+        "catalog_item_id": "indoor_storage_clutter_heavy",
+        "name": "Heavy Indoor Storage/Clutter",
+        "trade_bucket": "safety_general"
+      },
+      {
+        "catalog_item_id": "metal_carport_rust_corrosion",
+        "name": "Metal Carport Rust or Corrosion",
+        "trade_bucket": "exterior_siding_trim"
+      },
+      {
+        "catalog_item_id": "fence_broken_or_leaning",
+        "name": "Broken or Leaning Fence",
+        "trade_bucket": "landscaping_drains"
+      },
+      {
+        "catalog_item_id": "fence_weathered",
+        "name": "Weathered Fence",
+        "trade_bucket": "landscaping_drains"
+      },
+      {
+        "catalog_item_id": "exterior_siding_discoloration_fading",
+        "name": "Exterior Siding Discoloration or Fading",
+        "trade_bucket": "exterior_siding_trim"
+      },
+      {
+        "catalog_item_id": "uneven_gravel_drive_or_parking",
+        "name": "Uneven Gravel Drive or Parking Area",
+        "trade_bucket": "landscaping_drains"
+      },
+      {
+        "catalog_item_id": "dated_exterior_finishes",
+        "name": "Dated Exterior Finishes",
+        "trade_bucket": "exterior_siding_trim"
+      },
+      {
+        "catalog_item_id": "exposed_sheathing_or_missing_siding",
+        "name": "Exposed Sheathing or Missing Exterior Siding",
+        "trade_bucket": "exterior_siding_trim"
+      },
+      {
+        "catalog_item_id": "deck_surface_weathering",
+        "name": "Deck Surface Weathering",
+        "trade_bucket": "exterior_siding_trim"
+      },
+      {
+        "catalog_item_id": "tree_stump_present_in_yard",
+        "name": "Tree Stump Present in Yard",
+        "trade_bucket": "landscaping_drains"
+      },
+      {
+        "catalog_item_id": "exterior_door_paint_failure",
+        "name": "Exterior Door Paint Failure",
+        "trade_bucket": "trim_doors_windows"
+      },
+      {
+        "catalog_item_id": "door_hardware_worn",
+        "name": "Worn Door Hardware",
+        "trade_bucket": "trim_doors_windows"
+      },
+      {
+        "catalog_item_id": "door_hardware_dated_style",
+        "name": "Dated Door Hardware Style",
+        "trade_bucket": "trim_doors_windows"
+      },
+      {
+        "catalog_item_id": "mortar_joints_deteriorated",
+        "name": "Deteriorated Mortar Joints",
+        "trade_bucket": "masonry_exterior_structure"
+      },
+      {
+        "catalog_item_id": "brick_weathered_or_discolored",
+        "name": "Weathered or Discolored Brick",
+        "trade_bucket": "masonry_exterior_structure"
+      },
+      {
+        "catalog_item_id": "patio_or_porch_surface_wear",
+        "name": "Patio or Porch Surface Wear",
+        "trade_bucket": "exterior_siding_trim"
+      },
+      {
+        "catalog_item_id": "missing_base_cabinets_exposed_subfloor",
+        "name": "Missing Base Cabinets with Exposed Subfloor/Framing",
+        "trade_bucket": "kitchen_cabinets_counters"
+      },
+      {
+        "catalog_item_id": "rotted_subfloor_or_structural_framing",
+        "name": "Rotted Subfloor or Structural Framing",
+        "trade_bucket": "foundation_structure"
+      },
+      {
+        "catalog_item_id": "interior_wall_stripped_to_studs",
+        "name": "Interior Wall Stripped to Studs / Exposed Insulation",
+        "trade_bucket": "paint_drywall"
+      },
+      {
+        "catalog_item_id": "boarded_up_entry_or_window",
+        "name": "Boarded-Up Entry or Window",
+        "trade_bucket": "trim_doors_windows"
+      },
+      {
+        "catalog_item_id": "retaining_wall_failure_or_missing_section",
+        "name": "Retaining Wall Failure or Missing Section",
+        "trade_bucket": "landscaping_drains"
+      },
+      {
+        "catalog_item_id": "inground_pool_empty_or_unserviceable",
+        "name": "Empty or Unserviceable In-Ground Pool",
+        "trade_bucket": "masonry_exterior_structure"
+      },
+      {
+        "catalog_item_id": "inground_pool_finishes_deteriorated",
+        "name": "Deteriorated In-Ground Pool Finishes",
+        "trade_bucket": "masonry_exterior_structure"
+      },
+      {
+        "catalog_item_id": "worn_or_stained_flooring",
+        "name": "Worn or Stained Flooring",
+        "trade_bucket": "flooring"
+      },
+      {
+        "catalog_item_id": "bare_or_missing_finish_flooring",
+        "name": "Bare or Missing Finish Flooring",
+        "trade_bucket": "flooring"
+      },
+      {
+        "catalog_item_id": "dated_interior_trim",
+        "name": "Dated or Basic Interior Trim",
+        "trade_bucket": "trim_doors_windows"
+      },
+      {
+        "catalog_item_id": "dated_interior_doors",
+        "name": "Dated or Basic Interior Doors",
+        "trade_bucket": "trim_doors_windows"
+      },
+      {
+        "catalog_item_id": "dated_entry_or_patio_door",
+        "name": "Dated Entry or Patio Door",
+        "trade_bucket": "trim_doors_windows"
+      },
+      {
+        "catalog_item_id": "dated_bathroom_wallpaper",
+        "name": "Dated Bathroom Wallpaper",
+        "trade_bucket": "paint_drywall"
+      },
+      {
+        "catalog_item_id": "bathroom_paint_refresh_recommended",
+        "name": "Bathroom Paint Refresh Recommended",
+        "trade_bucket": "paint_drywall"
+      }
+    ],
+    "expected_package_fields": {
+      "adjacent_acceptable": "bool — one adjacent profile also passes",
+      "diagnostic_cost_range": "optional {low, high}, report-only",
+      "estimate_unit_id": "one of observed_estimate_units for the property",
+      "package_type": "one of package_types",
+      "rationale": "short human reason + photo refs",
+      "target_pricing_profile": "family-qualified, e.g. kitchen_full_rehab"
+    },
+    "note": "Reference only — delete nothing, the check ignores this block.",
+    "observed_estimate_units": {
+      "redfin_10806500": [
+        "bathroom_primary",
+        "bedroom_1",
+        "exterior_primary",
+        "kitchen_primary"
+      ],
+      "redfin_11000447": [
+        "bathroom_primary",
+        "bedroom_1",
+        "bedroom_2",
+        "bedroom_3",
+        "kitchen_primary",
+        "living_room_primary",
+        "multiple_estimate_units"
+      ]
+    },
+    "package_types": [
+      "bathroom_modernization",
+      "bathroom_repair",
+      "bathroom_turnover",
+      "bedroom_modernization",
+      "bedroom_repair",
+      "bedroom_turnover",
+      "exterior_repair",
+      "kitchen_modernization",
+      "kitchen_repair",
+      "kitchen_turnover",
+      "living_modernization",
+      "living_repair",
+      "living_turnover"
+    ],
+    "pricing_profile_adjacency": {
+      "bathroom_full_rehab": [
+        "bathroom_partial_rehab"
+      ],
+      "bathroom_partial_rehab": [
+        "bathroom_full_rehab",
+        "bathroom_refresh"
+      ],
+      "bathroom_refresh": [
+        "bathroom_partial_rehab"
+      ],
+      "bathroom_repair_heavy": [
+        "bathroom_repair_light"
+      ],
+      "bathroom_repair_light": [
+        "bathroom_repair_heavy"
+      ],
+      "bathroom_turnover_light": [
+        "bathroom_turnover_std"
+      ],
+      "bathroom_turnover_std": [
+        "bathroom_turnover_light"
+      ],
+      "bedroom_full_rehab": [
+        "bedroom_refresh"
+      ],
+      "bedroom_refresh": [
+        "bedroom_full_rehab"
+      ],
+      "bedroom_repair_heavy": [
+        "bedroom_repair_light"
+      ],
+      "bedroom_repair_light": [
+        "bedroom_repair_heavy"
+      ],
+      "bedroom_turnover_light": [
+        "bedroom_turnover_std"
+      ],
+      "bedroom_turnover_std": [
+        "bedroom_turnover_light"
+      ],
+      "exterior_repair_heavy": [
+        "exterior_repair_light"
+      ],
+      "exterior_repair_light": [
+        "exterior_repair_heavy"
+      ],
+      "kitchen_full_rehab": [
+        "kitchen_partial_rehab"
+      ],
+      "kitchen_partial_rehab": [
+        "kitchen_full_rehab",
+        "kitchen_refresh"
+      ],
+      "kitchen_refresh": [
+        "kitchen_partial_rehab"
+      ],
+      "kitchen_repair_heavy": [
+        "kitchen_repair_light"
+      ],
+      "kitchen_repair_light": [
+        "kitchen_repair_heavy"
+      ],
+      "kitchen_turnover_light": [
+        "kitchen_turnover_std"
+      ],
+      "kitchen_turnover_std": [
+        "kitchen_turnover_light"
+      ],
+      "living_full_rehab": [
+        "living_refresh"
+      ],
+      "living_refresh": [
+        "living_full_rehab"
+      ],
+      "living_repair_heavy": [
+        "living_repair_light"
+      ],
+      "living_repair_light": [
+        "living_repair_heavy"
+      ],
+      "living_turnover_light": [
+        "living_turnover_std"
+      ],
+      "living_turnover_std": [
+        "living_turnover_light"
+      ]
+    },
+    "pricing_profiles_by_room": {
+      "bathroom": [
+        "bathroom_full_rehab",
+        "bathroom_partial_rehab",
+        "bathroom_refresh",
+        "bathroom_repair_heavy",
+        "bathroom_repair_light",
+        "bathroom_turnover_light",
+        "bathroom_turnover_std"
+      ],
+      "bedroom": [
+        "bedroom_full_rehab",
+        "bedroom_refresh",
+        "bedroom_repair_heavy",
+        "bedroom_repair_light",
+        "bedroom_turnover_light",
+        "bedroom_turnover_std"
+      ],
+      "exterior": [
+        "exterior_repair_heavy",
+        "exterior_repair_light"
+      ],
+      "kitchen": [
+        "kitchen_full_rehab",
+        "kitchen_partial_rehab",
+        "kitchen_refresh",
+        "kitchen_repair_heavy",
+        "kitchen_repair_light",
+        "kitchen_turnover_light",
+        "kitchen_turnover_std"
+      ],
+      "living": [
+        "living_full_rehab",
+        "living_refresh",
+        "living_repair_heavy",
+        "living_repair_light",
+        "living_turnover_light",
+        "living_turnover_std"
+      ]
+    },
+    "quarantined_not_authorable": [
+      {
+        "catalog_item_id": "visible_electrical_risks",
+        "name": "Visible Electrical Risks",
+        "trade_bucket": "electrical"
+      },
+      {
+        "catalog_item_id": "dated_lighting_fixtures",
+        "name": "Outdated Lighting Fixtures",
+        "trade_bucket": "electrical"
+      },
+      {
+        "catalog_item_id": "dated_bathroom_vanity_light",
+        "name": "Dated Bathroom Vanity Light",
+        "trade_bucket": "electrical"
+      },
+      {
+        "catalog_item_id": "ceiling_fan_blades_damaged",
+        "name": "Damaged Ceiling Fan Blades",
+        "trade_bucket": "electrical"
+      },
+      {
+        "catalog_item_id": "ceiling_fan_blades_mismatched",
+        "name": "Mismatched Ceiling Fan Blades",
+        "trade_bucket": "electrical"
+      },
+      {
+        "catalog_item_id": "older_ceiling_fan_style",
+        "name": "Outdated Ceiling Fan Style",
+        "trade_bucket": "electrical"
+      },
+      {
+        "catalog_item_id": "bathroom_gfci_missing_or_damaged",
+        "name": "Bathroom GFCI Missing or Damaged",
+        "trade_bucket": "electrical"
+      },
+      {
+        "catalog_item_id": "exhaust_fan_missing_or_broken",
+        "name": "Bathroom Exhaust Fan Missing or Broken",
+        "trade_bucket": "electrical"
+      },
+      {
+        "catalog_item_id": "exhaust_fan_grime_clogged",
+        "name": "Grime-Clogged Bathroom Exhaust Fan",
+        "trade_bucket": "electrical"
+      },
+      {
+        "catalog_item_id": "exhaust_fan_dated",
+        "name": "Dated Bathroom Exhaust Fan",
+        "trade_bucket": "electrical"
+      },
+      {
+        "catalog_item_id": "stained_glass_or_vintage_light_fixture",
+        "name": "Stained-Glass or Vintage Light Fixture",
+        "trade_bucket": "electrical"
+      },
+      {
+        "catalog_item_id": "dated_electrical_outlets_switches",
+        "name": "Dated Electrical Outlets or Switches",
+        "trade_bucket": "electrical"
+      }
+    ],
+    "required_work_item_fields": {
+      "catalog_item_id": "non-quarantined catalog id",
+      "estimate_unit_id": "room unit the work belongs to",
+      "rationale": "short human reason + photo refs"
+    }
+  },
+  "author": "",
+  "authored_at": "",
+  "closed_world_note": "Unlisted approved packages and unlisted cost-bearing standalone work are provisional false positives. Evidence and package-member observations are never extras. Whole-home display-only and audit-only packages are out of scope.",
+  "properties": {
+    "redfin_10806500": {
+      "expected_packages": [],
+      "notes": "",
+      "required_work_items": []
+    },
+    "redfin_11000447": {
+      "expected_packages": [],
+      "notes": "",
+      "required_work_items": []
+    }
+  },
+  "schema_version": "package_reference_v1"
+}

@@ -1,0 +1,857 @@
+"""Unit tests for the package-outcome benchmark extension (no live models).
+
+2d and 2f are mocked; Pass 2e runs for real — it is deterministic and part of
+what the cell rebuild must prove. v4 costing is monkeypatched everywhere it
+would otherwise dominate test time.
+"""
+import asyncio
+import csv
+import json
+from pathlib import Path
+from types import SimpleNamespace
+
+import pytest
+
+from tools import benchmark_pass2a as bench
+from tools import benchmark_pass2a_packages as pkg
+
+
+# ---------------------------------------------------------------------------
+# Shared fixtures
+# ---------------------------------------------------------------------------
+
+PROP = "prop"
+PHOTO = "photo_001.jpg"
+
+CATALOG = {
+    "trade_buckets": [
+        {"id": "electrical", "name": "Electrical", "product_quarantined": True},
+        {"id": "masonry_exterior_structure", "name": "Masonry"},
+    ],
+    "items": [
+        {"id": "brick_weathered", "name": "Weathered Brick",
+         "trade_bucket": "masonry_exterior_structure", "tier": "work"},
+        {"id": "steps_cracked", "name": "Cracked Steps",
+         "trade_bucket": "masonry_exterior_structure", "tier": "work"},
+        {"id": "wiring_exposed", "name": "Exposed Wiring",
+         "trade_bucket": "electrical", "tier": "work"},
+    ],
+}
+
+OBSERVED_UNITS = {PROP: ["bedroom_1", "kitchen_primary"]}
+
+
+def _config(repeats=1):
+    return {
+        "repeats": repeats,
+        "properties": [PROP],
+        "model_overrides": {},
+        "reasoning_efforts": {},
+        "pass_toggles": {"2f": False},
+        "package_eval": {
+            "pass_2f": {"model": "gpt-5.6-sol", "reasoning_effort": "medium",
+                        "max_tokens": 4096, "max_images": 3},
+            "tail_resolution": {"emergency_ceiling": 128, "top_k": 8},
+            "gates": {"pass_reps_required": 2, "cost_flag_pct": 20,
+                      "cost_flag_abs_usd": 10000},
+        },
+    }
+
+
+def _manifest(tmp_path, photos=1):
+    return {
+        "images_root": str(tmp_path / "img"),
+        "properties": {PROP: {
+            "photos": [{"photo_key": f"photo_{i:03d}.jpg",
+                        "image_sha256": f"ih{i}", "frozen_2a_sha256": f"fh{i}"}
+                       for i in range(1, photos + 1)],
+            "property_metadata": {"beds": 3},
+        }},
+    }
+
+
+VALID_GOLD = {
+    "schema_version": "package_reference_v1",
+    "properties": {PROP: {
+        "expected_packages": [{
+            "package_type": "kitchen_modernization",
+            "estimate_unit_id": "kitchen_primary",
+            "target_pricing_profile": "kitchen_full_rehab",
+            "adjacent_acceptable": True,
+            "diagnostic_cost_range": {"low": 30000, "high": 70000},
+            "rationale": "dated kitchen across photos",
+        }],
+        "required_work_items": [{
+            "catalog_item_id": "brick_weathered",
+            "estimate_unit_id": "bedroom_1",
+            "rationale": "weathered brick, photo_001",
+        }],
+        "notes": "",
+    }},
+}
+
+
+@pytest.fixture
+def pkg_tree(tmp_path, monkeypatch):
+    runs = tmp_path / "runs"
+    monkeypatch.setattr(bench, "RUNS_DIR", runs)
+    monkeypatch.setattr(bench, "PROMPTS_PATH", tmp_path / "prompts.json")
+    (tmp_path / "prompts.json").write_text(json.dumps(
+        {"baseline": {"text": "salience"}, "checklist": {"text": "inventory"}}),
+        encoding="utf-8")
+    monkeypatch.setattr(pkg, "TAIL_DIR", runs / "package_tail_resolution")
+    monkeypatch.setattr(pkg, "CELLS_DIR", runs / "package_cells")
+    monkeypatch.setattr(pkg, "PASS2F_DIR", runs / "package_2f")
+    monkeypatch.setattr(pkg, "REVIEW_DIR", runs / "package_review")
+    monkeypatch.setattr(pkg, "EVAL_DIR", runs / "package_eval")
+    monkeypatch.setattr(pkg, "PACKAGE_GOLD_PATH",
+                        tmp_path / "gold" / "package_reference.json")
+    monkeypatch.setattr(pkg, "PACKAGE_GOLD_TEMPLATE_PATH",
+                        tmp_path / "gold" / "package_reference.template.json")
+    return tmp_path
+
+
+@pytest.fixture
+def gold_stubs(monkeypatch):
+    import tools.artifact_writers as aw
+    monkeypatch.setattr(aw, "load_issue_catalog", lambda path: CATALOG)
+    monkeypatch.setattr(pkg, "observed_units_by_property",
+                        lambda *a, **k: OBSERVED_UNITS)
+
+
+def _write_gold(tree, gold=VALID_GOLD):
+    pkg.PACKAGE_GOLD_PATH.parent.mkdir(parents=True, exist_ok=True)
+    pkg.PACKAGE_GOLD_PATH.write_text(json.dumps(gold), encoding="utf-8")
+
+
+# ---------------------------------------------------------------------------
+# Adjacency
+# ---------------------------------------------------------------------------
+
+def test_adjacency_symmetric_one_step_no_self():
+    adjacency = pkg.pricing_profile_adjacency()
+    assert "kitchen_partial_rehab" in adjacency["kitchen_refresh"]
+    assert "kitchen_refresh" in adjacency["kitchen_partial_rehab"]      # inverse
+    assert "kitchen_full_rehab" in adjacency["kitchen_partial_rehab"]
+    # One step only, never self.
+    assert "kitchen_full_rehab" not in adjacency["kitchen_refresh"]
+    for profile, neighbours in adjacency.items():
+        assert profile not in neighbours
+    # Bedroom skips the partial middle by design.
+    assert adjacency["bedroom_refresh"] == {"bedroom_full_rehab"}
+
+
+# ---------------------------------------------------------------------------
+# Gold check + template
+# ---------------------------------------------------------------------------
+
+def test_gold_check_accepts_valid_reference(pkg_tree, gold_stubs):
+    _write_gold(pkg_tree)
+    sha = pkg.package_gold_check(_config(), _manifest(pkg_tree))
+    assert len(sha) == 64
+
+
+@pytest.mark.parametrize("mutate,problem", [
+    (lambda g: g["properties"][PROP]["required_work_items"][0].update(
+        catalog_item_id="wiring_exposed"), "product-quarantined"),
+    (lambda g: g["properties"][PROP]["required_work_items"][0].update(
+        catalog_item_id="no_such_item"), "unknown catalog_item_id"),
+    (lambda g: g["properties"][PROP]["expected_packages"][0].update(
+        package_type="interior_paint_flooring_refresh"),
+     "non-authorable package_type"),
+    (lambda g: g["properties"][PROP]["expected_packages"][0].update(
+        target_pricing_profile="bathroom_full_rehab"), "not in the kitchen family"),
+    (lambda g: g["properties"][PROP]["expected_packages"][0].update(
+        target_pricing_profile="kitchen_mega_rehab"), "unknown target_pricing_profile"),
+    (lambda g: g["properties"][PROP]["expected_packages"][0].update(
+        estimate_unit_id="kitchen_42"), "never produced"),
+    (lambda g: g["properties"][PROP]["expected_packages"].append(
+        dict(g["properties"][PROP]["expected_packages"][0])),
+     "duplicate (package_type, unit)"),
+    (lambda g: g["properties"][PROP]["expected_packages"][0].update(
+        rationale="  "), "rationale is required"),
+    (lambda g: g["properties"].update(ghost={"expected_packages": [],
+                                             "required_work_items": []}),
+     "properties mismatch"),
+])
+def test_gold_check_rejects_bad_gold(pkg_tree, gold_stubs, mutate, problem):
+    gold = json.loads(json.dumps(VALID_GOLD))
+    mutate(gold)
+    _write_gold(pkg_tree, gold)
+    with pytest.raises(SystemExit) as excinfo:
+        pkg.package_gold_check(_config(), _manifest(pkg_tree))
+    assert problem in str(excinfo.value)
+
+
+def test_gold_template_is_blank_first_with_vocabularies(pkg_tree, gold_stubs):
+    pkg.package_gold_template(_config(), _manifest(pkg_tree))
+    template = json.loads(pkg.PACKAGE_GOLD_TEMPLATE_PATH.read_text(
+        encoding="utf-8"))
+    for prop_entry in template["properties"].values():
+        assert prop_entry["expected_packages"] == []       # blank-first
+        assert prop_entry["required_work_items"] == []
+    vocab = template["_vocabulary"]
+    assert "kitchen_modernization" in vocab["package_types"]
+    assert "interior_paint_flooring_refresh" not in vocab["package_types"]
+    assert vocab["observed_estimate_units"] == OBSERVED_UNITS
+    quarantined_ids = {r["catalog_item_id"]
+                       for r in vocab["quarantined_not_authorable"]}
+    assert quarantined_ids == {"wiring_exposed"}
+    assert all(r["catalog_item_id"] != "wiring_exposed"
+               for r in vocab["catalog_items"])
+    # Refuses to clobber authoring work.
+    with pytest.raises(SystemExit, match="refusing to overwrite"):
+        pkg.package_gold_template(_config(), _manifest(pkg_tree))
+
+
+# ---------------------------------------------------------------------------
+# Tail resolution stage
+# ---------------------------------------------------------------------------
+
+def _observation(i, kind="degradation"):
+    return {"description": f"observation number {i} shows wear",
+            "issue_id": f"i{i}", "kind": kind, "scene": "exterior_front",
+            "scene_group": "exterior", "source_photo_key": PHOTO}
+
+
+def _write_checkpoint(runs, variant, rep, kept_count, resolved_count,
+                      photo=PHOTO):
+    observations = [_observation(i) for i in range(kept_count)]
+    resolved = [{"issue_id": f"i{i}", "description": observations[i]["description"],
+                 "resolved_item_id": "brick_weathered" if i % 2 == 0 else None,
+                 "resolved_kind": "degradation"}
+                for i in range(resolved_count)]
+    ckpt_dir = runs / f"variant_{variant}" / f"rep{rep}" / PROP / ".photos"
+    ckpt_dir.mkdir(parents=True, exist_ok=True)
+    (ckpt_dir / f"{photo}.json").write_text(json.dumps({
+        "image_path": f"C:/img/{PROP}/{photo}",
+        "scene": "exterior_front",
+        "processing_time": 1.0,
+        "scene_data": {
+            "observations": observations,
+            "resolved_items": resolved,
+            "excluded_observations": [],
+            "debug": {"pass_2d_gate": {"total_resolve_count": resolved_count},
+                      "pass_2d_per_observation": []},
+        },
+    }), encoding="utf-8")
+
+
+@pytest.fixture
+def tail_stubs(monkeypatch):
+    import tools.artifact_writers as aw
+    import tools.catalog_embeddings as ce
+    import tools.scene_classifier_orchestrator as orch
+    import tools.vlm_client as vc
+    monkeypatch.setattr(aw, "load_issue_catalog", lambda path: CATALOG)
+    monkeypatch.setattr(ce, "build_candidate_provider",
+                        lambda catalog: lambda text, ctx: [])
+    monkeypatch.setattr(vc, "create_vlm_client", lambda *a, **k: object())
+    calls = []
+
+    async def fake_resolve(**kwargs):
+        obs = kwargs["observation"]
+        calls.append(kwargs)
+        return ({"issue_id": obs["issue_id"], "description": obs["description"],
+                 "resolved_item_id": "steps_cracked",
+                 "resolved_kind": obs["kind"]},
+                {"observation": obs["description"], "skipped_reason": None},
+                None)
+    monkeypatch.setattr(orch, "resolve_observation_against_catalog",
+                        fake_resolve)
+    monkeypatch.setattr(pkg, "compute_resolution_fingerprint",
+                        lambda *a, **k: {"layer": "test"})
+    return calls
+
+
+def test_tail_resolves_only_beyond_cap_in_order(pkg_tree, tail_stubs):
+    _write_checkpoint(bench.RUNS_DIR, "checklist", 1, kept_count=6,
+                      resolved_count=4)
+    _write_checkpoint(bench.RUNS_DIR, "baseline", 1, kept_count=3,
+                      resolved_count=3)
+    pkg.stage_package_tail(_config(), _manifest(pkg_tree),
+                           "baseline_vs_checklist", skip_preflight=True)
+    assert [c["observation"]["issue_id"] for c in tail_stubs] == ["i4", "i5"]
+    out = json.loads((pkg.TAIL_DIR / "rep1" / PROP / f"{PHOTO}.json")
+                     .read_text(encoding="utf-8"))
+    assert out["tail_count"] == 2
+    assert [r["issue_id"] for r in out["resolved_rows"]] == ["i4", "i5"]
+    # Resume: a second run makes zero resolver calls.
+    tail_stubs.clear()
+    pkg.stage_package_tail(_config(), _manifest(pkg_tree),
+                           "baseline_vs_checklist", skip_preflight=True)
+    assert tail_stubs == []
+
+
+def test_tail_ceiling_aborts_without_truncating(pkg_tree, tail_stubs):
+    _write_checkpoint(bench.RUNS_DIR, "checklist", 1, kept_count=129,
+                      resolved_count=25)
+    _write_checkpoint(bench.RUNS_DIR, "baseline", 1, kept_count=3,
+                      resolved_count=3)
+    with pytest.raises(SystemExit, match="emergency ceiling"):
+        pkg.stage_package_tail(_config(), _manifest(pkg_tree),
+                               "baseline_vs_checklist", skip_preflight=True)
+    assert not (pkg.TAIL_DIR / "rep1" / PROP / f"{PHOTO}.json").is_file()
+
+
+def test_tail_92_kept_passes_under_ceiling(pkg_tree, tail_stubs):
+    _write_checkpoint(bench.RUNS_DIR, "checklist", 1, kept_count=92,
+                      resolved_count=90)
+    _write_checkpoint(bench.RUNS_DIR, "baseline", 1, kept_count=3,
+                      resolved_count=3)
+    pkg.stage_package_tail(_config(), _manifest(pkg_tree),
+                           "baseline_vs_checklist", skip_preflight=True)
+    assert len(tail_stubs) == 2
+
+
+def test_baseline_capped_breaks_the_reuse_assumption(pkg_tree, tail_stubs):
+    _write_checkpoint(bench.RUNS_DIR, "checklist", 1, kept_count=6,
+                      resolved_count=4)
+    _write_checkpoint(bench.RUNS_DIR, "baseline", 1, kept_count=30,
+                      resolved_count=25)
+    with pytest.raises(SystemExit, match="baseline-reuse assumption"):
+        pkg.stage_package_tail(_config(), _manifest(pkg_tree),
+                               "baseline_vs_checklist", skip_preflight=True)
+
+
+# ---------------------------------------------------------------------------
+# Cell rebuild (real Pass 2e)
+# ---------------------------------------------------------------------------
+
+def test_cell_rebuild_merges_tail_and_reruns_2e(pkg_tree, monkeypatch):
+    import tools.artifact_writers as aw
+    import tools.vlm_client as vc
+    _write_checkpoint(bench.RUNS_DIR, "checklist", 1, kept_count=4,
+                      resolved_count=2)
+    tail_dir = pkg.TAIL_DIR / "rep1" / PROP
+    tail_dir.mkdir(parents=True, exist_ok=True)
+    (tail_dir / f"{PHOTO}.json").write_text(json.dumps({
+        "resolved_rows": [{"issue_id": "i2", "description":
+                           "observation number 2 shows wear",
+                           "resolved_item_id": "steps_cracked",
+                           "resolved_kind": "degradation"}],
+        "debug_rows": [{"observation": "observation number 2 shows wear",
+                        "skipped_reason": None}],
+    }), encoding="utf-8")
+
+    captured = {}
+
+    def fake_write(*, job, **kwargs):
+        captured["job"] = job
+        captured["pass_toggles"] = kwargs["pass_toggles"]
+        out = Path(job.artifacts_dir) / "photo_intel.json"
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text("{}", encoding="utf-8")
+        return out
+    monkeypatch.setattr(aw, "load_issue_catalog", lambda path: CATALOG)
+    monkeypatch.setattr(aw, "write_photo_intel", fake_write)
+    monkeypatch.setattr(vc, "get_model_configs_from_pipeline_config",
+                        lambda cfg: ({}, {"api_key": "k"}))
+    monkeypatch.setattr(bench, "ensure_totals", lambda path, catalog: {})
+    monkeypatch.setattr(pkg, "compute_resolution_fingerprint",
+                        lambda *a, **k: {"layer": "test"})
+
+    pkg.stage_package_cells(_config(), _manifest(pkg_tree),
+                            "baseline_vs_checklist")
+
+    scene_data = captured["job"].results[0].scene_data
+    assert len(scene_data["resolved_items"]) == 3          # 2 frozen + 1 tail
+    assert scene_data["debug"]["pass_2d_gate"]["total_resolve_count"] == 3
+    assert captured["pass_toggles"]["2f"] is False
+    # Real 2e ran: tail-resolved observation carries the stamped catalog id.
+    stamped = {i.get("issue_id"): i.get("catalogItemId")
+               for i in scene_data["verified_issues"]}
+    assert stamped.get("i2") == "steps_cracked"
+    assert stamped.get("i0") == "brick_weathered"          # frozen resolution
+    assert scene_data["passes"]["2e"]["kept_issue_ids"]
+    assert scene_data["passes"]["2e"]["input_count"] == 4
+    # Resume: artifact exists, nothing rebuilt.
+    captured.clear()
+    pkg.stage_package_cells(_config(), _manifest(pkg_tree),
+                            "baseline_vs_checklist")
+    assert "job" not in captured
+
+
+# ---------------------------------------------------------------------------
+# 2f stage: save/resume/budget/version guard/recompute passthrough
+# ---------------------------------------------------------------------------
+
+def _candidate(ptype="kitchen_modernization", unit="kitchen_primary",
+               profile="kitchen_full_rehab", **extra):
+    return {"package_id": f"{ptype}__{unit}", "package_type": ptype,
+            "estimate_unit_id": unit, "pricing_profile": profile,
+            "pricing_tier": profile.split("_", 1)[1], "package_strength": "strong",
+            "verification_status": "not_run", "estimate_eligible": False,
+            "audit_only": False, "estimate_display_only": False,
+            "package_level": "room", "cost_low": 30000, "cost_high": 70000,
+            "cost_midpoint": 50000, "supporting_catalog_item_ids": ["cab_dated"],
+            "review_photo_keys": [PHOTO], "evidence_summary": "dated", **extra}
+
+
+@pytest.fixture
+def twof_stubs(pkg_tree, monkeypatch):
+    import tools.pass_2f_artifact_inputs as p2fi
+    import tools.pass_config as pc
+    import tools.rehab_packages as rp
+    import tools.renovation_estimate_v4 as rev4
+    import tools.vlm_client as vc
+
+    artifact = pkg_tree / "artifact.json"
+    artifact.write_text(json.dumps({"photos": {}, "product_issues_flat": [
+        {"issue_id": "x"}], "property_metadata": {}}), encoding="utf-8")
+    cells = {}
+    for cell in ("baseline_cap25", "checklist_cap25", "checklist_all_retained"):
+        cells[(cell, 1, PROP)] = artifact
+    monkeypatch.setattr(pkg, "_load_cell_artifacts", lambda *a, **k: cells)
+    monkeypatch.setattr(pkg, "compute_pass2f_fingerprint",
+                        lambda *a, **k: {"layer": "test-2f"})
+    monkeypatch.setattr(pkg, "two_phase_v4", lambda a, c: (
+        {"package_candidates": [_candidate()]}, {}))
+    import tools.artifact_writers as aw
+    monkeypatch.setattr(aw, "load_issue_catalog", lambda path: CATALOG)
+    monkeypatch.setattr(vc, "create_vlm_client", lambda *a, **k: object())
+    monkeypatch.setattr(vc, "get_model_configs_from_pipeline_config",
+                        lambda cfg: ({}, {"api_key": "k"}))
+    monkeypatch.setattr(pc, "resolve_openai_invocation",
+                        lambda pass_key, config, effort=None: dict(config))
+    monkeypatch.setattr(p2fi, "photo_key_to_path", lambda artifact: {})
+
+    state = {"batch_calls": 0, "verification": {
+        "package_id": "kitchen_modernization__kitchen_primary",
+        "verification_status": "confirmed",
+        "confirmed_issue_ids": ["x"], "rejected_issue_ids": [],
+        "prompt_template_version": "pass_2f_package_v2",
+    }, "v4_kwargs": []}
+
+    async def fake_batch(candidates, **kwargs):
+        state["batch_calls"] += 1
+        return ({"kitchen_modernization__kitchen_primary":
+                 dict(state["verification"])},
+                {"ran": True, "attempted_count": 2})
+    monkeypatch.setattr(rp, "run_pass_2f_batch", fake_batch)
+
+    def fake_v4(issues_flat, catalog, photos, **kwargs):
+        state["v4_kwargs"].append(kwargs)
+        return {"packages": [_candidate(estimate_eligible=True,
+                                        verification_status="confirmed")],
+                "groups": [], "final_rehab": {"midpoint": 50000},
+                "pass_2f_trace": {"reason": "provided_verifications"}}
+    monkeypatch.setattr(rev4, "compute_renovation_estimate_v4", fake_v4)
+    return state
+
+
+def test_2f_stage_saves_resumes_and_passes_verifications_through(pkg_tree,
+                                                                 twof_stubs):
+    pkg.stage_package_2f(_config(), _manifest(pkg_tree),
+                         "baseline_vs_checklist")
+    assert twof_stubs["batch_calls"] == 3
+    saved = json.loads((pkg.PASS2F_DIR / "baseline_cap25" / "rep1" / PROP
+                        / "verifications.json").read_text(encoding="utf-8"))
+    assert saved["verifications"]["kitchen_modernization__kitchen_primary"][
+        "verification_status"] == "confirmed"
+    # The recompute received the saved verifications verbatim (replay switch).
+    assert all(
+        k["package_verifications"]["kitchen_modernization__kitchen_primary"][
+            "prompt_template_version"] == "pass_2f_package_v2"
+        for k in twof_stubs["v4_kwargs"])
+    final = json.loads((pkg.PASS2F_DIR / "checklist_cap25" / "rep1" / PROP
+                        / "final_estimate.json").read_text(encoding="utf-8"))
+    assert final["packages"][0]["estimate_eligible"] is True
+    # Resume: nothing re-verified.
+    pkg.stage_package_2f(_config(), _manifest(pkg_tree),
+                         "baseline_vs_checklist")
+    assert twof_stubs["batch_calls"] == 3
+
+
+def test_2f_budget_stops_cleanly_between_cells(pkg_tree, twof_stubs):
+    pkg.stage_package_2f(_config(), _manifest(pkg_tree),
+                         "baseline_vs_checklist", budget=2)
+    assert twof_stubs["batch_calls"] == 1     # 2 calls made, budget reached
+    pkg.stage_package_2f(_config(), _manifest(pkg_tree),
+                         "baseline_vs_checklist", budget=200)
+    assert twof_stubs["batch_calls"] == 3     # resumed the remaining cells
+
+
+def test_2f_prompt_version_drift_aborts(pkg_tree, twof_stubs):
+    twof_stubs["verification"]["prompt_template_version"] = "pass_2f_package_v3"
+    with pytest.raises(SystemExit, match="prompt_template_version drifted"):
+        pkg.stage_package_2f(_config(), _manifest(pkg_tree),
+                             "baseline_vs_checklist")
+
+
+# ---------------------------------------------------------------------------
+# Matching + scoring
+# ---------------------------------------------------------------------------
+
+ADJ = pkg.pricing_profile_adjacency()
+EXPECTED = VALID_GOLD["properties"][PROP]["expected_packages"][0]
+
+
+def test_match_expected_exact_adjacent_wrong_missing():
+    exact = _candidate(profile="kitchen_full_rehab")
+    adjacent = _candidate(profile="kitchen_partial_rehab")
+    far = _candidate(profile="kitchen_refresh")
+    assert pkg._match_expected(EXPECTED, [exact], ADJ) == (
+        "matched_exact", "kitchen_full_rehab")
+    assert pkg._match_expected(EXPECTED, [adjacent], ADJ) == (
+        "matched_adjacent", "kitchen_partial_rehab")
+    assert pkg._match_expected(EXPECTED, [far], ADJ) == (
+        "wrong_tier", "kitchen_refresh")
+    assert pkg._match_expected(EXPECTED, [], ADJ) == ("missing", None)
+    strict = {**EXPECTED, "adjacent_acceptable": False}
+    assert pkg._match_expected(strict, [adjacent], ADJ) == (
+        "wrong_tier", "kitchen_partial_rehab")
+
+
+def _write_cell(cell, rep, packages, line_items, midpoint=50000,
+                verifications=None, candidates=None):
+    cell_dir = pkg.PASS2F_DIR / cell / f"rep{rep}" / PROP
+    cell_dir.mkdir(parents=True, exist_ok=True)
+    (cell_dir / "final_estimate.json").write_text(json.dumps({
+        "cell": cell, "rep": rep, "property_key": PROP,
+        "packages": packages, "line_items": line_items,
+        "final_rehab": {"midpoint": midpoint},
+    }), encoding="utf-8")
+    (cell_dir / "candidates.json").write_text(json.dumps({
+        "cell": cell, "rep": rep, "property_key": PROP,
+        "candidates": candidates if candidates is not None else packages,
+    }), encoding="utf-8")
+    (cell_dir / "verifications.json").write_text(json.dumps({
+        "verifications": verifications or {}}), encoding="utf-8")
+
+
+def _approved(**extra):
+    return _candidate(estimate_eligible=True,
+                      verification_status="confirmed", **extra)
+
+
+def _work_item(cid="brick_weathered", unit="bedroom_1", package_id=None,
+               cost=1000):
+    return {"catalog_item_id": cid, "name": cid,
+            "billable_estimate_unit_id": unit, "cost_low": cost,
+            "cost_high": cost * 2, "package_id": package_id,
+            "trade_bucket": "masonry_exterior_structure",
+            "is_valid_detection": True}
+
+
+def _score(pkg_tree, config=None, gold=VALID_GOLD, decisions=None):
+    _write_gold(pkg_tree, gold)
+    return pkg.score_package_round(config or _config(), _manifest(pkg_tree),
+                                   "baseline_vs_checklist", gold,
+                                   decisions or {})
+
+
+def _fill_all_cells(packages, line_items, repeats=1, **kwargs):
+    for cell in ("baseline_cap25", "checklist_cap25", "checklist_all_retained"):
+        for rep in range(1, repeats + 1):
+            _write_cell(cell, rep, packages, line_items, **kwargs)
+
+
+def test_complete_rep_requires_packages_and_work(pkg_tree):
+    _fill_all_cells([_approved()], [_work_item()])
+    scored = _score(pkg_tree)
+    rep = scored["outcomes"]["checklist_cap25"][PROP]["reps"]["1"]
+    assert rep["status"] == "complete"
+    assert rep["expected_packages"][
+        "kitchen_modernization__kitchen_primary"]["status"] == "matched_exact"
+    assert rep["required_work"]["brick_weathered@bedroom_1"] == "satisfied"
+    assert scored["status"] == "final"
+
+
+def test_required_work_satisfied_standalone_or_absorbed_only_into_approved(
+        pkg_tree):
+    approved = _approved()
+    # Absorbed into the approved package: satisfied.
+    _fill_all_cells([approved],
+                    [_work_item(package_id=approved["package_id"])])
+    scored = _score(pkg_tree)
+    assert scored["outcomes"]["checklist_cap25"][PROP]["reps"]["1"][
+        "required_work"]["brick_weathered@bedroom_1"] == "satisfied"
+    # Filed under a package that is NOT approved: missing.
+    _fill_all_cells([approved],
+                    [_work_item(package_id="bedroom_repair__bedroom_1")])
+    scored = _score(pkg_tree)
+    assert scored["outcomes"]["checklist_cap25"][PROP]["reps"]["1"][
+        "required_work"]["brick_weathered@bedroom_1"] == "missing"
+    # No surviving line item, but an approved package on the same unit carries
+    # the id as absorbed evidence: satisfied (2f prunes unconfirmed members).
+    absorbing = _approved(package_id="bedroom_repair__bedroom_1",
+                          package_type="bedroom_repair",
+                          estimate_unit_id="bedroom_1",
+                          pricing_profile="bedroom_repair_heavy",
+                          supporting_catalog_item_ids=["brick_weathered"])
+    _fill_all_cells([_approved(), absorbing], [])
+    scored = _score(pkg_tree)
+    assert scored["outcomes"]["checklist_cap25"][PROP]["reps"]["1"][
+        "required_work"]["brick_weathered@bedroom_1"] == "satisfied"
+    # Same evidence on a DIFFERENT unit's package does not satisfy it.
+    wrong_unit = _approved(package_id="bedroom_repair__bedroom_2",
+                           package_type="bedroom_repair",
+                           estimate_unit_id="bedroom_2",
+                           pricing_profile="bedroom_repair_heavy",
+                           supporting_catalog_item_ids=["brick_weathered"])
+    _fill_all_cells([_approved(), wrong_unit], [])
+    scored = _score(pkg_tree)
+    assert scored["outcomes"]["checklist_cap25"][PROP]["reps"]["1"][
+        "required_work"]["brick_weathered@bedroom_1"] == "missing"
+
+
+def test_wrong_tier_and_missing_fail_the_rep(pkg_tree):
+    _fill_all_cells([_approved(profile="kitchen_refresh")], [_work_item()])
+    scored = _score(pkg_tree)
+    rep = scored["outcomes"]["checklist_cap25"][PROP]["reps"]["1"]
+    assert rep["status"] == "incomplete"
+    assert rep["expected_packages"][
+        "kitchen_modernization__kitchen_primary"]["status"] == "wrong_tier"
+    assert "kitchen_modernization__kitchen_primary" in \
+        scored["missing_for_gold_reconsideration"].pop().split(": ")[1] \
+        if scored["missing_for_gold_reconsideration"] else True
+
+
+def test_extras_closed_world_blocks_then_decisions_resolve(pkg_tree):
+    extra = _approved(package_id="bedroom_repair__bedroom_1",
+                      package_type="bedroom_repair",
+                      estimate_unit_id="bedroom_1",
+                      pricing_profile="bedroom_repair_heavy")
+    _fill_all_cells([_approved(), extra], [_work_item()])
+    # Undecided extra blocks.
+    scored = _score(pkg_tree)
+    assert scored["status"] == "blocked"
+    assert scored["pending_review"]["extras_pending"] > 0
+    assert scored["outcomes"]["checklist_cap25"][PROP]["passed"] is None
+
+    from tools.comparison_common import sha256_file
+    _write_gold(pkg_tree)
+    sha = sha256_file(pkg.PACKAGE_GOLD_PATH)
+    row_id = f"{PROP}|pkg|bedroom_repair__bedroom_1"
+    # false_positive: confirmed extra scope, rep fails, round final.
+    scored = _score(pkg_tree, decisions={row_id: {
+        "decision": "false_positive", "equivalent_gold_id": None,
+        "gold_sha256": sha}})
+    assert scored["status"] == "final"
+    rep = scored["outcomes"]["checklist_cap25"][PROP]["reps"]["1"]
+    assert rep["status"] == "incomplete" and rep["extras_confirmed"]
+    # gold_gap blocks until the gold moves; stale sha needs re-review.
+    scored = _score(pkg_tree, decisions={row_id: {
+        "decision": "gold_gap", "equivalent_gold_id": None,
+        "gold_sha256": sha}})
+    assert scored["status"] == "blocked"
+    assert scored["pending_review"]["gold_gap"] == 1
+    scored = _score(pkg_tree, decisions={row_id: {
+        "decision": "gold_gap", "equivalent_gold_id": None,
+        "gold_sha256": "stale"}})
+    assert scored["pending_review"]["needs_rereview"] == 1
+
+
+def test_equivalent_decision_credits_the_mapped_gold_id(pkg_tree):
+    # Pipeline filed the kitchen package under a different unit id.
+    renamed = _approved(package_id="kitchen_modernization__kitchen_1",
+                        estimate_unit_id="kitchen_1")
+    _fill_all_cells([renamed], [_work_item()])
+    from tools.comparison_common import sha256_file
+    _write_gold(pkg_tree)
+    sha = sha256_file(pkg.PACKAGE_GOLD_PATH)
+    scored = _score(pkg_tree, decisions={
+        f"{PROP}|pkg|kitchen_modernization__kitchen_1": {
+            "decision": "equivalent",
+            "equivalent_gold_id": "kitchen_modernization__kitchen_primary",
+            "gold_sha256": sha}})
+    rep = scored["outcomes"]["checklist_cap25"][PROP]["reps"]["1"]
+    assert rep["expected_packages"][
+        "kitchen_modernization__kitchen_primary"]["status"] == "matched_equivalent"
+    assert rep["status"] == "complete"
+    assert scored["status"] == "final"
+
+
+def test_evidence_and_package_member_items_are_never_extras(pkg_tree):
+    approved = _approved()
+    member = _work_item(cid="counter_dated", unit="kitchen_primary",
+                        package_id=approved["package_id"])
+    evidence = _work_item(cid="cab_dated", unit="kitchen_primary")  # standalone
+    _fill_all_cells([approved], [_work_item(), member, evidence])
+    scored = _score(pkg_tree)
+    assert scored["status"] == "final"      # nothing pended for review
+
+
+def test_two_of_three_gate_and_cap_verdicts_with_noise_attribution(pkg_tree):
+    config = _config(repeats=3)
+    good = ([_approved()], [_work_item()])
+    bad = ([], [_work_item()])
+    for rep in range(1, 4):
+        _write_cell("baseline_cap25", rep, *good)
+        # capped checklist: complete only in rep1 -> 1/3 -> fails the 2-of-3
+        _write_cell("checklist_cap25", rep, *(good if rep == 1 else bad),
+                    candidates=[_candidate()],
+                    verifications={"kitchen_modernization__kitchen_primary": {
+                        "verification_status": "rejected" if rep > 1
+                        else "confirmed"}})
+        # all_retained: complete in all reps, same candidate multiset
+        _write_cell("checklist_all_retained", rep, *good,
+                    candidates=[_candidate()],
+                    verifications={"kitchen_modernization__kitchen_primary": {
+                        "verification_status": "confirmed"}})
+    scored = _score(pkg_tree, config=config)
+    checklist_capped = scored["outcomes"]["checklist_cap25"][PROP]
+    allret = scored["outcomes"]["checklist_all_retained"][PROP]
+    assert checklist_capped["passing_reps"] == 1
+    assert checklist_capped["passed"] is False
+    assert allret["passed"] is True
+    cap = scored["cap_experiment"][PROP]
+    assert cap["verdict"] == "cap_hurts"
+    # Identical candidate multisets but divergent 2f decisions -> noise.
+    assert cap["pass_2f_instability"]["count"] == 2      # reps 2 and 3
+    assert cap["verdict_confidence"] == "reduced_by_2f_noise"
+
+
+def test_probe_candidates_count_despite_not_run_audit_only():
+    # A no-verification probe stamps audit_only=True (status not_run) on every
+    # candidate; that must NOT hide candidates from the candidate-side views.
+    probe_candidate = _candidate(audit_only=True,
+                                 verification_status="not_run")
+    assert pkg._candidate_in_scope(probe_candidate)
+    assert not pkg._scoreable_package(probe_candidate)     # post-2f view differs
+    whole_home = _candidate(estimate_display_only=True)
+    assert not pkg._candidate_in_scope(whole_home)
+
+
+def test_no_noise_attribution_when_candidate_sets_differ(pkg_tree):
+    # The cap changed WHAT was proposed, so a 2f disagreement is a real cap
+    # effect, not noise — instability must stay at zero.
+    good = ([_approved()], [_work_item()])
+    _write_cell("baseline_cap25", 1, *good)
+    _write_cell("checklist_cap25", 1, *good,
+                candidates=[_candidate()],
+                verifications={"kitchen_modernization__kitchen_primary": {
+                    "verification_status": "confirmed"}})
+    extra_candidate = _candidate(ptype="bedroom_repair", unit="bedroom_1",
+                                 profile="bedroom_repair_heavy")
+    _write_cell("checklist_all_retained", 1, *good,
+                candidates=[_candidate(), extra_candidate],
+                verifications={"kitchen_modernization__kitchen_primary": {
+                    "verification_status": "rejected"}})
+    config = _config()
+    config["package_eval"]["gates"]["pass_reps_required"] = 1
+    scored = _score(pkg_tree, config=config)
+    assert scored["cap_experiment"][PROP]["pass_2f_instability"]["count"] == 0
+
+
+def test_cap_benign_with_cost_flag(pkg_tree):
+    good = ([_approved()], [_work_item()])
+    _write_cell("baseline_cap25", 1, *good)
+    _write_cell("checklist_cap25", 1, *good, midpoint=50000)
+    _write_cell("checklist_all_retained", 1, *good, midpoint=90000)
+    config = _config()
+    config["package_eval"]["gates"]["pass_reps_required"] = 1
+    scored = _score(pkg_tree, config=config)
+    cap = scored["cap_experiment"][PROP]
+    assert cap["verdict"] == "cap_benign"
+    assert any("midpoints differ" in f for f in cap["flags"])
+    assert cap["verdict_confidence"] == "normal"
+
+
+def test_display_only_and_audit_only_packages_are_out_of_scope(pkg_tree):
+    whole_home = _approved(
+        package_id="interior_paint_flooring_refresh__whole_home",
+        package_type="interior_paint_flooring_refresh",
+        estimate_unit_id="whole_home", estimate_display_only=True)
+    audit = _approved(package_id="bedroom_repair__bedroom_1",
+                      package_type="bedroom_repair",
+                      estimate_unit_id="bedroom_1", audit_only=True)
+    _fill_all_cells([_approved(), whole_home, audit], [_work_item()])
+    scored = _score(pkg_tree)
+    assert scored["status"] == "final"      # neither pended as an extra
+
+
+# ---------------------------------------------------------------------------
+# Review CSV roundtrip
+# ---------------------------------------------------------------------------
+
+def test_review_roundtrip_dedupes_by_signature(pkg_tree):
+    extra = _approved(package_id="bedroom_repair__bedroom_1",
+                      package_type="bedroom_repair",
+                      estimate_unit_id="bedroom_1",
+                      pricing_profile="bedroom_repair_heavy")
+    config = _config(repeats=2)
+    for cell in ("baseline_cap25", "checklist_cap25", "checklist_all_retained"):
+        for rep in (1, 2):
+            _write_cell(cell, rep, [_approved(), extra], [_work_item()])
+    _write_gold(pkg_tree)
+    out = pkg.package_review_export(config, _manifest(pkg_tree),
+                                    "baseline_vs_checklist")
+    with out.open(newline="", encoding="utf-8-sig") as handle:
+        rows = list(csv.DictReader(handle))
+    assert [list(rows[0])] == [pkg.PACKAGE_REVIEW_COLUMNS]
+    assert len(rows) == 1                                   # deduped signature
+    assert rows[0]["row_id"] == f"{PROP}|pkg|bedroom_repair__bedroom_1"
+    assert "baseline_cap25:1;2" in rows[0]["occurs_in"]
+
+    rows[0]["human_decision"] = "false_positive"
+    rows[0]["reviewer_note"] = "cosmetic only"
+    with out.open("w", newline="", encoding="utf-8-sig") as handle:
+        writer = csv.DictWriter(handle, fieldnames=pkg.PACKAGE_REVIEW_COLUMNS)
+        writer.writeheader()
+        writer.writerows(rows)
+    pkg.package_review_import(config, _manifest(pkg_tree),
+                              "baseline_vs_checklist", str(out))
+    decisions = pkg.load_package_decisions()
+    assert decisions[rows[0]["row_id"]]["decision"] == "false_positive"
+
+    scored = pkg.score_package_round(config, _manifest(pkg_tree),
+                                     "baseline_vs_checklist",
+                                     VALID_GOLD, decisions)
+    assert scored["status"] == "final"
+
+
+def test_review_import_rejects_bad_rows(pkg_tree):
+    _fill_all_cells([_approved(), _approved(
+        package_id="bedroom_repair__bedroom_1", package_type="bedroom_repair",
+        estimate_unit_id="bedroom_1")], [_work_item()])
+    _write_gold(pkg_tree)
+    out = pkg.package_review_export(_config(), _manifest(pkg_tree),
+                                    "baseline_vs_checklist")
+    with out.open(newline="", encoding="utf-8-sig") as handle:
+        rows = list(csv.DictReader(handle))
+    rows[0]["human_decision"] = "equivalent"
+    rows[0]["equivalent_gold_id"] = "no_such_gold_id"
+    with out.open("w", newline="", encoding="utf-8-sig") as handle:
+        writer = csv.DictWriter(handle, fieldnames=pkg.PACKAGE_REVIEW_COLUMNS)
+        writer.writeheader()
+        writer.writerows(rows)
+    with pytest.raises(SystemExit, match="not a pkg gold id"):
+        pkg.package_review_import(_config(), _manifest(pkg_tree),
+                                  "baseline_vs_checklist", str(out))
+
+
+# ---------------------------------------------------------------------------
+# Fingerprint layers
+# ---------------------------------------------------------------------------
+
+def test_fingerprint_layers_gold_and_gates_touch_scoring_only(pkg_tree):
+    config = _config()
+    manifest = _manifest(pkg_tree)
+    base_r = pkg.compute_resolution_fingerprint(manifest, config,
+                                                "baseline", "checklist")
+    base_f = pkg.compute_pass2f_fingerprint(manifest, config,
+                                            "baseline", "checklist")
+    assert "git_head" not in base_r and "git_head" not in base_f
+
+    # Gold edits and gate tweaks touch neither paid layer.
+    edited = json.loads(json.dumps(config))
+    edited["package_eval"]["gates"]["cost_flag_pct"] = 99
+    assert pkg.compute_resolution_fingerprint(
+        manifest, edited, "baseline", "checklist") == base_r
+    assert pkg.compute_pass2f_fingerprint(
+        manifest, edited, "baseline", "checklist") == base_f
+
+    # A 2f model change invalidates F but not R.
+    edited["package_eval"]["pass_2f"]["model"] = "gpt-5.6-terra"
+    assert pkg.compute_resolution_fingerprint(
+        manifest, edited, "baseline", "checklist") == base_r
+    assert pkg.compute_pass2f_fingerprint(
+        manifest, edited, "baseline", "checklist") != base_f
+
+    # A ceiling change invalidates R (and therefore F).
+    edited2 = json.loads(json.dumps(config))
+    edited2["package_eval"]["tail_resolution"]["emergency_ceiling"] = 256
+    assert pkg.compute_resolution_fingerprint(
+        manifest, edited2, "baseline", "checklist") != base_r

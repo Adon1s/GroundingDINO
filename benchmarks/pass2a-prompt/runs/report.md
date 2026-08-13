@@ -1,6 +1,6 @@
 # Pass 2a prompt ablation — benchmark report
 
-Generated 2026-08-09T21:02:06.905145+00:00. Dollar figures are **pre-2f, all packages assumed confirmed** benchmark totals, not production headlines.
+Generated 2026-08-11T01:23:01.904826+00:00. Dollar figures are **pre-2f, all packages assumed confirmed** benchmark totals, not production headlines.
 
 ## Attribution gate: PASSED
 - redfin_10806500: median midpoint $72,925, spread $20,500, 5 partial priced ids
@@ -24,7 +24,19 @@ Generated 2026-08-09T21:02:06.905145+00:00. Dollar figures are **pre-2f, all pac
   - redfin_10806500: Jaccard 0.715, spread $20,500, 5 partial priced ids
   - redfin_11000447: Jaccard 0.826, spread $5,660, 4 partial priced ids
 
-## Judge round — baseline_vs_checklist
+## Match round — baseline_vs_checklist
+Baseline `baseline` vs candidate `checklist`, scored against the human gold.
+
+**Not final — 2650 pending still to adjudicate.** Export the review CSV, decide every flagged row, import it, then rerun the report.
+
+| property | gold matches | unsupported additions | linkage misses | midpoint spread | verdict |
+| --- | --- | --- | --- | --- | --- |
+| redfin_10806500 | 11 → 23 | 0 → 0 | 7 → 17 | $28,875 → $7,950 | pending |
+| redfin_11000447 | 26 → 47 | 0 → 0 | 19 → 40 | $17,585 → $37,041 | pending |
+
+Median counts are per repeat. Row-level detail lives in `runs/review_baseline_vs_checklist/` and `runs/match_baseline_vs_checklist/`, not here.
+
+## Judge round (archived — superseded by match) — baseline_vs_checklist
 - baseline: 630 claims, unsupported 6.03%, uncertain 13.02%, recall vs gold 52.6%, critical(2+ reps) 1
 - checklist: 2514 claims, unsupported 3.98%, uncertain 18.77%, recall vs gold 88.7%, critical(2+ reps) 3
 - **verdict: reject** (dJaccard 0.105, spread -3.2%, midpoint shift 3.5%)

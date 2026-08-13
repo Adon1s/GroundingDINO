@@ -174,7 +174,120 @@
       "flip_pct": 15.0
     }
   },
-  "generated_at": "2026-08-09T21:02:06.905145+00:00",
+  "generated_at": "2026-08-11T01:23:01.904826+00:00",
+  "match_rounds": {
+    "baseline_vs_checklist": {
+      "baseline": "baseline",
+      "candidate": "checklist",
+      "critical_findings": [],
+      "overall": null,
+      "pending_review": {
+        "gold_gap": 0,
+        "needs_rereview": 0,
+        "pending": 2650
+      },
+      "properties": {
+        "redfin_10806500": {
+          "baseline": {
+            "catalog_linkage_misses": 7,
+            "gold_matches_by_rep": {
+              "1": 8,
+              "2": 13,
+              "3": 11
+            },
+            "median_gold_matches": 11,
+            "median_net": 11,
+            "median_unsupported": 0,
+            "midpoint_spread_usd": 28875,
+            "net_by_rep": {
+              "1": 8,
+              "2": 13,
+              "3": 11
+            },
+            "unsupported_by_rep": {
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "candidate": {
+            "catalog_linkage_misses": 17,
+            "gold_matches_by_rep": {
+              "1": 23,
+              "2": 23,
+              "3": 20
+            },
+            "median_gold_matches": 23,
+            "median_net": 23,
+            "median_unsupported": 0,
+            "midpoint_spread_usd": 7950,
+            "net_by_rep": {
+              "1": 23,
+              "2": 23,
+              "3": 20
+            },
+            "unsupported_by_rep": {
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "verdict": null
+        },
+        "redfin_11000447": {
+          "baseline": {
+            "catalog_linkage_misses": 19,
+            "gold_matches_by_rep": {
+              "1": 23,
+              "2": 26,
+              "3": 30
+            },
+            "median_gold_matches": 26,
+            "median_net": 26,
+            "median_unsupported": 0,
+            "midpoint_spread_usd": 17585,
+            "net_by_rep": {
+              "1": 23,
+              "2": 26,
+              "3": 30
+            },
+            "unsupported_by_rep": {
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "candidate": {
+            "catalog_linkage_misses": 40,
+            "gold_matches_by_rep": {
+              "1": 45,
+              "2": 47,
+              "3": 48
+            },
+            "median_gold_matches": 47,
+            "median_net": 47,
+            "median_unsupported": 0,
+            "midpoint_spread_usd": 37041,
+            "net_by_rep": {
+              "1": 45,
+              "2": 47,
+              "3": 48
+            },
+            "unsupported_by_rep": {
+              "1": 0,
+              "2": 0,
+              "3": 0
+            }
+          },
+          "verdict": null
+        }
+      },
+      "rows_total": 3144,
+      "spread_reduction_pct": 3.2,
+      "status": "blocked",
+      "tie_breaker_pct": 25.0
+    }
+  },
   "rounds": {
     "baseline_vs_checklist": {
       "gates": {

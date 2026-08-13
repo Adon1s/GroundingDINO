@@ -12,6 +12,7 @@ available (skipped otherwise). End-to-end with live models is the documented
 smoke run, not a unit test.
 """
 import asyncio
+import csv
 import dataclasses
 import json
 from pathlib import Path
@@ -565,3 +566,722 @@ def test_compute_pre2f_totals_force_confirms_packages():
             "packages were inferred but no line item carries a package_id — "
             "the not_run zeroing gate is still biting"
         )
+
+
+# ---------------------------------------------------------------------------
+# Matcher contract: text-only payload, provider-independent validation
+# ---------------------------------------------------------------------------
+
+GOLD_ROWS = [
+    {"gold_id": "g1", "condition": "Front steps are cracked and patched"},
+    {"gold_id": "g3", "condition": "Gutter is detached at the right corner"},
+]
+
+CLAIMS = ["Steps are cracked.", "Gutter is detached and actively leaking."]
+
+MATCHER_REPLY = json.dumps({"rows": [
+    {"claim_index": 0, "decision": "match", "gold_ids": ["g1"],
+     "explanation": "same cracked steps"},
+    {"claim_index": 1, "decision": "ambiguous", "gold_ids": ["g3"],
+     "explanation": "adds an unsupported active leak"},
+]})
+
+
+def test_matcher_payload_carries_text_only():
+    payload = bench.matcher_payload(
+        {"photo_key": "photo_001.jpg", "scene": "exterior_front"},
+        GOLD_ROWS, CLAIMS)
+    assert payload["claims"] == [
+        {"claim_index": 0, "text": CLAIMS[0]},
+        {"claim_index": 1, "text": CLAIMS[1]},
+    ]
+    assert [g["gold_id"] for g in payload["gold_conditions"]] == ["g1", "g3"]
+    # Nothing that would let the matcher score on catalog identity or lineage.
+    blob = json.dumps(payload)
+    for leak in ("resolved_item_id", "catalog_item_id", "kind", "priced",
+                 "excluded", "kept", "image", "variant"):
+        assert leak not in blob
+
+
+def test_matcher_prompt_pins_the_match_contract():
+    prompt = bench.MATCHER_SYSTEM_PROMPT
+    assert "never shown the photo" in prompt
+    assert "same component" in prompt and "same condition" in prompt
+    # The compound-observation rule is the reason 'ambiguous' exists at all.
+    assert "'ambiguous', never 'match'" in prompt
+    assert "Paraphrase counts" in prompt
+
+
+def test_validate_matcher_rows_accepts_a_clean_payload():
+    rows = bench.validate_matcher_rows(
+        [{"claim_index": 1, "decision": "no_match", "gold_ids": [],
+          "explanation": "nothing in gold"},
+         {"claim_index": 0, "decision": "match", "gold_ids": ["g3", "g1", "g1"],
+          "explanation": "same steps, same cracking"}],
+        2, ["g1", "g3"])
+    assert [r["claim_index"] for r in rows] == [0, 1]   # restored to claim order
+    assert rows[0]["gold_ids"] == ["g1", "g3"]          # deduped and sorted
+
+
+@pytest.mark.parametrize("rows,problem", [
+    ([{"claim_index": 0, "decision": "match", "gold_ids": ["g1"],
+       "explanation": ""}], "skipped claim_index"),
+    ([{"claim_index": 0, "decision": "match", "gold_ids": ["g1"], "explanation": ""},
+      {"claim_index": 0, "decision": "no_match", "gold_ids": [], "explanation": ""}],
+     "duplicate claim_index"),
+    ([{"claim_index": 0, "decision": "match", "gold_ids": ["g9"], "explanation": ""},
+      {"claim_index": 1, "decision": "no_match", "gold_ids": [], "explanation": ""}],
+     "not on this photo"),
+    ([{"claim_index": 0, "decision": "match", "gold_ids": [], "explanation": ""},
+      {"claim_index": 1, "decision": "no_match", "gold_ids": [], "explanation": ""}],
+     "carries no gold_ids"),
+    ([{"claim_index": 0, "decision": "sort_of", "gold_ids": [], "explanation": ""},
+      {"claim_index": 1, "decision": "no_match", "gold_ids": [], "explanation": ""}],
+     "bad decision"),
+    ("not a list", "no 'rows' list"),
+])
+def test_validate_matcher_rows_rejects_broken_payloads(rows, problem):
+    with pytest.raises(ValueError) as excinfo:
+        bench.validate_matcher_rows(rows, 2, ["g1", "g3"])
+    assert problem in str(excinfo.value)
+
+
+class _FakeTextClient:
+    def __init__(self, *responses):
+        self.responses = list(responses)
+        self.calls = []
+
+    async def analyze_text(self, **kwargs):
+        self.calls.append(kwargs)
+        return self.responses.pop(0)
+
+
+def _run_matcher(config, client):
+    return asyncio.run(bench.run_matcher_call(
+        client, {"api_key": "k"}, config,
+        {"photo_key": "photo_001.jpg", "scene": "exterior_front"},
+        GOLD_ROWS, CLAIMS))
+
+
+def test_matcher_openai_gets_a_server_enforced_schema():
+    client = _FakeTextClient(MATCHER_REPLY)
+    rows = _run_matcher(
+        {"matcher": {"provider": "openai", "model": "gpt-5.6-terra",
+                     "reasoning_effort": "low"}}, client)
+    call = client.calls[0]
+    assert call["response_schema_name"] == "pass2a_gold_match_v1"
+    assert call["response_json_schema"] == bench._matcher_schema()
+    assert call["reasoning_effort"] == "low"
+    # Enforced server-side, so it stays out of the prompt.
+    assert "additionalProperties" not in call["user_prompt"]
+    assert rows[1]["decision"] == "ambiguous"
+
+
+def test_matcher_lmstudio_gets_the_schema_in_the_prompt_instead():
+    client = _FakeTextClient(MATCHER_REPLY)
+    rows = _run_matcher(
+        {"matcher": {"provider": "lmstudio", "model": "qwen",
+                     "url": "http://localhost:1234"}}, client)
+    call = client.calls[0]
+    # analyze_text drops response_json_schema for lmstudio, so it goes in-band.
+    assert "response_json_schema" not in call
+    assert "additionalProperties" in call["user_prompt"]
+    assert call["url"] == "http://localhost:1234"
+    # Identical rows from either provider: the harness is the gate, not the server.
+    assert rows == _run_matcher(
+        {"matcher": {"provider": "openai", "model": "gpt-5.6-terra"}},
+        _FakeTextClient(MATCHER_REPLY))
+
+
+def test_matcher_retries_once_then_gives_up():
+    client = _FakeTextClient("not json at all", MATCHER_REPLY)
+    assert _run_matcher({"matcher": {"provider": "openai", "model": "m"}},
+                        client)[0]["decision"] == "match"
+    assert len(client.calls) == 2
+
+    with pytest.raises(RuntimeError, match="unusable payload"):
+        _run_matcher({"matcher": {"provider": "openai", "model": "m"}},
+                     _FakeTextClient("garbage", "still garbage"))
+
+
+def test_match_blinding_is_deterministic_and_uses_both_orders():
+    seen = set()
+    for photo in (f"photo_{i:03d}.jpg" for i in range(1, 12)):
+        mapping = bench.match_blinding("r", "prop", photo, "baseline", "checklist")
+        assert mapping == bench.match_blinding(
+            "r", "prop", photo, "baseline", "checklist")
+        assert set(mapping.values()) == {"baseline", "checklist"}
+        seen.add(mapping["A"])
+    assert seen == {"baseline", "checklist"}
+
+
+# ---------------------------------------------------------------------------
+# Claim lineage
+# ---------------------------------------------------------------------------
+
+def _lineage_record(claims, kept, excluded=(), resolved=None, cut=None):
+    kept, resolved = list(kept), (resolved or {})
+    cut = len(kept) if cut is None else cut
+    return {
+        "claims": list(claims),
+        "kept": [{"description": t, "kind": "degradation", "issue_id": f"i{n}"}
+                 for n, t in enumerate(kept)],
+        "excluded": [{"description": t, "reason": "neutral_presence"}
+                     for t in excluded],
+        "resolved_by_issue": {f"i{n}": resolved[n] for n in resolved if n < cut},
+        "total_resolve_count": cut,
+        "skipped_by_text": {},
+    }
+
+
+def test_classify_claim_lineage_covers_every_lane():
+    record = _lineage_record(
+        claims=["resolved one", "declined one", "no candidates",
+                "past the cap", "filtered out", "from nowhere"],
+        kept=["resolved one", "declined one", "no candidates", "past the cap"],
+        excluded=["filtered out"],
+        resolved={0: "item_a", 1: None},
+        cut=3,
+    )
+    record["skipped_by_text"] = {"no candidates": "no_candidates"}
+    rows = bench.classify_claim_lineage(record)
+    assert [r["status"] for r in rows] == [
+        "resolved", "retained_unresolved", "resolution_skipped",
+        "resolution_not_attempted", "filtered_2c", "unknown_lane",
+    ]
+    # The lane set is closed: the report and CSV both key off it.
+    assert set(bench.LINEAGE_STATUSES) == {r["status"] for r in rows}
+    assert rows[0]["resolved_item_id"] == "item_a"
+    assert rows[2]["detail"] == "no_candidates"
+    assert rows[4]["detail"] == "neutral_presence"
+
+
+def test_lineage_truncated_claims_are_not_linkage_misses():
+    rows = bench.classify_claim_lineage(_lineage_record(
+        claims=["a", "b"], kept=["a", "b"], resolved={0: None}, cut=1))
+    assert rows[0]["status"] in bench.LINKAGE_MISS_STATUSES
+    assert rows[1]["status"] == "resolution_not_attempted"
+    assert rows[1]["status"] not in bench.LINKAGE_MISS_STATUSES
+
+
+def test_lineage_consumes_duplicate_texts_once_per_lane():
+    record = _lineage_record(claims=["same text", "same text"],
+                             kept=["same text"], excluded=["same text"],
+                             resolved={0: "item_a"})
+    assert [r["status"] for r in bench.classify_claim_lineage(record)] == [
+        "resolved", "filtered_2c"]
+
+
+def test_lineage_matches_text_despite_whitespace_and_case():
+    record = _lineage_record(claims=["Steps  are   Cracked."],
+                             kept=["steps are cracked."], resolved={0: "item_a"})
+    assert bench.classify_claim_lineage(record)[0]["status"] == "resolved"
+
+
+# ---------------------------------------------------------------------------
+# Human decisions over matcher proposals
+# ---------------------------------------------------------------------------
+
+def _matcher_row(decision="match", gold_ids=("g1",)):
+    return {"claim_index": 0, "decision": decision,
+            "gold_ids": list(gold_ids), "explanation": ""}
+
+
+def test_auto_match_is_accepted_and_other_verdicts_stay_pending():
+    known, sha = {"g1", "g3"}, "sha1"
+    assert bench.effective_decision(_matcher_row(), None, known, sha) == (
+        "match", ["g1"])
+    for proposal in ("no_match", "ambiguous"):
+        verdict, _ = bench.effective_decision(
+            _matcher_row(proposal, ()), None, known, sha)
+        assert verdict == "pending"
+
+
+def test_human_decision_overrides_the_matcher_in_both_directions():
+    known, sha = {"g1", "g3"}, "sha1"
+    assert bench.effective_decision(
+        _matcher_row("match", ["g1"]),
+        {"decision": "unsupported", "gold_ids": [], "gold_sha256": sha},
+        known, sha) == ("unsupported", [])
+    assert bench.effective_decision(
+        _matcher_row("no_match", []),
+        {"decision": "match", "gold_ids": ["g3"], "gold_sha256": sha},
+        known, sha) == ("match", ["g3"])
+
+
+def test_decisions_go_stale_when_the_gold_moves_under_them():
+    sha, newer = "sha1", "sha2"
+    for decision in ({"decision": "match", "gold_ids": ["g9"], "gold_sha256": sha},
+                     {"decision": "gold_gap", "gold_ids": [], "gold_sha256": sha}):
+        verdict, _ = bench.effective_decision(
+            _matcher_row(), decision, {"g1", "g3"}, newer)
+        assert verdict == "needs_rereview"
+    # Decisions untouched by the edit survive it.
+    verdict, _ = bench.effective_decision(
+        _matcher_row(), {"decision": "unsupported", "gold_ids": [],
+                        "gold_sha256": sha}, {"g1", "g3"}, newer)
+    assert verdict == "unsupported"
+
+
+# ---------------------------------------------------------------------------
+# Net-observation scoring and property verdicts
+# ---------------------------------------------------------------------------
+
+def _scored_row(variant, decision, gold_ids=(), *, rep=1, index=0,
+                status="resolved", critical=False, prop="prop",
+                photo="photo_001.jpg", observation="obs"):
+    return {
+        "row_id": bench.review_row_id(variant, rep, prop, photo, index),
+        "property": prop, "photo": photo, "variant": variant, "repeat": rep,
+        "claim_index": index, "observation": observation,
+        "pipeline_status": status, "resolved_item_id": "",
+        "proposed_match": decision, "proposed_gold_ids": "",
+        "matcher_explanation": "", "audit": "", "human_decision": "",
+        "corrected_gold_ids": "", "critical": "", "reviewer_note": "note",
+        "effective_decision": decision, "effective_gold_ids": list(gold_ids),
+        "critical_flag": critical,
+    }
+
+
+def _stabilities(base_spread, cand_spread, prop="prop"):
+    return {
+        "baseline": {"per_property": {prop: {"midpoint_spread_usd": base_spread}},
+                     "median_midpoint_spread_usd": base_spread},
+        "checklist": {"per_property": {prop: {"midpoint_spread_usd": cand_spread}},
+                      "median_midpoint_spread_usd": cand_spread},
+    }
+
+
+def _score(rows, base_spread=1000, cand_spread=1000):
+    return bench.score_match_round(
+        rows, _stabilities(base_spread, cand_spread), "baseline", "checklist")
+
+
+def test_many_generated_observations_cover_one_gold_condition_once():
+    result = _score([
+        _scored_row("baseline", "match", ["g1"], index=0),
+        _scored_row("baseline", "match", ["g1"], index=1),
+        _scored_row("checklist", "match", ["g1", "g3"], index=0),
+    ])
+    base = result["properties"]["prop"]["baseline"]
+    cand = result["properties"]["prop"]["candidate"]
+    assert base["gold_matches_by_rep"]["1"] == 1     # two paraphrases, one gold
+    assert cand["gold_matches_by_rep"]["1"] == 2     # one claim, two golds
+
+
+def test_net_score_is_coverage_minus_confirmed_unsupported():
+    result = _score([
+        _scored_row("checklist", "match", ["g1"], index=0),
+        _scored_row("checklist", "match", ["g3"], index=1),
+        _scored_row("checklist", "unsupported", index=2),
+        _scored_row("baseline", "match", ["g1"], index=0),
+    ])
+    cand = result["properties"]["prop"]["candidate"]
+    assert cand["gold_matches_by_rep"]["1"] == 2
+    assert cand["unsupported_by_rep"]["1"] == 1
+    assert cand["net_by_rep"]["1"] == 1
+    assert result["properties"]["prop"]["verdict"] == "tied"   # net 1 vs net 1
+
+
+def test_unsupported_counts_regardless_of_downstream_filtering():
+    # A hallucination 2c filtered out still counts against the prompt.
+    result = _score([
+        _scored_row("checklist", "unsupported", index=0, status="filtered_2c"),
+        _scored_row("baseline", "match", ["g1"], index=0),
+    ])
+    assert result["properties"]["prop"]["candidate"]["unsupported_by_rep"]["1"] == 1
+    assert result["properties"]["prop"]["verdict"] == "hurt"
+
+
+def test_linkage_misses_exclude_claims_the_resolver_never_saw():
+    result = _score([
+        _scored_row("checklist", "match", ["g1"], index=0,
+                    status="retained_unresolved"),
+        _scored_row("checklist", "match", ["g3"], index=1,
+                    status="resolution_skipped"),
+        _scored_row("checklist", "match", ["g1"], index=2,
+                    status="resolution_not_attempted"),
+        _scored_row("checklist", "match", ["g3"], index=3, status="resolved"),
+    ])
+    assert result["properties"]["prop"]["candidate"]["catalog_linkage_misses"] == 2
+
+
+def test_exclude_rows_drop_out_of_scoring_entirely():
+    result = _score([
+        _scored_row("checklist", "exclude", index=0),
+        _scored_row("baseline", "exclude", index=0),
+    ])
+    assert result["status"] == "final"
+    cand = result["properties"]["prop"]["candidate"]
+    assert cand["gold_matches_by_rep"]["1"] == 0
+    assert cand["unsupported_by_rep"]["1"] == 0
+
+
+@pytest.mark.parametrize("decision", ["pending", "gold_gap", "needs_rereview"])
+def test_unadjudicated_rows_block_the_report(decision):
+    result = _score([
+        _scored_row("checklist", decision, index=0),
+        _scored_row("baseline", "match", ["g1"], index=0),
+    ])
+    assert result["status"] == "blocked"
+    assert result["pending_review"][decision] == 1
+    assert result["overall"] is None
+    assert result["properties"]["prop"]["verdict"] is None
+
+
+def test_clean_round_reports_verdicts():
+    result = _score([
+        _scored_row("checklist", "match", ["g1", "g3"], index=0),
+        _scored_row("baseline", "match", ["g1"], index=0),
+    ])
+    assert result["status"] == "final"
+    assert result["overall"] == {"helped": 1, "tied": 0, "hurt": 0}
+    assert result["properties"]["prop"]["verdict"] == "helped"
+
+
+def test_confirmed_critical_hallucination_loses_the_property():
+    result = _score([
+        # The candidate covers strictly more gold, but one claim is critical.
+        _scored_row("checklist", "match", ["g1", "g3"], index=0),
+        _scored_row("checklist", "unsupported", index=1, critical=True),
+        _scored_row("baseline", "match", ["g1"], index=0),
+    ])
+    assert result["properties"]["prop"]["verdict"] == "hurt"
+    (finding,) = result["critical_findings"]
+    assert finding["variant"] == "checklist"
+    assert finding["reviewer_note"] == "note"
+
+
+@pytest.mark.parametrize("base_nets,cand_nets,expected", [
+    ([5, 5, 5], [7, 6, 6], "helped"),
+    ([5, 5, 5], [4, 4, 3], "hurt"),
+    ([5, 6, 4], [4, 5, 6], "tied"),          # equal medians, equal spread below
+])
+def test_property_verdict_follows_the_median_net(base_nets, cand_nets, expected):
+    assert bench.property_verdict(
+        base_nets, cand_nets, False, 1000, 1000) == expected
+
+
+@pytest.mark.parametrize("base_spread,cand_spread,expected", [
+    (1000, 750, "helped"),    # exactly 25% lower — inclusive
+    (1000, 751, "tied"),
+    (1000, 1250, "hurt"),     # exactly 25% higher — inclusive
+    (1000, 1249, "tied"),
+    (0, 0, "tied"),
+    (0, 500, "hurt"),         # candidate introduced spread
+    (500, 0, "helped"),
+])
+def test_spread_tie_breaker_only_runs_on_an_exact_tie(base_spread, cand_spread,
+                                                      expected):
+    assert bench.property_verdict(
+        [5], [5], False, base_spread, cand_spread) == expected
+    # A decided median is never overturned by spread.
+    assert bench.property_verdict(
+        [5], [9], False, base_spread, cand_spread) == "helped"
+
+
+def test_critical_loss_outranks_every_other_signal():
+    assert bench.property_verdict([1], [99], True, 9999, 0) == "hurt"
+
+
+# ---------------------------------------------------------------------------
+# Match stage identity + the review CSV round trip (on a temp benchmark tree)
+# ---------------------------------------------------------------------------
+
+ROUND = "baseline_vs_checklist"
+PHOTO = "photo_001.jpg"
+GOLD_FILE = {"photos": {f"prop/{PHOTO}": [
+    {"gold_id": "g1", "condition": "Front steps are cracked"},
+    {"gold_id": "g3", "condition": "Gutter is detached"},
+]}}
+BENCH_CONFIG = {
+    "repeats": 1,
+    "matcher": {"provider": "openai", "model": "gpt-5.6-terra",
+                "reasoning_effort": "low", "url": None},
+    "gates": {"supported_audit_rate": 1.0},
+}
+
+
+@pytest.fixture
+def bench_tree(tmp_path, monkeypatch):
+    bench_dir = tmp_path / "benchmarks" / "pass2a-prompt"
+    (bench_dir / "gold").mkdir(parents=True)
+    paths = SimpleNamespace(
+        dir=bench_dir, runs=bench_dir / "runs",
+        gold=bench_dir / "gold" / "reference.json",
+        manifest=bench_dir / "manifest.json",
+        prompts=bench_dir / "prompts.json",
+    )
+    monkeypatch.setattr(bench, "BENCH_DIR", bench_dir)
+    monkeypatch.setattr(bench, "RUNS_DIR", paths.runs)
+    monkeypatch.setattr(bench, "GOLD_PATH", paths.gold)
+    monkeypatch.setattr(bench, "MANIFEST_PATH", paths.manifest)
+    monkeypatch.setattr(bench, "PROMPTS_PATH", paths.prompts)
+    return paths
+
+
+def _write_variant_photo(runs, variant, claims, resolved=None, cut=None):
+    """The per-photo checkpoint + totals load_photo_repeat_records reads."""
+    resolved = resolved or {i: f"item_{i}" for i in range(len(claims))}
+    cut = len(claims) if cut is None else cut
+    stage = f"variant_{variant}"
+    prop_dir = runs / stage / "rep1" / "prop"
+    (prop_dir / ".photos").mkdir(parents=True, exist_ok=True)
+    observations = [{"description": t, "kind": "degradation",
+                     "issue_id": f"{variant}-{i}"}
+                    for i, t in enumerate(claims)]
+    (prop_dir / ".photos" / f"{PHOTO}.json").write_text(json.dumps({
+        "image_path": PHOTO,
+        "scene_data": {
+            "observations_struct": {"observations": [
+                {"description": t} for t in claims]},
+            "observations": observations,
+            "excluded_observations": [],
+            "resolved_items": [
+                {"issue_id": observations[i]["issue_id"],
+                 "description": claims[i], "resolved_item_id": resolved.get(i)}
+                for i in range(min(cut, len(claims)))],
+            "debug": {"pass_2d_gate": {"total_resolve_count": cut},
+                      "pass_2d_per_observation": []},
+        },
+    }), encoding="utf-8")
+    job_dir = prop_dir / f"{stage}_rep1"
+    job_dir.mkdir(parents=True, exist_ok=True)
+    (job_dir / "photo_intel.json").write_text("{}", encoding="utf-8")
+    (job_dir / "benchmark_totals.json").write_text(
+        json.dumps({"line_items": [], "final_rehab": {"midpoint": 0}}),
+        encoding="utf-8")
+
+
+def _seed_round(tree, claims_by_variant, matcher_rows_by_variant):
+    from tools.comparison_common import sha256_file
+    tree.gold.write_text(json.dumps(GOLD_FILE), encoding="utf-8")
+    tree.prompts.write_text(json.dumps(
+        {"baseline": {"text": "salience wording"},
+         "checklist": {"text": "inventory wording"}}), encoding="utf-8")
+    manifest = {
+        "images_root": "/img",
+        "gold_sha256": sha256_file(tree.gold),
+        "properties": {"prop": {"photos": [
+            {"photo_key": PHOTO, "image_sha256": "ih",
+             "frozen_2a_sha256": "fh", "scene": "exterior_front"}]}},
+    }
+    tree.manifest.write_text(json.dumps(manifest), encoding="utf-8")
+    for variant, claims in claims_by_variant.items():
+        _write_variant_photo(tree.runs, variant, claims)
+    mapping = bench.match_blinding(ROUND, "prop", PHOTO, "baseline", "checklist")
+    artifact = {
+        "property_key": "prop", "photo_key": PHOTO, "blinding": mapping,
+        "gold_ids": ["g1", "g3"],
+        "calls": {f"{letter}|rep1": {"rows": matcher_rows_by_variant[variant],
+                                     "matched_at": "now"}
+                  for letter, variant in mapping.items()},
+    }
+    path = tree.runs / f"match_{ROUND}" / "photos" / f"prop__{PHOTO}.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(artifact), encoding="utf-8")
+    return manifest
+
+
+def _standard_round(tree):
+    return _seed_round(
+        tree,
+        {"baseline": ["Steps are cracked.", "Roof looks new."],
+         "checklist": ["Steps are cracked.", "Gutter is detached and leaking."]},
+        {"baseline": [
+            {"claim_index": 0, "decision": "match", "gold_ids": ["g1"],
+             "explanation": "same cracked steps"},
+            {"claim_index": 1, "decision": "no_match", "gold_ids": [],
+             "explanation": "no gold condition for the roof"}],
+         "checklist": [
+            {"claim_index": 0, "decision": "match", "gold_ids": ["g1"],
+             "explanation": "same cracked steps"},
+            {"claim_index": 1, "decision": "ambiguous", "gold_ids": ["g3"],
+             "explanation": "adds an unsupported active leak"}]},
+    )
+
+
+def _read_csv(path):
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+        return list(csv.DictReader(handle))
+
+
+def _edit_csv(path, edits):
+    rows = _read_csv(path)
+    for row in rows:
+        row.update(edits.get(row["row_id"], {}))
+    with path.open("w", newline="", encoding="utf-8-sig") as handle:
+        writer = csv.DictWriter(handle, fieldnames=bench.REVIEW_COLUMNS)
+        writer.writeheader()
+        writer.writerows(rows)
+    return path
+
+
+def test_review_export_puts_unadjudicated_rows_first(bench_tree):
+    manifest = _standard_round(bench_tree)
+    rows = _read_csv(bench.review_export(BENCH_CONFIG, manifest, ROUND))
+    assert list(rows[0]) == bench.REVIEW_COLUMNS
+    assert len(rows) == 4
+    # The two rows needing a human come first, auto-matches after.
+    assert [r["proposed_match"] for r in rows[:2]] == ["ambiguous", "no_match"]
+    assert all(r["proposed_match"] == "match" for r in rows[2:])
+    # Lineage travels with the row so a reviewer can see what the pipeline did.
+    assert {r["pipeline_status"] for r in rows} == {"resolved"}
+    # Auto-matches carry a seeded spot-check flag (rate 1.0 in the test config).
+    assert all(r["audit"] == "audit" for r in rows[2:])
+    assert all(r["audit"] == "" for r in rows[:2])
+
+
+def test_review_roundtrip_records_and_clears_decisions(bench_tree):
+    manifest = _standard_round(bench_tree)
+    path = bench.review_export(BENCH_CONFIG, manifest, ROUND)
+    ambiguous = next(r["row_id"] for r in _read_csv(path)
+                     if r["proposed_match"] == "ambiguous")
+    no_match = next(r["row_id"] for r in _read_csv(path)
+                    if r["proposed_match"] == "no_match")
+    _edit_csv(path, {
+        ambiguous: {"human_decision": "unsupported", "critical": "x",
+                    "reviewer_note": "no leak is visible"},
+        no_match: {"human_decision": "exclude"},
+    })
+    bench.review_import(BENCH_CONFIG, manifest, ROUND, str(path))
+
+    decisions = bench.load_decisions(ROUND)
+    assert decisions[ambiguous]["decision"] == "unsupported"
+    assert decisions[ambiguous]["critical"] is True
+    assert decisions[no_match]["decision"] == "exclude"
+
+    # Re-export shows the decisions and the round is no longer blocked.
+    rows = _read_csv(bench.review_export(BENCH_CONFIG, manifest, ROUND))
+    by_id = {r["row_id"]: r for r in rows}
+    assert by_id[ambiguous]["human_decision"] == "unsupported"
+    scored = bench.score_match_round(
+        bench.build_review_rows(BENCH_CONFIG, manifest, ROUND,
+                                json.loads(bench_tree.gold.read_text()),
+                                decisions),
+        _stabilities(1000, 1000), "baseline", "checklist")
+    assert scored["status"] == "final"
+    assert scored["properties"]["prop"]["verdict"] == "hurt"   # critical loss
+
+    # Blanking the cell takes the decision back.
+    _edit_csv(path, {ambiguous: {"human_decision": "", "critical": ""}})
+    bench.review_import(BENCH_CONFIG, manifest, ROUND, str(path))
+    assert ambiguous not in bench.load_decisions(ROUND)
+    assert no_match in bench.load_decisions(ROUND)
+
+
+def test_review_import_carries_a_decision_to_the_same_text_elsewhere(bench_tree):
+    manifest = _standard_round(bench_tree)
+    path = bench.review_export(BENCH_CONFIG, manifest, ROUND)
+    # "Steps are cracked." appears under both variants; decide it once.
+    target = bench.review_row_id("baseline", 1, "prop", PHOTO, 0)
+    twin = bench.review_row_id("checklist", 1, "prop", PHOTO, 0)
+    _edit_csv(path, {target: {"human_decision": "unsupported"}})
+    bench.review_import(BENCH_CONFIG, manifest, ROUND, str(path))
+
+    decisions = bench.load_decisions(ROUND)
+    assert decisions[target]["decision"] == "unsupported"
+    assert decisions[twin]["decision"] == "unsupported"
+    assert decisions[twin]["propagated_from"] == target
+    assert "propagated_from" not in decisions[target]
+
+
+@pytest.mark.parametrize("edit,problem", [
+    ({"human_decision": "probably"}, "not one of"),
+    ({"human_decision": "match", "corrected_gold_ids": "g9"}, "are not on"),
+])
+def test_review_import_rejects_bad_edits(bench_tree, edit, problem):
+    manifest = _standard_round(bench_tree)
+    path = bench.review_export(BENCH_CONFIG, manifest, ROUND)
+    row_id = _read_csv(path)[0]["row_id"]
+    _edit_csv(path, {row_id: edit})
+    with pytest.raises(SystemExit, match=problem):
+        bench.review_import(BENCH_CONFIG, manifest, ROUND, str(path))
+
+
+def test_review_import_rejects_unknown_row_ids(bench_tree):
+    manifest = _standard_round(bench_tree)
+    path = bench.review_export(BENCH_CONFIG, manifest, ROUND)
+    rows = _read_csv(path)
+    rows[0]["row_id"] = "checklist|rep9|prop/photo_404.jpg|c0"
+    rows[0]["human_decision"] = "unsupported"
+    with path.open("w", newline="", encoding="utf-8-sig") as handle:
+        writer = csv.DictWriter(handle, fieldnames=bench.REVIEW_COLUMNS)
+        writer.writeheader()
+        writer.writerows(rows)
+    with pytest.raises(SystemExit, match="unknown row_id"):
+        bench.review_import(BENCH_CONFIG, manifest, ROUND, str(path))
+
+
+def test_review_row_id_roundtrips():
+    row_id = bench.review_row_id("checklist", 3, "prop", PHOTO, 17)
+    assert bench.parse_review_row_id(row_id) == (
+        "checklist", 3, f"prop/{PHOTO}", 17)
+
+
+def test_match_fingerprint_rejects_every_material_change(bench_tree):
+    manifest = _standard_round(bench_tree)
+    for variant in ("baseline", "checklist"):
+        bench.guard_fingerprint(bench.stage_dir_for(f"variant_{variant}"),
+                                {"prompt_sha256": variant})
+    base = bench.compute_match_fingerprint(
+        manifest, BENCH_CONFIG, ROUND, "baseline", "checklist")
+    # Harness commits must not orphan paid matcher calls.
+    assert "git_head" not in base
+
+    stage_dir = bench.stage_dir_for(f"match_{ROUND}")
+    bench.guard_fingerprint(stage_dir, base)
+    bench.guard_fingerprint(stage_dir, dict(base))       # identical resume is fine
+
+    def _rejects(fingerprint, key):
+        assert fingerprint[key] != base[key], f"{key} did not change"
+        with pytest.raises(SystemExit, match="fingerprint mismatch"):
+            bench.guard_fingerprint(stage_dir, fingerprint)
+
+    _rejects(bench.compute_match_fingerprint(
+        manifest, {**BENCH_CONFIG, "matcher": {**BENCH_CONFIG["matcher"],
+                                               "model": "qwen"}},
+        ROUND, "baseline", "checklist"), "matcher_model")
+
+    bench_tree.prompts.write_text(json.dumps(
+        {"baseline": {"text": "salience wording"},
+         "checklist": {"text": "REWORDED"}}), encoding="utf-8")
+    _rejects(bench.compute_match_fingerprint(
+        manifest, BENCH_CONFIG, ROUND, "baseline", "checklist"),
+        "variant_prompt_shas")
+
+    bench_tree.gold.write_text(json.dumps({"photos": {f"prop/{PHOTO}": [
+        {"gold_id": "g1", "condition": "Front steps are cracked and patched"}]}}),
+        encoding="utf-8")
+    _rejects(bench.compute_match_fingerprint(
+        manifest, BENCH_CONFIG, ROUND, "baseline", "checklist"), "gold_sha256")
+
+    # Regenerating a variant run (new git head, model or cap) invalidates too.
+    (bench.stage_dir_for("variant_checklist") / "fingerprint.json").write_text(
+        json.dumps({"prompt_sha256": "regenerated"}), encoding="utf-8")
+    _rejects(bench.compute_match_fingerprint(
+        manifest, BENCH_CONFIG, ROUND, "baseline", "checklist"),
+        "variant_run_fingerprint_shas")
+
+
+def test_repin_gold_acknowledges_an_edit_and_busts_the_match(bench_tree):
+    from tools.comparison_common import sha256_file
+    manifest = _standard_round(bench_tree)
+    before = bench.compute_match_fingerprint(
+        manifest, BENCH_CONFIG, ROUND, "baseline", "checklist")
+
+    bench_tree.gold.write_text(json.dumps({"photos": {f"prop/{PHOTO}": [
+        {"gold_id": "g1", "condition": "Front steps are cracked"},
+        {"gold_id": "g3", "condition": "Gutter is detached"},
+        {"gold_id": "g4", "condition": "Downspout is missing"}]}}),
+        encoding="utf-8")
+    # Until the pin is refreshed, match refuses to run against a moved gold.
+    with pytest.raises(SystemExit, match="repin-gold"):
+        bench.stage_match(BENCH_CONFIG, manifest, ROUND)
+
+    assert bench.stage_repin_gold(manifest) == sha256_file(bench_tree.gold)
+    assert json.loads(bench_tree.manifest.read_text())["gold_sha256"] == \
+        manifest["gold_sha256"]
+    after = bench.compute_match_fingerprint(
+        manifest, BENCH_CONFIG, ROUND, "baseline", "checklist")
+    assert after["gold_sha256"] != before["gold_sha256"]
