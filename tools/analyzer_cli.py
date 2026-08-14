@@ -79,6 +79,10 @@ class PropertyAnalysisJob:
     results: List[ImageResult] = field(default_factory=list)
     total_processing_time: float = 0.0
     property_metadata: Optional[Dict[str, Any]] = None
+    # Stable external run identity for cross-retry artifacts (Terra
+    # checkpoints, architecture provenance). The server sets the API runId;
+    # CLI jobs leave it None and the writer falls back to job_id.
+    source_run_id: Optional[str] = None
 
 # Environment variable keys that should be resolved as filesystem paths.
 # ISSUE_CATALOG_PATH only takes effect under KIND_ONTOLOGY_VERSION=legacy_v1:
@@ -165,6 +169,26 @@ def _apply_env_overrides() -> None:
 
     if os.environ.get("PREMIUM_MAX_KEYWORDS"):
         setattr(cfg, "PREMIUM_MAX_KEYWORDS", int(os.environ["PREMIUM_MAX_KEYWORDS"]))
+
+    # Terra condition-review settings: re-run the pure resolvers rather than
+    # string-copying, so the OPENAI_MODEL fallback tracks any override applied
+    # above and an invalid token cap raises here — before any job runs — the
+    # same way it does at pipeline_config import.
+    setattr(
+        cfg,
+        "RENOVATION_TERRA_MODEL",
+        cfg.resolve_renovation_terra_model(
+            os.environ.get("RENOVATION_TERRA_MODEL", ""),
+            openai_model=getattr(cfg, "OPENAI_MODEL", ""),
+        ),
+    )
+    setattr(
+        cfg,
+        "RENOVATION_TERRA_MAX_OUTPUT_TOKENS",
+        cfg.resolve_renovation_terra_max_output_tokens(
+            os.environ.get("RENOVATION_TERRA_MAX_OUTPUT_TOKENS")
+        ),
+    )
 
     # Token caps are resolved by pass_config.resolve_openai_invocation, which reads
     # OPENAI_PASS_<KEY>_MAX_TOKENS / OPENAI_DEFAULT_MAX_TOKENS straight from the
@@ -841,6 +865,8 @@ def main() -> int:
             catalog=catalog,
             catalog_path=Path(cfg.ISSUE_CATALOG_PATH),
             kind_ontology_version=cfg.KIND_ONTOLOGY_VERSION,
+            terra_model=cfg.RENOVATION_TERRA_MODEL,
+            terra_max_output_tokens=cfg.RENOVATION_TERRA_MAX_OUTPUT_TOKENS,
         )
     except RenovationArchitectureInitError as exc:
         logger.error(f"Renovation architecture init failed: {exc}")

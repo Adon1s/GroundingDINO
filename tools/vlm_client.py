@@ -143,6 +143,7 @@ class VLMClient:
             "failed_calls": 0,
             "metered_calls": 0,
             "input_tokens": 0,
+            "cached_input_tokens": 0,
             "output_tokens": 0,
             "total_tokens": 0,
             "api_duration_sec": 0.0,
@@ -152,6 +153,7 @@ class VLMClient:
     def _empty_usage_stats(cls) -> Dict[str, Any]:
         return {
             "input_tokens": 0,
+            "cached_input_tokens": 0,
             "output_tokens": 0,
             "total_tokens": 0,
             "attempted_calls": 0,
@@ -225,24 +227,34 @@ class VLMClient:
             input_tokens: Optional[int],
             output_tokens: Optional[int],
             total_tokens: Optional[int],
+            cached_input_tokens: Optional[int] = None,
     ) -> None:
         """Add a single call's token usage to the running totals. Tolerant of None/missing fields."""
         try:
             i = int(input_tokens) if input_tokens is not None else 0
             o = int(output_tokens) if output_tokens is not None else 0
             t = int(total_tokens) if total_tokens is not None else (i + o)
+            c = int(cached_input_tokens) if cached_input_tokens is not None else 0
         except (TypeError, ValueError):
             return
         with self._usage_lock:
             self.usage_stats["input_tokens"] += i
+            self.usage_stats["cached_input_tokens"] += c
             self.usage_stats["output_tokens"] += o
             self.usage_stats["total_tokens"] += t
             self.usage_stats["metered_calls"] += 1
             pass_usage = self._pass_usage_locked()
             pass_usage["input_tokens"] += i
+            pass_usage["cached_input_tokens"] += c
             pass_usage["output_tokens"] += o
             pass_usage["total_tokens"] += t
             pass_usage["metered_calls"] += 1
+
+    @staticmethod
+    def _cached_input_tokens(usage: Any) -> Optional[int]:
+        """Responses API: usage.input_tokens_details.cached_tokens (prompt-cache hits)."""
+        details = getattr(usage, "input_tokens_details", None)
+        return getattr(details, "cached_tokens", None)
 
     @staticmethod
     def _analysis_pass_label(kwargs: Dict[str, Any]) -> Optional[str]:
@@ -507,6 +519,7 @@ class VLMClient:
                 getattr(usage, "input_tokens", None),
                 getattr(usage, "output_tokens", None),
                 getattr(usage, "total_tokens", None),
+                cached_input_tokens=self._cached_input_tokens(usage),
             )
         output_text = self._extract_openai_output_text(response)
         self._record_call()
@@ -587,6 +600,7 @@ class VLMClient:
                 getattr(usage, "input_tokens", None),
                 getattr(usage, "output_tokens", None),
                 getattr(usage, "total_tokens", None),
+                cached_input_tokens=self._cached_input_tokens(usage),
             )
         output_text = self._extract_openai_output_text(response)
         self._record_call()
@@ -653,6 +667,7 @@ class VLMClient:
                 getattr(usage, "input_tokens", None),
                 getattr(usage, "output_tokens", None),
                 getattr(usage, "total_tokens", None),
+                cached_input_tokens=self._cached_input_tokens(usage),
             )
         output_text = self._extract_openai_output_text(response)
         self._record_call()

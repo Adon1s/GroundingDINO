@@ -398,14 +398,22 @@ def _write_renovation_architecture_shadow(
     run_id: str,
     created_at: str,
     source_artifact: str,
+    issues_flat: Optional[List[Dict[str, Any]]] = None,
+    photos: Optional[Dict[str, Any]] = None,
+    photo_key_to_path: Optional[Dict[str, Path]] = None,
+    property_metadata: Optional[Dict[str, Any]] = None,
+    vlm_client: Any = None,
+    artifacts_root: Optional[Path] = None,
 ) -> None:
-    """Session 1 shadow seam beside the v4 estimator.
+    """Session 2 shadow seam beside the v4 estimator.
 
-    current mode adds zero keys; shadow mode writes a private scaffold
-    envelope only to analysis_debug (stripped from the slim artifact, so it
-    reaches photo_intel_debug.json and never the frontend). Never raises: a
-    shadow failure must not fail the job or touch renovation_estimate_v4 —
-    it degrades to a private failed envelope, then to silence.
+    current mode adds zero keys; shadow mode runs the Terra condition review
+    and writes a private condition_review_complete (or failed) envelope only
+    to analysis_debug (stripped from the slim artifact, so it reaches
+    photo_intel_debug.json and never the frontend). Never raises: a shadow
+    failure must not fail the job or touch renovation_estimate_v4 — typed
+    failures become a failed envelope carrying their taxonomy category, and
+    anything else degrades to the last-resort envelope, then to silence.
     """
     try:
         mode = getattr(cfg, "RENOVATION_ARCHITECTURE_MODE", "current") or "current"
@@ -418,6 +426,13 @@ def _write_renovation_architecture_shadow(
             run_id=run_id,
             created_at=created_at,
             source_artifact=source_artifact,
+            issues_flat=issues_flat,
+            photos=photos,
+            property_metadata=property_metadata,
+            photo_key_to_path=photo_key_to_path,
+            vlm_client=vlm_client,
+            api_key=getattr(cfg, "OPENAI_API_KEY", "") or "",
+            artifacts_root=artifacts_root,
         )
         debug = photo_intel.get("analysis_debug")
         if isinstance(debug, dict):
@@ -428,7 +443,7 @@ def _write_renovation_architecture_shadow(
             debug = photo_intel.get("analysis_debug")
             if isinstance(debug, dict):
                 debug["renovation_architecture_shadow_v1"] = {
-                    "schema_version": 1,
+                    "schema_version": 2,  # ENVELOPE_SCHEMA_VERSION, kept literal
                     "estimate_id": None,
                     "state": "failed",
                     "reason": "shadow_seam_error",
@@ -941,6 +956,14 @@ def write_photo_intel(
         )
 
     # -- Compute renovation estimate (primary cost estimation engine) -------------
+    # Photo-key -> path map for the image-consuming stages (Pass 2f package
+    # verification and the renovation-architecture shadow review). Built
+    # unconditionally: v4 gates 2f on client/config, never on map presence.
+    photo_key_to_path: Dict[str, Path] = {}
+    for res in job.results:
+        photo_key_to_path[Path(res.image_path).name] = Path(res.image_path)
+
+    renovation_issues_flat: Optional[List[Dict[str, Any]]] = None
     v4_est = None
     try:
         # Lane choice follows the RAW canonical lane's existence; quarantine
@@ -951,16 +974,11 @@ def write_photo_intel(
         )
 
         # Pass 2f is package-level visual verification in v4; its model config was
-        # resolved up-front above (OpenAI-only). Build photo_key_to_path and record
-        # the model_routing[2f] entry from that same config so it can never diverge
-        # from the model actually called.
+        # resolved up-front above (OpenAI-only). Record the model_routing[2f]
+        # entry from that same config so it can never diverge from the model
+        # actually called.
         reviewed_candidates = None
-        photo_key_to_path: Dict[str, Path] = {}
         if pass_2f_model_config:
-            for res in job.results:
-                pk = Path(res.image_path).name
-                photo_key_to_path[pk] = Path(res.image_path)
-
             if "2f" not in {e.get("pass") for e in photo_intel.get("model_routing", [])}:
                 _2f_source = "run_override" if (model_overrides or {}).get("2f") else "openai_model_default"
                 routing_entry = {
@@ -1116,17 +1134,27 @@ def write_photo_intel(
     output_path = output_path or Path(job.artifacts_dir) / "photo_intel.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # -- Renovation architecture shadow seam (Session 1: scaffold only) --------
+    # -- Renovation architecture shadow seam (Session 2: condition review) -----
     # Placed after the v4 try/except so a shadow failure can never land in the
     # v4 failure path, and before the publication gate/writes so the private
     # envelope reaches photo_intel_debug.json alongside the canonical payload.
+    # run_id prefers the stable external source run id (server API runId) so
+    # Terra checkpoints and estimate identity survive worker retries; CLI jobs
+    # fall back to their job id. artifacts_root recovers the run's root from
+    # the job dir (<artifacts_root>/<property_key>/<job_id>).
     _write_renovation_architecture_shadow(
         cfg=cfg,
         photo_intel=photo_intel,
         property_key=job.property_key,
-        run_id=job.job_id,
+        run_id=getattr(job, "source_run_id", None) or job.job_id,
         created_at=created_at,
         source_artifact=f"{job.property_key}/{output_path.parent.name}/photo_intel.json",
+        issues_flat=renovation_issues_flat,
+        photos=photos,
+        photo_key_to_path=photo_key_to_path,
+        property_metadata=property_metadata,
+        vlm_client=vlm_client,
+        artifacts_root=Path(job.artifacts_dir).parent.parent,
     )
 
     # -- Publication gate: nothing hits disk unless the payload is consistent

@@ -192,6 +192,42 @@ OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "")
 
 # =============================================================================
+# TERRA CONDITION REVIEW (renovation architecture Session 2)
+# =============================================================================
+# Model + output cap for the shadow-mode Terra condition-review stage.
+# RENOVATION_TERRA_MODEL falls back to OPENAI_MODEL; both empty resolves to ""
+# here, and shadow-mode runtime init rejects the empty model at startup
+# (current mode never reads it). The token cap must be a positive integer;
+# invalid values raise at import, i.e. worker startup, in every entry point.
+
+
+def resolve_renovation_terra_model(raw: str, *, openai_model: str) -> str:
+    return (raw or "").strip() or (openai_model or "").strip()
+
+
+def resolve_renovation_terra_max_output_tokens(raw: Optional[str]) -> int:
+    if raw is None or str(raw).strip() == "":
+        return 8192
+    try:
+        value = int(str(raw).strip())
+    except ValueError:
+        value = None
+    if value is None or value <= 0:
+        raise ValueError(
+            f"RENOVATION_TERRA_MAX_OUTPUT_TOKENS must be a positive integer, "
+            f"got {raw!r}"
+        )
+    return value
+
+
+RENOVATION_TERRA_MODEL = resolve_renovation_terra_model(
+    os.environ.get("RENOVATION_TERRA_MODEL", ""), openai_model=OPENAI_MODEL
+)
+RENOVATION_TERRA_MAX_OUTPUT_TOKENS = resolve_renovation_terra_max_output_tokens(
+    os.environ.get("RENOVATION_TERRA_MAX_OUTPUT_TOKENS")
+)
+
+# =============================================================================
 # GOOGLE GEMINI SETTINGS (Cloud - for catalog_auditor)
 # =============================================================================
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBVoSb4gygaBh2ScxfceIIAJ7-1bjnQJLc")

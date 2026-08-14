@@ -86,6 +86,9 @@ _CODE_CATEGORY = {
     "Pass2fInvalidResponseError": "malformed_response",
     # tools/catalog_embeddings.py
     "EmbeddingsRuntimeError": "dependency",
+    # tools/renovation_architecture/usage_guard.py — pre-call daily-budget
+    # denial: systemic like an exhausted balance, retry today never works
+    "TerraDailyBudgetExceeded": "quota",
     # stdlib
     "JSONDecodeError": "parse",
     "TimeoutError": "timeout",

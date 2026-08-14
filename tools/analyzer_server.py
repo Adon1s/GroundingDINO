@@ -142,6 +142,8 @@ def main() -> int:
             catalog=catalog,
             catalog_path=Path(cfg.ISSUE_CATALOG_PATH),
             kind_ontology_version=cfg.KIND_ONTOLOGY_VERSION,
+            terra_model=cfg.RENOVATION_TERRA_MODEL,
+            terra_max_output_tokens=cfg.RENOVATION_TERRA_MAX_OUTPUT_TOKENS,
         )
     except RenovationArchitectureInitError as exc:
         logger.error(f"Renovation architecture init failed: {exc}")
@@ -622,6 +624,10 @@ def _process_job(
             results=results,
             total_processing_time=total_time,
             property_metadata=property_metadata,
+            # The API runId (jobId fallback resolved above): stable across
+            # worker retries, unlike internal_job_id, so Terra checkpoints and
+            # architecture estimate identity survive a retry.
+            source_run_id=run_id,
         )
 
         from tools.artifact_writers import Pass2fModelUnavailable
