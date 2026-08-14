@@ -828,6 +828,30 @@ def main() -> int:
     # Load issue catalog
     catalog = load_issue_catalog(cfg.ISSUE_CATALOG_PATH)
 
+    # Renovation architecture runtime (no-op in current mode). Shadow mode
+    # builds the strict catalog projection here so an invalid catalog refuses
+    # startup instead of failing midway through the run.
+    from tools.renovation_architecture.runtime import (
+        RenovationArchitectureInitError,
+        initialize_renovation_architecture,
+    )
+    try:
+        initialize_renovation_architecture(
+            mode=cfg.RENOVATION_ARCHITECTURE_MODE,
+            catalog=catalog,
+            catalog_path=Path(cfg.ISSUE_CATALOG_PATH),
+            kind_ontology_version=cfg.KIND_ONTOLOGY_VERSION,
+        )
+    except RenovationArchitectureInitError as exc:
+        logger.error(f"Renovation architecture init failed: {exc}")
+        summary = {
+            "success": False,
+            "error": f"renovation_architecture_init: {exc}",
+            "property_key": args.property_key,
+        }
+        print(json.dumps(summary, ensure_ascii=False))
+        return 1
+
     # Pass 2d preflight. The sidecar is a hard dependency when 2d is enabled:
     # without it every observation resolves to nothing, which downstream reads as
     # a property with no findings rather than as a broken run. Disabling 2d is the

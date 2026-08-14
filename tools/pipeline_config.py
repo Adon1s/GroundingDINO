@@ -120,6 +120,56 @@ ISSUE_CATALOG_PATH = _KIND_ONTOLOGY.catalog_path
 PIPELINE_MODE = _KIND_ONTOLOGY.pipeline_mode
 
 # =============================================================================
+# RENOVATION ARCHITECTURE SELECTOR
+# =============================================================================
+# One atomic switch for the new estimate architecture (see
+# docs/IMPLEMENTATION_PLAN_renovation_scope_estimate_architecture.md):
+#   current -> the existing v4 estimator only; no new output anywhere
+#   shadow  -> v4 unchanged, plus a private scaffold envelope in analysis_debug
+#              (requires the v2 ontology selector: the new engine accepts only
+#              the v3.1 catalog)
+#   new     -> recognized but unavailable until the Session 6 cutover
+# Invalid values and incompatible combinations raise here at import — i.e.
+# process startup — in every entry point. This selector derives nothing else:
+# ISSUE_CATALOG_PATH and PIPELINE_MODE stay owned by the kind-ontology
+# selector above, and there is deliberately no env-override path for it.
+
+RENOVATION_ARCH_CURRENT = "current"
+RENOVATION_ARCH_SHADOW = "shadow"
+RENOVATION_ARCH_NEW = "new"
+
+
+def resolve_renovation_architecture(raw: str, *, kind_ontology_version: str) -> str:
+    """Validate a RENOVATION_ARCHITECTURE_MODE value against the ontology."""
+    if raw == RENOVATION_ARCH_CURRENT:
+        return raw
+    if raw == RENOVATION_ARCH_SHADOW:
+        if kind_ontology_version != KIND_ONTOLOGY_V2:
+            raise ValueError(
+                f"RENOVATION_ARCHITECTURE_MODE={RENOVATION_ARCH_SHADOW} requires "
+                f"KIND_ONTOLOGY_VERSION={KIND_ONTOLOGY_V2}, got "
+                f"{kind_ontology_version!r}: the new engine accepts only the "
+                "v3.1 catalog"
+            )
+        return raw
+    if raw == RENOVATION_ARCH_NEW:
+        raise ValueError(
+            f"RENOVATION_ARCHITECTURE_MODE={RENOVATION_ARCH_NEW} is unavailable "
+            "until the Session 6 cutover"
+        )
+    raise ValueError(
+        f"invalid RENOVATION_ARCHITECTURE_MODE {raw!r}; expected "
+        f"{RENOVATION_ARCH_CURRENT!r}, {RENOVATION_ARCH_SHADOW!r}, or "
+        f"{RENOVATION_ARCH_NEW!r}"
+    )
+
+
+RENOVATION_ARCHITECTURE_MODE = resolve_renovation_architecture(
+    os.environ.get("RENOVATION_ARCHITECTURE_MODE", RENOVATION_ARCH_CURRENT),
+    kind_ontology_version=KIND_ONTOLOGY_VERSION,
+)
+
+# =============================================================================
 # LM STUDIO / VLM SETTINGS (Qwen - local)
 # =============================================================================
 LM_STUDIO_URL = os.environ.get("LM_STUDIO_URL", "http://100.102.92.1:1234")

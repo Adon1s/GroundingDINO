@@ -390,6 +390,56 @@ class Pass2fModelUnavailable(RuntimeError):
     """
 
 
+def _write_renovation_architecture_shadow(
+    *,
+    cfg: Any,
+    photo_intel: Dict[str, Any],
+    property_key: str,
+    run_id: str,
+    created_at: str,
+    source_artifact: str,
+) -> None:
+    """Session 1 shadow seam beside the v4 estimator.
+
+    current mode adds zero keys; shadow mode writes a private scaffold
+    envelope only to analysis_debug (stripped from the slim artifact, so it
+    reaches photo_intel_debug.json and never the frontend). Never raises: a
+    shadow failure must not fail the job or touch renovation_estimate_v4 —
+    it degrades to a private failed envelope, then to silence.
+    """
+    try:
+        mode = getattr(cfg, "RENOVATION_ARCHITECTURE_MODE", "current") or "current"
+        if mode != "shadow":
+            return
+        from tools.renovation_architecture.runtime import build_shadow_envelope
+
+        envelope = build_shadow_envelope(
+            property_key=property_key,
+            run_id=run_id,
+            created_at=created_at,
+            source_artifact=source_artifact,
+        )
+        debug = photo_intel.get("analysis_debug")
+        if isinstance(debug, dict):
+            debug["renovation_architecture_shadow_v1"] = envelope
+    except Exception as exc:
+        try:
+            logger.error(f"Renovation architecture shadow seam failed: {exc}")
+            debug = photo_intel.get("analysis_debug")
+            if isinstance(debug, dict):
+                debug["renovation_architecture_shadow_v1"] = {
+                    "schema_version": 1,
+                    "estimate_id": None,
+                    "state": "failed",
+                    "reason": "shadow_seam_error",
+                    "error_detail": str(exc),
+                    "provenance": None,
+                    "result": None,
+                }
+        except Exception:
+            pass  # last resort: the shadow lane stays empty, the job proceeds
+
+
 def write_photo_intel(
     *,
     cfg: Any,
@@ -1065,6 +1115,19 @@ def write_photo_intel(
 
     output_path = output_path or Path(job.artifacts_dir) / "photo_intel.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    # -- Renovation architecture shadow seam (Session 1: scaffold only) --------
+    # Placed after the v4 try/except so a shadow failure can never land in the
+    # v4 failure path, and before the publication gate/writes so the private
+    # envelope reaches photo_intel_debug.json alongside the canonical payload.
+    _write_renovation_architecture_shadow(
+        cfg=cfg,
+        photo_intel=photo_intel,
+        property_key=job.property_key,
+        run_id=job.job_id,
+        created_at=created_at,
+        source_artifact=f"{job.property_key}/{output_path.parent.name}/photo_intel.json",
+    )
 
     # -- Publication gate: nothing hits disk unless the payload is consistent
     # with the selected catalog (stamps, ids, kinds, no mixed ontologies).

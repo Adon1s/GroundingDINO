@@ -129,6 +129,25 @@ def main() -> int:
     catalog = load_issue_catalog(cfg.ISSUE_CATALOG_PATH)
     logger.info(f"Issue catalog loaded ({len(catalog.get('items', []))} items)")
 
+    # Renovation architecture runtime (no-op in current mode). Shadow mode
+    # builds the strict catalog projection here so an invalid catalog refuses
+    # startup instead of failing midway through a listing.
+    from tools.renovation_architecture.runtime import (
+        RenovationArchitectureInitError,
+        initialize_renovation_architecture,
+    )
+    try:
+        initialize_renovation_architecture(
+            mode=cfg.RENOVATION_ARCHITECTURE_MODE,
+            catalog=catalog,
+            catalog_path=Path(cfg.ISSUE_CATALOG_PATH),
+            kind_ontology_version=cfg.KIND_ONTOLOGY_VERSION,
+        )
+    except RenovationArchitectureInitError as exc:
+        logger.error(f"Renovation architecture init failed: {exc}")
+        _emit({"type": "error", "stage": "renovation_architecture_init", "error": str(exc)})
+        return 1
+
     # Build embeddings retriever (the expensive model load).
     #
     # This is a hard startup dependency. The provider is built once and reused by
