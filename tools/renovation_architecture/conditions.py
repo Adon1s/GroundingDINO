@@ -14,7 +14,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
-from tools.estimate_units import build_estimate_units
+from tools.estimate_units import (
+    _OPENING_INSTANCE_FIELDS,
+    _meaningful_unit_hint,
+    build_estimate_units,
+)
 from tools.pipeline_common import normalize_scene_group
 from tools.renovation_architecture.contracts import (
     CONTRACTS_SCHEMA_VERSION,
@@ -45,6 +49,18 @@ class ConditionDraft:
 
 def _conditions_failure(message: str, *, code: str) -> PassExecutionError:
     return PassExecutionError("terra_conditions", "dependency", message, code=code)
+
+
+def _opening_instance_hint(issue: Mapping[str, Any]) -> str:
+    """First explicit opening-instance identifier on an issue, as
+    "field:value" — byte-compatible with the legacy tier-1 resolution
+    (tools/estimate_units._explicit_opening_hints). Empty when the issue
+    carries none."""
+    for field_name in _OPENING_INSTANCE_FIELDS:
+        hint = _meaningful_unit_hint(issue.get(field_name))
+        if hint:
+            return f"{field_name}:{hint}"
+    return ""
 
 
 def build_observed_conditions(
@@ -116,6 +132,7 @@ def build_observed_conditions(
                 "sources": set(),
                 "reasons": set(),
                 "ambiguous": False,
+                "opening_hints": set(),
                 "refs": {},
             },
         )
@@ -133,6 +150,9 @@ def build_observed_conditions(
         entry["sources"].add(source)
         entry["reasons"].add(reason)
         entry["ambiguous"] = entry["ambiguous"] or ambiguous
+        opening_hint = _opening_instance_hint(issue)
+        if opening_hint:
+            entry["opening_hints"].add(opening_hint)
         entry["refs"][(issue_id, photo_key)] = {
             "issue_id": issue_id,
             "photo_key": photo_key,
@@ -172,6 +192,7 @@ def build_observed_conditions(
             source_scope_keys=tuple(sorted(entry["scope_keys"])),
             unit_resolution_source=source,
             unit_resolution_reason=reason,
+            opening_instance_hints=tuple(sorted(entry["opening_hints"])),
         )
         refs = tuple(
             entry["refs"][key] for key in sorted(entry["refs"])

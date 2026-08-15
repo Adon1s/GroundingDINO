@@ -174,9 +174,12 @@ def build_shadow_envelope(
     api_key: str = "",
     artifacts_root: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """The Session 2 shadow output: a condition_review_complete envelope, or a
-    valid failed envelope (uninitialized runtime, or a typed operational
-    failure mapped to its failure-taxonomy category)."""
+    """The shadow output: a standalone_estimate_complete envelope (Session 2
+    condition review + Session 3 deterministic work derivation), or a valid
+    failed envelope (uninitialized runtime, or a typed operational failure
+    mapped to its failure-taxonomy category). Completed Terra checkpoints
+    survive a derivation failure — derivation is deterministic and runs after
+    the review, so a retry replays the checkpoints without new Terra spend."""
     runtime = _RUNTIME
     if runtime is None:
         envelope = RenovationEstimateEnvelope(
@@ -216,9 +219,10 @@ def build_shadow_envelope(
     )
     # Imported here so current mode never pays for the review pipeline chain.
     from tools.renovation_architecture.review_pipeline import run_condition_review
+    from tools.renovation_architecture.work_items import derive_standalone_estimate
 
     try:
-        result = run_condition_review(
+        review_result = run_condition_review(
             runtime=runtime,
             estimate_id=estimate_id,
             property_key=property_key,
@@ -231,6 +235,12 @@ def build_shadow_envelope(
             vlm_client=vlm_client,
             api_key=api_key,
             artifacts_root=Path(artifacts_root) if artifacts_root else None,
+        )
+        result = derive_standalone_estimate(
+            review_result=review_result,
+            projection=runtime.projection,
+            property_metadata=property_metadata,
+            estimate_id=estimate_id,
         )
     except Exception as exc:
         from tools.failure_taxonomy import classify_failure
@@ -253,7 +263,7 @@ def build_shadow_envelope(
     envelope = RenovationEstimateEnvelope(
         schema_version=ENVELOPE_SCHEMA_VERSION,
         estimate_id=estimate_id,
-        state="condition_review_complete",
+        state="standalone_estimate_complete",
         reason=None,
         error_detail=None,
         provenance=provenance,

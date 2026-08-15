@@ -211,9 +211,10 @@ class TestInitialize:
 # ── shadow envelope builder ──────────────────────────────────────────────────
 
 class TestShadowEnvelope:
-    def test_empty_condition_review_envelope_after_init(self):
-        """No lane issues -> a complete review with empty lists and zero
-        usage, without needing a VLM client or an artifacts root."""
+    def test_empty_standalone_estimate_envelope_after_init(self):
+        """No lane issues -> a complete review AND standalone estimate with
+        empty lists and zero buckets, without needing a VLM client, an
+        artifacts root, or property metadata (neutral factor)."""
         _init_shadow()
         envelope = build_shadow_envelope(
             property_key="prop_1",
@@ -223,12 +224,21 @@ class TestShadowEnvelope:
         )
         res = validate_envelope(envelope)
         assert res.ok, res.errors
-        assert envelope["state"] == "condition_review_complete"
+        assert envelope["state"] == "standalone_estimate_complete"
         assert envelope["reason"] is None
         assert envelope["result"]["observed_conditions"] == []
         assert envelope["result"]["terra_calls"] == []
         assert envelope["result"]["terra_listing_usage"]["call_count"] == 0
         assert envelope["result"]["terra_listing_usage"]["total_tokens"] == 0
+        assert envelope["result"]["work_items"] == []
+        assert envelope["result"]["work_dedup_collisions"] == []
+        standalone = envelope["result"]["standalone_estimate"]
+        assert standalone["property_cost_factor"] == 1.0
+        assert standalone["headline"] == {"low": 0, "high": 0}
+        assert all(
+            bucket == {"low": 0, "high": 0}
+            for bucket in standalone["totals_by_estimate_scope"].values()
+        )
         assert envelope["provenance"]["catalog_version"] == "3.1"
         assert envelope["provenance"]["catalog_ontology_version"] == "observation-kind-v2"
         assert envelope["provenance"]["kind_ontology_selector"] == "observation_kind_v2"
@@ -337,7 +347,7 @@ class TestWriterSeam:
         assert SHADOW_DEBUG_KEY not in json.dumps(debug)
         assert SHADOW_DEBUG_KEY not in json.dumps(slim)
 
-    def test_shadow_writes_private_condition_review_envelope(self, tmp_path):
+    def test_shadow_writes_private_standalone_envelope(self, tmp_path):
         _init_shadow()
         slim, debug = _run_writer(
             tmp_path,
@@ -347,8 +357,9 @@ class TestWriterSeam:
         envelope = debug["analysis_debug"][SHADOW_DEBUG_KEY]
         res = validate_envelope(envelope)
         assert res.ok, res.errors
-        assert envelope["state"] == "condition_review_complete"
+        assert envelope["state"] == "standalone_estimate_complete"
         assert envelope["result"]["observed_conditions"] == []
+        assert envelope["result"]["work_items"] == []
         assert envelope["estimate_id"].startswith("rea1_")
         # No stable external run id on the job -> job_id fallback.
         assert envelope["provenance"]["source_run_id"] == "job_1"

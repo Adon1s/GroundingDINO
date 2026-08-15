@@ -20,6 +20,7 @@ from typing import Any, Dict, FrozenSet, List, Mapping, Tuple
 
 from tools.catalog_validation import validate_issue_catalog
 from tools.comparison_common import sha256_canonical, sha256_file
+from tools.estimate_scope import classify_estimate_scope_with_reason
 from tools.rehab_packages import build_package_affinity
 from tools.renovation_architecture.contracts import (
     PROJECTION_VERSION,
@@ -161,6 +162,21 @@ def build_renovation_catalog_projection(
         if routes[item_id]["route"] in ("work", "inspection"):
             cost = item.get("cost")
             work_code = item.get("work_item_code")
+            # Deterministic risk-lane metadata (projection v2). Inspection is
+            # a routing fact, not a text classification; work items classify
+            # through the existing estimate-scope policy with an empty
+            # candidate, which reduces it to its catalog-only baseline.
+            if routes[item_id]["route"] == "inspection":
+                estimate_scope = "inspection_risk"
+                estimate_scope_reason = "terminal_route_inspection"
+            else:
+                try:
+                    estimate_scope, estimate_scope_reason = (
+                        classify_estimate_scope_with_reason({}, item)
+                    )
+                except ValueError as exc:
+                    errors.append(f"{item_id}: estimate scope unclassifiable: {exc}")
+                    continue
             work_policy[item_id] = {
                 # The action is the catalog work code, or the catalog scope
                 # when no code exists — codes and prices are never invented.
@@ -178,6 +194,8 @@ def build_renovation_catalog_projection(
                     else "catalog_allowance"
                 ),
                 "cost": cost,
+                "estimate_scope": estimate_scope,
+                "estimate_scope_reason": estimate_scope_reason,
             }
         affinity = item.get("package_affinity")
         if isinstance(affinity, dict) and affinity:
@@ -191,6 +209,10 @@ def build_renovation_catalog_projection(
         flat_role = item.get("package_role")
         if flat_role is not None:
             flat_roles[item_id] = flat_role
+
+    if errors:
+        # Estimate-scope classification failures from the projection loop.
+        raise RenovationCatalogError(errors)
 
     route_counts: Dict[str, int] = {route: 0 for route in sorted(TERMINAL_ROUTES)}
     for entry in routes.values():

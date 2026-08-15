@@ -128,7 +128,7 @@ def _build_error(catalog, tmp_path):
 class TestBuildPreconditions:
     def test_happy_synthetic_catalog_builds(self, tmp_path):
         projection = _build(_v31_catalog(), tmp_path)
-        assert projection["version"] == "renovation_catalog_projection_v1"
+        assert projection["version"] == "renovation_catalog_projection_v2"
         assert projection["route_counts"]["work"] == 1
 
     def test_wrong_version_fails(self, tmp_path):
@@ -262,6 +262,44 @@ class TestRoutePrecedence:
         assert policy["pricing_mode"] == "heuristic"
         assert policy["cost"] is None
 
+    def test_catalog_estimate_scope_override_wins(self, tmp_path):
+        """Projection v2: an explicit catalog estimate_scope beats the term
+        classification, and the catalog's own reason survives."""
+        projection = _build(
+            _v31_catalog(
+                _v31_item(
+                    "value_add_probe",
+                    estimate_scope="optional_value_add",
+                    estimate_scope_reason="buyer_taste_upgrade",
+                )
+            ),
+            tmp_path,
+        )
+        policy = projection["work_policy"]["value_add_probe"]
+        assert policy["estimate_scope"] == "optional_value_add"
+        assert policy["estimate_scope_reason"] == "buyer_taste_upgrade"
+
+    def test_classified_scope_without_override(self, tmp_path):
+        """Without an override, the existing estimate-scope policy classifies
+        from catalog fields alone (degradation + worn -> marketability)."""
+        projection = _build(_v31_catalog(_v31_item("classified_probe")), tmp_path)
+        policy = projection["work_policy"]["classified_probe"]
+        assert policy["estimate_scope"] == "marketability_rehab"
+
+    def test_inspection_route_scope_metadata(self, tmp_path):
+        projection = _build(
+            _v31_catalog(
+                _v31_item(
+                    "inspect_probe",
+                    estimate={"estimate_tier": "minor", "strategy": "inspect_only"},
+                )
+            ),
+            tmp_path,
+        )
+        policy = projection["work_policy"]["inspect_probe"]
+        assert policy["estimate_scope"] == "inspection_risk"
+        assert policy["estimate_scope_reason"] == "terminal_route_inspection"
+
 
 # ── shipped catalog pins ─────────────────────────────────────────────────────
 
@@ -334,6 +372,36 @@ class TestShippedCatalogPins:
             if entry["min_photo_evidence"] is not None
         }
         assert gated == EXPECTED_MIN_PHOTO_EVIDENCE
+
+    def test_estimate_scope_distribution(self, shipped_projection):
+        """Projection v2 risk-lane metadata: 103 work-route items classify
+        35/61/7 through the existing estimate-scope policy; the 5
+        inspection-route items are the inspection_risk lane by routing."""
+        scopes = {"required_rehab": 0, "marketability_rehab": 0,
+                  "optional_value_add": 0, "inspection_risk": 0}
+        for item_id, policy in shipped_projection["work_policy"].items():
+            scopes[policy["estimate_scope"]] += 1
+        assert scopes == {
+            "required_rehab": 35,
+            "marketability_rehab": 61,
+            "optional_value_add": 7,
+            "inspection_risk": 5,
+        }
+
+    def test_inspection_route_scope_is_a_routing_fact(self, shipped_projection):
+        for item_id in EXPECTED_INSPECTION_IDS:
+            policy = shipped_projection["work_policy"][item_id]
+            assert policy["estimate_scope"] == "inspection_risk", item_id
+            assert policy["estimate_scope_reason"] == "terminal_route_inspection", item_id
+
+    def test_every_work_policy_entry_carries_scope_metadata(self, shipped_projection):
+        for item_id, policy in shipped_projection["work_policy"].items():
+            assert policy["estimate_scope"] in {
+                "required_rehab", "marketability_rehab", "optional_value_add",
+                "inspection_risk",
+            }, item_id
+            assert isinstance(policy["estimate_scope_reason"], str), item_id
+            assert policy["estimate_scope_reason"], item_id
 
     def test_package_affinity_counts(self, shipped_projection):
         affinities = shipped_projection["package_policy"]["affinities"]

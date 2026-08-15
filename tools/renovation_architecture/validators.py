@@ -20,10 +20,13 @@ from tools.renovation_architecture.contracts import (
     ARCHITECTURE_MODES,
     CONDITION_DISPOSITION_POLICY_VERSION,
     CONTRACTS_SCHEMA_VERSION,
+    DEDUP_SUPPRESSION_REASON,
     DISPOSITION_REASON_CODES,
     DISPOSITIONS,
     ENVELOPE_SCHEMA_VERSION,
     ENVELOPE_STATES,
+    ESTIMATE_SCOPE_MERGE_PRIORITY,
+    ESTIMATE_SCOPES,
     EVIDENCE_DEDUP_POLICY_VERSION,
     LEDGER_REPRESENTATIONS,
     OBSERVATION_KINDS_V2,
@@ -37,10 +40,12 @@ from tools.renovation_architecture.contracts import (
     REVIEW_RATIONALE_MAX_CHARS,
     REVIEW_VERDICTS,
     SCAFFOLD_REASON,
+    STANDALONE_PRICING_POLICY_VERSION,
     TERMINAL_ROUTES,
     TERRA_USAGE_SOURCES,
     UNIT_POLICIES,
     UNIT_RESOLUTION_SOURCES,
+    WORK_DEDUP_POLICY_VERSION,
     WORK_ITEM_STATUSES,
 )
 from tools.renovation_architecture.disposition import decide_disposition
@@ -48,7 +53,8 @@ from tools.renovation_architecture.disposition import decide_disposition
 _ID_PATTERNS = {
     prefix: re.compile(rf"^{prefix}_[0-9a-f]{{16}}$")
     for prefix in (
-        "rea1", "oc1", "ev1", "cr1", "cd1", "tc1", "wk1", "pk1", "pd1", "cl1"
+        "rea1", "oc1", "ev1", "cr1", "cd1", "tc1", "wk1", "wdc1", "pk1",
+        "pd1", "cl1"
     )
 }
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -75,7 +81,8 @@ _CONDITION_FIELDS = frozenset(
     {"condition_id", "schema_version", "catalog_item_id", "catalog_kind",
      "scope_key", "estimate_unit_id", "room_surrogate_id", "scene_group",
      "issue_ids", "identity_ambiguous", "source_room_surrogate_ids",
-     "source_scope_keys", "unit_resolution_source", "unit_resolution_reason"}
+     "source_scope_keys", "unit_resolution_source", "unit_resolution_reason",
+     "opening_instance_hints"}
 )
 _EVIDENCE_FIELDS = frozenset(
     {"evidence_id", "schema_version", "condition_id", "photo_keys",
@@ -117,11 +124,32 @@ _TERRA_TOKEN_FIELDS = (
     "budget_debited_tokens",
 )
 _WORK_ITEM_FIELDS = frozenset(
-    {"work_item_id", "schema_version", "condition_ids", "catalog_item_id",
-     "estimate_unit_id", "action_code", "action_source", "trade_bucket",
-     "unit_policy", "unit_count", "pricing_mode", "low", "high", "status",
-     "reason_code"}
+    {"work_item_id", "schema_version", "condition_ids", "catalog_item_ids",
+     "source_estimate_unit_ids", "billable_unit_id", "action_code",
+     "action_sources", "trade_bucket", "unit_policy", "unit_count",
+     "pricing_modes", "identity_ambiguous", "estimate_scope",
+     "estimate_scope_reason", "low", "high", "status", "reason_code"}
 )
+_WORK_DEDUP_COLLISION_FIELDS = frozenset(
+    {"collision_id", "schema_version", "action_code", "trade_bucket",
+     "unit_policy", "billable_unit_id", "active_work_item_id",
+     "suppressed_work_item_ids", "policy_version"}
+)
+_STANDALONE_ESTIMATE_FIELDS = frozenset(
+    {"schema_version", "currency", "pricing_policy_version",
+     "property_cost_factor", "property_cost_factor_audit",
+     "totals_by_estimate_scope", "headline"}
+)
+# The dedup-key fields shared verbatim by a collision record, its merged
+# active, and every suppressed source.
+_WORK_DEDUP_KEY_FIELDS = (
+    "action_code", "trade_bucket", "unit_policy", "billable_unit_id"
+)
+# Collapse unit policies bill one fixed synthetic unit; every other policy
+# bills the physical estimate unit the conditions resolved to.
+_COLLAPSE_BILLABLE_UNITS = {
+    "per_property": "property", "per_system": "system", "per_area": "area"
+}
 _PACKAGE_CANDIDATE_FIELDS = frozenset(
     {"package_candidate_id", "schema_version", "package_type", "room_key",
      "child_work_item_ids", "proposed_treatment", "low", "high"}
@@ -150,6 +178,12 @@ _REVIEW_RESULT_KEYS = frozenset(
     {"observed_conditions", "evidence_facts", "condition_reviews",
      "condition_dispositions", "terra_calls", "terra_unit_usage",
      "terra_listing_usage"}
+)
+# The Session 3 intermediate result: the frozen Session 2 result plus the
+# deterministic work layer. standalone_estimate is one object; work_items and
+# work_dedup_collisions are lists.
+_STANDALONE_RESULT_KEYS = _REVIEW_RESULT_KEYS | frozenset(
+    {"work_items", "work_dedup_collisions", "standalone_estimate"}
 )
 
 
@@ -308,6 +342,11 @@ def _validate_condition(res: ValidationResult, where: str, obj: Dict[str, Any]) 
     _require_str_list(res, where, obj, "source_scope_keys", allow_empty=False)
     _require_choice(res, where, obj, "unit_resolution_source", UNIT_RESOLUTION_SOURCES)
     _require_str(res, where, obj, "unit_resolution_reason")
+    # Empty is the norm: only issues carrying explicit opening-instance
+    # identifiers contribute hints.
+    hints = _require_str_list(res, where, obj, "opening_instance_hints", allow_empty=True)
+    if hints is not None and (len(hints) != len(set(hints)) or hints != sorted(hints)):
+        res.error(where, "opening_instance_hints must be sorted and unique")
 
 
 def _check_photo_groups(
@@ -468,29 +507,140 @@ def _validate_terra_listing_usage(
     _check_terra_tokens(res, where, obj)
 
 
+def _require_sorted_unique(
+    res: ValidationResult, where: str, obj: Dict[str, Any], name: str,
+) -> Optional[List[str]]:
+    """Non-empty list of unique, lexicographically sorted strings — the
+    byte-deterministic lineage-tuple shape."""
+    value = _require_str_list(res, where, obj, name, allow_empty=False)
+    if value is None:
+        return None
+    if len(value) != len(set(value)):
+        res.error(where, f"{name} must be unique")
+        return None
+    if value != sorted(value):
+        res.error(where, f"{name} must be sorted")
+        return None
+    return value
+
+
 def _validate_work_item(res: ValidationResult, where: str, obj: Dict[str, Any]) -> None:
     _check_unknown(res, where, obj, _WORK_ITEM_FIELDS)
     _check_schema_version(res, where, obj)
     _require_id(res, where, obj, "work_item_id", "wk1")
-    condition_ids = _require_str_list(res, where, obj, "condition_ids", allow_empty=False)
-    if condition_ids is not None and len(condition_ids) != len(set(condition_ids)):
-        res.error(where, "condition_ids must be unique")
-    _require_str(res, where, obj, "catalog_item_id")
-    _require_str(res, where, obj, "estimate_unit_id")
+    _require_sorted_unique(res, where, obj, "condition_ids")
+    _require_sorted_unique(res, where, obj, "catalog_item_ids")
+    _require_sorted_unique(res, where, obj, "source_estimate_unit_ids")
+    _require_str(res, where, obj, "billable_unit_id")
     _require_str(res, where, obj, "action_code")
-    _require_choice(res, where, obj, "action_source", ACTION_SOURCES)
+    sources = _require_sorted_unique(res, where, obj, "action_sources")
+    if sources is not None and not set(sources) <= ACTION_SOURCES:
+        res.error(
+            where,
+            f"action_sources must be a subset of {sorted(ACTION_SOURCES)}, "
+            f"got {sources}",
+        )
     _require_str(res, where, obj, "trade_bucket")
     _require_choice(res, where, obj, "unit_policy", UNIT_POLICIES)
     _require_int(res, where, obj, "unit_count", minimum=1)
-    _require_choice(res, where, obj, "pricing_mode", PRICING_MODES)
+    modes = _require_sorted_unique(res, where, obj, "pricing_modes")
+    if modes is not None and not set(modes) <= PRICING_MODES:
+        res.error(
+            where,
+            f"pricing_modes must be a subset of {sorted(PRICING_MODES)}, "
+            f"got {modes}",
+        )
+    if not isinstance(obj.get("identity_ambiguous"), bool):
+        res.error(where, "identity_ambiguous must be a boolean")
+    _require_choice(res, where, obj, "estimate_scope", ESTIMATE_SCOPES)
+    _require_str(res, where, obj, "estimate_scope_reason")
     _require_money_pair(res, where, obj)
     status = _require_choice(res, where, obj, "status", WORK_ITEM_STATUSES)
     reason_code = obj.get("reason_code")
     if status == "suppressed":
-        if not isinstance(reason_code, str) or not reason_code:
-            res.error(where, "reason_code is required when status is 'suppressed'")
+        if reason_code != DEDUP_SUPPRESSION_REASON:
+            res.error(
+                where,
+                f"reason_code must be {DEDUP_SUPPRESSION_REASON!r} when status "
+                f"is 'suppressed', got {reason_code!r}",
+            )
     elif status == "active" and reason_code is not None:
         res.error(where, "reason_code must be null unless status is 'suppressed'")
+
+
+def _validate_work_dedup_collision(
+    res: ValidationResult, where: str, obj: Dict[str, Any]
+) -> None:
+    _check_unknown(res, where, obj, _WORK_DEDUP_COLLISION_FIELDS)
+    _check_schema_version(res, where, obj)
+    _require_id(res, where, obj, "collision_id", "wdc1")
+    _require_str(res, where, obj, "action_code")
+    _require_str(res, where, obj, "trade_bucket")
+    _require_choice(res, where, obj, "unit_policy", UNIT_POLICIES)
+    _require_str(res, where, obj, "billable_unit_id")
+    _require_id(res, where, obj, "active_work_item_id", "wk1")
+    suppressed = _require_sorted_unique(res, where, obj, "suppressed_work_item_ids")
+    if suppressed is not None:
+        if len(suppressed) < 2:
+            res.error(
+                where,
+                "suppressed_work_item_ids needs at least two members — one "
+                "source is not a collision",
+            )
+        for index, work_id in enumerate(suppressed):
+            if not _ID_PATTERNS["wk1"].match(work_id):
+                res.error(
+                    where,
+                    f"suppressed_work_item_ids[{index}] must match wk1_<16 hex>, "
+                    f"got {work_id!r}",
+                )
+    policy_version = _require_str(res, where, obj, "policy_version")
+    if policy_version is not None and policy_version != WORK_DEDUP_POLICY_VERSION:
+        res.error(
+            where,
+            f"policy_version must be {WORK_DEDUP_POLICY_VERSION!r}, "
+            f"got {policy_version!r}",
+        )
+
+
+def _validate_standalone_estimate(
+    res: ValidationResult, where: str, obj: Dict[str, Any]
+) -> None:
+    _check_unknown(res, where, obj, _STANDALONE_ESTIMATE_FIELDS)
+    _check_schema_version(res, where, obj)
+    if obj.get("currency") != "USD":
+        res.error(where, f"currency must be 'USD', got {obj.get('currency')!r}")
+    policy_version = _require_str(res, where, obj, "pricing_policy_version")
+    if policy_version is not None and policy_version != STANDALONE_PRICING_POLICY_VERSION:
+        res.error(
+            where,
+            f"pricing_policy_version must be {STANDALONE_PRICING_POLICY_VERSION!r}, "
+            f"got {policy_version!r}",
+        )
+    factor = obj.get("property_cost_factor")
+    if not isinstance(factor, (int, float)) or isinstance(factor, bool) or factor <= 0:
+        res.error(where, f"property_cost_factor must be a positive number, got {factor!r}")
+    if not isinstance(obj.get("property_cost_factor_audit"), dict):
+        res.error(where, "property_cost_factor_audit must be an object")
+    totals = obj.get("totals_by_estimate_scope")
+    if not isinstance(totals, dict) or set(totals) != ESTIMATE_SCOPES:
+        res.error(
+            where,
+            "totals_by_estimate_scope must carry exactly the keys "
+            f"{sorted(ESTIMATE_SCOPES)}",
+        )
+    else:
+        for scope in sorted(totals):
+            entry = totals[scope]
+            if not isinstance(entry, dict) or set(entry) != {"low", "high"}:
+                res.error(where, f"totals_by_estimate_scope[{scope!r}] must be an object with exactly low/high")
+                continue
+            _require_money_pair(res, f"{where}.totals_by_estimate_scope[{scope!r}]", entry)
+    headline = obj.get("headline")
+    if not isinstance(headline, dict) or set(headline) != {"low", "high"}:
+        res.error(where, "headline must be an object with exactly low/high")
+    else:
+        _require_money_pair(res, f"{where}.headline", headline)
 
 
 def _validate_package_candidate(
@@ -691,6 +841,15 @@ def validate_envelope(payload: Any) -> ValidationResult:
             res.extend(
                 validate_condition_review_result(result, estimate_id=estimate_id or "")
             )
+    elif state == "standalone_estimate_complete":
+        if reason is not None:
+            res.error(where, "standalone_estimate_complete reason must be null")
+        if not isinstance(result, dict):
+            res.error(where, "standalone_estimate_complete result must be an object")
+        else:
+            res.extend(
+                validate_standalone_estimate_result(result, estimate_id=estimate_id or "")
+            )
     elif state == "complete":
         if reason is not None:
             res.error(where, "complete reason must be null")
@@ -857,12 +1016,18 @@ def validate_complete_result(result: Any, *, estimate_id: str) -> ValidationResu
                     f"{work_id} references condition {condition_id!r} whose "
                     "disposition is not accepted_for_work",
                 )
-            elif condition["catalog_item_id"] != work["catalog_item_id"]:
+            elif condition["catalog_item_id"] not in work["catalog_item_ids"]:
                 res.error(
                     "result.work_items",
-                    f"{work_id} catalog_item_id {work['catalog_item_id']!r} does "
-                    f"not match condition {condition_id!r} "
+                    f"{work_id} catalog_item_ids {list(work['catalog_item_ids'])!r} "
+                    f"do not include condition {condition_id!r}'s "
                     f"({condition['catalog_item_id']!r})",
+                )
+            elif condition["estimate_unit_id"] not in work["source_estimate_unit_ids"]:
+                res.error(
+                    "result.work_items",
+                    f"{work_id} source_estimate_unit_ids do not include condition "
+                    f"{condition_id!r}'s ({condition['estimate_unit_id']!r})",
                 )
     for condition_id in sorted(accepted - referenced_conditions):
         res.error(
@@ -1285,4 +1450,361 @@ def validate_condition_review_result(result: Any, *, estimate_id: str) -> Valida
             )
 
     _check_terra_usage(res, result, conditions, by_condition)
+    return res
+
+
+# ── Session 3 standalone-estimate result ─────────────────────────────────────
+
+def _expected_unit_count(
+    work: Dict[str, Any], conditions: Dict[str, Dict[str, Any]]
+) -> int:
+    """Deterministic unit_count for a non-merged (source) work item: the
+    explicit opening-instance count for per_opening, one everywhere else
+    (collapse policies bill one synthetic unit; room-like and per_scope
+    sources bill exactly the one physical unit their conditions resolved
+    to)."""
+    if work["unit_policy"] != "per_opening":
+        return 1
+    hints: set = set()
+    for condition_id in work["condition_ids"]:
+        condition = conditions.get(condition_id)
+        if condition is not None:
+            hints.update(condition.get("opening_instance_hints") or [])
+    return max(1, len(hints))
+
+
+def validate_standalone_estimate_result(
+    result: Any, *, estimate_id: str
+) -> ValidationResult:
+    """Enforce the Session 3 standalone-estimate invariants over a result dict.
+
+    The result is the frozen Session 2 condition-review result plus the
+    deterministic work layer: the review subset is re-validated verbatim by
+    the frozen Session 2 gate, then the work layer's lineage, dedup, and
+    exact-total invariants are enforced on top. Packages, Sol, and the
+    coverage ledger do not exist yet, so their keys are rejected."""
+    res = ValidationResult()
+    where = "result"
+    if not isinstance(result, dict):
+        res.error(where, "must be an object")
+        return res
+    _check_unknown(res, where, result, _STANDALONE_RESULT_KEYS)
+    for key in ("work_items", "work_dedup_collisions"):
+        if not isinstance(result.get(key), list):
+            res.error(where, f"{key} must be a list")
+            return res
+
+    review_subset = {
+        key: result[key] for key in _REVIEW_RESULT_KEYS if key in result
+    }
+    res.extend(validate_condition_review_result(review_subset, estimate_id=estimate_id))
+
+    for key, validator in (
+        ("work_items", _validate_work_item),
+        ("work_dedup_collisions", _validate_work_dedup_collision),
+    ):
+        for index, record in enumerate(result[key]):
+            record_where = f"result.{key}[{index}]"
+            if not isinstance(record, dict):
+                res.error(record_where, "must be an object")
+                continue
+            validator(res, record_where, record)
+    standalone = result.get("standalone_estimate")
+    if not isinstance(standalone, dict):
+        res.error(where, "standalone_estimate must be an object")
+    else:
+        _validate_standalone_estimate(res, "result.standalone_estimate", standalone)
+    if not res.ok:
+        # Cross-record invariants assume individually valid records; reporting
+        # them over broken records would bury the root cause in noise.
+        return res
+
+    # The review gate passed, so rebuilding its indexes cannot produce errors.
+    conditions, by_condition = _validate_condition_lattice(ValidationResult(), result)
+    work_items = _index_by(res, "result.work_items", result["work_items"], "work_item_id")
+    collisions = _index_by(
+        res, "result.work_dedup_collisions", result["work_dedup_collisions"],
+        "collision_id",
+    )
+
+    accepted = {
+        condition_id
+        for condition_id, disposition in by_condition["condition_dispositions"].items()
+        if disposition["disposition"] == "accepted_for_work"
+    }
+    merged_actives = {
+        collision["active_work_item_id"] for collision in collisions.values()
+    }
+
+    # Per-item lineage, billable-unit consistency, and unit counts.
+    active_by_condition: Dict[str, List[str]] = {}
+    group_owner: Dict[Tuple[str, str, str, str], str] = {}
+    for work_id, work in sorted(work_items.items()):
+        item_where = "result.work_items"
+        lineage_ok = True
+        cited: List[Dict[str, Any]] = []
+        for condition_id in work["condition_ids"]:
+            condition = conditions.get(condition_id)
+            if condition is None:
+                res.error(item_where, f"{work_id} references unknown condition {condition_id!r}")
+                lineage_ok = False
+            elif condition_id not in accepted:
+                res.error(
+                    item_where,
+                    f"{work_id} references condition {condition_id!r} whose "
+                    "disposition is not accepted_for_work — non-accepted "
+                    "conditions create no work",
+                )
+                lineage_ok = False
+            else:
+                cited.append(condition)
+        if lineage_ok:
+            expected_items = sorted({c["catalog_item_id"] for c in cited})
+            if list(work["catalog_item_ids"]) != expected_items:
+                res.error(
+                    item_where,
+                    f"{work_id} catalog_item_ids must be exactly {expected_items}, "
+                    f"got {list(work['catalog_item_ids'])}",
+                )
+            expected_units = sorted({c["estimate_unit_id"] for c in cited})
+            if list(work["source_estimate_unit_ids"]) != expected_units:
+                res.error(
+                    item_where,
+                    f"{work_id} source_estimate_unit_ids must be exactly "
+                    f"{expected_units}, got {list(work['source_estimate_unit_ids'])}",
+                )
+            expected_ambiguous = any(c["identity_ambiguous"] for c in cited)
+            if work["identity_ambiguous"] != expected_ambiguous:
+                res.error(
+                    item_where,
+                    f"{work_id} identity_ambiguous must be {expected_ambiguous} "
+                    "(any source condition ambiguous)",
+                )
+        unit_policy = work["unit_policy"]
+        collapse_unit = _COLLAPSE_BILLABLE_UNITS.get(unit_policy)
+        if collapse_unit is not None:
+            if work["billable_unit_id"] != collapse_unit:
+                res.error(
+                    item_where,
+                    f"{work_id} billable_unit_id must be {collapse_unit!r} for "
+                    f"{unit_policy}, got {work['billable_unit_id']!r}",
+                )
+        elif list(work["source_estimate_unit_ids"]) != [work["billable_unit_id"]]:
+            res.error(
+                item_where,
+                f"{work_id} must bill exactly its one source estimate unit "
+                f"({work['billable_unit_id']!r}), got "
+                f"{list(work['source_estimate_unit_ids'])}",
+            )
+        if work_id not in merged_actives and lineage_ok:
+            expected_count = _expected_unit_count(work, conditions)
+            if work["unit_count"] != expected_count:
+                res.error(
+                    item_where,
+                    f"{work_id} unit_count must be {expected_count}, "
+                    f"got {work['unit_count']}",
+                )
+        if work["status"] == "active":
+            for condition_id in work["condition_ids"]:
+                active_by_condition.setdefault(condition_id, []).append(work_id)
+            group_key = tuple(work[name] for name in _WORK_DEDUP_KEY_FIELDS)
+            if group_key in group_owner:
+                res.error(
+                    item_where,
+                    f"{work_id} and {group_owner[group_key]} share the active "
+                    f"work group {group_key!r} — active groups must be unique",
+                )
+            else:
+                group_owner[group_key] = work_id
+
+    # Every accepted condition belongs to exactly one active work item.
+    for condition_id in sorted(accepted):
+        owners = active_by_condition.get(condition_id, [])
+        if not owners:
+            res.error(
+                "result",
+                f"accepted condition {condition_id!r} is referenced by no "
+                "active work item — accepted scope cannot vanish",
+            )
+        elif len(owners) > 1:
+            res.error(
+                "result",
+                f"accepted condition {condition_id!r} is referenced by "
+                f"multiple active work items {sorted(owners)}",
+            )
+
+    # Collision audits: complete lineage, exact max envelope, one collision
+    # per suppressed item.
+    suppressed_owner: Dict[str, str] = {}
+    audited_actives: Dict[str, str] = {}
+    for collision_id, collision in sorted(collisions.items()):
+        coll_where = "result.work_dedup_collisions"
+        active = work_items.get(collision["active_work_item_id"])
+        if active is None:
+            res.error(
+                coll_where,
+                f"{collision_id} cites unknown active work item "
+                f"{collision['active_work_item_id']!r}",
+            )
+            continue
+        active_id = collision["active_work_item_id"]
+        if active_id in audited_actives:
+            res.error(
+                coll_where,
+                f"{collision_id} and {audited_actives[active_id]} both audit "
+                f"active work item {active_id!r}",
+            )
+            continue
+        audited_actives[active_id] = collision_id
+        if active["status"] != "active":
+            res.error(coll_where, f"{collision_id} active work item {active_id!r} is not active")
+        for name in _WORK_DEDUP_KEY_FIELDS:
+            if collision[name] != active[name]:
+                res.error(
+                    coll_where,
+                    f"{collision_id} {name} {collision[name]!r} does not match "
+                    f"its active work item's {active[name]!r}",
+                )
+        sources: List[Dict[str, Any]] = []
+        sources_ok = True
+        for suppressed_id in collision["suppressed_work_item_ids"]:
+            source = work_items.get(suppressed_id)
+            if source is None:
+                res.error(coll_where, f"{collision_id} cites unknown suppressed item {suppressed_id!r}")
+                sources_ok = False
+                continue
+            if source["status"] != "suppressed":
+                res.error(
+                    coll_where,
+                    f"{collision_id} source {suppressed_id!r} is not suppressed",
+                )
+                sources_ok = False
+            if suppressed_id in suppressed_owner:
+                res.error(
+                    coll_where,
+                    f"suppressed item {suppressed_id!r} belongs to both "
+                    f"{suppressed_owner[suppressed_id]!r} and {collision_id!r}",
+                )
+                sources_ok = False
+            else:
+                suppressed_owner[suppressed_id] = collision_id
+            for name in _WORK_DEDUP_KEY_FIELDS:
+                if source.get(name) != collision[name]:
+                    res.error(
+                        coll_where,
+                        f"{collision_id} source {suppressed_id!r} {name} does "
+                        "not match the collision key",
+                    )
+                    sources_ok = False
+            sources.append(source)
+        if not sources_ok or not sources:
+            continue
+        expected_low = max(source["low"] for source in sources)
+        expected_high = max(source["high"] for source in sources)
+        if (active["low"], active["high"]) != (expected_low, expected_high):
+            res.error(
+                coll_where,
+                f"{collision_id} active range must be the exact max envelope "
+                f"{expected_low}/{expected_high} over its sources, got "
+                f"{active['low']}/{active['high']} — colliding work is never summed",
+            )
+        for name, label in (
+            ("condition_ids", "condition"),
+            ("catalog_item_ids", "catalog item"),
+            ("source_estimate_unit_ids", "estimate unit"),
+        ):
+            expected_union = sorted({
+                value for source in sources for value in source[name]
+            })
+            if list(active[name]) != expected_union:
+                res.error(
+                    coll_where,
+                    f"{collision_id} active {name} must be the exact {label} "
+                    f"union of its sources",
+                )
+        expected_sources_union = sorted({
+            value for source in sources for value in source["action_sources"]
+        })
+        if list(active["action_sources"]) != expected_sources_union:
+            res.error(coll_where, f"{collision_id} active action_sources must be the union of its sources'")
+        expected_modes_union = sorted({
+            value for source in sources for value in source["pricing_modes"]
+        })
+        if list(active["pricing_modes"]) != expected_modes_union:
+            res.error(coll_where, f"{collision_id} active pricing_modes must be the union of its sources'")
+        if active["identity_ambiguous"] != any(s["identity_ambiguous"] for s in sources):
+            res.error(coll_where, f"{collision_id} active identity_ambiguous must be any-of its sources'")
+        expected_count = max(source["unit_count"] for source in sources)
+        if active["unit_count"] != expected_count:
+            res.error(
+                coll_where,
+                f"{collision_id} active unit_count must be the max over its "
+                f"sources ({expected_count}), got {active['unit_count']}",
+            )
+        source_scopes = {source["estimate_scope"] for source in sources}
+        expected_scope = next(
+            scope for scope in ESTIMATE_SCOPE_MERGE_PRIORITY if scope in source_scopes
+        )
+        if active["estimate_scope"] != expected_scope:
+            res.error(
+                coll_where,
+                f"{collision_id} active estimate_scope must be the most-required "
+                f"source scope {expected_scope!r}, got {active['estimate_scope']!r}",
+            )
+        else:
+            winning = min(
+                (source for source in sources if source["estimate_scope"] == expected_scope),
+                key=lambda source: source["work_item_id"],
+            )
+            if active["estimate_scope_reason"] != winning["estimate_scope_reason"]:
+                res.error(
+                    coll_where,
+                    f"{collision_id} active estimate_scope_reason must come from "
+                    "the lexicographically-first winning-scope source",
+                )
+
+    # Every suppressed item belongs to exactly one collision audit.
+    for work_id, work in sorted(work_items.items()):
+        if work["status"] == "suppressed" and work_id not in suppressed_owner:
+            res.error(
+                "result.work_items",
+                f"suppressed item {work_id!r} belongs to no collision audit — "
+                "suppression without an audit trail is a lost record",
+            )
+
+    if not res.ok:
+        return res
+
+    # Exact totals: per-scope sums over active items, both endpoints, and the
+    # headline as their componentwise sum.
+    expected_totals = {scope: [0, 0] for scope in ESTIMATE_SCOPES}
+    for work in work_items.values():
+        if work["status"] != "active":
+            continue
+        expected_totals[work["estimate_scope"]][0] += work["low"]
+        expected_totals[work["estimate_scope"]][1] += work["high"]
+    standalone = result["standalone_estimate"]
+    totals = standalone["totals_by_estimate_scope"]
+    for scope in sorted(ESTIMATE_SCOPES):
+        expected_low, expected_high = expected_totals[scope]
+        actual = totals[scope]
+        if (actual["low"], actual["high"]) != (expected_low, expected_high):
+            res.error(
+                "result.standalone_estimate",
+                f"totals_by_estimate_scope[{scope!r}] must be exactly "
+                f"{expected_low}/{expected_high} from active work, got "
+                f"{actual['low']}/{actual['high']}",
+            )
+    headline = standalone["headline"]
+    expected_headline = (
+        sum(low for low, _ in expected_totals.values()),
+        sum(high for _, high in expected_totals.values()),
+    )
+    if (headline["low"], headline["high"]) != expected_headline:
+        res.error(
+            "result.standalone_estimate",
+            f"headline must be exactly {expected_headline[0]}/"
+            f"{expected_headline[1]} from the scope buckets, got "
+            f"{headline['low']}/{headline['high']}",
+        )
     return res

@@ -16,7 +16,9 @@ import pytest
 
 from tools.renovation_architecture.contracts import (
     CONTRACTS_SCHEMA_VERSION,
+    DEDUP_SUPPRESSION_REASON,
     ENVELOPE_SCHEMA_VERSION,
+    ESTIMATE_SCOPES,
     EVIDENCE_DEDUP_POLICY_VERSION,
     CONDITION_DISPOSITION_POLICY_VERSION,
     EstimateProvenance,
@@ -25,6 +27,8 @@ from tools.renovation_architecture.contracts import (
     PROJECTION_VERSION,
     RenovationEstimateEnvelope,
     SCAFFOLD_REASON,
+    STANDALONE_PRICING_POLICY_VERSION,
+    WORK_DEDUP_POLICY_VERSION,
 )
 from tools.renovation_architecture.ids import (
     make_condition_id,
@@ -32,16 +36,19 @@ from tools.renovation_architecture.ids import (
     make_estimate_id,
     make_evidence_id,
     make_ledger_entry_id,
+    make_merged_work_item_id,
     make_package_candidate_id,
     make_package_decision_id,
     make_review_id,
     make_terra_call_id,
+    make_work_dedup_collision_id,
     make_work_item_id,
 )
 from tools.renovation_architecture.validators import (
     validate_complete_result,
     validate_condition_review_result,
     validate_envelope,
+    validate_standalone_estimate_result,
 )
 
 EST_ID = make_estimate_id(
@@ -116,6 +123,7 @@ def _condition(catalog_item_id, unit_id):
         "source_scope_keys": [scope_key],
         "unit_resolution_source": "photo_estimate_unit",
         "unit_resolution_reason": "single_surrogate",
+        "opening_instance_hints": [],
     }
 
 
@@ -189,29 +197,36 @@ def _lattice(condition, verdict="supported", disposition="accepted_for_work"):
     )
 
 
-def _work_item(condition, action_code, low, high):
-    return {
+def _work_item(condition, action_code, low, high, **over):
+    """A v3 source work item: singleton lineage, one billable physical unit."""
+    base = {
         "work_item_id": make_work_item_id(
             estimate_id=EST_ID,
             catalog_item_id=condition["catalog_item_id"],
-            estimate_unit_id=condition["estimate_unit_id"],
+            billable_unit_id=condition["estimate_unit_id"],
             action_code=action_code,
         ),
         "schema_version": CONTRACTS_SCHEMA_VERSION,
         "condition_ids": [condition["condition_id"]],
-        "catalog_item_id": condition["catalog_item_id"],
-        "estimate_unit_id": condition["estimate_unit_id"],
+        "catalog_item_ids": [condition["catalog_item_id"]],
+        "source_estimate_unit_ids": [condition["estimate_unit_id"]],
+        "billable_unit_id": condition["estimate_unit_id"],
         "action_code": action_code,
-        "action_source": "work_item_code",
+        "action_sources": ["work_item_code"],
         "trade_bucket": "kitchen_cabinets_counters",
         "unit_policy": "per_kitchen",
         "unit_count": 1,
-        "pricing_mode": "catalog_allowance",
+        "pricing_modes": ["catalog_allowance"],
+        "identity_ambiguous": False,
+        "estimate_scope": "marketability_rehab",
+        "estimate_scope_reason": "catalog_estimate_scope",
         "low": low,
         "high": high,
         "status": "active",
         "reason_code": None,
     }
+    base.update(over)
+    return base
 
 
 def _ledger_entry(work_item, representation, package_id=None, low=0, high=0):
@@ -357,6 +372,61 @@ def _review_envelope(**over):
     return base
 
 
+def _standalone_estimate(work_items, factor=1.0, **over):
+    """Exact totals recomputed from the active work items."""
+    totals = {scope: [0, 0] for scope in sorted(ESTIMATE_SCOPES)}
+    for item in work_items:
+        if item["status"] != "active":
+            continue
+        totals[item["estimate_scope"]][0] += item["low"]
+        totals[item["estimate_scope"]][1] += item["high"]
+    base = {
+        "schema_version": CONTRACTS_SCHEMA_VERSION,
+        "currency": "USD",
+        "pricing_policy_version": STANDALONE_PRICING_POLICY_VERSION,
+        "property_cost_factor": factor,
+        "property_cost_factor_audit": {"reasons": []},
+        "totals_by_estimate_scope": {
+            scope: {"low": low, "high": high}
+            for scope, (low, high) in totals.items()
+        },
+        "headline": {
+            "low": sum(low for low, _ in totals.values()),
+            "high": sum(high for _, high in totals.values()),
+        },
+    }
+    base.update(over)
+    return base
+
+
+def _standalone_result(**over):
+    """The Session 2 review result plus one active work item per accepted
+    condition, no collisions, exact totals."""
+    base = _review_result()
+    c1, c2 = base["observed_conditions"]
+    items = sorted(
+        [
+            _work_item(c1, "CABINETS_REPLACE", 1000, 3000),
+            _work_item(c2, "VANITY_REPLACE", 500, 1500),
+        ],
+        key=lambda item: item["work_item_id"],
+    )
+    base["work_items"] = items
+    base["work_dedup_collisions"] = []
+    base["standalone_estimate"] = _standalone_estimate(items)
+    base.update(over)
+    return base
+
+
+def _standalone_envelope(**over):
+    base = _scaffold_envelope(
+        state="standalone_estimate_complete", reason=None,
+        result=_standalone_result(),
+    )
+    base.update(over)
+    return base
+
+
 # ── IDs ──────────────────────────────────────────────────────────────────────
 
 class TestIds:
@@ -376,7 +446,9 @@ class TestIds:
             (make_evidence_id(estimate_id=EST_ID, condition_id="c"), "ev1"),
             (make_review_id(estimate_id=EST_ID, condition_id="c"), "cr1"),
             (make_disposition_id(estimate_id=EST_ID, condition_id="c"), "cd1"),
-            (make_work_item_id(estimate_id=EST_ID, catalog_item_id="x", estimate_unit_id="u", action_code="a"), "wk1"),
+            (make_work_item_id(estimate_id=EST_ID, catalog_item_id="x", billable_unit_id="u", action_code="a"), "wk1"),
+            (make_merged_work_item_id(estimate_id=EST_ID, action_code="a", trade_bucket="t", unit_policy="per_scope", billable_unit_id="u"), "wk1"),
+            (make_work_dedup_collision_id(estimate_id=EST_ID, active_work_item_id="w"), "wdc1"),
             (make_package_candidate_id(estimate_id=EST_ID, package_type="t", room_key="r"), "pk1"),
             (make_package_decision_id(estimate_id=EST_ID, package_candidate_id="p"), "pd1"),
             (make_ledger_entry_id(estimate_id=EST_ID, work_item_id="w"), "cl1"),
@@ -390,6 +462,19 @@ class TestIds:
         review = make_review_id(estimate_id=EST_ID, condition_id="c")
         disposition = make_disposition_id(estimate_id=EST_ID, condition_id="c")
         assert len({evidence[4:], review[4:], disposition[4:]}) == 3
+
+    def test_merged_and_source_work_ids_cannot_collide(self):
+        """The merged recipe hashes a distinct namespace, so even identical
+        remaining parts produce a different id than any source recipe."""
+        source = make_work_item_id(
+            estimate_id=EST_ID, catalog_item_id="a",
+            billable_unit_id="u", action_code="code",
+        )
+        merged = make_merged_work_item_id(
+            estimate_id=EST_ID, action_code="a",
+            trade_bucket="u", unit_policy="code", billable_unit_id="",
+        )
+        assert source != merged
 
     def test_estimate_id_varies_with_each_part(self):
         base = dict(
@@ -424,6 +509,7 @@ class TestContracts:
             source_scope_keys=("k",),
             unit_resolution_source="photo_estimate_unit",
             unit_resolution_reason="single_surrogate",
+            opening_instance_hints=(),
         )
         with pytest.raises(dataclasses.FrozenInstanceError):
             condition.catalog_item_id = "y"
@@ -655,6 +741,129 @@ class TestConditionReviewEnvelope:
         )
 
 
+# ── standalone_estimate_complete envelope (Session 3) ────────────────────────
+
+class TestStandaloneEnvelope:
+    def test_happy_path_validates(self):
+        assert validate_envelope(_standalone_envelope()).ok
+
+    def test_empty_standalone_result_validates(self):
+        """No accepted work still completes the standalone estimate: empty
+        work lanes and all-zero scope buckets."""
+        empty_review = {
+            "observed_conditions": [], "evidence_facts": [],
+            "condition_reviews": [], "condition_dispositions": [],
+            "terra_calls": [], "terra_unit_usage": [],
+            "terra_listing_usage": {
+                "schema_version": CONTRACTS_SCHEMA_VERSION, "call_count": 0,
+                "input_tokens": 0, "cached_input_tokens": 0,
+                "output_tokens": 0, "total_tokens": 0,
+                "budget_debited_tokens": 0,
+            },
+        }
+        result = {
+            **empty_review,
+            "work_items": [],
+            "work_dedup_collisions": [],
+            "standalone_estimate": _standalone_estimate([]),
+        }
+        assert validate_envelope(_standalone_envelope(result=result)).ok
+
+    def test_reason_must_be_null(self):
+        _assert_error(
+            validate_envelope(_standalone_envelope(reason="done")),
+            "reason must be null",
+        )
+
+    def test_later_session_layers_are_rejected(self):
+        """The Session 3 result may not smuggle package/ledger/totals keys."""
+        for key in ("package_candidates", "package_decisions",
+                    "coverage_ledger", "totals"):
+            result = _standalone_result()
+            result[key] = []
+            _assert_error(
+                validate_standalone_estimate_result(result, estimate_id=EST_ID),
+                "unknown field",
+            )
+
+    def test_review_subset_still_runs_the_frozen_gate(self):
+        """Breaking a Session 2 invariant inside a Session 3 result is caught
+        by the delegated review validator, verbatim."""
+        result = _standalone_result()
+        result["terra_listing_usage"]["total_tokens"] += 1
+        _assert_error(
+            validate_standalone_estimate_result(result, estimate_id=EST_ID),
+            "from the unit rollups",
+        )
+
+    def test_policy_versions_carry_the_session_3_policies(self):
+        assert set(POLICY_VERSIONS) == {
+            "terminal_route_policy", "condition_disposition_policy",
+            "evidence_dedup_policy", "terra_review_prompt",
+            "work_derivation_policy", "work_dedup_policy",
+            "standalone_pricing_policy",
+        }
+        assert POLICY_VERSIONS["work_derivation_policy"] == "work_derivation_v1"
+        assert POLICY_VERSIONS["work_dedup_policy"] == "work_dedup_max_envelope_v1"
+        assert POLICY_VERSIONS["standalone_pricing_policy"] == "standalone_pricing_v1"
+
+    def test_estimate_scopes_pin_the_estimator_vocabulary(self):
+        """ESTIMATE_SCOPES must never drift from tools/estimate_scope.py."""
+        from tools.estimate_scope import VALID_ESTIMATE_SCOPES
+
+        assert ESTIMATE_SCOPES == frozenset(VALID_ESTIMATE_SCOPES)
+
+    @pytest.mark.parametrize(
+        "collection", ["work_items", "work_dedup_collisions"]
+    )
+    def test_unknown_field_rejected_per_new_record(self, collection):
+        result = _standalone_result()
+        collision = {
+            "collision_id": make_work_dedup_collision_id(
+                estimate_id=EST_ID, active_work_item_id="wk1_" + "0" * 16
+            ),
+            "schema_version": CONTRACTS_SCHEMA_VERSION,
+            "action_code": "CABINETS_REPLACE",
+            "trade_bucket": "kitchen_cabinets_counters",
+            "unit_policy": "per_kitchen",
+            "billable_unit_id": "kitchen_primary",
+            "active_work_item_id": "wk1_" + "0" * 16,
+            "suppressed_work_item_ids": ["wk1_" + "1" * 16, "wk1_" + "2" * 16],
+            "policy_version": WORK_DEDUP_POLICY_VERSION,
+        }
+        result["work_dedup_collisions"] = [collision]
+        result[collection][0]["surprise"] = True
+        _assert_error(
+            validate_standalone_estimate_result(result, estimate_id=EST_ID),
+            "unknown field",
+        )
+
+    def test_standalone_estimate_unknown_field_rejected(self):
+        result = _standalone_result()
+        result["standalone_estimate"]["surprise"] = True
+        _assert_error(
+            validate_standalone_estimate_result(result, estimate_id=EST_ID),
+            "unknown field",
+        )
+
+    def test_suppressed_reason_code_is_pinned(self):
+        result = _standalone_result()
+        result["work_items"][0]["status"] = "suppressed"
+        result["work_items"][0]["reason_code"] = "some_other_reason"
+        _assert_error(
+            validate_standalone_estimate_result(result, estimate_id=EST_ID),
+            DEDUP_SUPPRESSION_REASON,
+        )
+
+    def test_active_reason_code_must_be_null(self):
+        result = _standalone_result()
+        result["work_items"][0]["reason_code"] = DEDUP_SUPPRESSION_REASON
+        _assert_error(
+            validate_standalone_estimate_result(result, estimate_id=EST_ID),
+            "must be null",
+        )
+
+
 # ── complete result invariants ───────────────────────────────────────────────
 
 class TestCompleteResult:
@@ -781,7 +990,7 @@ class TestCompleteResult:
     def test_package_child_must_be_active(self):
         result = _complete_result()
         result["work_items"][0]["status"] = "suppressed"
-        result["work_items"][0]["reason_code"] = "below_floor"
+        result["work_items"][0]["reason_code"] = DEDUP_SUPPRESSION_REASON
         _assert_error(
             validate_complete_result(result, estimate_id=EST_ID), "suppressed"
         )

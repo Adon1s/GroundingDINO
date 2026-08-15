@@ -596,9 +596,24 @@ class TestShadowEnvelopeEndToEnd:
         )
         res = validate_envelope(envelope)
         assert res.ok, res.errors
-        assert envelope["state"] == "condition_review_complete"
+        assert envelope["state"] == "standalone_estimate_complete"
         assert envelope["reason"] is None
         assert SHADOW_DEBUG_KEY  # the key constant is what the seam writes
         (review,) = envelope["result"]["condition_reviews"]
         assert review["verdict"] == "supported"
         assert review["model"] == TERRA_MODEL
+        # The accepted condition became exactly one active work item, priced
+        # by the legacy heuristic core: severity-2 repair base (300, 1500)
+        # x flooring trade multiplier 0.9 -> 270/1350 (neutral property
+        # factor: the kitchen fixture has no ppsf/sqft metadata).
+        (work_item,) = envelope["result"]["work_items"]
+        assert work_item["status"] == "active"
+        assert work_item["condition_ids"] == [condition.condition_id]
+        assert work_item["action_code"] == "FLOORING_REPAIR"
+        assert (work_item["low"], work_item["high"]) == (270, 1350)
+        assert envelope["result"]["work_dedup_collisions"] == []
+        standalone = envelope["result"]["standalone_estimate"]
+        assert standalone["headline"] == {"low": 270, "high": 1350}
+        assert standalone["totals_by_estimate_scope"]["marketability_rehab"] == {
+            "low": 270, "high": 1350,
+        }

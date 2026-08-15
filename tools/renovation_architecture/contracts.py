@@ -9,20 +9,33 @@ form produced by ``to_dict()``.
 
 Schema v2 (Session 2) delivered the Terra side of the v1 deferred set: token
 telemetry, request fingerprints, prompt provenance, and the unit-resolution
-audit trail on ObservedCondition. Still deferred to the session that produces
-it (additive with a CONTRACTS_SCHEMA_VERSION bump): Sol token telemetry and
-package-review provenance.
+audit trail on ObservedCondition. Schema v3 (Session 3) delivered the work
+layer: merged-lineage WorkItem, WorkDedupCollision, StandaloneEstimate, and
+opening instance hints on ObservedCondition. Still deferred to the session
+that produces it (additive with a CONTRACTS_SCHEMA_VERSION bump): Sol token
+telemetry and package-review provenance.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, fields, is_dataclass
 from typing import Any, Dict, Mapping, Optional, Tuple
 
-CONTRACTS_SCHEMA_VERSION = 2
-ENVELOPE_SCHEMA_VERSION = 2
-PROJECTION_VERSION = "renovation_catalog_projection_v1"
+CONTRACTS_SCHEMA_VERSION = 3
+ENVELOPE_SCHEMA_VERSION = 3
+PROJECTION_VERSION = "renovation_catalog_projection_v2"
 TERMINAL_ROUTE_POLICY_VERSION = "terminal_route_v1"
 CONDITION_DISPOSITION_POLICY_VERSION = "condition_disposition_v1"
+# Session 3 deterministic policies. Derivation maps accepted conditions to
+# priced work through the projection's work_policy; dedup is the max-envelope
+# collision rule (never sum colliding work); standalone pricing composes the
+# legacy costing core, the property factor (once, pre-split), and the
+# sum-preserving integer split.
+WORK_DERIVATION_POLICY_VERSION = "work_derivation_v1"
+WORK_DEDUP_POLICY_VERSION = "work_dedup_max_envelope_v1"
+STANDALONE_PRICING_POLICY_VERSION = "standalone_pricing_v1"
+# The only work-item suppression reason this session: the item lost its dedup
+# group to a merged max-envelope active and is retained as an audit record.
+DEDUP_SUPPRESSION_REASON = "dedup_collision"
 # Names the exact/near-duplicate identity rules (normalized-pixel sha256;
 # 64-bit 8x8 average-hash, Hamming <= 6 AND max-channel mean-RGB delta <= 16).
 # Any change to the hash or thresholds must bump this so request fingerprints
@@ -47,8 +60,12 @@ REQUIRED_KIND_ONTOLOGY_SELECTOR = "observation_kind_v2"
 # though the runtime never emits it after Session 2; removal is Session 6
 # cleanup. condition_review_complete is the Session 2 terminal state: the
 # review layer is done, work/packages/totals do not exist yet.
+# standalone_estimate_complete is the Session 3 terminal state: deterministic
+# work items and the package-independent standalone estimate exist; packages,
+# Sol, and the coverage ledger do not.
 ENVELOPE_STATES = frozenset(
-    {"scaffold", "condition_review_complete", "complete", "failed"}
+    {"scaffold", "condition_review_complete", "standalone_estimate_complete",
+     "complete", "failed"}
 )
 ARCHITECTURE_MODES = frozenset({"current", "shadow", "new"})
 OBSERVATION_KINDS_V2 = frozenset({"defect", "degradation", "modernization"})
@@ -83,6 +100,18 @@ STRATEGIES = frozenset(
     {"repair_only", "replace_only", "repair_or_replace",
      "service_only", "inspect_only"}
 )
+# Pinned by test against tools/estimate_scope.py's label constants so the two
+# vocabularies can never drift (the UNIT_POLICIES pattern; contracts stays
+# import-light). MERGE_PRIORITY resolves a dedup collision whose sources carry
+# different scopes: the most-required lane wins.
+ESTIMATE_SCOPES = frozenset(
+    {"required_rehab", "marketability_rehab", "optional_value_add",
+     "inspection_risk"}
+)
+ESTIMATE_SCOPE_MERGE_PRIORITY = (
+    "required_rehab", "marketability_rehab", "optional_value_add",
+    "inspection_risk",
+)
 
 # The complete provenance policy set. Every envelope (including failed ones)
 # carries exactly these keys; sessions extend the map together with the schema
@@ -92,6 +121,9 @@ POLICY_VERSIONS = {
     "condition_disposition_policy": CONDITION_DISPOSITION_POLICY_VERSION,
     "evidence_dedup_policy": EVIDENCE_DEDUP_POLICY_VERSION,
     "terra_review_prompt": TERRA_REVIEW_PROMPT_VERSION,
+    "work_derivation_policy": WORK_DERIVATION_POLICY_VERSION,
+    "work_dedup_policy": WORK_DEDUP_POLICY_VERSION,
+    "standalone_pricing_policy": STANDALONE_PRICING_POLICY_VERSION,
 }
 POLICY_VERSION_KEYS = frozenset(POLICY_VERSIONS)
 
@@ -137,6 +169,10 @@ class ObservedCondition(_Contract):
     source_scope_keys: Tuple[str, ...]
     unit_resolution_source: str
     unit_resolution_reason: str
+    # Objective "field:value" opening-instance identifiers from the source
+    # issues (opening_id, window_key, ...). Usually empty; per_opening work
+    # derivation counts them, everything else ignores them.
+    opening_instance_hints: Tuple[str, ...]
 
 
 @dataclass(frozen=True)
@@ -241,21 +277,49 @@ class TerraListingUsage(_Contract):
 
 @dataclass(frozen=True)
 class WorkItem(_Contract):
+    """One billable renovation job, with merged lineage.
+
+    A source item carries singleton lineage tuples; a merged dedup active
+    spans every colliding source's conditions, catalog items, and estimate
+    units. billable_unit_id is the physical unit being billed, or the fixed
+    collapse token ("property"/"system"/"area") for collapse unit policies.
+    Suppressed items keep their dollars as audit data; only active items
+    enter totals."""
     work_item_id: str
     schema_version: int
     condition_ids: Tuple[str, ...]
-    catalog_item_id: str
-    estimate_unit_id: str
+    catalog_item_ids: Tuple[str, ...]
+    source_estimate_unit_ids: Tuple[str, ...]
+    billable_unit_id: str
     action_code: str
-    action_source: str
+    action_sources: Tuple[str, ...]
     trade_bucket: str
     unit_policy: str
     unit_count: int
-    pricing_mode: str
+    pricing_modes: Tuple[str, ...]
+    identity_ambiguous: bool
+    estimate_scope: str
+    estimate_scope_reason: str
     low: int
     high: int
     status: str
     reason_code: Optional[str]
+
+
+@dataclass(frozen=True)
+class WorkDedupCollision(_Contract):
+    """Audit record linking one merged active work item to the suppressed
+    sources that shared its dedup key. The active range is the exact max
+    envelope over the sources — colliding work is never summed."""
+    collision_id: str
+    schema_version: int
+    action_code: str
+    trade_bucket: str
+    unit_policy: str
+    billable_unit_id: str
+    active_work_item_id: str
+    suppressed_work_item_ids: Tuple[str, ...]
+    policy_version: str
 
 
 @dataclass(frozen=True)
@@ -307,6 +371,24 @@ class EstimateTotals(_Contract):
     standalone: MoneyRange
     packaged: MoneyRange
     inspection: MoneyRange
+    headline: MoneyRange
+
+
+@dataclass(frozen=True)
+class StandaloneEstimate(_Contract):
+    """Package-independent totals from ACTIVE work items only.
+
+    property_cost_factor(_audit) records the one pricing input that is not
+    derivable from the catalog plus the result, keeping the estimate
+    reproducible. totals_by_estimate_scope carries exactly the four
+    ESTIMATE_SCOPES keys; headline is their componentwise sum, which equals
+    the sum over all active work items."""
+    schema_version: int
+    currency: str
+    pricing_policy_version: str
+    property_cost_factor: float
+    property_cost_factor_audit: Mapping[str, Any]
+    totals_by_estimate_scope: Mapping[str, MoneyRange]
     headline: MoneyRange
 
 

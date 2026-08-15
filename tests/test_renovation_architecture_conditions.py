@@ -117,6 +117,40 @@ class TestBuildObservedConditions:
         units = {draft.condition.estimate_unit_id for draft in drafts}
         assert len(units) == 2
 
+    def test_opening_instance_hints_are_captured_per_issue(self):
+        """First matching instance field per issue, as "field:value",
+        union-sorted per condition — byte-compatible with the legacy tier-1
+        opening resolution."""
+        photos = _photos(("k1.png", "kitchen"), ("k2.png", "kitchen"))
+        issues = [
+            _issue("worn_counter", "k1.png", window_id="w2", door_id="ignored"),
+            _issue("worn_counter", "k2.png", opening_key="front"),
+        ]
+        (draft,) = _build(issues, photos)
+        assert draft.condition.opening_instance_hints == (
+            "opening_key:front", "window_id:w2"
+        )
+
+    def test_generic_hints_are_filtered_out(self):
+        """Values the legacy _meaningful_unit_hint rejects (empty/generic)
+        contribute no hint; hintless issues leave the tuple empty."""
+        photos = _photos(("k1.png", "kitchen"), ("k2.png", "kitchen"))
+        issues = [
+            _issue("worn_counter", "k1.png", window_id="unknown"),
+            _issue("worn_counter", "k2.png"),
+        ]
+        (draft,) = _build(issues, photos)
+        assert draft.condition.opening_instance_hints == ()
+
+    def test_duplicate_hints_collapse(self):
+        photos = _photos(("k1.png", "kitchen"), ("k2.png", "kitchen"))
+        issues = [
+            _issue("worn_counter", "k1.png", window_id="w1"),
+            _issue("worn_counter", "k2.png", window_id="w1"),
+        ]
+        (draft,) = _build(issues, photos)
+        assert draft.condition.opening_instance_hints == ("window_id:w1",)
+
     def test_unmapped_photo_falls_back_to_the_scope_room(self):
         photos = _photos(("k1.png", "kitchen"))
         issues = [

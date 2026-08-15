@@ -56,11 +56,30 @@ def make_terra_call_id(
 
 
 def make_work_item_id(
-    *, estimate_id: str, catalog_item_id: str, estimate_unit_id: str, action_code: str
+    *, estimate_id: str, catalog_item_id: str, billable_unit_id: str, action_code: str
 ) -> str:
+    """Source work item: one catalog item on one billable unit."""
     return _make(
-        "wk1", "work", estimate_id, catalog_item_id, estimate_unit_id, action_code
+        "wk1", "work", estimate_id, catalog_item_id, billable_unit_id, action_code
     )
+
+
+def make_merged_work_item_id(
+    *, estimate_id: str, action_code: str, trade_bucket: str,
+    unit_policy: str, billable_unit_id: str,
+) -> str:
+    """Merged dedup active: its identity IS the dedup key. The distinct
+    namespace makes source/merged collisions structurally impossible."""
+    return _make(
+        "wk1", "work_merged", estimate_id,
+        action_code, trade_bucket, unit_policy, billable_unit_id,
+    )
+
+
+def make_work_dedup_collision_id(
+    *, estimate_id: str, active_work_item_id: str
+) -> str:
+    return _make("wdc1", "work_dedup", estimate_id, active_work_item_id)
 
 
 def make_package_candidate_id(
