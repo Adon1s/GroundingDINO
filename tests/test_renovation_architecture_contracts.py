@@ -42,12 +42,14 @@ from tools.renovation_architecture.contracts import (
     WORK_DEDUP_POLICY_VERSION,
 )
 from tools.renovation_architecture.ids import (
+    make_combine_group_id,
     make_condition_id,
     make_disposition_id,
     make_estimate_id,
     make_evidence_id,
     make_ledger_entry_id,
     make_merged_work_item_id,
+    make_package_application_id,
     make_package_candidate_id,
     make_package_decision_id,
     make_review_id,
@@ -243,7 +245,13 @@ def _work_item(condition, action_code, low, high, **over):
     return base
 
 
-def _ledger_entry(work_item, representation, package_id=None, low=0, high=0):
+def _ledger_entry(work_item, representation, package_id=None, low=0, high=0,
+                  reason_code=None):
+    if reason_code is None:
+        reason_code = (
+            "absorbed_by_approved_package"
+            if representation == "absorbed_by_package" else "no_covering_package"
+        )
     return {
         "entry_id": make_ledger_entry_id(
             estimate_id=EST_ID, work_item_id=work_item["work_item_id"]
@@ -252,9 +260,18 @@ def _ledger_entry(work_item, representation, package_id=None, low=0, high=0):
         "work_item_id": work_item["work_item_id"],
         "representation": representation,
         "package_id": package_id,
+        "reason_code": reason_code,
         "low": low,
         "high": high,
     }
+
+
+def _find_entry(result, representation):
+    """The first coverage-ledger entry with the given representation."""
+    return next(
+        entry for entry in result["coverage_ledger"]
+        if entry["representation"] == representation
+    )
 
 
 SOL_FP = "d" * 64  # a fixed Sol request fingerprint shared by the builders
@@ -351,40 +368,13 @@ def _sol_call(candidates, *, input_tokens=900, output_tokens=120, **over):
 
 
 def _complete_result():
-    """Two conditions -> two work items -> one approved single-child package
-    plus one standalone work item, with exact totals."""
-    c1 = _condition("outdated_or_damaged_cabinets", "kitchen_primary")
-    c2 = _condition("bathroom_vanity_worn", "bathroom_1")
-    ev1, rv1, dp1 = _lattice(c1)
-    ev2, rv2, dp2 = _lattice(c2)
-    w1 = _work_item(c1, "CABINETS_REPLACE", 1000, 3000)
-    w2 = _work_item(c2, "VANITY_REPLACE", 500, 1500)
-    p1 = _candidate(
-        "kitchen_modernization", "kitchen_primary", [w1],
-        package_category="modernization",
-        unfloored_low=900, unfloored_high=2800,
-    )
-    d1 = _decision(p1)
-    e1 = _ledger_entry(w1, "absorbed_by_package", package_id=p1["package_candidate_id"])
-    e2 = _ledger_entry(w2, "standalone", low=500, high=1500)
-    return {
-        "observed_conditions": [c1, c2],
-        "evidence_facts": [ev1, ev2],
-        "condition_reviews": [rv1, rv2],
-        "condition_dispositions": [dp1, dp2],
-        "work_items": [w1, w2],
-        "package_candidates": [p1],
-        "package_decisions": [d1],
-        "coverage_ledger": [e1, e2],
-        "totals": {
-            "schema_version": CONTRACTS_SCHEMA_VERSION,
-            "currency": "USD",
-            "standalone": {"low": 500, "high": 1500},
-            "packaged": {"low": 1000, "high": 3000},
-            "inspection": {"low": 0, "high": 0},
-            "headline": {"low": 1500, "high": 4500},
-        },
-    }
+    """The Session 4 package-review fixture run through the real Session 5
+    reconciliation, so IDs, reason codes, ledger, totals, audit, and
+    observability are exactly the deterministic policy's output (the v5 gate
+    enforces recompute equality — hand-built approximations cannot pass)."""
+    from tools.renovation_architecture.reconciliation import build_complete_result
+
+    return build_complete_result(_package_review_result(), estimate_id=EST_ID)
 
 
 _TOKEN_FIELDS = (
@@ -541,6 +531,8 @@ class TestIds:
             (make_package_decision_id(estimate_id=EST_ID, package_candidate_id="p"), "pd1"),
             (make_sol_call_id(estimate_id=EST_ID, request_fingerprint="f" * 64), "sc1"),
             (make_ledger_entry_id(estimate_id=EST_ID, work_item_id="w"), "cl1"),
+            (make_package_application_id(estimate_id=EST_ID, package_candidate_id="p"), "pa1"),
+            (make_combine_group_id(estimate_id=EST_ID, member_candidate_ids=["b", "a"]), "cg1"),
         ]
         for value, prefix in pairs:
             assert re.fullmatch(rf"{prefix}_[0-9a-f]{{16}}", value), value
@@ -885,19 +877,22 @@ class TestStandaloneEnvelope:
             "from the unit rollups",
         )
 
-    def test_policy_versions_carry_the_session_4_policies(self):
+    def test_policy_versions_carry_the_session_5_policies(self):
         assert set(POLICY_VERSIONS) == {
             "terminal_route_policy", "condition_disposition_policy",
             "evidence_dedup_policy", "terra_review_prompt",
             "work_derivation_policy", "work_dedup_policy",
             "standalone_pricing_policy", "package_candidate_policy",
-            "sol_review_prompt",
+            "sol_review_prompt", "package_application_policy",
+            "coverage_reconciliation_policy",
         }
         assert POLICY_VERSIONS["work_derivation_policy"] == "work_derivation_v1"
         assert POLICY_VERSIONS["work_dedup_policy"] == "work_dedup_max_envelope_v1"
         assert POLICY_VERSIONS["standalone_pricing_policy"] == "standalone_pricing_v1"
         assert POLICY_VERSIONS["package_candidate_policy"] == PACKAGE_CANDIDATE_POLICY_VERSION
         assert POLICY_VERSIONS["sol_review_prompt"] == SOL_REVIEW_PROMPT_VERSION
+        assert POLICY_VERSIONS["package_application_policy"] == "package_application_v1"
+        assert POLICY_VERSIONS["coverage_reconciliation_policy"] == "coverage_reconciliation_v1"
 
     def test_estimate_scopes_pin_the_estimator_vocabulary(self):
         """ESTIMATE_SCOPES must never drift from tools/estimate_scope.py."""
@@ -1036,8 +1031,9 @@ class TestPackageReviewEnvelope:
         )
 
     def test_later_session_layers_are_rejected(self):
-        """The Session 4 result may not smuggle ledger/totals keys."""
-        for key in ("coverage_ledger", "totals"):
+        """The Session 4 result may not smuggle Session 5 keys."""
+        for key in ("package_applications", "coverage_ledger",
+                    "reconciliation_audit", "observability", "totals"):
             result = _package_review_result(**{key: []})
             _assert_error(
                 validate_package_review_result(result, estimate_id=EST_ID),
@@ -1219,7 +1215,7 @@ class TestCompleteResult:
         "collection",
         ["observed_conditions", "evidence_facts", "condition_reviews",
          "condition_dispositions", "work_items", "package_candidates",
-         "package_decisions", "coverage_ledger"],
+         "package_decisions", "package_applications", "coverage_ledger"],
     )
     def test_unknown_field_rejected_per_record(self, collection):
         result = _complete_result()
@@ -1245,64 +1241,56 @@ class TestCompleteResult:
         )
 
     def test_work_item_citing_non_accepted_condition(self):
+        # The full consistent inspection triple, so the Session 2 subset gate
+        # passes and the work-lineage check is what fires.
         result = _complete_result()
-        result["condition_dispositions"][1]["disposition"] = "inspection"
+        result["condition_dispositions"][1].update({
+            "disposition": "inspection",
+            "reason_code": "route_inspection",
+            "terminal_route": "inspection",
+        })
         _assert_error(
             validate_complete_result(result, estimate_id=EST_ID),
             "not accepted_for_work",
         )
 
     def test_accepted_condition_with_no_work_item(self):
+        # A fully-reviewed extra condition (its own Terra call and reconciled
+        # usage) that no work item references.
         result = _complete_result()
         c3 = _condition("cracked_tile", "bathroom_2")
         ev3, rv3, dp3 = _lattice(c3)
+        t3 = _terra_call(c3, input_tokens=700, output_tokens=100)
         result["observed_conditions"].append(c3)
         result["evidence_facts"].append(ev3)
         result["condition_reviews"].append(rv3)
         result["condition_dispositions"].append(dp3)
+        result["terra_calls"].append(t3)
+        result["terra_unit_usage"].append(_unit_usage(t3))
+        result["terra_listing_usage"]["call_count"] += 1
+        for name in _TOKEN_FIELDS:
+            result["terra_listing_usage"][name] += t3[name]
         _assert_error(
             validate_complete_result(result, estimate_id=EST_ID),
             "accepted scope cannot vanish",
         )
 
-    def test_package_child_must_be_known(self):
+    def test_package_child_must_be_active(self):
         result = _complete_result()
         ghost = "wk1_" + "9" * 16
         result["package_candidates"][0]["child_work_item_ids"] = [ghost]
         result["package_candidates"][0]["driver_work_item_ids"] = [ghost]
         _assert_error(
             validate_complete_result(result, estimate_id=EST_ID),
-            "not a known work item",
+            "not an ACTIVE work item",
         )
 
-    def test_package_child_must_be_active(self):
+    def test_suppressed_work_is_caught_through_the_subset_gate(self):
         result = _complete_result()
         result["work_items"][0]["status"] = "suppressed"
         result["work_items"][0]["reason_code"] = DEDUP_SUPPRESSION_REASON
         _assert_error(
             validate_complete_result(result, estimate_id=EST_ID), "suppressed"
-        )
-
-    def test_work_item_absorbed_by_two_approved_packages(self):
-        result = _complete_result()
-        p1 = result["package_candidates"][0]
-        p2 = copy.deepcopy(p1)
-        p2["package_candidate_id"] = make_package_candidate_id(
-            estimate_id=EST_ID, package_type="kitchen_repair",
-            estimate_unit_id="kitchen_primary",
-        )
-        p2["package_type"] = "kitchen_repair"
-        p2["package_category"] = "repair"
-        d2 = copy.deepcopy(result["package_decisions"][0])
-        d2["decision_id"] = make_package_decision_id(
-            estimate_id=EST_ID, package_candidate_id=p2["package_candidate_id"]
-        )
-        d2["package_candidate_id"] = p2["package_candidate_id"]
-        result["package_candidates"].append(p2)
-        result["package_decisions"].append(d2)
-        _assert_error(
-            validate_complete_result(result, estimate_id=EST_ID),
-            "absorbed by both",
         )
 
     def test_candidate_allows_at_most_one_decision(self):
@@ -1358,36 +1346,127 @@ class TestCompleteResult:
             "more than one ledger entry",
         )
 
-    def test_absorbed_requires_approved_package(self):
+    def test_billing_requires_an_approval_basis(self):
+        """Flipping the decision to reject after application leaves an
+        applied package without its approval basis."""
         result = _complete_result()
         result["package_decisions"][0]["decision"] = "reject"
         _assert_error(
             validate_complete_result(result, estimate_id=EST_ID),
-            "not an approved package",
+            "without an approval basis",
         )
 
     def test_absorbed_entry_must_carry_zero_dollars(self):
         result = _complete_result()
-        result["coverage_ledger"][0]["low"] = 1
-        result["coverage_ledger"][0]["high"] = 1
+        entry = _find_entry(result, "absorbed_by_package")
+        entry["low"] = 1
+        entry["high"] = 1
         _assert_error(
             validate_complete_result(result, estimate_id=EST_ID), "0/0"
         )
 
-    def test_rejected_package_children_stay_standalone(self):
+    def test_uncertain_package_children_stay_standalone(self):
+        """Downgrading the decision and application while leaving the child's
+        ledger entry absorbed must trip the standalone-fallback invariant."""
         result = _complete_result()
         result["package_decisions"][0]["decision"] = "uncertain"
-        result["coverage_ledger"][0] = _ledger_entry(
-            result["work_items"][0], "inspection", low=1000, high=3000
-        )
+        app = result["package_applications"][0]
+        absorbed = app["absorbed_work_item_ids"]
+        app.update({
+            "status": "not_applied",
+            "reason_code": "decision_uncertain",
+            "absorbed_work_item_ids": [],
+            "unabsorbed_child_work_item_ids": sorted(
+                absorbed + app["unabsorbed_child_work_item_ids"]
+            ),
+            "effective_low": 0,
+            "effective_high": 0,
+        })
         _assert_error(
             validate_complete_result(result, estimate_id=EST_ID),
             "must remain standalone",
         )
 
+    def test_effective_range_is_recomputed(self):
+        result = _complete_result()
+        result["package_applications"][0]["effective_high"] += 1
+        _assert_error(
+            validate_complete_result(result, estimate_id=EST_ID),
+            "max(unfloored tier spec, owned child sum)",
+        )
+
+    def test_every_candidate_needs_exactly_one_application(self):
+        result = _complete_result()
+        missing = _complete_result()
+        missing["package_applications"] = []
+        _assert_error(
+            validate_complete_result(missing, estimate_id=EST_ID),
+            "has no application",
+        )
+        extra = copy.deepcopy(result["package_applications"][0])
+        extra["application_id"] = "pa1_" + "e" * 16
+        result["package_applications"].append(extra)
+        _assert_error(
+            validate_complete_result(result, estimate_id=EST_ID),
+            "more than one application",
+        )
+
+    def test_application_status_reason_pairing(self):
+        result = _complete_result()
+        result["package_applications"][0]["reason_code"] = "decision_rejected"
+        _assert_error(
+            validate_complete_result(result, estimate_id=EST_ID),
+            "not valid for status",
+        )
+
+    def test_audit_lists_must_be_empty(self):
+        result = _complete_result()
+        result["reconciliation_audit"]["lost_work_item_ids"] = ["wk1_" + "9" * 16]
+        _assert_error(
+            validate_complete_result(result, estimate_id=EST_ID),
+            "must be empty",
+        )
+
+    def test_observability_total_must_be_the_phase_sum(self):
+        result = _complete_result()
+        result["observability"]["phase_timings_ms"]["total"] += 1
+        _assert_error(
+            validate_complete_result(result, estimate_id=EST_ID),
+            "sum of the other phases",
+        )
+
+    def test_observability_tokens_must_reconcile(self):
+        result = _complete_result()
+        result["observability"]["terra_total_tokens"] += 1
+        result["observability"]["combined_total_tokens"] += 1
+        _assert_error(
+            validate_complete_result(result, estimate_id=EST_ID),
+            "do not reconcile",
+        )
+
+    def test_observability_funnel_must_reconcile(self):
+        result = _complete_result()
+        result["observability"]["funnel"]["ledger_entries"] += 1
+        _assert_error(
+            validate_complete_result(result, estimate_id=EST_ID),
+            "do not reconcile",
+        )
+
+    def test_recompute_equality_catches_reason_code_drift(self):
+        """A per-record-valid reason code that differs from the deterministic
+        policy's output is caught only by the recompute-equality net."""
+        result = _complete_result()
+        entry = _find_entry(result, "standalone")
+        assert entry["reason_code"] == "no_covering_package"
+        entry["reason_code"] = "package_rejected"
+        _assert_error(
+            validate_complete_result(result, estimate_id=EST_ID),
+            "deterministic reconciliation recompute",
+        )
+
     def test_totals_must_reconcile_exactly(self):
         result = _complete_result()
-        result["totals"]["headline"]["high"] = 4301
+        result["totals"]["headline"]["high"] += 1
         _assert_error(
             validate_complete_result(result, estimate_id=EST_ID),
             "headline must be exactly",

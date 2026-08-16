@@ -599,7 +599,7 @@ class TestShadowEnvelopeEndToEnd:
         )
         res = validate_envelope(envelope)
         assert res.ok, res.errors
-        assert envelope["state"] == "package_review_complete"
+        assert envelope["state"] == "complete"
         assert envelope["reason"] is None
         assert SHADOW_DEBUG_KEY  # the key constant is what the seam writes
         (review,) = envelope["result"]["condition_reviews"]
@@ -627,3 +627,19 @@ class TestShadowEnvelopeEndToEnd:
         assert envelope["result"]["package_decisions"] == []
         assert envelope["result"]["sol_calls"] == []
         assert envelope["result"]["sol_listing_usage"]["call_count"] == 0
+        # Reconciliation: no covering package, so the one active work item
+        # keeps its exact standalone allowance and the ledger owns the totals.
+        assert envelope["result"]["package_applications"] == []
+        (entry,) = envelope["result"]["coverage_ledger"]
+        assert entry["work_item_id"] == work_item["work_item_id"]
+        assert entry["representation"] == "standalone"
+        assert entry["reason_code"] == "no_covering_package"
+        assert (entry["low"], entry["high"]) == (270, 1350)
+        totals = envelope["result"]["totals"]
+        assert totals["standalone"] == {"low": 270, "high": 1350}
+        assert totals["packaged"] == {"low": 0, "high": 0}
+        assert totals["headline"] == {"low": 270, "high": 1350}
+        funnel = envelope["result"]["observability"]["funnel"]
+        assert funnel["conditions"] == 1
+        assert funnel["work_items_active"] == 1
+        assert funnel["ledger_standalone"] == 1

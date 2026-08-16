@@ -28,6 +28,7 @@ from tools.pipeline_common import (
     safe_list,
 )
 from tools.publication_gate import validate_publication_payload
+from tools.renovation_architecture.contracts import SHADOW_DEBUG_KEY
 
 from tools.rehab_evidence_projection import (
     EVIDENCE_PROJECTION_POLICY_VERSION,
@@ -405,15 +406,17 @@ def _write_renovation_architecture_shadow(
     vlm_client: Any = None,
     artifacts_root: Optional[Path] = None,
 ) -> None:
-    """Session 2 shadow seam beside the v4 estimator.
+    """Shadow seam beside the v4 estimator (Sessions 2-5).
 
-    current mode adds zero keys; shadow mode runs the Terra condition review
-    and writes a private condition_review_complete (or failed) envelope only
-    to analysis_debug (stripped from the slim artifact, so it reaches
+    current mode adds zero keys; shadow mode runs the full new-architecture
+    chain and writes a private complete (or failed) envelope only to
+    analysis_debug (stripped from the slim artifact, so it reaches
     photo_intel_debug.json and never the frontend). Never raises: a shadow
     failure must not fail the job or touch renovation_estimate_v4 — typed
-    failures become a failed envelope carrying their taxonomy category, and
-    anything else degrades to the last-resort envelope, then to silence.
+    failures become a valid failed envelope carrying their taxonomy category,
+    and if even that construction fails the key is omitted entirely; a
+    malformed envelope must never reach the artifact (the publication gate
+    enforces the same rule).
     """
     try:
         mode = getattr(cfg, "RENOVATION_ARCHITECTURE_MODE", "current") or "current"
@@ -436,21 +439,10 @@ def _write_renovation_architecture_shadow(
         )
         debug = photo_intel.get("analysis_debug")
         if isinstance(debug, dict):
-            debug["renovation_architecture_shadow_v1"] = envelope
+            debug[SHADOW_DEBUG_KEY] = envelope
     except Exception as exc:
         try:
             logger.error(f"Renovation architecture shadow seam failed: {exc}")
-            debug = photo_intel.get("analysis_debug")
-            if isinstance(debug, dict):
-                debug["renovation_architecture_shadow_v1"] = {
-                    "schema_version": 4,  # ENVELOPE_SCHEMA_VERSION, kept literal
-                    "estimate_id": None,
-                    "state": "failed",
-                    "reason": "shadow_seam_error",
-                    "error_detail": str(exc),
-                    "provenance": None,
-                    "result": None,
-                }
         except Exception:
             pass  # last resort: the shadow lane stays empty, the job proceeds
 

@@ -82,7 +82,9 @@ def validate_publication_payload(
     selected catalog; every issue kind within the catalog's kind vocabulary
     (rejects stale kinds and mixed v1/v2 payloads); every resolved catalog id
     present in the catalog (deprecated split parents get a dedicated error);
-    every resolved issue's kind matching its catalog entry.
+    every resolved issue's kind matching its catalog entry; any
+    renovation-architecture envelope (private shadow or reserved root key)
+    valid for its placement.
     """
     catalog = issue_catalog or {}
     is_v2 = catalog.get("ontology_version") == ONTOLOGY_VERSION
@@ -166,3 +168,57 @@ def validate_publication_payload(
                     f"{item_id!r} is kind {catalog_kind!r}. Resolved issues "
                     "must carry their catalog entry's canonical kind."
                 )
+
+    _validate_renovation_architecture_keys(photo_intel)
+
+
+def _validate_renovation_architecture_keys(photo_intel: Mapping[str, Any]) -> None:
+    """The new-architecture envelope placements (Session 5+).
+
+    The private shadow key (analysis_debug.<SHADOW_DEBUG_KEY>) may hold only
+    a valid finished envelope — 'complete' or 'failed'; partial, mixed-version,
+    or malformed payloads fail before writing. The same key at the photo_intel
+    root is reserved for the Session 6 cutover and must already be a valid
+    'complete' envelope. Imports are local so publications that carry neither
+    key never pay for the validator chain.
+    """
+    debug = photo_intel.get("analysis_debug")
+    from tools.renovation_architecture.contracts import SHADOW_DEBUG_KEY
+
+    private = debug.get(SHADOW_DEBUG_KEY) if isinstance(debug, dict) else None
+    root = photo_intel.get(SHADOW_DEBUG_KEY)
+    if private is None and root is None:
+        return
+    from tools.renovation_architecture.validators import validate_envelope
+
+    if private is not None:
+        validation = validate_envelope(private)
+        if not validation.ok:
+            _reject(
+                f"analysis_debug.{SHADOW_DEBUG_KEY} is not a valid envelope: "
+                + "; ".join(validation.errors[:5])
+            )
+        state = private.get("state")
+        if state not in ("complete", "failed"):
+            _reject(
+                f"analysis_debug.{SHADOW_DEBUG_KEY} state {state!r} is not "
+                "publishable — only finished 'complete' or 'failed' shadow "
+                "envelopes may be written."
+            )
+    if root is not None:
+        if not isinstance(root, Mapping):
+            _reject(
+                f"root {SHADOW_DEBUG_KEY} must be a complete envelope object."
+            )
+        validation = validate_envelope(root)
+        if not validation.ok:
+            _reject(
+                f"root {SHADOW_DEBUG_KEY} is not a valid envelope: "
+                + "; ".join(validation.errors[:5])
+            )
+        if root.get("state") != "complete":
+            _reject(
+                f"root {SHADOW_DEBUG_KEY} is reserved for the cutover and "
+                f"must be a valid 'complete' envelope, got state "
+                f"{root.get('state')!r}."
+            )

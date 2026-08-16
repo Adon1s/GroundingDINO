@@ -15,15 +15,19 @@ opening instance hints on ObservedCondition. Schema v4 (Session 4) delivered
 the package layer: the deterministic PackageCandidate (family/roles/strength/
 tier/floors), Sol call telemetry and decision provenance, and the immutable
 snapshot fingerprints that make "Sol changed nothing upstream" an executable
-check. Still deferred to Session 5: the coverage ledger and final totals.
+check. Schema v5 (Session 5) delivered reconciliation: PackageApplication
+(deterministic decision application with at-most-once child ownership),
+the reason-coded CoverageLedgerEntry, ReconciliationAudit (must be empty in
+a complete result), and EstimateObservability (phase timings, token rollups,
+funnel counts).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, fields, is_dataclass
 from typing import Any, Dict, Mapping, Optional, Tuple
 
-CONTRACTS_SCHEMA_VERSION = 4
-ENVELOPE_SCHEMA_VERSION = 4
+CONTRACTS_SCHEMA_VERSION = 5
+ENVELOPE_SCHEMA_VERSION = 5
 PROJECTION_VERSION = "renovation_catalog_projection_v2"
 TERMINAL_ROUTE_POLICY_VERSION = "terminal_route_v1"
 CONDITION_DISPOSITION_POLICY_VERSION = "condition_disposition_v1"
@@ -43,6 +47,15 @@ STANDALONE_PRICING_POLICY_VERSION = "standalone_pricing_v1"
 PACKAGE_CANDIDATE_POLICY_VERSION = "package_candidates_v1"
 SOL_REVIEW_PROMPT_VERSION = "sol_package_review_v1"
 SOL_REVIEW_REASONING_EFFORT = "medium"
+# Session 5 deterministic reconciliation policies. Application: absorption
+# eligibility (approved, non-display, no split recommendation), the legacy
+# absorption priority ordering, at-most-once child ownership, and effective
+# ranges recomputed from actually-owned children only; combine groups are
+# non-economic metadata. Reconciliation: exactly one reason-coded ledger entry
+# per ACTIVE work item and totals derived from ledger ownership plus applied
+# effective ranges — never from stored candidate floors.
+PACKAGE_APPLICATION_POLICY_VERSION = "package_application_v1"
+COVERAGE_RECONCILIATION_POLICY_VERSION = "coverage_reconciliation_v1"
 # The only work-item suppression reason this session: the item lost its dedup
 # group to a merged max-envelope active and is retained as an audit record.
 DEDUP_SUPPRESSION_REASON = "dedup_collision"
@@ -55,8 +68,11 @@ TERRA_REVIEW_PROMPT_VERSION = "terra_condition_review_v1"
 TERRA_REVIEW_REASONING_EFFORT = "medium"
 REVIEW_RATIONALE_MAX_CHARS = 400
 
-# The private debug key the shadow seam writes under photo_intel["analysis_debug"].
-SHADOW_DEBUG_KEY = "renovation_architecture_shadow_v1"
+# The versioned artifact key of the new engine. During migration the shadow
+# seam writes it privately under photo_intel["analysis_debug"] (stripped from
+# the slim artifact); the same name at the photo_intel root is reserved for
+# the Session 6 cutover, and the publication gate enforces both placements.
+SHADOW_DEBUG_KEY = "renovation_estimate_v5"
 SCAFFOLD_REASON = "session_1_not_implemented"
 
 # The catalog's own ontology stamp uses hyphens; the KIND_ONTOLOGY_VERSION env
@@ -74,7 +90,9 @@ REQUIRED_KIND_ONTOLOGY_SELECTOR = "observation_kind_v2"
 # work items and the package-independent standalone estimate exist; packages,
 # Sol, and the coverage ledger do not. package_review_complete is the
 # Session 4 terminal state: deterministic candidates and Sol decisions exist;
-# decision application, the coverage ledger, and totals do not.
+# decision application, the coverage ledger, and totals do not. complete is
+# the Session 5+ success state: decisions applied, ledger and totals
+# reconciled, audits empty, observability recorded.
 ENVELOPE_STATES = frozenset(
     {"scaffold", "condition_review_complete", "standalone_estimate_complete",
      "package_review_complete", "complete", "failed"}
@@ -130,6 +148,35 @@ WHOLE_HOME_PRICING_TIER = "property_turnover_aggregate"
 LEDGER_REPRESENTATIONS = frozenset(
     {"standalone", "absorbed_by_package", "inspection", "no_action"}
 )
+# Session 5 application/ledger vocabularies. inspection/no_action ledger
+# representations stay in LEDGER_REPRESENTATIONS but have no reason codes in
+# this schema: inspection and no-action conditions are reason-coded
+# dispositions, never synthesized work items, so the ledger holds active
+# billable work only and the inspection totals lane is 0/0.
+APPLICATION_STATUSES = frozenset({"applied", "not_applied", "display_only"})
+APPLICATION_REASON_CODES = frozenset(
+    {"approved_absorbs_children", "decision_rejected", "decision_uncertain",
+     "split_recommended", "no_owned_children", "display_only_aggregate"}
+)
+LEDGER_REASON_CODES = frozenset(
+    {"absorbed_by_approved_package", "no_covering_package",
+     "package_rejected", "package_uncertain", "package_split"}
+)
+# Closed observability key sets. total is defined as the exact sum of the
+# other five phases, so the validator can enforce it arithmetically.
+OBSERVABILITY_PHASES = (
+    "condition_review", "standalone_estimate", "package_candidates",
+    "sol_review", "reconciliation", "total",
+)
+FUNNEL_KEYS = (
+    "observations", "conditions", "condition_reviews",
+    "dispositions_accepted_for_work", "dispositions_excluded",
+    "dispositions_inspection", "dispositions_withheld",
+    "dispositions_no_action", "work_items_active", "work_items_suppressed",
+    "package_candidates", "package_decisions", "applications_applied",
+    "applications_not_applied", "applications_display_only",
+    "ledger_standalone", "ledger_absorbed", "ledger_entries",
+)
 TERMINAL_ROUTES = frozenset(
     {"excluded_quarantine", "excluded_generic", "inspection", "no_action", "work"}
 )
@@ -172,6 +219,8 @@ POLICY_VERSIONS = {
     "standalone_pricing_policy": STANDALONE_PRICING_POLICY_VERSION,
     "package_candidate_policy": PACKAGE_CANDIDATE_POLICY_VERSION,
     "sol_review_prompt": SOL_REVIEW_PROMPT_VERSION,
+    "package_application_policy": PACKAGE_APPLICATION_POLICY_VERSION,
+    "coverage_reconciliation_policy": COVERAGE_RECONCILIATION_POLICY_VERSION,
 }
 POLICY_VERSION_KEYS = frozenset(POLICY_VERSIONS)
 
@@ -469,6 +518,57 @@ class PackageReviewSnapshots(_Contract):
 
 
 @dataclass(frozen=True)
+class PackageApplication(_Contract):
+    """Deterministic application of one Sol decision to one candidate.
+
+    Applied packages own their absorbed children at most once (the legacy
+    absorption priority resolves shared children) and bill the effective
+    range max(unfloored tier spec, sum of actually-owned child allowances) —
+    never the stored candidate floor, which would double-count children lost
+    to a higher-priority package. Rejected, uncertain, split-recommended,
+    display-only, and zero-owned candidates are non-billable with a reason
+    code. combine_group_id is non-economic grouping metadata shared by every
+    member of one combine closure."""
+    application_id: str
+    schema_version: int
+    package_candidate_id: str
+    decision_id: str
+    status: str
+    reason_code: str
+    absorbed_work_item_ids: Tuple[str, ...]
+    unabsorbed_child_work_item_ids: Tuple[str, ...]
+    combine_group_id: Optional[str]
+    effective_low: int
+    effective_high: int
+
+
+@dataclass(frozen=True)
+class ReconciliationAudit(_Contract):
+    """Recomputed defect lists over the finished reconciliation. A complete
+    result requires every list to be empty — a dirty audit fails closed to a
+    failed envelope instead of publishing."""
+    schema_version: int
+    lost_work_item_ids: Tuple[str, ...]
+    duplicate_absorption: Tuple[str, ...]
+    unsupported_billing: Tuple[str, ...]
+    orphan_children: Tuple[str, ...]
+    arithmetic_mismatches: Tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class EstimateObservability(_Contract):
+    """Run telemetry: monotonic phase timings (total == exact sum of the
+    other phases), token rollups recomputable from the Terra/Sol usage
+    blocks, and funnel counts recomputable from the result sections."""
+    schema_version: int
+    phase_timings_ms: Mapping[str, int]
+    terra_total_tokens: int
+    sol_total_tokens: int
+    combined_total_tokens: int
+    funnel: Mapping[str, int]
+
+
+@dataclass(frozen=True)
 class CoverageLedgerEntry(_Contract):
     """Exactly one final representation per active work item. Absorbed and
     no-action entries carry 0/0 dollars — package dollars travel with the
@@ -479,6 +579,7 @@ class CoverageLedgerEntry(_Contract):
     work_item_id: str
     representation: str
     package_id: Optional[str]
+    reason_code: str
     low: int
     high: int
 

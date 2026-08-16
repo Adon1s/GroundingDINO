@@ -20,6 +20,8 @@ from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Tuple
 from tools.comparison_common import sha256_canonical
 from tools.renovation_architecture.contracts import (
     ACTION_SOURCES,
+    APPLICATION_REASON_CODES,
+    APPLICATION_STATUSES,
     ARCHITECTURE_MODES,
     CONDITION_DISPOSITION_POLICY_VERSION,
     CONTRACTS_SCHEMA_VERSION,
@@ -31,7 +33,10 @@ from tools.renovation_architecture.contracts import (
     ESTIMATE_SCOPE_MERGE_PRIORITY,
     ESTIMATE_SCOPES,
     EVIDENCE_DEDUP_POLICY_VERSION,
+    FUNNEL_KEYS,
+    LEDGER_REASON_CODES,
     LEDGER_REPRESENTATIONS,
+    OBSERVABILITY_PHASES,
     OBSERVATION_KINDS_V2,
     PACKAGE_CATEGORIES,
     PACKAGE_DECISIONS,
@@ -67,7 +72,7 @@ _ID_PATTERNS = {
     prefix: re.compile(rf"^{prefix}_[0-9a-f]{{16}}$")
     for prefix in (
         "rea1", "oc1", "ev1", "cr1", "cd1", "tc1", "wk1", "wdc1", "pk1",
-        "pd1", "sc1", "cl1"
+        "pd1", "sc1", "cl1", "pa1", "cg1"
     )
 }
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -208,16 +213,26 @@ _WORK_SNAPSHOT_KEYS = (
 )
 _LEDGER_FIELDS = frozenset(
     {"entry_id", "schema_version", "work_item_id", "representation",
-     "package_id", "low", "high"}
+     "package_id", "reason_code", "low", "high"}
+)
+_APPLICATION_FIELDS = frozenset(
+    {"application_id", "schema_version", "package_candidate_id",
+     "decision_id", "status", "reason_code", "absorbed_work_item_ids",
+     "unabsorbed_child_work_item_ids", "combine_group_id", "effective_low",
+     "effective_high"}
+)
+_AUDIT_LIST_FIELDS = (
+    "lost_work_item_ids", "duplicate_absorption", "unsupported_billing",
+    "orphan_children", "arithmetic_mismatches",
+)
+_AUDIT_FIELDS = frozenset(_AUDIT_LIST_FIELDS) | {"schema_version"}
+_OBSERVABILITY_FIELDS = frozenset(
+    {"schema_version", "phase_timings_ms", "terra_total_tokens",
+     "sol_total_tokens", "combined_total_tokens", "funnel"}
 )
 _TOTALS_FIELDS = frozenset(
     {"schema_version", "currency", "standalone", "packaged", "inspection",
      "headline"}
-)
-_RESULT_KEYS = frozenset(
-    {"observed_conditions", "evidence_facts", "condition_reviews",
-     "condition_dispositions", "work_items", "package_candidates",
-     "package_decisions", "coverage_ledger", "totals"}
 )
 # The Session 2 intermediate result: the review layer is finished, the work
 # and package layers do not exist yet. terra_listing_usage is one object,
@@ -239,6 +254,13 @@ _STANDALONE_RESULT_KEYS = _REVIEW_RESULT_KEYS | frozenset(
 _PACKAGE_REVIEW_RESULT_KEYS = _STANDALONE_RESULT_KEYS | frozenset(
     {"package_candidates", "package_decisions", "sol_calls",
      "sol_listing_usage", "package_review_snapshots"}
+)
+# The Session 5 complete result: the frozen Session 4 result plus the
+# reconciliation layer. reconciliation_audit, observability, and totals are
+# objects; package_applications and coverage_ledger are lists.
+_RESULT_KEYS = _PACKAGE_REVIEW_RESULT_KEYS | frozenset(
+    {"package_applications", "coverage_ledger", "reconciliation_audit",
+     "observability", "totals"}
 )
 
 
@@ -977,6 +999,28 @@ def _validate_ledger_entry(res: ValidationResult, where: str, obj: Dict[str, Any
             res.error(where, "package_id (pk1_<16 hex>) is required when absorbed_by_package")
     elif representation is not None and package_id is not None:
         res.error(where, "package_id must be null unless representation is absorbed_by_package")
+    reason = _require_choice(res, where, obj, "reason_code", LEDGER_REASON_CODES)
+    if representation == "absorbed_by_package":
+        if reason is not None and reason != "absorbed_by_approved_package":
+            res.error(
+                where,
+                "absorbed_by_package entries must carry reason_code "
+                f"'absorbed_by_approved_package', got {reason!r}",
+            )
+    elif representation == "standalone":
+        if reason == "absorbed_by_approved_package":
+            res.error(
+                where,
+                "standalone entries cannot carry the absorption reason code",
+            )
+    elif representation is not None:
+        # inspection and no_action conditions never become work items this
+        # schema, so no reason codes exist for their representations yet.
+        res.error(
+            where,
+            f"representation {representation!r} is reserved — the ledger "
+            "holds active billable work only in this schema",
+        )
     _require_money_pair(res, where, obj)
     if representation in ("absorbed_by_package", "no_action"):
         if obj.get("low") != 0 or obj.get("high") != 0:
@@ -985,6 +1029,138 @@ def _validate_ledger_entry(res: ValidationResult, where: str, obj: Dict[str, Any
                 f"{representation} entries must carry 0/0 dollars — package "
                 "dollars travel with the package exactly once",
             )
+
+
+def _validate_package_application(
+    res: ValidationResult, where: str, obj: Dict[str, Any]
+) -> None:
+    _check_unknown(res, where, obj, _APPLICATION_FIELDS)
+    _check_schema_version(res, where, obj)
+    _require_id(res, where, obj, "application_id", "pa1")
+    _require_id(res, where, obj, "package_candidate_id", "pk1")
+    _require_id(res, where, obj, "decision_id", "pd1")
+    status = _require_choice(res, where, obj, "status", APPLICATION_STATUSES)
+    reason = _require_choice(res, where, obj, "reason_code", APPLICATION_REASON_CODES)
+    absorbed = _require_sorted_unique_allow_empty(
+        res, where, obj, "absorbed_work_item_ids"
+    )
+    unabsorbed = _require_sorted_unique_allow_empty(
+        res, where, obj, "unabsorbed_child_work_item_ids"
+    )
+    if absorbed and unabsorbed and set(absorbed) & set(unabsorbed):
+        res.error(
+            where,
+            "absorbed_work_item_ids and unabsorbed_child_work_item_ids must "
+            "be disjoint",
+        )
+    group_id = obj.get("combine_group_id")
+    if group_id is not None and (
+        not isinstance(group_id, str) or not _ID_PATTERNS["cg1"].match(group_id)
+    ):
+        res.error(where, "combine_group_id must be null or cg1_<16 hex>")
+    for name in ("effective_low", "effective_high"):
+        _require_int(res, where, obj, name, minimum=0)
+    low, high = obj.get("effective_low"), obj.get("effective_high")
+    if _is_int(low) and _is_int(high) and low > high:
+        res.error(where, f"effective_low ({low}) must not exceed effective_high ({high})")
+    _STATUS_REASONS = {
+        "applied": {"approved_absorbs_children"},
+        "display_only": {"display_only_aggregate"},
+        "not_applied": {"decision_rejected", "decision_uncertain",
+                        "split_recommended", "no_owned_children"},
+    }
+    if status is not None and reason is not None and reason not in _STATUS_REASONS[status]:
+        res.error(
+            where,
+            f"reason_code {reason!r} is not valid for status {status!r}",
+        )
+    if status == "applied":
+        if absorbed is not None and not absorbed:
+            res.error(where, "applied packages must absorb at least one child")
+    elif status is not None:
+        if absorbed:
+            res.error(where, f"{status} applications must absorb nothing")
+        if (low, high) != (0, 0):
+            res.error(
+                where,
+                f"{status} applications must carry 0/0 effective dollars",
+            )
+
+
+def _validate_reconciliation_audit(
+    res: ValidationResult, where: str, obj: Dict[str, Any]
+) -> None:
+    _check_unknown(res, where, obj, _AUDIT_FIELDS)
+    _check_schema_version(res, where, obj)
+    for name in _AUDIT_LIST_FIELDS:
+        value = obj.get(name)
+        if not isinstance(value, list):
+            res.error(where, f"{name} must be a list")
+        elif value:
+            res.error(
+                where,
+                f"{name} must be empty — a complete result cannot carry "
+                f"reconciliation defects, got {len(value)}",
+            )
+
+
+def _validate_observability(
+    res: ValidationResult, where: str, obj: Dict[str, Any]
+) -> None:
+    _check_unknown(res, where, obj, _OBSERVABILITY_FIELDS)
+    _check_schema_version(res, where, obj)
+    timings = obj.get("phase_timings_ms")
+    if not isinstance(timings, dict):
+        res.error(where, "phase_timings_ms must be an object")
+    else:
+        if set(timings) != set(OBSERVABILITY_PHASES):
+            res.error(
+                where,
+                f"phase_timings_ms keys must be exactly "
+                f"{sorted(OBSERVABILITY_PHASES)}, got {sorted(timings)}",
+            )
+        else:
+            for phase in OBSERVABILITY_PHASES:
+                value = timings[phase]
+                if not _is_int(value) or value < 0:
+                    res.error(
+                        where,
+                        f"phase_timings_ms[{phase!r}] must be an int >= 0",
+                    )
+            if all(_is_int(timings[p]) for p in OBSERVABILITY_PHASES):
+                expected = sum(
+                    timings[p] for p in OBSERVABILITY_PHASES if p != "total"
+                )
+                if timings["total"] != expected:
+                    res.error(
+                        where,
+                        f"phase_timings_ms['total'] must be exactly the sum "
+                        f"of the other phases ({expected}), got "
+                        f"{timings['total']}",
+                    )
+    for name in ("terra_total_tokens", "sol_total_tokens", "combined_total_tokens"):
+        _require_int(res, where, obj, name, minimum=0)
+    terra = obj.get("terra_total_tokens")
+    sol = obj.get("sol_total_tokens")
+    combined = obj.get("combined_total_tokens")
+    if _is_int(terra) and _is_int(sol) and _is_int(combined) and combined != terra + sol:
+        res.error(
+            where,
+            f"combined_total_tokens must be exactly {terra + sol}, got {combined}",
+        )
+    funnel = obj.get("funnel")
+    if not isinstance(funnel, dict):
+        res.error(where, "funnel must be an object")
+    else:
+        if set(funnel) != set(FUNNEL_KEYS):
+            res.error(
+                where,
+                f"funnel keys must be exactly {sorted(FUNNEL_KEYS)}, "
+                f"got {sorted(funnel)}",
+            )
+        for key, value in funnel.items():
+            if not _is_int(value) or value < 0:
+                res.error(where, f"funnel[{key!r}] must be an int >= 0")
 
 
 def _validate_totals(res: ValidationResult, where: str, obj: Dict[str, Any]) -> None:
@@ -1243,10 +1419,19 @@ def _validate_condition_lattice(
 
 
 def validate_complete_result(result: Any, *, estimate_id: str) -> ValidationResult:
-    """Enforce the complete-result invariants over a result dict.
+    """Enforce the Session 5 complete-result invariants over a result dict.
 
-    Production use begins in Session 5; implemented and test-covered now so
-    the contracts and their invariants are frozen together.
+    The result is the frozen Session 4 package-review result plus the
+    reconciliation layer. The package-review subset is re-validated verbatim
+    by the frozen Session 4 gate (which itself re-runs the Session 2/3 gates
+    and the snapshot fingerprints), the application/ledger/totals invariants
+    are enforced independently on the recorded artifacts, and finally the
+    whole reconciliation is recomputed through the one shared deterministic
+    computation and compared for exact equality — validity IS the
+    deterministic reconciliation. The packaged totals lane sums applied
+    applications' effective ranges, never stored candidate floors: a
+    candidate that lost a shared child to a higher-priority package must not
+    bill that child's dollars through its floor.
     """
     res = ValidationResult()
     where = "result"
@@ -1254,200 +1439,253 @@ def validate_complete_result(result: Any, *, estimate_id: str) -> ValidationResu
         res.error(where, "must be an object")
         return res
     _check_unknown(res, where, result, _RESULT_KEYS)
-    for key in sorted(_RESULT_KEYS - {"totals"}):
+    package_review_subset = {
+        key: result[key] for key in _PACKAGE_REVIEW_RESULT_KEYS if key in result
+    }
+    res.extend(
+        validate_package_review_result(package_review_subset, estimate_id=estimate_id)
+    )
+    for key in ("package_applications", "coverage_ledger"):
         if not isinstance(result.get(key), list):
             res.error(where, f"{key} must be a list")
             return res
-    validators = (
-        ("observed_conditions", _validate_condition),
-        ("evidence_facts", _validate_evidence),
-        ("condition_reviews", _validate_review),
-        ("condition_dispositions", _validate_disposition),
-        ("work_items", _validate_work_item),
-        ("package_candidates", _validate_package_candidate),
-        ("package_decisions", _validate_package_decision),
+    for key, validator in (
+        ("package_applications", _validate_package_application),
         ("coverage_ledger", _validate_ledger_entry),
-    )
-    for key, validator in validators:
+    ):
         for index, record in enumerate(result[key]):
             record_where = f"result.{key}[{index}]"
             if not isinstance(record, dict):
                 res.error(record_where, "must be an object")
                 continue
             validator(res, record_where, record)
+    audit = result.get("reconciliation_audit")
+    if not isinstance(audit, dict):
+        res.error(where, "reconciliation_audit must be an object")
+    else:
+        _validate_reconciliation_audit(res, "result.reconciliation_audit", audit)
+    observability = result.get("observability")
+    if not isinstance(observability, dict):
+        res.error(where, "observability must be an object")
+    else:
+        _validate_observability(res, "result.observability", observability)
     _validate_totals(res, "result.totals", result.get("totals"))
     if not res.ok:
         # Cross-record invariants assume individually valid records; reporting
         # them over broken records would bury the root cause in noise.
         return res
 
-    conditions, by_condition = _validate_condition_lattice(res, result)
-    work_items = _index_by(res, "result.work_items", result["work_items"], "work_item_id")
-    candidates = _index_by(res, "result.package_candidates", result["package_candidates"], "package_candidate_id")
-    decisions = _index_by(res, "result.package_decisions", result["package_decisions"], "decision_id")
-    ledger = _index_by(res, "result.coverage_ledger", result["coverage_ledger"], "entry_id")
-
-    # Accepted-work lineage.
-    accepted = {
-        condition_id
-        for condition_id, disposition in by_condition["condition_dispositions"].items()
-        if disposition["disposition"] == "accepted_for_work"
+    candidates = _index_by(
+        res, "result.package_candidates", result["package_candidates"],
+        "package_candidate_id",
+    )
+    decisions_by_candidate = {
+        decision["package_candidate_id"]: decision
+        for decision in result["package_decisions"]
     }
-    referenced_conditions: set = set()
-    for work_id, work in work_items.items():
-        for condition_id in work["condition_ids"]:
-            referenced_conditions.add(condition_id)
-            condition = conditions.get(condition_id)
-            if condition is None:
-                res.error("result.work_items", f"{work_id} references unknown condition {condition_id!r}")
-            elif condition_id not in accepted:
-                res.error(
-                    "result.work_items",
-                    f"{work_id} references condition {condition_id!r} whose "
-                    "disposition is not accepted_for_work",
-                )
-            elif condition["catalog_item_id"] not in work["catalog_item_ids"]:
-                res.error(
-                    "result.work_items",
-                    f"{work_id} catalog_item_ids {list(work['catalog_item_ids'])!r} "
-                    f"do not include condition {condition_id!r}'s "
-                    f"({condition['catalog_item_id']!r})",
-                )
-            elif condition["estimate_unit_id"] not in work["source_estimate_unit_ids"]:
-                res.error(
-                    "result.work_items",
-                    f"{work_id} source_estimate_unit_ids do not include condition "
-                    f"{condition_id!r}'s ({condition['estimate_unit_id']!r})",
-                )
-    for condition_id in sorted(accepted - referenced_conditions):
-        res.error(
-            "result",
-            f"accepted condition {condition_id!r} is referenced by no work item "
-            "— accepted scope cannot vanish",
-        )
-
-    # Package integrity.
+    applications = _index_by(
+        res, "result.package_applications", result["package_applications"],
+        "application_id",
+    )
+    ledger = _index_by(
+        res, "result.coverage_ledger", result["coverage_ledger"], "entry_id"
+    )
     active_work = {
-        work_id for work_id, work in work_items.items() if work["status"] == "active"
+        item["work_item_id"]: item
+        for item in result["work_items"]
+        if item["status"] == "active"
     }
-    for candidate_id, candidate in candidates.items():
-        for child_id in candidate["child_work_item_ids"]:
-            if child_id not in work_items:
-                res.error(
-                    "result.package_candidates",
-                    f"{candidate_id} child {child_id!r} is not a known work item",
-                )
-            elif child_id not in active_work:
-                res.error(
-                    "result.package_candidates",
-                    f"{candidate_id} child {child_id!r} is suppressed — packages "
-                    "may only group active accepted work",
-                )
-    decided: Dict[str, Dict[str, Any]] = {}
-    for decision_id, decision in decisions.items():
-        candidate_id = decision["package_candidate_id"]
-        candidate = candidates.get(candidate_id)
-        if candidate is None:
+
+    # Candidate <-> application bijection with decision provenance.
+    app_by_candidate: Dict[str, Dict[str, Any]] = {}
+    for app_id, app in sorted(applications.items()):
+        app_where = "result.package_applications"
+        candidate_id = app["package_candidate_id"]
+        if candidate_id not in candidates:
             res.error(
-                "result.package_decisions",
-                f"{decision_id} references unknown candidate {candidate_id!r}",
+                app_where,
+                f"{app_id} references unknown candidate {candidate_id!r}",
             )
             continue
-        if candidate_id in decided:
+        if candidate_id in app_by_candidate:
             res.error(
-                "result.package_decisions",
-                f"candidate {candidate_id!r} has more than one decision",
+                app_where,
+                f"candidate {candidate_id!r} has more than one application",
             )
-        else:
-            decided[candidate_id] = decision
-        for other_id in decision["combine_with"]:
-            if other_id == candidate_id:
-                res.error("result.package_decisions", f"{decision_id} combine_with cites itself")
-            elif other_id not in candidates:
-                res.error(
-                    "result.package_decisions",
-                    f"{decision_id} combine_with cites unknown candidate {other_id!r}",
-                )
-        if decision["split_groups"]:
-            proposed = [child for group in decision["split_groups"] for child in group]
-            if sorted(proposed) != sorted(candidate["child_work_item_ids"]):
-                res.error(
-                    "result.package_decisions",
-                    f"{decision_id} split_groups must exactly partition the "
-                    "candidate's children — no additions, omissions, or overlap",
-                )
+            continue
+        app_by_candidate[candidate_id] = app
+        decision = decisions_by_candidate.get(candidate_id)
+        if decision is None or decision["decision_id"] != app["decision_id"]:
+            res.error(
+                app_where,
+                f"{app_id} decision_id does not reference candidate "
+                f"{candidate_id!r}'s decision",
+            )
+    for candidate_id in sorted(set(candidates) - set(app_by_candidate)):
+        res.error(
+            "result.package_applications",
+            f"candidate {candidate_id!r} has no application — every decision "
+            "must be deterministically applied",
+        )
+    if not res.ok:
+        return res
 
-    # Duplicate absorption: approved packages own disjoint child sets.
-    approved = {
-        candidate_id
-        for candidate_id, decision in decided.items()
-        if decision["decision"] == "approve"
-    }
+    # Application status, eligibility, child partition, and effective ranges,
+    # independent of the recompute below.
+    app_where = "result.package_applications"
     child_owner: Dict[str, str] = {}
-    for candidate_id in sorted(approved):
-        for child_id in candidates[candidate_id]["child_work_item_ids"]:
-            if child_id in child_owner:
+    for candidate_id, app in sorted(app_by_candidate.items()):
+        candidate = candidates[candidate_id]
+        decision = decisions_by_candidate[candidate_id]
+        eligible = (
+            decision["decision"] == "approve"
+            and not candidate["display_only"]
+            and not decision["split_groups"]
+        )
+        if candidate["display_only"] != (app["status"] == "display_only"):
+            res.error(
+                app_where,
+                f"candidate {candidate_id!r} status must be display_only iff "
+                "the candidate is the display-only aggregate",
+            )
+        if app["status"] == "applied":
+            if not eligible:
                 res.error(
-                    "result.package_candidates",
-                    f"work item {child_id!r} is absorbed by both "
-                    f"{child_owner[child_id]!r} and {candidate_id!r}",
+                    app_where,
+                    f"candidate {candidate_id!r} is applied without an "
+                    "approval basis (approve, non-display, no split)",
                 )
-            else:
-                child_owner[child_id] = candidate_id
+            union = sorted(
+                list(app["absorbed_work_item_ids"])
+                + list(app["unabsorbed_child_work_item_ids"])
+            )
+            if union != sorted(candidate["child_work_item_ids"]):
+                res.error(
+                    app_where,
+                    f"candidate {candidate_id!r} absorbed + unabsorbed must "
+                    "exactly partition its children",
+                )
+            owned = [
+                child_id for child_id in app["absorbed_work_item_ids"]
+                if child_id in active_work
+            ]
+            for child_id in app["absorbed_work_item_ids"]:
+                if child_id not in active_work:
+                    res.error(
+                        app_where,
+                        f"candidate {candidate_id!r} absorbs {child_id!r}, "
+                        "which is not an ACTIVE work item",
+                    )
+                elif child_id in child_owner:
+                    res.error(
+                        app_where,
+                        f"work item {child_id!r} is absorbed by both "
+                        f"{child_owner[child_id]!r} and {candidate_id!r}",
+                    )
+                else:
+                    child_owner[child_id] = candidate_id
+            expected_range = (
+                max(
+                    candidate["unfloored_low"],
+                    sum(active_work[c]["low"] for c in owned),
+                ),
+                max(
+                    candidate["unfloored_high"],
+                    sum(active_work[c]["high"] for c in owned),
+                ),
+            )
+            if (app["effective_low"], app["effective_high"]) != expected_range:
+                res.error(
+                    app_where,
+                    f"candidate {candidate_id!r} effective range must be "
+                    "exactly max(unfloored tier spec, owned child sum) "
+                    f"{expected_range[0]}/{expected_range[1]}, got "
+                    f"{app['effective_low']}/{app['effective_high']}",
+                )
+        else:
+            if sorted(app["unabsorbed_child_work_item_ids"]) != sorted(
+                candidate["child_work_item_ids"]
+            ):
+                res.error(
+                    app_where,
+                    f"candidate {candidate_id!r} is not applied, so every "
+                    "child must be listed unabsorbed",
+                )
 
-    # Coverage: exactly one ledger entry per active work item.
+    # Coverage: exactly one ledger entry per active work item, consistent
+    # with the application ownership above.
     entries_by_work: Dict[str, Dict[str, Any]] = {}
-    for entry_id, entry in ledger.items():
+    for entry_id, entry in sorted(ledger.items()):
+        entry_where = "result.coverage_ledger"
         work_id = entry["work_item_id"]
-        if work_id not in work_items:
-            res.error("result.coverage_ledger", f"{entry_id} references unknown work item {work_id!r}")
-            continue
         if work_id not in active_work:
             res.error(
-                "result.coverage_ledger",
-                f"{entry_id} covers suppressed work item {work_id!r}",
+                entry_where,
+                f"{entry_id} covers unknown or suppressed work item {work_id!r}",
             )
             continue
         if work_id in entries_by_work:
             res.error(
-                "result.coverage_ledger",
+                entry_where,
                 f"work item {work_id!r} has more than one ledger entry",
             )
             continue
         entries_by_work[work_id] = entry
         if entry["representation"] == "absorbed_by_package":
-            package_id = entry["package_id"]
-            if package_id not in approved:
+            owner_id = entry["package_id"]
+            owner_app = app_by_candidate.get(owner_id)
+            if (
+                owner_app is None
+                or owner_app["status"] != "applied"
+                or work_id not in owner_app["absorbed_work_item_ids"]
+            ):
                 res.error(
-                    "result.coverage_ledger",
-                    f"{entry_id} is absorbed by {package_id!r}, which is not an "
-                    "approved package",
+                    entry_where,
+                    f"{entry_id} is absorbed by {owner_id!r}, whose "
+                    "application does not bill it",
                 )
-            elif work_id not in candidates[package_id]["child_work_item_ids"]:
+        else:  # standalone (other representations rejected per record)
+            work = active_work[work_id]
+            if (entry["low"], entry["high"]) != (work["low"], work["high"]):
                 res.error(
-                    "result.coverage_ledger",
-                    f"{entry_id} is absorbed by {package_id!r}, which does not "
-                    f"list {work_id!r} as a child",
+                    entry_where,
+                    f"{entry_id} standalone entry must equal work item "
+                    f"{work_id!r}'s exact allowance "
+                    f"{work['low']}/{work['high']}, got "
+                    f"{entry['low']}/{entry['high']}",
                 )
-    for work_id in sorted(active_work - set(entries_by_work)):
+            if work_id in child_owner:
+                res.error(
+                    entry_where,
+                    f"work item {work_id!r} is standalone in the ledger but "
+                    f"absorbed by {child_owner[work_id]!r}",
+                )
+    for work_id in sorted(set(active_work) - set(entries_by_work)):
         res.error(
             "result.coverage_ledger",
             f"active work item {work_id!r} has no ledger entry — accepted work "
             "cannot disappear",
         )
 
-    # Rejected/uncertain packages preserve standalone children.
-    for candidate_id, decision in decided.items():
-        if decision["decision"] == "approve":
+    # Rejected/uncertain/split packages preserve standalone children.
+    for candidate_id in sorted(candidates):
+        decision = decisions_by_candidate[candidate_id]
+        candidate = candidates[candidate_id]
+        eligible = (
+            decision["decision"] == "approve"
+            and not candidate["display_only"]
+            and not decision["split_groups"]
+        )
+        if eligible:
             continue
-        for child_id in candidates[candidate_id]["child_work_item_ids"]:
+        for child_id in candidate["child_work_item_ids"]:
             if child_id in child_owner:
-                continue  # legitimately absorbed by a different approved package
+                continue  # legitimately absorbed by a different applied package
             entry = entries_by_work.get(child_id)
             if entry is not None and entry["representation"] != "standalone":
                 res.error(
                     "result.coverage_ledger",
-                    f"work item {child_id!r} belongs to non-approved package "
+                    f"work item {child_id!r} belongs to non-billable package "
                     f"{candidate_id!r} and must remain standalone, got "
                     f"{entry['representation']!r}",
                 )
@@ -1455,23 +1693,23 @@ def validate_complete_result(result: Any, *, estimate_id: str) -> ValidationResu
     if not res.ok:
         return res
 
-    # Exact totals arithmetic, both endpoints.
+    # Exact totals arithmetic, both endpoints: standalone/inspection from
+    # ledger entries, packaged from applied effective ranges.
     def _lane_sum(representation: str) -> Tuple[int, int]:
         low = sum(e["low"] for e in entries_by_work.values() if e["representation"] == representation)
         high = sum(e["high"] for e in entries_by_work.values() if e["representation"] == representation)
         return low, high
 
-    absorbed_packages = {
-        entry["package_id"]
-        for entry in entries_by_work.values()
-        if entry["representation"] == "absorbed_by_package"
-    }
-    packaged_low = sum(candidates[pid]["low"] for pid in absorbed_packages)
-    packaged_high = sum(candidates[pid]["high"] for pid in absorbed_packages)
+    applied_apps = [
+        app for app in app_by_candidate.values() if app["status"] == "applied"
+    ]
     totals = result["totals"]
     expected = {
         "standalone": _lane_sum("standalone"),
-        "packaged": (packaged_low, packaged_high),
+        "packaged": (
+            sum(app["effective_low"] for app in applied_apps),
+            sum(app["effective_high"] for app in applied_apps),
+        ),
         "inspection": _lane_sum("inspection"),
     }
     expected["headline"] = (
@@ -1486,6 +1724,34 @@ def validate_complete_result(result: Any, *, estimate_id: str) -> ValidationResu
                 f"{lane} must be exactly {low}/{high} from the ledger, got "
                 f"{actual['low']}/{actual['high']}",
             )
+
+    # Full deterministic recompute: ownership priority, reason codes, combine
+    # groups, and IDs must all match the single shared computation exactly.
+    # Function-level import — reconciliation imports this module at load, so
+    # the shared definition stays acyclic.
+    from tools.renovation_architecture.reconciliation import (
+        build_observability,
+        compute_reconciliation,
+    )
+
+    recomputed = compute_reconciliation(result, estimate_id=estimate_id)
+    for section in ("package_applications", "coverage_ledger", "totals"):
+        if result[section] != recomputed[section]:
+            res.error(
+                f"result.{section}",
+                "does not match the deterministic reconciliation recompute — "
+                "the complete result must be exactly the policy's output",
+            )
+    recomputed_observability = build_observability(
+        result,
+        phase_timings_ms=result["observability"]["phase_timings_ms"],
+    )
+    if result["observability"] != recomputed_observability:
+        res.error(
+            "result.observability",
+            "token totals or funnel counts do not reconcile with the result "
+            "sections",
+        )
     return res
 
 

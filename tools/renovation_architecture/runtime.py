@@ -196,14 +196,16 @@ def build_shadow_envelope(
     api_key: str = "",
     artifacts_root: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """The shadow output: a package_review_complete envelope (Session 2
-    condition review + Session 3 work derivation + Session 4 deterministic
-    candidates and bounded Sol review), or a valid failed envelope
-    (uninitialized runtime, or a typed operational failure mapped to its
-    failure-taxonomy category). Completed Terra checkpoints and any parsed
-    Sol checkpoint survive a downstream failure — the deterministic stages
-    are recomputed on retry, and the model calls replay from checkpoints
-    without new spend."""
+    """The shadow output: a complete envelope (Session 2 condition review +
+    Session 3 work derivation + Session 4 candidates and bounded Sol review +
+    Session 5 deterministic reconciliation, ledger, totals, and
+    observability), or a valid failed envelope (uninitialized runtime, or a
+    typed operational failure mapped to its failure-taxonomy category). The
+    finished envelope self-validates before it is returned — a partial or
+    invalid "complete" payload becomes a failed envelope instead. Completed
+    Terra checkpoints and any parsed Sol checkpoint survive a downstream
+    failure — the deterministic stages are recomputed on retry, and the
+    model calls replay from checkpoints without new spend."""
     runtime = _RUNTIME
     if runtime is None:
         envelope = RenovationEstimateEnvelope(
@@ -242,14 +244,21 @@ def build_shadow_envelope(
         source_artifact=source_artifact,
     )
     # Imported here so current mode never pays for the review pipeline chain.
+    import time
+
     from tools.renovation_architecture.package_candidates import (
         build_package_candidates,
     )
+    from tools.renovation_architecture.reconciliation import build_complete_result
     from tools.renovation_architecture.review_pipeline import run_condition_review
     from tools.renovation_architecture.sol_review import run_package_review
+    from tools.renovation_architecture.validators import validate_envelope
     from tools.renovation_architecture.work_items import derive_standalone_estimate
+    from tools.scene_classifier_passes import PassExecutionError
 
     try:
+        timings: Dict[str, int] = {}
+        started = time.monotonic()
         review_result = run_condition_review(
             runtime=runtime,
             estimate_id=estimate_id,
@@ -264,19 +273,25 @@ def build_shadow_envelope(
             api_key=api_key,
             artifacts_root=Path(artifacts_root) if artifacts_root else None,
         )
+        timings["condition_review"] = int((time.monotonic() - started) * 1000)
+        started = time.monotonic()
         standalone_result = derive_standalone_estimate(
             review_result=review_result,
             projection=runtime.projection,
             property_metadata=property_metadata,
             estimate_id=estimate_id,
         )
+        timings["standalone_estimate"] = int((time.monotonic() - started) * 1000)
+        started = time.monotonic()
         candidates = build_package_candidates(
             standalone_result=standalone_result,
             projection=runtime.projection,
             catalog=runtime.catalog,
             estimate_id=estimate_id,
         )
-        result = run_package_review(
+        timings["package_candidates"] = int((time.monotonic() - started) * 1000)
+        started = time.monotonic()
+        review = run_package_review(
             runtime=runtime,
             estimate_id=estimate_id,
             property_key=property_key,
@@ -288,6 +303,29 @@ def build_shadow_envelope(
             api_key=api_key,
             artifacts_root=Path(artifacts_root) if artifacts_root else None,
         )
+        timings["sol_review"] = int((time.monotonic() - started) * 1000)
+        result = build_complete_result(
+            review, estimate_id=estimate_id, phase_timings_ms=timings
+        )
+        envelope = RenovationEstimateEnvelope(
+            schema_version=ENVELOPE_SCHEMA_VERSION,
+            estimate_id=estimate_id,
+            state="complete",
+            reason=None,
+            error_detail=None,
+            provenance=provenance,
+            result=result,
+        )
+        payload = envelope.to_dict()
+        validation = validate_envelope(payload)
+        if not validation.ok:
+            raise PassExecutionError(
+                "reconciliation", "parse",
+                "complete envelope failed self-validation: "
+                + "; ".join(validation.errors[:5]),
+                code="CompleteEnvelopeInvalid",
+            )
+        return payload
     except Exception as exc:
         from tools.failure_taxonomy import classify_failure
 
@@ -307,14 +345,3 @@ def build_shadow_envelope(
             result=None,
         )
         return envelope.to_dict()
-
-    envelope = RenovationEstimateEnvelope(
-        schema_version=ENVELOPE_SCHEMA_VERSION,
-        estimate_id=estimate_id,
-        state="package_review_complete",
-        reason=None,
-        error_detail=None,
-        provenance=provenance,
-        result=result,
-    )
-    return envelope.to_dict()

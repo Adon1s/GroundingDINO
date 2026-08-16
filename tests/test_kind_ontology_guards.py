@@ -291,3 +291,103 @@ def test_load_issue_catalog_passes_root_metadata_through(tmp_path):
     assert loaded["version"] == "3.0"
     assert loaded["ontology_version"] == ONTOLOGY_VERSION
     assert loaded["publication_status"] == "blocked_pending_pricing"
+
+
+# ── renovation-architecture envelope gate (Session 5) ────────────────────────
+#
+# The private shadow key (analysis_debug.<SHADOW_DEBUG_KEY>) may hold only a
+# valid finished envelope; the same key at the photo_intel root is reserved
+# for the Session 6 cutover and must already be a valid complete envelope.
+
+def _failed_envelope():
+    from tests.test_renovation_architecture_contracts import _scaffold_envelope
+
+    return _scaffold_envelope(
+        state="failed", reason="provider", error_detail="synthetic",
+        result=None,
+    )
+
+
+def _complete_envelope():
+    from tests.test_renovation_architecture_contracts import (
+        _complete_result,
+        _scaffold_envelope,
+    )
+
+    return _scaffold_envelope(
+        state="complete", reason=None, result=_complete_result()
+    )
+
+
+def _shadow_key():
+    from tools.renovation_architecture.contracts import SHADOW_DEBUG_KEY
+
+    return SHADOW_DEBUG_KEY
+
+
+def test_gate_accepts_private_failed_envelope(v2_catalog):
+    payload = _v2_payload(
+        v2_catalog, analysis_debug={_shadow_key(): _failed_envelope()}
+    )
+    validate_publication_payload(payload, v2_catalog)
+
+
+def test_gate_accepts_private_complete_envelope(v2_catalog):
+    payload = _v2_payload(
+        v2_catalog, analysis_debug={_shadow_key(): _complete_envelope()}
+    )
+    validate_publication_payload(payload, v2_catalog)
+
+
+def test_gate_rejects_malformed_private_envelope(v2_catalog):
+    broken = _complete_envelope()
+    broken["result"]["totals"]["headline"]["high"] += 1
+    payload = _v2_payload(
+        v2_catalog, analysis_debug={_shadow_key(): broken}
+    )
+    with pytest.raises(RuntimeError, match="is not a valid envelope"):
+        validate_publication_payload(payload, v2_catalog)
+
+
+def test_gate_rejects_stale_schema_private_envelope(v2_catalog):
+    stale = _failed_envelope()
+    stale["schema_version"] -= 1
+    payload = _v2_payload(
+        v2_catalog, analysis_debug={_shadow_key(): stale}
+    )
+    with pytest.raises(RuntimeError, match="is not a valid envelope"):
+        validate_publication_payload(payload, v2_catalog)
+
+
+def test_gate_rejects_partial_private_envelope(v2_catalog):
+    """Intermediate session states are valid envelopes but not publishable —
+    only finished complete/failed shadow output may be written."""
+    from tests.test_renovation_architecture_contracts import (
+        _package_review_envelope,
+    )
+
+    payload = _v2_payload(
+        v2_catalog,
+        analysis_debug={_shadow_key(): _package_review_envelope()},
+    )
+    with pytest.raises(RuntimeError, match="not publishable"):
+        validate_publication_payload(payload, v2_catalog)
+
+
+def test_gate_accepts_valid_complete_root_envelope(v2_catalog):
+    payload = _v2_payload(v2_catalog, **{_shadow_key(): _complete_envelope()})
+    validate_publication_payload(payload, v2_catalog)
+
+
+def test_gate_rejects_non_complete_root_envelope(v2_catalog):
+    """The root key is reserved for the cutover: even a valid failed envelope
+    may not occupy it."""
+    payload = _v2_payload(v2_catalog, **{_shadow_key(): _failed_envelope()})
+    with pytest.raises(RuntimeError, match="reserved for the cutover"):
+        validate_publication_payload(payload, v2_catalog)
+
+
+def test_gate_rejects_malformed_root_envelope(v2_catalog):
+    payload = _v2_payload(v2_catalog, **{_shadow_key(): {"state": "complete"}})
+    with pytest.raises(RuntimeError, match="is not a valid envelope"):
+        validate_publication_payload(payload, v2_catalog)

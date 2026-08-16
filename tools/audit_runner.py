@@ -363,6 +363,26 @@ async def _run_all(
     dry_run: bool,
 ) -> List[Dict[str, Any]]:
     catalog = load_issue_catalog(cfg.ISSUE_CATALOG_PATH)
+
+    # Renovation architecture runtime (no-op in current mode; the analyzer
+    # entrypoints' startup pattern). Without this, a shadow-mode audit run
+    # would write runtime_not_initialized failed envelopes instead of real
+    # shadow output. Fail-closed: an invalid catalog or missing model
+    # routing aborts the audit at startup rather than mid-listing.
+    from tools.renovation_architecture.runtime import (
+        initialize_renovation_architecture,
+    )
+    initialize_renovation_architecture(
+        mode=cfg.RENOVATION_ARCHITECTURE_MODE,
+        catalog=catalog,
+        catalog_path=Path(cfg.ISSUE_CATALOG_PATH),
+        kind_ontology_version=cfg.KIND_ONTOLOGY_VERSION,
+        terra_model=cfg.RENOVATION_TERRA_MODEL,
+        terra_max_output_tokens=cfg.RENOVATION_TERRA_MAX_OUTPUT_TOKENS,
+        sol_model=cfg.RENOVATION_SOL_MODEL,
+        sol_max_output_tokens=cfg.RENOVATION_SOL_MAX_OUTPUT_TOKENS,
+    )
+
     orchestrator: Any = None
     vlm_client: Any = None
     gpt5_config: Optional[Dict[str, Any]] = None

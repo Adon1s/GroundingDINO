@@ -264,11 +264,11 @@ class TestInitialize:
 # ── shadow envelope builder ──────────────────────────────────────────────────
 
 class TestShadowEnvelope:
-    def test_empty_package_review_envelope_after_init(self):
-        """No lane issues -> a complete review, standalone estimate, AND an
-        empty package review (zero candidates short-circuit: no Sol call),
-        without needing a VLM client, an artifacts root, or property
-        metadata (neutral factor)."""
+    def test_empty_complete_envelope_after_init(self):
+        """No lane issues -> a complete review, standalone estimate, empty
+        package review (zero candidates short-circuit: no Sol call), AND an
+        empty reconciliation with exact zero totals, without needing a VLM
+        client, an artifacts root, or property metadata (neutral factor)."""
         _init_shadow()
         envelope = build_shadow_envelope(
             property_key="prop_1",
@@ -278,7 +278,7 @@ class TestShadowEnvelope:
         )
         res = validate_envelope(envelope)
         assert res.ok, res.errors
-        assert envelope["state"] == "package_review_complete"
+        assert envelope["state"] == "complete"
         assert envelope["reason"] is None
         assert envelope["result"]["observed_conditions"] == []
         assert envelope["result"]["terra_calls"] == []
@@ -303,6 +303,25 @@ class TestShadowEnvelope:
             "schema_version", "condition_snapshot_sha256",
             "work_snapshot_sha256", "candidate_snapshot_sha256",
         }
+        assert envelope["result"]["package_applications"] == []
+        assert envelope["result"]["coverage_ledger"] == []
+        audit = envelope["result"]["reconciliation_audit"]
+        assert all(
+            audit[name] == [] for name in audit if name != "schema_version"
+        )
+        totals = envelope["result"]["totals"]
+        for lane in ("standalone", "packaged", "inspection", "headline"):
+            assert totals[lane] == {"low": 0, "high": 0}
+        observability = envelope["result"]["observability"]
+        assert observability["combined_total_tokens"] == 0
+        timings = observability["phase_timings_ms"]
+        assert set(timings) == {
+            "condition_review", "standalone_estimate", "package_candidates",
+            "sol_review", "reconciliation", "total",
+        }
+        assert timings["total"] == sum(
+            value for phase, value in timings.items() if phase != "total"
+        )
         assert envelope["provenance"]["catalog_version"] == "3.1"
         assert envelope["provenance"]["catalog_ontology_version"] == "observation-kind-v2"
         assert envelope["provenance"]["kind_ontology_selector"] == "observation_kind_v2"
@@ -411,7 +430,7 @@ class TestWriterSeam:
         assert SHADOW_DEBUG_KEY not in json.dumps(debug)
         assert SHADOW_DEBUG_KEY not in json.dumps(slim)
 
-    def test_shadow_writes_private_package_review_envelope(self, tmp_path):
+    def test_shadow_writes_private_complete_envelope(self, tmp_path):
         _init_shadow()
         slim, debug = _run_writer(
             tmp_path,
@@ -421,11 +440,14 @@ class TestWriterSeam:
         envelope = debug["analysis_debug"][SHADOW_DEBUG_KEY]
         res = validate_envelope(envelope)
         assert res.ok, res.errors
-        assert envelope["state"] == "package_review_complete"
+        assert envelope["state"] == "complete"
         assert envelope["result"]["observed_conditions"] == []
         assert envelope["result"]["work_items"] == []
         assert envelope["result"]["package_candidates"] == []
         assert envelope["result"]["sol_calls"] == []
+        assert envelope["result"]["package_applications"] == []
+        assert envelope["result"]["coverage_ledger"] == []
+        assert envelope["result"]["totals"]["headline"] == {"low": 0, "high": 0}
         assert envelope["estimate_id"].startswith("rea1_")
         # No stable external run id on the job -> job_id fallback.
         assert envelope["provenance"]["source_run_id"] == "job_1"
@@ -471,6 +493,10 @@ class TestWriterSeam:
         assert "analysis_debug" not in slim
 
     def test_seam_failure_cannot_fail_the_job(self, tmp_path, monkeypatch):
+        """A seam-level explosion (not a typed pipeline failure — those become
+        valid failed envelopes inside build_shadow_envelope) must omit the key
+        entirely rather than write a malformed envelope: the publication gate
+        would reject anything less than a valid complete/failed envelope."""
         _init_shadow()
 
         def _boom(**_kwargs):
@@ -484,10 +510,8 @@ class TestWriterSeam:
             SimpleNamespace(LM_STUDIO_MODEL="test-model",
                             RENOVATION_ARCHITECTURE_MODE="shadow"),
         )
-        envelope = debug["analysis_debug"][SHADOW_DEBUG_KEY]
-        assert envelope["state"] == "failed"
-        assert envelope["reason"] == "shadow_seam_error"
-        assert "synthetic seam failure" in envelope["error_detail"]
+        assert SHADOW_DEBUG_KEY not in json.dumps(debug)
+        assert SHADOW_DEBUG_KEY not in json.dumps(slim)
         assert isinstance(debug["renovation_estimate_v4"], dict)
 
     def test_seam_fallback_failure_stays_silent(self, tmp_path, monkeypatch):

@@ -99,5 +99,15 @@ def make_sol_call_id(*, estimate_id: str, request_fingerprint: str) -> str:
     return _make("sc1", "sol_call", estimate_id, request_fingerprint)
 
 
+def make_package_application_id(*, estimate_id: str, package_candidate_id: str) -> str:
+    return _make("pa1", "package_application", estimate_id, package_candidate_id)
+
+
+def make_combine_group_id(*, estimate_id: str, member_candidate_ids) -> str:
+    """One deterministic ID per combine closure: sorted members make it
+    independent of edge direction and input order."""
+    return _make("cg1", "combine_group", estimate_id, *sorted(member_candidate_ids))
+
+
 def make_ledger_entry_id(*, estimate_id: str, work_item_id: str) -> str:
     return _make("cl1", "ledger", estimate_id, work_item_id)
