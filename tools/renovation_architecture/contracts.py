@@ -11,17 +11,19 @@ Schema v2 (Session 2) delivered the Terra side of the v1 deferred set: token
 telemetry, request fingerprints, prompt provenance, and the unit-resolution
 audit trail on ObservedCondition. Schema v3 (Session 3) delivered the work
 layer: merged-lineage WorkItem, WorkDedupCollision, StandaloneEstimate, and
-opening instance hints on ObservedCondition. Still deferred to the session
-that produces it (additive with a CONTRACTS_SCHEMA_VERSION bump): Sol token
-telemetry and package-review provenance.
+opening instance hints on ObservedCondition. Schema v4 (Session 4) delivered
+the package layer: the deterministic PackageCandidate (family/roles/strength/
+tier/floors), Sol call telemetry and decision provenance, and the immutable
+snapshot fingerprints that make "Sol changed nothing upstream" an executable
+check. Still deferred to Session 5: the coverage ledger and final totals.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass, fields, is_dataclass
 from typing import Any, Dict, Mapping, Optional, Tuple
 
-CONTRACTS_SCHEMA_VERSION = 3
-ENVELOPE_SCHEMA_VERSION = 3
+CONTRACTS_SCHEMA_VERSION = 4
+ENVELOPE_SCHEMA_VERSION = 4
 PROJECTION_VERSION = "renovation_catalog_projection_v2"
 TERMINAL_ROUTE_POLICY_VERSION = "terminal_route_v1"
 CONDITION_DISPOSITION_POLICY_VERSION = "condition_disposition_v1"
@@ -33,6 +35,14 @@ CONDITION_DISPOSITION_POLICY_VERSION = "condition_disposition_v1"
 WORK_DERIVATION_POLICY_VERSION = "work_derivation_v1"
 WORK_DEDUP_POLICY_VERSION = "work_dedup_max_envelope_v1"
 STANDALONE_PRICING_POLICY_VERSION = "standalone_pricing_v1"
+# Session 4 deterministic package policy: candidates come from the legacy
+# inference primitives (affinities, roles, strength, tiers, escalation) fed
+# with ACTIVE work lineage, then the cost floor is applied against the child
+# standalone range. Sol reviews coherence only, through the closed
+# PackageDecision contract.
+PACKAGE_CANDIDATE_POLICY_VERSION = "package_candidates_v1"
+SOL_REVIEW_PROMPT_VERSION = "sol_package_review_v1"
+SOL_REVIEW_REASONING_EFFORT = "medium"
 # The only work-item suppression reason this session: the item lost its dedup
 # group to a merged max-envelope active and is retained as an audit record.
 DEDUP_SUPPRESSION_REASON = "dedup_collision"
@@ -62,10 +72,12 @@ REQUIRED_KIND_ONTOLOGY_SELECTOR = "observation_kind_v2"
 # review layer is done, work/packages/totals do not exist yet.
 # standalone_estimate_complete is the Session 3 terminal state: deterministic
 # work items and the package-independent standalone estimate exist; packages,
-# Sol, and the coverage ledger do not.
+# Sol, and the coverage ledger do not. package_review_complete is the
+# Session 4 terminal state: deterministic candidates and Sol decisions exist;
+# decision application, the coverage ledger, and totals do not.
 ENVELOPE_STATES = frozenset(
     {"scaffold", "condition_review_complete", "standalone_estimate_complete",
-     "complete", "failed"}
+     "package_review_complete", "complete", "failed"}
 )
 ARCHITECTURE_MODES = frozenset({"current", "shadow", "new"})
 OBSERVATION_KINDS_V2 = frozenset({"defect", "degradation", "modernization"})
@@ -81,6 +93,40 @@ DISPOSITION_REASON_CODES = frozenset(
 TERRA_USAGE_SOURCES = frozenset({"provider", "checkpoint"})
 UNIT_RESOLUTION_SOURCES = frozenset({"photo_estimate_unit", "scope_room_fallback"})
 PACKAGE_DECISIONS = frozenset({"approve", "reject", "uncertain"})
+# Package vocabularies. Pinned by test against tools/rehab_packages.py's
+# constants (the UNIT_POLICIES pattern; contracts stays import-light) so the
+# two vocabularies can never drift. STRENGTHS holds only the emittable set:
+# weak buckets are suppressed inside the legacy inference and never become
+# candidates. LEVELS holds only what the new layer can emit (room candidates
+# plus the property-level whole-home aggregate).
+PACKAGE_TYPES = frozenset(
+    {"kitchen_modernization", "kitchen_repair", "kitchen_turnover",
+     "bathroom_modernization", "bathroom_repair", "bathroom_turnover",
+     "bedroom_modernization", "bedroom_repair", "bedroom_turnover",
+     "living_modernization", "living_repair", "living_turnover",
+     "exterior_repair", "interior_paint_flooring_refresh"}
+)
+PACKAGE_CATEGORIES = frozenset(
+    {"modernization", "repair", "turnover", "inspection_risk"}
+)
+PACKAGE_LEVELS = frozenset({"room", "property"})
+PACKAGE_ROOMS = frozenset(
+    {"kitchen", "bathroom", "bedroom", "living", "exterior", "whole_home"}
+)
+PACKAGE_STRENGTHS = frozenset({"strong", "moderate"})
+# proposed_treatment is the deterministic emit lane: the four legacy trigger
+# reasons plus the whole-home aggregate token.
+PACKAGE_TREATMENTS = frozenset(
+    {"package_driver", "opportunity_driver_with_corroboration",
+     "opportunity_driver_with_multiphoto_corroboration",
+     "multiple_package_support_same_estimate_unit",
+     "whole_home_turnover_aggregate"}
+)
+# The whole-home display-only aggregate's fixed identity (legacy tokens).
+WHOLE_HOME_PACKAGE_TYPE = "interior_paint_flooring_refresh"
+WHOLE_HOME_UNIT_ID = "whole_home"
+WHOLE_HOME_PRICING_PROFILE = "interior_paint_flooring_refresh"
+WHOLE_HOME_PRICING_TIER = "property_turnover_aggregate"
 LEDGER_REPRESENTATIONS = frozenset(
     {"standalone", "absorbed_by_package", "inspection", "no_action"}
 )
@@ -124,6 +170,8 @@ POLICY_VERSIONS = {
     "work_derivation_policy": WORK_DERIVATION_POLICY_VERSION,
     "work_dedup_policy": WORK_DEDUP_POLICY_VERSION,
     "standalone_pricing_policy": STANDALONE_PRICING_POLICY_VERSION,
+    "package_candidate_policy": PACKAGE_CANDIDATE_POLICY_VERSION,
+    "sol_review_prompt": SOL_REVIEW_PROMPT_VERSION,
 }
 POLICY_VERSION_KEYS = frozenset(POLICY_VERSIONS)
 
@@ -324,20 +372,43 @@ class WorkDedupCollision(_Contract):
 
 @dataclass(frozen=True)
 class PackageCandidate(_Contract):
+    """One deterministic package opportunity over ACTIVE work items.
+
+    Children/drivers/supports are stable work-item IDs (driver precedence
+    when one merged work item supplied both roles). low/high is the floored
+    allowance — max of the escalated tier spec and the children's standalone
+    range — with the unfloored tier spec retained for audit. The display-only
+    whole-home aggregate carries NO children: its lineage flows through
+    contributing_candidate_ids, so it can never absorb work."""
     package_candidate_id: str
     schema_version: int
     package_type: str
-    room_key: str
+    package_category: str
+    package_level: str
+    room: str
+    estimate_unit_id: str
     child_work_item_ids: Tuple[str, ...]
+    driver_work_item_ids: Tuple[str, ...]
+    support_work_item_ids: Tuple[str, ...]
+    strength: str
+    pricing_profile: str
+    pricing_tier: str
+    absorption_scope: Mapping[str, Any]
     proposed_treatment: str
+    unfloored_low: int
+    unfloored_high: int
+    cost_floor_applied: bool
     low: int
     high: int
+    display_only: bool
+    contributing_candidate_ids: Tuple[str, ...]
 
 
 @dataclass(frozen=True)
 class PackageDecision(_Contract):
     """Sol's verdict on a supplied candidate. Same closed-field-set boundary
-    as ConditionReview: no work truth, no prices."""
+    as ConditionReview: no work truth, no prices. Provenance ties the
+    decision to the one listing-level Sol call that produced it."""
     decision_id: str
     schema_version: int
     package_candidate_id: str
@@ -347,6 +418,54 @@ class PackageDecision(_Contract):
     rationale: str
     model: str
     prompt_version: str
+    sol_call_id: str
+    request_fingerprint: str
+    provider: str
+
+
+@dataclass(frozen=True)
+class SolCall(_Contract):
+    """One Sol provider call (or its checkpoint republication) for the whole
+    listing. Telemetry only — Sol has no approved daily budget, so there is
+    no ledger and no debit field; checkpoint reuse keeps the original token
+    numbers with usage_source recording the provenance."""
+    call_id: str
+    schema_version: int
+    package_candidate_ids: Tuple[str, ...]
+    request_fingerprint: str
+    provider: str
+    model: str
+    prompt_version: str
+    usage_source: str
+    input_tokens: int
+    cached_input_tokens: int
+    output_tokens: int
+    total_tokens: int
+
+
+@dataclass(frozen=True)
+class SolListingUsage(_Contract):
+    """Listing-level rollup of every Sol call in the run."""
+    schema_version: int
+    call_count: int
+    input_tokens: int
+    cached_input_tokens: int
+    output_tokens: int
+    total_tokens: int
+
+
+@dataclass(frozen=True)
+class PackageReviewSnapshots(_Contract):
+    """Immutability fingerprints over the layers Sol must never change.
+
+    Each hash is sha256_canonical over the corresponding result sections
+    exactly as they entered the Sol request; the validator recomputes them,
+    so any post-review mutation of condition, work, or candidate truth is a
+    validation failure, not a diff review."""
+    schema_version: int
+    condition_snapshot_sha256: str
+    work_snapshot_sha256: str
+    candidate_snapshot_sha256: str
 
 
 @dataclass(frozen=True)

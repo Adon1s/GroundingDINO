@@ -33,6 +33,7 @@ from tools.vlm_client import VLMClient
 
 # gpt-5* so reasoning effort reaches the wire; the fake never checks the name.
 TERRA_MODEL = "gpt-5.4-terra-test"
+SOL_MODEL = "gpt-5.4-sol-test"
 MAX_OUTPUT_TOKENS = 512
 PROPERTY_KEY = "prop"
 RUN_ID = "run_1"
@@ -46,9 +47,9 @@ def _clean_runtime():
     reset_runtime_for_tests()
 
 
-# ── harness (shared with the disposition/usage-guard test files) ─────────────
+# ── harness (shared with the disposition/usage-guard/package test files) ─────
 
-def _init_runtime(tmp_path, *items, terra_model=TERRA_MODEL):
+def _init_runtime(tmp_path, *items, terra_model=TERRA_MODEL, sol_model=SOL_MODEL):
     catalog = _v31_catalog(*items)
     path = tmp_path / "catalog.json"
     path.write_text(json.dumps(catalog), encoding="utf-8")
@@ -59,6 +60,8 @@ def _init_runtime(tmp_path, *items, terra_model=TERRA_MODEL):
         kind_ontology_version="observation_kind_v2",
         terra_model=terra_model,
         terra_max_output_tokens=MAX_OUTPUT_TOKENS,
+        sol_model=sol_model,
+        sol_max_output_tokens=MAX_OUTPUT_TOKENS,
     )
     return get_runtime()
 
@@ -596,7 +599,7 @@ class TestShadowEnvelopeEndToEnd:
         )
         res = validate_envelope(envelope)
         assert res.ok, res.errors
-        assert envelope["state"] == "standalone_estimate_complete"
+        assert envelope["state"] == "package_review_complete"
         assert envelope["reason"] is None
         assert SHADOW_DEBUG_KEY  # the key constant is what the seam writes
         (review,) = envelope["result"]["condition_reviews"]
@@ -617,3 +620,10 @@ class TestShadowEnvelopeEndToEnd:
         assert standalone["totals_by_estimate_scope"]["marketability_rehab"] == {
             "low": 270, "high": 1350,
         }
+        # The synthetic item carries no package_affinity, so the package
+        # layer completes empty with no Sol call — the strict fake above
+        # would have raised on a second provider request.
+        assert envelope["result"]["package_candidates"] == []
+        assert envelope["result"]["package_decisions"] == []
+        assert envelope["result"]["sol_calls"] == []
+        assert envelope["result"]["sol_listing_usage"]["call_count"] == 0

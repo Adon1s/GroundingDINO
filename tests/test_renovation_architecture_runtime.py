@@ -40,7 +40,13 @@ def _clean_runtime():
     reset_runtime_for_tests()
 
 
-def _init_shadow(*, terra_model="terra-test", terra_max_output_tokens=8192):
+def _init_shadow(
+    *,
+    terra_model="terra-test",
+    terra_max_output_tokens=8192,
+    sol_model="sol-test",
+    sol_max_output_tokens=8192,
+):
     initialize_renovation_architecture(
         mode="shadow",
         catalog=load_issue_catalog(SHIPPED_V2_PATH),
@@ -48,6 +54,8 @@ def _init_shadow(*, terra_model="terra-test", terra_max_output_tokens=8192):
         kind_ontology_version="observation_kind_v2",
         terra_model=terra_model,
         terra_max_output_tokens=terra_max_output_tokens,
+        sol_model=sol_model,
+        sol_max_output_tokens=sol_max_output_tokens,
     )
 
 
@@ -131,6 +139,30 @@ class TestTerraConfigResolvers:
         assert "RENOVATION_TERRA_MAX_OUTPUT_TOKENS" not in STRING_OVERRIDE_KEYS
 
 
+# ── Sol config resolvers (pure; no env mutation) ─────────────────────────────
+
+class TestSolConfigResolvers:
+    def test_model_falls_back_to_openai_model(self):
+        assert cfg.resolve_renovation_sol_model("", openai_model="gpt-5.4") == "gpt-5.4"
+        assert cfg.resolve_renovation_sol_model("sol-x", openai_model="gpt-5.4") == "sol-x"
+        # Both empty resolves to "" here; shadow-mode init rejects it at startup.
+        assert cfg.resolve_renovation_sol_model("  ", openai_model=" ") == ""
+
+    def test_max_output_tokens_default_and_parse(self):
+        assert cfg.resolve_renovation_sol_max_output_tokens(None) == 8192
+        assert cfg.resolve_renovation_sol_max_output_tokens("") == 8192
+        assert cfg.resolve_renovation_sol_max_output_tokens(" 4096 ") == 4096
+
+    def test_max_output_tokens_fails_closed(self):
+        for bad in ("0", "-5", "many", "8.5"):
+            with pytest.raises(ValueError, match="RENOVATION_SOL_MAX_OUTPUT_TOKENS"):
+                cfg.resolve_renovation_sol_max_output_tokens(bad)
+
+    def test_sol_model_has_typed_override_not_string_copy(self):
+        assert "RENOVATION_SOL_MODEL" not in STRING_OVERRIDE_KEYS
+        assert "RENOVATION_SOL_MAX_OUTPUT_TOKENS" not in STRING_OVERRIDE_KEYS
+
+
 # ── runtime initialization ───────────────────────────────────────────────────
 
 class TestInitialize:
@@ -153,6 +185,11 @@ class TestInitialize:
         assert runtime.projection["route_counts"]["work"] == 103
         assert runtime.terra_model == "terra-test"
         assert runtime.terra_max_output_tokens == 8192
+        assert runtime.sol_model == "sol-test"
+        assert runtime.sol_max_output_tokens == 8192
+        # The raw catalog rides the runtime for the Session 4 candidate
+        # builder, pinned to the same file as the projection.
+        assert runtime.catalog.get("version") == "3.1"
 
     def test_shadow_requires_v2_selector_value(self):
         with pytest.raises(RenovationArchitectureInitError, match="KIND_ONTOLOGY_VERSION"):
@@ -162,6 +199,7 @@ class TestInitialize:
                 catalog_path=SHIPPED_V2_PATH,
                 kind_ontology_version="legacy_v1",
                 terra_model="terra-test",
+                sol_model="sol-test",
             )
 
     def test_shadow_requires_a_terra_model(self):
@@ -171,12 +209,26 @@ class TestInitialize:
                 _init_shadow(terra_model=empty)
             assert get_runtime() is None
 
+    def test_shadow_requires_a_sol_model(self):
+        for empty in ("", "   "):
+            with pytest.raises(RenovationArchitectureInitError, match="Sol model"):
+                _init_shadow(sol_model=empty)
+            assert get_runtime() is None
+
     def test_shadow_requires_a_positive_token_cap(self):
         for bad in (0, -1, "8192", None):
             with pytest.raises(
-                RenovationArchitectureInitError, match="MAX_OUTPUT_TOKENS"
+                RenovationArchitectureInitError, match="TERRA_MAX_OUTPUT_TOKENS"
             ):
                 _init_shadow(terra_max_output_tokens=bad)
+            assert get_runtime() is None
+
+    def test_shadow_requires_a_positive_sol_token_cap(self):
+        for bad in (0, -1, "8192", None):
+            with pytest.raises(
+                RenovationArchitectureInitError, match="SOL_MAX_OUTPUT_TOKENS"
+            ):
+                _init_shadow(sol_max_output_tokens=bad)
             assert get_runtime() is None
 
     def test_shadow_with_invalid_catalog_fails_before_ready(self):
@@ -187,6 +239,7 @@ class TestInitialize:
                 catalog_path=SHIPPED_V2_PATH,
                 kind_ontology_version="observation_kind_v2",
                 terra_model="terra-test",
+                sol_model="sol-test",
             )
         assert get_runtime() is None
 
@@ -211,10 +264,11 @@ class TestInitialize:
 # ── shadow envelope builder ──────────────────────────────────────────────────
 
 class TestShadowEnvelope:
-    def test_empty_standalone_estimate_envelope_after_init(self):
-        """No lane issues -> a complete review AND standalone estimate with
-        empty lists and zero buckets, without needing a VLM client, an
-        artifacts root, or property metadata (neutral factor)."""
+    def test_empty_package_review_envelope_after_init(self):
+        """No lane issues -> a complete review, standalone estimate, AND an
+        empty package review (zero candidates short-circuit: no Sol call),
+        without needing a VLM client, an artifacts root, or property
+        metadata (neutral factor)."""
         _init_shadow()
         envelope = build_shadow_envelope(
             property_key="prop_1",
@@ -224,7 +278,7 @@ class TestShadowEnvelope:
         )
         res = validate_envelope(envelope)
         assert res.ok, res.errors
-        assert envelope["state"] == "standalone_estimate_complete"
+        assert envelope["state"] == "package_review_complete"
         assert envelope["reason"] is None
         assert envelope["result"]["observed_conditions"] == []
         assert envelope["result"]["terra_calls"] == []
@@ -239,6 +293,16 @@ class TestShadowEnvelope:
             bucket == {"low": 0, "high": 0}
             for bucket in standalone["totals_by_estimate_scope"].values()
         )
+        assert envelope["result"]["package_candidates"] == []
+        assert envelope["result"]["package_decisions"] == []
+        assert envelope["result"]["sol_calls"] == []
+        assert envelope["result"]["sol_listing_usage"]["call_count"] == 0
+        assert envelope["result"]["sol_listing_usage"]["total_tokens"] == 0
+        snapshots = envelope["result"]["package_review_snapshots"]
+        assert set(snapshots) == {
+            "schema_version", "condition_snapshot_sha256",
+            "work_snapshot_sha256", "candidate_snapshot_sha256",
+        }
         assert envelope["provenance"]["catalog_version"] == "3.1"
         assert envelope["provenance"]["catalog_ontology_version"] == "observation-kind-v2"
         assert envelope["provenance"]["kind_ontology_selector"] == "observation_kind_v2"
@@ -347,7 +411,7 @@ class TestWriterSeam:
         assert SHADOW_DEBUG_KEY not in json.dumps(debug)
         assert SHADOW_DEBUG_KEY not in json.dumps(slim)
 
-    def test_shadow_writes_private_standalone_envelope(self, tmp_path):
+    def test_shadow_writes_private_package_review_envelope(self, tmp_path):
         _init_shadow()
         slim, debug = _run_writer(
             tmp_path,
@@ -357,9 +421,11 @@ class TestWriterSeam:
         envelope = debug["analysis_debug"][SHADOW_DEBUG_KEY]
         res = validate_envelope(envelope)
         assert res.ok, res.errors
-        assert envelope["state"] == "standalone_estimate_complete"
+        assert envelope["state"] == "package_review_complete"
         assert envelope["result"]["observed_conditions"] == []
         assert envelope["result"]["work_items"] == []
+        assert envelope["result"]["package_candidates"] == []
+        assert envelope["result"]["sol_calls"] == []
         assert envelope["estimate_id"].startswith("rea1_")
         # No stable external run id on the job -> job_id fallback.
         assert envelope["provenance"]["source_run_id"] == "job_1"

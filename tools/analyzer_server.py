@@ -144,6 +144,8 @@ def main() -> int:
             kind_ontology_version=cfg.KIND_ONTOLOGY_VERSION,
             terra_model=cfg.RENOVATION_TERRA_MODEL,
             terra_max_output_tokens=cfg.RENOVATION_TERRA_MAX_OUTPUT_TOKENS,
+            sol_model=cfg.RENOVATION_SOL_MODEL,
+            sol_max_output_tokens=cfg.RENOVATION_SOL_MAX_OUTPUT_TOKENS,
         )
     except RenovationArchitectureInitError as exc:
         logger.error(f"Renovation architecture init failed: {exc}")

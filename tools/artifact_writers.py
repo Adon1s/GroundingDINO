@@ -443,7 +443,7 @@ def _write_renovation_architecture_shadow(
             debug = photo_intel.get("analysis_debug")
             if isinstance(debug, dict):
                 debug["renovation_architecture_shadow_v1"] = {
-                    "schema_version": 3,  # ENVELOPE_SCHEMA_VERSION, kept literal
+                    "schema_version": 4,  # ENVELOPE_SCHEMA_VERSION, kept literal
                     "estimate_id": None,
                     "state": "failed",
                     "reason": "shadow_seam_error",

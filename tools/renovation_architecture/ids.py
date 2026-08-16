@@ -83,13 +83,20 @@ def make_work_dedup_collision_id(
 
 
 def make_package_candidate_id(
-    *, estimate_id: str, package_type: str, room_key: str
+    *, estimate_id: str, package_type: str, estimate_unit_id: str
 ) -> str:
-    return _make("pk1", "package", estimate_id, package_type, room_key)
+    """Candidate identity IS the legacy inference bucket key (unit, type);
+    a room label alone would collide two bathrooms. The whole-home aggregate
+    uses the fixed "whole_home" unit token."""
+    return _make("pk1", "package", estimate_id, package_type, estimate_unit_id)
 
 
 def make_package_decision_id(*, estimate_id: str, package_candidate_id: str) -> str:
     return _make("pd1", "decision", estimate_id, package_candidate_id)
+
+
+def make_sol_call_id(*, estimate_id: str, request_fingerprint: str) -> str:
+    return _make("sc1", "sol_call", estimate_id, request_fingerprint)
 
 
 def make_ledger_entry_id(*, estimate_id: str, work_item_id: str) -> str:

@@ -189,6 +189,21 @@ def _apply_env_overrides() -> None:
             os.environ.get("RENOVATION_TERRA_MAX_OUTPUT_TOKENS")
         ),
     )
+    setattr(
+        cfg,
+        "RENOVATION_SOL_MODEL",
+        cfg.resolve_renovation_sol_model(
+            os.environ.get("RENOVATION_SOL_MODEL", ""),
+            openai_model=getattr(cfg, "OPENAI_MODEL", ""),
+        ),
+    )
+    setattr(
+        cfg,
+        "RENOVATION_SOL_MAX_OUTPUT_TOKENS",
+        cfg.resolve_renovation_sol_max_output_tokens(
+            os.environ.get("RENOVATION_SOL_MAX_OUTPUT_TOKENS")
+        ),
+    )
 
     # Token caps are resolved by pass_config.resolve_openai_invocation, which reads
     # OPENAI_PASS_<KEY>_MAX_TOKENS / OPENAI_DEFAULT_MAX_TOKENS straight from the
@@ -867,6 +882,8 @@ def main() -> int:
             kind_ontology_version=cfg.KIND_ONTOLOGY_VERSION,
             terra_model=cfg.RENOVATION_TERRA_MODEL,
             terra_max_output_tokens=cfg.RENOVATION_TERRA_MAX_OUTPUT_TOKENS,
+            sol_model=cfg.RENOVATION_SOL_MODEL,
+            sol_max_output_tokens=cfg.RENOVATION_SOL_MAX_OUTPUT_TOKENS,
         )
     except RenovationArchitectureInitError as exc:
         logger.error(f"Renovation architecture init failed: {exc}")

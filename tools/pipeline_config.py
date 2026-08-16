@@ -228,6 +228,42 @@ RENOVATION_TERRA_MAX_OUTPUT_TOKENS = resolve_renovation_terra_max_output_tokens(
 )
 
 # =============================================================================
+# SOL PACKAGE REVIEW (renovation architecture Session 4)
+# =============================================================================
+# Model + output cap for the shadow-mode Sol package-review stage. Identical
+# posture to the Terra pair above: RENOVATION_SOL_MODEL falls back to
+# OPENAI_MODEL, both empty resolves to "" here and shadow-mode runtime init
+# rejects it at startup (current mode never reads it); an invalid token cap
+# raises at import in every entry point.
+
+
+def resolve_renovation_sol_model(raw: str, *, openai_model: str) -> str:
+    return (raw or "").strip() or (openai_model or "").strip()
+
+
+def resolve_renovation_sol_max_output_tokens(raw: Optional[str]) -> int:
+    if raw is None or str(raw).strip() == "":
+        return 8192
+    try:
+        value = int(str(raw).strip())
+    except ValueError:
+        value = None
+    if value is None or value <= 0:
+        raise ValueError(
+            f"RENOVATION_SOL_MAX_OUTPUT_TOKENS must be a positive integer, "
+            f"got {raw!r}"
+        )
+    return value
+
+
+RENOVATION_SOL_MODEL = resolve_renovation_sol_model(
+    os.environ.get("RENOVATION_SOL_MODEL", ""), openai_model=OPENAI_MODEL
+)
+RENOVATION_SOL_MAX_OUTPUT_TOKENS = resolve_renovation_sol_max_output_tokens(
+    os.environ.get("RENOVATION_SOL_MAX_OUTPUT_TOKENS")
+)
+
+# =============================================================================
 # GOOGLE GEMINI SETTINGS (Cloud - for catalog_auditor)
 # =============================================================================
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBVoSb4gygaBh2ScxfceIIAJ7-1bjnQJLc")

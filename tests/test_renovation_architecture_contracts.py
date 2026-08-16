@@ -23,11 +23,22 @@ from tools.renovation_architecture.contracts import (
     CONDITION_DISPOSITION_POLICY_VERSION,
     EstimateProvenance,
     ObservedCondition,
+    PACKAGE_CANDIDATE_POLICY_VERSION,
+    PACKAGE_CATEGORIES,
+    PACKAGE_LEVELS,
+    PACKAGE_ROOMS,
+    PACKAGE_STRENGTHS,
+    PACKAGE_TYPES,
     POLICY_VERSIONS,
     PROJECTION_VERSION,
     RenovationEstimateEnvelope,
     SCAFFOLD_REASON,
+    SOL_REVIEW_PROMPT_VERSION,
     STANDALONE_PRICING_POLICY_VERSION,
+    WHOLE_HOME_PACKAGE_TYPE,
+    WHOLE_HOME_PRICING_PROFILE,
+    WHOLE_HOME_PRICING_TIER,
+    WHOLE_HOME_UNIT_ID,
     WORK_DEDUP_POLICY_VERSION,
 )
 from tools.renovation_architecture.ids import (
@@ -40,14 +51,17 @@ from tools.renovation_architecture.ids import (
     make_package_candidate_id,
     make_package_decision_id,
     make_review_id,
+    make_sol_call_id,
     make_terra_call_id,
     make_work_dedup_collision_id,
     make_work_item_id,
 )
 from tools.renovation_architecture.validators import (
+    package_review_snapshot_hashes,
     validate_complete_result,
     validate_condition_review_result,
     validate_envelope,
+    validate_package_review_result,
     validate_standalone_estimate_result,
 )
 
@@ -243,6 +257,99 @@ def _ledger_entry(work_item, representation, package_id=None, low=0, high=0):
     }
 
 
+SOL_FP = "d" * 64  # a fixed Sol request fingerprint shared by the builders
+SOL_CALL_ID = make_sol_call_id(estimate_id=EST_ID, request_fingerprint=SOL_FP)
+
+
+def _candidate(package_type, estimate_unit_id, work_items, **over):
+    """A v4 room candidate: every child a driver, floored against the child
+    standalone sum."""
+    child_ids = sorted(item["work_item_id"] for item in work_items)
+    child_low = sum(item["low"] for item in work_items)
+    child_high = sum(item["high"] for item in work_items)
+    unfloored_low = over.pop("unfloored_low", child_low)
+    unfloored_high = over.pop("unfloored_high", child_high)
+    low = max(unfloored_low, child_low)
+    high = max(unfloored_high, child_high)
+    base = {
+        "package_candidate_id": make_package_candidate_id(
+            estimate_id=EST_ID, package_type=package_type,
+            estimate_unit_id=estimate_unit_id,
+        ),
+        "schema_version": CONTRACTS_SCHEMA_VERSION,
+        "package_type": package_type,
+        "package_category": package_type.rsplit("_", 1)[1],
+        "package_level": "room",
+        "room": package_type.split("_", 1)[0],
+        "estimate_unit_id": estimate_unit_id,
+        "child_work_item_ids": child_ids,
+        "driver_work_item_ids": child_ids,
+        "support_work_item_ids": [],
+        "strength": "moderate",
+        "pricing_profile": f"{package_type.split('_', 1)[0]}_refresh",
+        "pricing_tier": "refresh",
+        "absorption_scope": {
+            "family": package_type.split("_", 1)[0],
+            "groups": [package_type.split("_", 1)[0]],
+            "trade_buckets": [],
+            "components": [],
+        },
+        "proposed_treatment": "package_driver",
+        "unfloored_low": unfloored_low,
+        "unfloored_high": unfloored_high,
+        "cost_floor_applied": (low, high) != (unfloored_low, unfloored_high),
+        "low": low,
+        "high": high,
+        "display_only": False,
+        "contributing_candidate_ids": [],
+    }
+    base.update(over)
+    return base
+
+
+def _decision(candidate, decision="approve", **over):
+    base = {
+        "decision_id": make_package_decision_id(
+            estimate_id=EST_ID,
+            package_candidate_id=candidate["package_candidate_id"],
+        ),
+        "schema_version": CONTRACTS_SCHEMA_VERSION,
+        "package_candidate_id": candidate["package_candidate_id"],
+        "decision": decision,
+        "combine_with": [],
+        "split_groups": [],
+        "rationale": "coherent scope",
+        "model": "sol-test",
+        "prompt_version": SOL_REVIEW_PROMPT_VERSION,
+        "sol_call_id": SOL_CALL_ID,
+        "request_fingerprint": SOL_FP,
+        "provider": "openai",
+    }
+    base.update(over)
+    return base
+
+
+def _sol_call(candidates, *, input_tokens=900, output_tokens=120, **over):
+    base = {
+        "call_id": SOL_CALL_ID,
+        "schema_version": CONTRACTS_SCHEMA_VERSION,
+        "package_candidate_ids": sorted(
+            candidate["package_candidate_id"] for candidate in candidates
+        ),
+        "request_fingerprint": SOL_FP,
+        "provider": "openai",
+        "model": "sol-test",
+        "prompt_version": SOL_REVIEW_PROMPT_VERSION,
+        "usage_source": "provider",
+        "input_tokens": input_tokens,
+        "cached_input_tokens": 0,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+    }
+    base.update(over)
+    return base
+
+
 def _complete_result():
     """Two conditions -> two work items -> one approved single-child package
     plus one standalone work item, with exact totals."""
@@ -252,31 +359,12 @@ def _complete_result():
     ev2, rv2, dp2 = _lattice(c2)
     w1 = _work_item(c1, "CABINETS_REPLACE", 1000, 3000)
     w2 = _work_item(c2, "VANITY_REPLACE", 500, 1500)
-    p1 = {
-        "package_candidate_id": make_package_candidate_id(
-            estimate_id=EST_ID, package_type="kitchen_modernization", room_key="kitchen"
-        ),
-        "schema_version": CONTRACTS_SCHEMA_VERSION,
-        "package_type": "kitchen_modernization",
-        "room_key": "kitchen",
-        "child_work_item_ids": [w1["work_item_id"]],
-        "proposed_treatment": "full kitchen refresh",
-        "low": 900,
-        "high": 2800,
-    }
-    d1 = {
-        "decision_id": make_package_decision_id(
-            estimate_id=EST_ID, package_candidate_id=p1["package_candidate_id"]
-        ),
-        "schema_version": CONTRACTS_SCHEMA_VERSION,
-        "package_candidate_id": p1["package_candidate_id"],
-        "decision": "approve",
-        "combine_with": [],
-        "split_groups": [],
-        "rationale": "coherent scope",
-        "model": "sol-test",
-        "prompt_version": "v1",
-    }
+    p1 = _candidate(
+        "kitchen_modernization", "kitchen_primary", [w1],
+        package_category="modernization",
+        unfloored_low=900, unfloored_high=2800,
+    )
+    d1 = _decision(p1)
     e1 = _ledger_entry(w1, "absorbed_by_package", package_id=p1["package_candidate_id"])
     e2 = _ledger_entry(w2, "standalone", low=500, high=1500)
     return {
@@ -292,9 +380,9 @@ def _complete_result():
             "schema_version": CONTRACTS_SCHEMA_VERSION,
             "currency": "USD",
             "standalone": {"low": 500, "high": 1500},
-            "packaged": {"low": 900, "high": 2800},
+            "packaged": {"low": 1000, "high": 3000},
             "inspection": {"low": 0, "high": 0},
-            "headline": {"low": 1400, "high": 4300},
+            "headline": {"low": 1500, "high": 4500},
         },
     }
 
@@ -449,8 +537,9 @@ class TestIds:
             (make_work_item_id(estimate_id=EST_ID, catalog_item_id="x", billable_unit_id="u", action_code="a"), "wk1"),
             (make_merged_work_item_id(estimate_id=EST_ID, action_code="a", trade_bucket="t", unit_policy="per_scope", billable_unit_id="u"), "wk1"),
             (make_work_dedup_collision_id(estimate_id=EST_ID, active_work_item_id="w"), "wdc1"),
-            (make_package_candidate_id(estimate_id=EST_ID, package_type="t", room_key="r"), "pk1"),
+            (make_package_candidate_id(estimate_id=EST_ID, package_type="t", estimate_unit_id="u"), "pk1"),
             (make_package_decision_id(estimate_id=EST_ID, package_candidate_id="p"), "pd1"),
+            (make_sol_call_id(estimate_id=EST_ID, request_fingerprint="f" * 64), "sc1"),
             (make_ledger_entry_id(estimate_id=EST_ID, work_item_id="w"), "cl1"),
         ]
         for value, prefix in pairs:
@@ -796,16 +885,19 @@ class TestStandaloneEnvelope:
             "from the unit rollups",
         )
 
-    def test_policy_versions_carry_the_session_3_policies(self):
+    def test_policy_versions_carry_the_session_4_policies(self):
         assert set(POLICY_VERSIONS) == {
             "terminal_route_policy", "condition_disposition_policy",
             "evidence_dedup_policy", "terra_review_prompt",
             "work_derivation_policy", "work_dedup_policy",
-            "standalone_pricing_policy",
+            "standalone_pricing_policy", "package_candidate_policy",
+            "sol_review_prompt",
         }
         assert POLICY_VERSIONS["work_derivation_policy"] == "work_derivation_v1"
         assert POLICY_VERSIONS["work_dedup_policy"] == "work_dedup_max_envelope_v1"
         assert POLICY_VERSIONS["standalone_pricing_policy"] == "standalone_pricing_v1"
+        assert POLICY_VERSIONS["package_candidate_policy"] == PACKAGE_CANDIDATE_POLICY_VERSION
+        assert POLICY_VERSIONS["sol_review_prompt"] == SOL_REVIEW_PROMPT_VERSION
 
     def test_estimate_scopes_pin_the_estimator_vocabulary(self):
         """ESTIMATE_SCOPES must never drift from tools/estimate_scope.py."""
@@ -861,6 +953,200 @@ class TestStandaloneEnvelope:
         _assert_error(
             validate_standalone_estimate_result(result, estimate_id=EST_ID),
             "must be null",
+        )
+
+
+# ── package_review_complete envelope (Session 4) ─────────────────────────────
+
+def _snapshots(base, candidates):
+    return {
+        "schema_version": CONTRACTS_SCHEMA_VERSION,
+        **package_review_snapshot_hashes(
+            {**base, "package_candidates": candidates}
+        ),
+    }
+
+
+def _package_review_result(**over):
+    """The Session 3 standalone result plus one approved single-child
+    candidate, its decision, one Sol call, reconciled usage, and snapshots."""
+    base = _standalone_result()
+    p1 = _candidate(
+        "kitchen_modernization", "kitchen_primary", [base["work_items"][0]],
+        package_category="modernization",
+    )
+    d1 = _decision(p1)
+    call = _sol_call([p1])
+    result = {
+        **base,
+        "package_candidates": [p1],
+        "package_decisions": [d1],
+        "sol_calls": [call],
+        "sol_listing_usage": {
+            "schema_version": CONTRACTS_SCHEMA_VERSION,
+            "call_count": 1,
+            "input_tokens": call["input_tokens"],
+            "cached_input_tokens": call["cached_input_tokens"],
+            "output_tokens": call["output_tokens"],
+            "total_tokens": call["total_tokens"],
+        },
+        "package_review_snapshots": _snapshots(base, [p1]),
+    }
+    result.update(over)
+    return result
+
+
+def _package_review_envelope(**over):
+    base = _scaffold_envelope(
+        state="package_review_complete", reason=None,
+        result=_package_review_result(),
+    )
+    base.update(over)
+    return base
+
+
+class TestPackageReviewEnvelope:
+    def test_happy_path_validates(self):
+        res = validate_envelope(_package_review_envelope())
+        assert res.ok, res.errors
+
+    def test_empty_package_review_validates(self):
+        """Zero candidates -> zero decisions, zero calls, zero usage; the
+        snapshots still fingerprint the (empty) sections."""
+        base = _standalone_result()
+        result = {
+            **base,
+            "package_candidates": [],
+            "package_decisions": [],
+            "sol_calls": [],
+            "sol_listing_usage": {
+                "schema_version": CONTRACTS_SCHEMA_VERSION, "call_count": 0,
+                "input_tokens": 0, "cached_input_tokens": 0,
+                "output_tokens": 0, "total_tokens": 0,
+            },
+            "package_review_snapshots": _snapshots(base, []),
+        }
+        res = validate_envelope(_package_review_envelope(result=result))
+        assert res.ok, res.errors
+
+    def test_reason_must_be_null(self):
+        _assert_error(
+            validate_envelope(_package_review_envelope(reason="done")),
+            "reason must be null",
+        )
+
+    def test_later_session_layers_are_rejected(self):
+        """The Session 4 result may not smuggle ledger/totals keys."""
+        for key in ("coverage_ledger", "totals"):
+            result = _package_review_result(**{key: []})
+            _assert_error(
+                validate_package_review_result(result, estimate_id=EST_ID),
+                "unknown field",
+            )
+
+    def test_standalone_subset_still_runs_the_frozen_gate(self):
+        result = _package_review_result()
+        result["terra_listing_usage"]["total_tokens"] += 1
+        _assert_error(
+            validate_package_review_result(result, estimate_id=EST_ID),
+            "from the unit rollups",
+        )
+
+    def test_vocabularies_pin_the_legacy_package_constants(self):
+        """The import-light contract vocabularies must never drift from
+        tools/rehab_packages.py (the UNIT_POLICIES pattern)."""
+        from tools import rehab_packages as rp
+
+        assert PACKAGE_TYPES == rp.VALID_PACKAGE_TYPES
+        assert PACKAGE_CATEGORIES == rp.VALID_PACKAGE_CATEGORIES
+        assert PACKAGE_ROOMS == rp.VALID_ROOMS
+        assert PACKAGE_STRENGTHS == rp.VALID_EMITTED_PACKAGE_STRENGTHS
+        assert PACKAGE_LEVELS < rp.VALID_PACKAGE_LEVELS
+        assert WHOLE_HOME_PACKAGE_TYPE == rp.PACKAGE_TYPE_INTERIOR_PAINT_FLOORING_REFRESH
+        assert WHOLE_HOME_UNIT_ID == "whole_home"
+
+    def test_candidate_child_must_be_active_work(self):
+        result = _package_review_result()
+        candidate = result["package_candidates"][0]
+        ghost = "wk1_" + "9" * 16
+        candidate["child_work_item_ids"] = [ghost]
+        candidate["driver_work_item_ids"] = [ghost]
+        result["package_review_snapshots"] = _snapshots(
+            result, result["package_candidates"]
+        )
+        _assert_error(
+            validate_package_review_result(result, estimate_id=EST_ID),
+            "not an ACTIVE work item",
+        )
+
+    def test_floored_range_is_recomputed(self):
+        result = _package_review_result()
+        result["package_candidates"][0]["low"] -= 1
+        result["package_candidates"][0]["unfloored_low"] -= 1
+        result["package_review_snapshots"] = _snapshots(
+            result, result["package_candidates"]
+        )
+        _assert_error(
+            validate_package_review_result(result, estimate_id=EST_ID),
+            "max(tier spec, children standalone sum)",
+        )
+
+    def test_every_candidate_needs_exactly_one_decision(self):
+        result = _package_review_result()
+        result["package_decisions"] = []
+        _assert_error(
+            validate_package_review_result(result, estimate_id=EST_ID),
+            "has no decision",
+        )
+        result = _package_review_result()
+        extra = copy.deepcopy(result["package_decisions"][0])
+        extra["decision_id"] = "pd1_" + "e" * 16
+        result["package_decisions"].append(extra)
+        _assert_error(
+            validate_package_review_result(result, estimate_id=EST_ID),
+            "more than one decision",
+        )
+
+    def test_decision_must_match_its_sol_call(self):
+        result = _package_review_result()
+        result["package_decisions"][0]["request_fingerprint"] = "e" * 64
+        _assert_error(
+            validate_package_review_result(result, estimate_id=EST_ID),
+            "does not match its Sol call",
+        )
+
+    def test_sol_call_must_cover_exactly_the_candidates(self):
+        result = _package_review_result()
+        result["sol_calls"][0]["package_candidate_ids"] = ["pk1_" + "9" * 16]
+        _assert_error(
+            validate_package_review_result(result, estimate_id=EST_ID),
+            "exactly the supplied candidates",
+        )
+
+    def test_listing_usage_must_reconcile(self):
+        result = _package_review_result()
+        result["sol_listing_usage"]["total_tokens"] += 1
+        _assert_error(
+            validate_package_review_result(result, estimate_id=EST_ID),
+            "from the Sol calls",
+        )
+
+    def test_snapshot_tamper_is_detected(self):
+        """Mutating work truth after the snapshots were taken must fail the
+        immutability gate even when every other invariant still holds."""
+        result = _package_review_result()
+        result["work_items"][1]["estimate_scope_reason"] = "sol_touched_this"
+        _assert_error(
+            validate_package_review_result(result, estimate_id=EST_ID),
+            "recomputed section hash",
+        )
+
+    def test_decision_layer_boundary(self):
+        result = _package_review_result()
+        result["package_decisions"][0]["price"] = 500
+        _assert_error(
+            validate_package_review_result(result, estimate_id=EST_ID),
+            "layer boundary",
         )
 
 
@@ -981,7 +1267,9 @@ class TestCompleteResult:
 
     def test_package_child_must_be_known(self):
         result = _complete_result()
-        result["package_candidates"][0]["child_work_item_ids"] = ["wk1_" + "9" * 16]
+        ghost = "wk1_" + "9" * 16
+        result["package_candidates"][0]["child_work_item_ids"] = [ghost]
+        result["package_candidates"][0]["driver_work_item_ids"] = [ghost]
         _assert_error(
             validate_complete_result(result, estimate_id=EST_ID),
             "not a known work item",
@@ -1000,9 +1288,11 @@ class TestCompleteResult:
         p1 = result["package_candidates"][0]
         p2 = copy.deepcopy(p1)
         p2["package_candidate_id"] = make_package_candidate_id(
-            estimate_id=EST_ID, package_type="kitchen_repair", room_key="kitchen"
+            estimate_id=EST_ID, package_type="kitchen_repair",
+            estimate_unit_id="kitchen_primary",
         )
         p2["package_type"] = "kitchen_repair"
+        p2["package_category"] = "repair"
         d2 = copy.deepcopy(result["package_decisions"][0])
         d2["decision_id"] = make_package_decision_id(
             estimate_id=EST_ID, package_candidate_id=p2["package_candidate_id"]
@@ -1035,9 +1325,16 @@ class TestCompleteResult:
 
     def test_split_groups_must_partition_children(self):
         result = _complete_result()
-        result["package_decisions"][0]["split_groups"] = [
-            [result["work_items"][0]["work_item_id"], result["work_items"][1]["work_item_id"]]
-        ]
+        # Two well-formed groups whose union is NOT the candidate's children
+        # (w2 is not a child): the per-record shape passes, the cross-record
+        # partition check must fire.
+        result["package_decisions"][0]["split_groups"] = sorted(
+            (
+                [result["work_items"][0]["work_item_id"]],
+                [result["work_items"][1]["work_item_id"]],
+            ),
+            key=tuple,
+        )
         _assert_error(
             validate_complete_result(result, estimate_id=EST_ID),
             "exactly partition",

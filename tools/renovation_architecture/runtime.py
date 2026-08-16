@@ -39,11 +39,18 @@ class RenovationArchitectureInitError(RuntimeError):
 class RenovationArchitectureRuntime:
     mode: str
     projection: Mapping[str, Any]
+    # The raw newest catalog: the Session 4 candidate builder feeds it to the
+    # legacy inference primitives (package_affinity blocks, base costs). The
+    # projection stays the versioned contract; both come from the same file,
+    # pinned by catalog_sha256.
+    catalog: Mapping[str, Any]
     catalog_sha256: str
     projection_fingerprint: str
     kind_ontology_selector: str
     terra_model: str
     terra_max_output_tokens: int
+    sol_model: str
+    sol_max_output_tokens: int
 
 
 _RUNTIME: Optional[RenovationArchitectureRuntime] = None
@@ -57,6 +64,8 @@ def initialize_renovation_architecture(
     kind_ontology_version: str,
     terra_model: str = "",
     terra_max_output_tokens: int = 8192,
+    sol_model: str = "",
+    sol_max_output_tokens: int = 8192,
 ) -> None:
     """Build the immutable per-process runtime. No-op in current mode."""
     global _RUNTIME
@@ -83,6 +92,16 @@ def initialize_renovation_architecture(
             "RENOVATION_TERRA_MAX_OUTPUT_TOKENS must be a positive integer, "
             f"got {terra_max_output_tokens!r}"
         )
+    if not (sol_model or "").strip():
+        raise RenovationArchitectureInitError(
+            "shadow mode requires a Sol model: set RENOVATION_SOL_MODEL "
+            "or OPENAI_MODEL"
+        )
+    if not isinstance(sol_max_output_tokens, int) or sol_max_output_tokens <= 0:
+        raise RenovationArchitectureInitError(
+            "RENOVATION_SOL_MAX_OUTPUT_TOKENS must be a positive integer, "
+            f"got {sol_max_output_tokens!r}"
+        )
     # Imported here so current-mode startup never pays for the projection's
     # dependency chain (catalog validation, rehab_packages).
     from tools.renovation_architecture.catalog_projection import (
@@ -100,11 +119,14 @@ def initialize_renovation_architecture(
     _RUNTIME = RenovationArchitectureRuntime(
         mode=mode,
         projection=projection,
+        catalog=catalog,
         catalog_sha256=projection["catalog_sha256"],
         projection_fingerprint=projection["fingerprint"],
         kind_ontology_selector=kind_ontology_version,
         terra_model=terra_model.strip(),
         terra_max_output_tokens=terra_max_output_tokens,
+        sol_model=sol_model.strip(),
+        sol_max_output_tokens=sol_max_output_tokens,
     )
 
 
@@ -174,12 +196,14 @@ def build_shadow_envelope(
     api_key: str = "",
     artifacts_root: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """The shadow output: a standalone_estimate_complete envelope (Session 2
-    condition review + Session 3 deterministic work derivation), or a valid
-    failed envelope (uninitialized runtime, or a typed operational failure
-    mapped to its failure-taxonomy category). Completed Terra checkpoints
-    survive a derivation failure — derivation is deterministic and runs after
-    the review, so a retry replays the checkpoints without new Terra spend."""
+    """The shadow output: a package_review_complete envelope (Session 2
+    condition review + Session 3 work derivation + Session 4 deterministic
+    candidates and bounded Sol review), or a valid failed envelope
+    (uninitialized runtime, or a typed operational failure mapped to its
+    failure-taxonomy category). Completed Terra checkpoints and any parsed
+    Sol checkpoint survive a downstream failure — the deterministic stages
+    are recomputed on retry, and the model calls replay from checkpoints
+    without new spend."""
     runtime = _RUNTIME
     if runtime is None:
         envelope = RenovationEstimateEnvelope(
@@ -218,7 +242,11 @@ def build_shadow_envelope(
         source_artifact=source_artifact,
     )
     # Imported here so current mode never pays for the review pipeline chain.
+    from tools.renovation_architecture.package_candidates import (
+        build_package_candidates,
+    )
     from tools.renovation_architecture.review_pipeline import run_condition_review
+    from tools.renovation_architecture.sol_review import run_package_review
     from tools.renovation_architecture.work_items import derive_standalone_estimate
 
     try:
@@ -236,15 +264,35 @@ def build_shadow_envelope(
             api_key=api_key,
             artifacts_root=Path(artifacts_root) if artifacts_root else None,
         )
-        result = derive_standalone_estimate(
+        standalone_result = derive_standalone_estimate(
             review_result=review_result,
             projection=runtime.projection,
             property_metadata=property_metadata,
             estimate_id=estimate_id,
         )
+        candidates = build_package_candidates(
+            standalone_result=standalone_result,
+            projection=runtime.projection,
+            catalog=runtime.catalog,
+            estimate_id=estimate_id,
+        )
+        result = run_package_review(
+            runtime=runtime,
+            estimate_id=estimate_id,
+            property_key=property_key,
+            source_run_id=run_id,
+            created_at=created_at,
+            standalone_result=standalone_result,
+            package_candidates=candidates,
+            vlm_client=vlm_client,
+            api_key=api_key,
+            artifacts_root=Path(artifacts_root) if artifacts_root else None,
+        )
     except Exception as exc:
         from tools.failure_taxonomy import classify_failure
 
+        # PassExecutionError carries its own pass/stage/provider/model, which
+        # win inside classify_failure — the kwargs only cover raw exceptions.
         descriptor = classify_failure(
             exc, pass_key="terra_review", stage="request",
             provider="openai", model=runtime.terra_model,
@@ -263,7 +311,7 @@ def build_shadow_envelope(
     envelope = RenovationEstimateEnvelope(
         schema_version=ENVELOPE_SCHEMA_VERSION,
         estimate_id=estimate_id,
-        state="standalone_estimate_complete",
+        state="package_review_complete",
         reason=None,
         error_detail=None,
         provenance=provenance,

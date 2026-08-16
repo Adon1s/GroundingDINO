@@ -1,9 +1,11 @@
 """Strict validators for the renovation architecture contracts.
 
 Hand-rolled, stdlib only — matching tools/catalog_validation.py and
-tools/benchmarking/schemas.py. Validators operate on the plain-dict form of
-the contracts (the JSON boundary), collect ALL errors rather than stopping at
-the first, and format every message as "where: message".
+tools/benchmarking/schemas.py. (The one repo import beyond the contracts is
+sha256_canonical, so the snapshot fingerprints have a single definition.)
+Validators operate on the plain-dict form of the contracts (the JSON
+boundary), collect ALL errors rather than stopping at the first, and format
+every message as "where: message".
 
 Unknown-field rejection is the enforcement mechanism for the layer
 boundaries: a ConditionReview or PackageDecision carrying work, package,
@@ -13,8 +15,9 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Any, Dict, FrozenSet, List, Optional, Tuple
+from typing import Any, Dict, FrozenSet, List, Mapping, Optional, Tuple
 
+from tools.comparison_common import sha256_canonical
 from tools.renovation_architecture.contracts import (
     ACTION_SOURCES,
     ARCHITECTURE_MODES,
@@ -30,7 +33,13 @@ from tools.renovation_architecture.contracts import (
     EVIDENCE_DEDUP_POLICY_VERSION,
     LEDGER_REPRESENTATIONS,
     OBSERVATION_KINDS_V2,
+    PACKAGE_CATEGORIES,
     PACKAGE_DECISIONS,
+    PACKAGE_LEVELS,
+    PACKAGE_ROOMS,
+    PACKAGE_STRENGTHS,
+    PACKAGE_TREATMENTS,
+    PACKAGE_TYPES,
     POLICY_VERSION_KEYS,
     PRICING_MODES,
     PROJECTION_VERSION,
@@ -45,6 +54,10 @@ from tools.renovation_architecture.contracts import (
     TERRA_USAGE_SOURCES,
     UNIT_POLICIES,
     UNIT_RESOLUTION_SOURCES,
+    WHOLE_HOME_PACKAGE_TYPE,
+    WHOLE_HOME_PRICING_PROFILE,
+    WHOLE_HOME_PRICING_TIER,
+    WHOLE_HOME_UNIT_ID,
     WORK_DEDUP_POLICY_VERSION,
     WORK_ITEM_STATUSES,
 )
@@ -54,7 +67,7 @@ _ID_PATTERNS = {
     prefix: re.compile(rf"^{prefix}_[0-9a-f]{{16}}$")
     for prefix in (
         "rea1", "oc1", "ev1", "cr1", "cd1", "tc1", "wk1", "wdc1", "pk1",
-        "pd1", "cl1"
+        "pd1", "sc1", "cl1"
     )
 }
 _SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -151,12 +164,47 @@ _COLLAPSE_BILLABLE_UNITS = {
     "per_property": "property", "per_system": "system", "per_area": "area"
 }
 _PACKAGE_CANDIDATE_FIELDS = frozenset(
-    {"package_candidate_id", "schema_version", "package_type", "room_key",
-     "child_work_item_ids", "proposed_treatment", "low", "high"}
+    {"package_candidate_id", "schema_version", "package_type",
+     "package_category", "package_level", "room", "estimate_unit_id",
+     "child_work_item_ids", "driver_work_item_ids", "support_work_item_ids",
+     "strength", "pricing_profile", "pricing_tier", "absorption_scope",
+     "proposed_treatment", "unfloored_low", "unfloored_high",
+     "cost_floor_applied", "low", "high", "display_only",
+     "contributing_candidate_ids"}
+)
+_ABSORPTION_SCOPE_FIELDS = frozenset(
+    {"family", "groups", "trade_buckets", "components"}
 )
 _PACKAGE_DECISION_FIELDS = frozenset(
     {"decision_id", "schema_version", "package_candidate_id", "decision",
-     "combine_with", "split_groups", "rationale", "model", "prompt_version"}
+     "combine_with", "split_groups", "rationale", "model", "prompt_version",
+     "sol_call_id", "request_fingerprint", "provider"}
+)
+_SOL_CALL_FIELDS = frozenset(
+    {"call_id", "schema_version", "package_candidate_ids",
+     "request_fingerprint", "provider", "model", "prompt_version",
+     "usage_source", "input_tokens", "cached_input_tokens", "output_tokens",
+     "total_tokens"}
+)
+_SOL_LISTING_USAGE_FIELDS = frozenset(
+    {"schema_version", "call_count", "input_tokens", "cached_input_tokens",
+     "output_tokens", "total_tokens"}
+)
+_SOL_TOKEN_FIELDS = (
+    "input_tokens", "cached_input_tokens", "output_tokens", "total_tokens",
+)
+_SNAPSHOT_FIELDS = frozenset(
+    {"schema_version", "condition_snapshot_sha256", "work_snapshot_sha256",
+     "candidate_snapshot_sha256"}
+)
+# The layers Sol must never change, exactly as grouped into the snapshot
+# fingerprints (package_review_snapshot_hashes below).
+_CONDITION_SNAPSHOT_KEYS = (
+    "observed_conditions", "evidence_facts", "condition_reviews",
+    "condition_dispositions",
+)
+_WORK_SNAPSHOT_KEYS = (
+    "work_items", "work_dedup_collisions", "standalone_estimate",
 )
 _LEDGER_FIELDS = frozenset(
     {"entry_id", "schema_version", "work_item_id", "representation",
@@ -184,6 +232,13 @@ _REVIEW_RESULT_KEYS = frozenset(
 # work_dedup_collisions are lists.
 _STANDALONE_RESULT_KEYS = _REVIEW_RESULT_KEYS | frozenset(
     {"work_items", "work_dedup_collisions", "standalone_estimate"}
+)
+# The Session 4 intermediate result: the frozen Session 3 result plus the
+# package layer. sol_listing_usage and package_review_snapshots are objects;
+# the other new keys are lists.
+_PACKAGE_REVIEW_RESULT_KEYS = _STANDALONE_RESULT_KEYS | frozenset(
+    {"package_candidates", "package_decisions", "sol_calls",
+     "sol_listing_usage", "package_review_snapshots"}
 )
 
 
@@ -643,19 +698,167 @@ def _validate_standalone_estimate(
         _require_money_pair(res, f"{where}.headline", headline)
 
 
+def _require_sorted_unique_allow_empty(
+    res: ValidationResult, where: str, obj: Dict[str, Any], name: str,
+) -> Optional[List[str]]:
+    value = _require_str_list(res, where, obj, name, allow_empty=True)
+    if value is None:
+        return None
+    if len(value) != len(set(value)):
+        res.error(where, f"{name} must be unique")
+        return None
+    if value != sorted(value):
+        res.error(where, f"{name} must be sorted")
+        return None
+    return value
+
+
 def _validate_package_candidate(
     res: ValidationResult, where: str, obj: Dict[str, Any]
 ) -> None:
     _check_unknown(res, where, obj, _PACKAGE_CANDIDATE_FIELDS)
     _check_schema_version(res, where, obj)
     _require_id(res, where, obj, "package_candidate_id", "pk1")
-    _require_str(res, where, obj, "package_type")
-    _require_str(res, where, obj, "room_key")
-    children = _require_str_list(res, where, obj, "child_work_item_ids", allow_empty=False)
-    if children is not None and len(children) != len(set(children)):
-        res.error(where, "child_work_item_ids must be unique")
-    _require_str(res, where, obj, "proposed_treatment")
+    _require_choice(res, where, obj, "package_type", PACKAGE_TYPES)
+    _require_choice(res, where, obj, "package_category", PACKAGE_CATEGORIES)
+    _require_choice(res, where, obj, "package_level", PACKAGE_LEVELS)
+    _require_choice(res, where, obj, "room", PACKAGE_ROOMS)
+    _require_str(res, where, obj, "estimate_unit_id")
+    children = _require_sorted_unique_allow_empty(res, where, obj, "child_work_item_ids")
+    drivers = _require_sorted_unique_allow_empty(res, where, obj, "driver_work_item_ids")
+    supports = _require_sorted_unique_allow_empty(res, where, obj, "support_work_item_ids")
+    if children is not None and drivers is not None and supports is not None:
+        if set(drivers) & set(supports):
+            res.error(
+                where,
+                "driver_work_item_ids and support_work_item_ids must be "
+                "disjoint — driver precedence resolves dual roles",
+            )
+        if set(drivers) | set(supports) != set(children):
+            res.error(
+                where,
+                "child_work_item_ids must be exactly the union of driver and "
+                "support work item ids",
+            )
+    _require_choice(res, where, obj, "strength", PACKAGE_STRENGTHS)
+    _require_str(res, where, obj, "pricing_profile")
+    _require_str(res, where, obj, "pricing_tier")
+    scope = obj.get("absorption_scope")
+    if not isinstance(scope, dict) or set(scope) != _ABSORPTION_SCOPE_FIELDS:
+        res.error(
+            where,
+            "absorption_scope must be an object with exactly "
+            f"{sorted(_ABSORPTION_SCOPE_FIELDS)}",
+        )
+    else:
+        if not isinstance(scope.get("family"), str):
+            res.error(where, "absorption_scope.family must be a string")
+        for name in ("groups", "trade_buckets", "components"):
+            _require_sorted_unique_allow_empty(
+                res, f"{where}.absorption_scope", scope, name
+            )
+    _require_choice(res, where, obj, "proposed_treatment", PACKAGE_TREATMENTS)
+    unfloored_low = _require_int(res, where, obj, "unfloored_low", minimum=0)
+    unfloored_high = _require_int(res, where, obj, "unfloored_high", minimum=0)
+    if (
+        unfloored_low is not None and unfloored_high is not None
+        and unfloored_low > unfloored_high
+    ):
+        res.error(
+            where,
+            f"unfloored_low ({unfloored_low}) must not exceed "
+            f"unfloored_high ({unfloored_high})",
+        )
     _require_money_pair(res, where, obj)
+    low, high = obj.get("low"), obj.get("high")
+    if _is_int(low) and _is_int(high) and unfloored_low is not None and unfloored_high is not None:
+        if low < unfloored_low or high < unfloored_high:
+            res.error(
+                where,
+                "the floored range may only raise the unfloored tier range, "
+                "never lower it",
+            )
+        expected_floor = (low, high) != (unfloored_low, unfloored_high)
+        if obj.get("cost_floor_applied") != expected_floor:
+            res.error(
+                where,
+                f"cost_floor_applied must be {expected_floor} for "
+                f"{unfloored_low}/{unfloored_high} -> {low}/{high}",
+            )
+    if not isinstance(obj.get("cost_floor_applied"), bool):
+        res.error(where, "cost_floor_applied must be a boolean")
+    display_only = obj.get("display_only")
+    if not isinstance(display_only, bool):
+        res.error(where, "display_only must be a boolean")
+        return
+    contributing = _require_sorted_unique_allow_empty(
+        res, where, obj, "contributing_candidate_ids"
+    )
+    if display_only:
+        # The only display-only candidate this schema emits is the
+        # whole-home turnover aggregate: no children (contributor refs
+        # carry the lineage, so it can never absorb), fixed identity.
+        if children:
+            res.error(
+                where,
+                "display-only candidates carry no children — lineage flows "
+                "through contributing_candidate_ids",
+            )
+        if contributing is not None:
+            if not contributing:
+                res.error(
+                    where,
+                    "display-only candidates must cite their contributing "
+                    "candidates",
+                )
+            for candidate_id in contributing:
+                if not _ID_PATTERNS["pk1"].match(candidate_id):
+                    res.error(
+                        where,
+                        f"contributing candidate id {candidate_id!r} must "
+                        "match pk1_<16 hex>",
+                    )
+        for name, expected in (
+            ("package_type", WHOLE_HOME_PACKAGE_TYPE),
+            ("package_level", "property"),
+            ("room", "whole_home"),
+            ("estimate_unit_id", WHOLE_HOME_UNIT_ID),
+            ("package_category", "turnover"),
+            ("proposed_treatment", "whole_home_turnover_aggregate"),
+            ("pricing_profile", WHOLE_HOME_PRICING_PROFILE),
+            ("pricing_tier", WHOLE_HOME_PRICING_TIER),
+            ("cost_floor_applied", False),
+        ):
+            if obj.get(name) != expected:
+                res.error(
+                    where,
+                    f"display-only candidates must carry {name}={expected!r}, "
+                    f"got {obj.get(name)!r}",
+                )
+    else:
+        if children is not None and not children:
+            res.error(
+                where,
+                "child_work_item_ids must be non-empty — packages exist only "
+                "over accepted work",
+            )
+        if contributing:
+            res.error(
+                where,
+                "contributing_candidate_ids must be empty unless the "
+                "candidate is display-only",
+            )
+        if obj.get("package_level") == "property":
+            res.error(
+                where,
+                "property-level candidates must be display-only aggregates",
+            )
+        if obj.get("package_type") == WHOLE_HOME_PACKAGE_TYPE:
+            res.error(
+                where,
+                f"{WHOLE_HOME_PACKAGE_TYPE} is the display-only aggregate "
+                "and cannot be a room candidate",
+            )
 
 
 def _validate_package_decision(
@@ -666,11 +869,17 @@ def _validate_package_decision(
     _require_id(res, where, obj, "decision_id", "pd1")
     _require_id(res, where, obj, "package_candidate_id", "pk1")
     _require_choice(res, where, obj, "decision", PACKAGE_DECISIONS)
-    _require_str_list(res, where, obj, "combine_with", allow_empty=True)
+    combine = _require_sorted_unique_allow_empty(res, where, obj, "combine_with")
+    candidate_id = obj.get("package_candidate_id")
+    if combine and isinstance(candidate_id, str) and candidate_id in combine:
+        res.error(where, "combine_with cites itself")
     groups = obj.get("split_groups")
     if not isinstance(groups, list):
         res.error(where, "split_groups must be a list")
     else:
+        members: List[str] = []
+        normalized: List[List[str]] = []
+        groups_ok = True
         for index, group in enumerate(groups):
             if not isinstance(group, list) or not group or not all(
                 isinstance(entry, str) and entry for entry in group
@@ -679,9 +888,81 @@ def _validate_package_decision(
                     where,
                     f"split_groups[{index}] must be a non-empty list of work item ids",
                 )
+                groups_ok = False
+                continue
+            if group != sorted(group):
+                res.error(where, f"split_groups[{index}] must be sorted")
+                groups_ok = False
+            members.extend(group)
+            normalized.append(list(group))
+        if groups_ok and groups:
+            if len(groups) < 2:
+                res.error(where, "split_groups must contain at least two groups")
+            if len(members) != len(set(members)):
+                res.error(where, "split_groups must not repeat a work item")
+            if normalized != sorted(normalized, key=tuple):
+                res.error(where, "split_groups must be sorted by group")
+    if combine and groups:
+        res.error(
+            where,
+            "a candidate cannot participate in both combine and split treatment",
+        )
     _require_str(res, where, obj, "rationale", allow_empty=True)
     _require_str(res, where, obj, "model")
     _require_str(res, where, obj, "prompt_version")
+    _require_id(res, where, obj, "sol_call_id", "sc1")
+    fingerprint = _require_str(res, where, obj, "request_fingerprint")
+    if fingerprint is not None and not _SHA256_RE.match(fingerprint):
+        res.error(where, "request_fingerprint must be a sha256 hex digest")
+    _require_str(res, where, obj, "provider")
+
+
+def _validate_sol_call(res: ValidationResult, where: str, obj: Dict[str, Any]) -> None:
+    _check_unknown(res, where, obj, _SOL_CALL_FIELDS)
+    _check_schema_version(res, where, obj)
+    _require_id(res, where, obj, "call_id", "sc1")
+    candidate_ids = _require_sorted_unique_allow_empty(
+        res, where, obj, "package_candidate_ids"
+    )
+    if candidate_ids is not None and not candidate_ids:
+        res.error(where, "package_candidate_ids must be non-empty")
+    fingerprint = _require_str(res, where, obj, "request_fingerprint")
+    if fingerprint is not None and not _SHA256_RE.match(fingerprint):
+        res.error(where, "request_fingerprint must be a sha256 hex digest")
+    _require_str(res, where, obj, "provider")
+    _require_str(res, where, obj, "model")
+    _require_str(res, where, obj, "prompt_version")
+    _require_choice(res, where, obj, "usage_source", TERRA_USAGE_SOURCES)
+    for name in _SOL_TOKEN_FIELDS:
+        _require_int(res, where, obj, name, minimum=0)
+    cached = obj.get("cached_input_tokens")
+    inputs = obj.get("input_tokens")
+    if _is_int(cached) and _is_int(inputs) and cached > inputs:
+        res.error(
+            where,
+            f"cached_input_tokens ({cached}) must not exceed input_tokens ({inputs})",
+        )
+
+
+def _validate_sol_listing_usage(
+    res: ValidationResult, where: str, obj: Dict[str, Any]
+) -> None:
+    _check_unknown(res, where, obj, _SOL_LISTING_USAGE_FIELDS)
+    _check_schema_version(res, where, obj)
+    _require_int(res, where, obj, "call_count", minimum=0)
+    for name in _SOL_TOKEN_FIELDS:
+        _require_int(res, where, obj, name, minimum=0)
+
+
+def _validate_package_review_snapshots(
+    res: ValidationResult, where: str, obj: Dict[str, Any]
+) -> None:
+    _check_unknown(res, where, obj, _SNAPSHOT_FIELDS)
+    _check_schema_version(res, where, obj)
+    for name in sorted(_SNAPSHOT_FIELDS - {"schema_version"}):
+        value = _require_str(res, where, obj, name)
+        if value is not None and not _SHA256_RE.match(value):
+            res.error(where, f"{name} must be a sha256 hex digest")
 
 
 def _validate_ledger_entry(res: ValidationResult, where: str, obj: Dict[str, Any]) -> None:
@@ -849,6 +1130,15 @@ def validate_envelope(payload: Any) -> ValidationResult:
         else:
             res.extend(
                 validate_standalone_estimate_result(result, estimate_id=estimate_id or "")
+            )
+    elif state == "package_review_complete":
+        if reason is not None:
+            res.error(where, "package_review_complete reason must be null")
+        if not isinstance(result, dict):
+            res.error(where, "package_review_complete result must be an object")
+        else:
+            res.extend(
+                validate_package_review_result(result, estimate_id=estimate_id or "")
             )
     elif state == "complete":
         if reason is not None:
@@ -1807,4 +2097,355 @@ def validate_standalone_estimate_result(
             f"{expected_headline[1]} from the scope buckets, got "
             f"{headline['low']}/{headline['high']}",
         )
+    return res
+
+
+# ── Session 4 package-review result ──────────────────────────────────────────
+
+def package_review_snapshot_hashes(result: Mapping[str, Any]) -> Dict[str, str]:
+    """The immutability fingerprints over the layers Sol must never change.
+
+    One definition serves both the producer (tools/renovation_architecture/
+    sol_review.py) and the recompute check in the Session 4 gate below."""
+    return {
+        "condition_snapshot_sha256": sha256_canonical(
+            {key: result[key] for key in _CONDITION_SNAPSHOT_KEYS}
+        ),
+        "work_snapshot_sha256": sha256_canonical(
+            {key: result[key] for key in _WORK_SNAPSHOT_KEYS}
+        ),
+        "candidate_snapshot_sha256": sha256_canonical(
+            result["package_candidates"]
+        ),
+    }
+
+
+def validate_package_review_result(
+    result: Any, *, estimate_id: str
+) -> ValidationResult:
+    """Enforce the Session 4 package-review invariants over a result dict.
+
+    The result is the frozen Session 3 standalone result plus the package
+    layer: the standalone subset is re-validated verbatim by the frozen
+    Session 3 gate, then candidate lineage/economics, the closed Sol decision
+    semantics, call/usage telemetry reconciliation, and the snapshot
+    immutability fingerprints are enforced on top. Decision application, the
+    coverage ledger, and totals do not exist yet, so their keys are rejected.
+
+    Candidates may share a child work item (a collapse-policy work item can
+    contribute to two room candidates); absorbing it at most once is the
+    Session 5 ledger gate's invariant, not a candidate-shape constraint."""
+    res = ValidationResult()
+    where = "result"
+    if not isinstance(result, dict):
+        res.error(where, "must be an object")
+        return res
+    _check_unknown(res, where, result, _PACKAGE_REVIEW_RESULT_KEYS)
+    for key in ("package_candidates", "package_decisions", "sol_calls"):
+        if not isinstance(result.get(key), list):
+            res.error(where, f"{key} must be a list")
+            return res
+
+    standalone_subset = {
+        key: result[key] for key in _STANDALONE_RESULT_KEYS if key in result
+    }
+    res.extend(
+        validate_standalone_estimate_result(standalone_subset, estimate_id=estimate_id)
+    )
+
+    for key, validator in (
+        ("package_candidates", _validate_package_candidate),
+        ("package_decisions", _validate_package_decision),
+        ("sol_calls", _validate_sol_call),
+    ):
+        for index, record in enumerate(result[key]):
+            record_where = f"result.{key}[{index}]"
+            if not isinstance(record, dict):
+                res.error(record_where, "must be an object")
+                continue
+            validator(res, record_where, record)
+    listing_usage = result.get("sol_listing_usage")
+    if not isinstance(listing_usage, dict):
+        res.error(where, "sol_listing_usage must be an object")
+    else:
+        _validate_sol_listing_usage(res, "result.sol_listing_usage", listing_usage)
+    snapshots = result.get("package_review_snapshots")
+    if not isinstance(snapshots, dict):
+        res.error(where, "package_review_snapshots must be an object")
+    else:
+        _validate_package_review_snapshots(
+            res, "result.package_review_snapshots", snapshots
+        )
+    if not res.ok:
+        # Cross-record invariants assume individually valid records; reporting
+        # them over broken records would bury the root cause in noise.
+        return res
+
+    candidates = _index_by(
+        res, "result.package_candidates", result["package_candidates"],
+        "package_candidate_id",
+    )
+    decisions = _index_by(
+        res, "result.package_decisions", result["package_decisions"], "decision_id"
+    )
+    calls = _index_by(res, "result.sol_calls", result["sol_calls"], "call_id")
+    active_work = {
+        item["work_item_id"]: item
+        for item in result["work_items"]
+        if item["status"] == "active"
+    }
+    display_only_ids = {
+        candidate_id for candidate_id, candidate in candidates.items()
+        if candidate["display_only"]
+    }
+    if len(display_only_ids) > 1:
+        res.error(
+            "result.package_candidates",
+            "at most one display-only aggregate may exist, got "
+            f"{sorted(display_only_ids)}",
+        )
+
+    # Candidate lineage and floored economics.
+    for candidate_id, candidate in sorted(candidates.items()):
+        cand_where = "result.package_candidates"
+        if candidate["display_only"]:
+            contributors: List[Dict[str, Any]] = []
+            contributors_ok = True
+            for other_id in candidate["contributing_candidate_ids"]:
+                other = candidates.get(other_id)
+                if other is None:
+                    res.error(
+                        cand_where,
+                        f"{candidate_id} cites unknown contributing candidate "
+                        f"{other_id!r}",
+                    )
+                    contributors_ok = False
+                elif other["display_only"] or other["package_category"] != "turnover":
+                    res.error(
+                        cand_where,
+                        f"{candidate_id} contributor {other_id!r} must be a "
+                        "room turnover candidate",
+                    )
+                    contributors_ok = False
+                else:
+                    contributors.append(other)
+            if not contributors_ok:
+                continue
+            if len({other["room"] for other in contributors}) < 2:
+                res.error(
+                    cand_where,
+                    f"{candidate_id} needs turnover contributors from at "
+                    "least two distinct rooms",
+                )
+            expected = (
+                sum(other["low"] for other in contributors),
+                sum(other["high"] for other in contributors),
+            )
+            if (candidate["low"], candidate["high"]) != expected:
+                res.error(
+                    cand_where,
+                    f"{candidate_id} range must be exactly the sum of its "
+                    f"contributors' floored ranges {expected[0]}/{expected[1]}, "
+                    f"got {candidate['low']}/{candidate['high']}",
+                )
+            if (candidate["unfloored_low"], candidate["unfloored_high"]) != expected:
+                res.error(
+                    cand_where,
+                    f"{candidate_id} unfloored range must equal its floored "
+                    "range — the aggregate has no tier spec",
+                )
+            continue
+        child_low = 0
+        child_high = 0
+        lineage_ok = True
+        for child_id in candidate["child_work_item_ids"]:
+            child = active_work.get(child_id)
+            if child is None:
+                res.error(
+                    cand_where,
+                    f"{candidate_id} child {child_id!r} is not an ACTIVE work "
+                    "item — packages may only group active accepted work",
+                )
+                lineage_ok = False
+            else:
+                child_low += child["low"]
+                child_high += child["high"]
+        if lineage_ok:
+            expected_range = (
+                max(candidate["unfloored_low"], child_low),
+                max(candidate["unfloored_high"], child_high),
+            )
+            if (candidate["low"], candidate["high"]) != expected_range:
+                res.error(
+                    cand_where,
+                    f"{candidate_id} floored range must be exactly "
+                    "max(tier spec, children standalone sum) "
+                    f"{expected_range[0]}/{expected_range[1]}, got "
+                    f"{candidate['low']}/{candidate['high']}",
+                )
+
+    # Candidate <-> decision bijection: exactly one decision per candidate.
+    decided: Dict[str, Dict[str, Any]] = {}
+    for decision_id, decision in sorted(decisions.items()):
+        dec_where = "result.package_decisions"
+        candidate_id = decision["package_candidate_id"]
+        if candidate_id not in candidates:
+            res.error(
+                dec_where,
+                f"{decision_id} references unknown candidate {candidate_id!r}",
+            )
+            continue
+        if candidate_id in decided:
+            res.error(
+                dec_where,
+                f"candidate {candidate_id!r} has more than one decision",
+            )
+            continue
+        decided[candidate_id] = decision
+    for candidate_id in sorted(set(candidates) - set(decided)):
+        res.error(
+            "result.package_decisions",
+            f"candidate {candidate_id!r} has no decision — Sol must return "
+            "exactly one decision per supplied candidate",
+        )
+    if not res.ok:
+        return res
+
+    # Combine/split semantics and decision provenance. Combine references are
+    # undirected edges among approved candidates; a candidate participating
+    # in any combine edge cannot also split; display-only aggregates
+    # participate in neither treatment.
+    combine_participants: set = set()
+    for candidate_id, decision in decided.items():
+        if decision["combine_with"]:
+            combine_participants.add(candidate_id)
+            combine_participants.update(decision["combine_with"])
+    for candidate_id, decision in sorted(decided.items()):
+        dec_where = "result.package_decisions"
+        edges = decision["combine_with"]
+        groups = decision["split_groups"]
+        if edges:
+            if candidate_id in display_only_ids:
+                res.error(
+                    dec_where,
+                    f"display-only candidate {candidate_id!r} may not combine",
+                )
+            elif decision["decision"] != "approve":
+                res.error(
+                    dec_where,
+                    f"candidate {candidate_id!r} proposes combine_with but is "
+                    f"{decision['decision']!r} — combine edges may only join "
+                    "approved candidates",
+                )
+            for other_id in edges:
+                if other_id not in candidates:
+                    res.error(
+                        dec_where,
+                        f"candidate {candidate_id!r} combine_with cites "
+                        f"unknown candidate {other_id!r}",
+                    )
+                elif other_id in display_only_ids:
+                    res.error(
+                        dec_where,
+                        f"candidate {candidate_id!r} combine_with cites the "
+                        f"display-only candidate {other_id!r}",
+                    )
+                elif decided[other_id]["decision"] != "approve":
+                    res.error(
+                        dec_where,
+                        f"candidate {candidate_id!r} combine_with cites "
+                        f"{other_id!r}, whose decision is "
+                        f"{decided[other_id]['decision']!r} — combine edges "
+                        "may only join approved candidates",
+                    )
+        if groups:
+            if candidate_id in display_only_ids:
+                res.error(
+                    dec_where,
+                    f"display-only candidate {candidate_id!r} may not split",
+                )
+            elif candidate_id in combine_participants:
+                res.error(
+                    dec_where,
+                    f"candidate {candidate_id!r} participates in both combine "
+                    "and split treatment",
+                )
+            else:
+                proposed = sorted(
+                    child for group in groups for child in group
+                )
+                if proposed != list(candidates[candidate_id]["child_work_item_ids"]):
+                    res.error(
+                        dec_where,
+                        f"candidate {candidate_id!r} split_groups must exactly "
+                        "partition its children — no additions, omissions, or "
+                        "overlap",
+                    )
+        call = calls.get(decision["sol_call_id"])
+        if call is None:
+            res.error(
+                dec_where,
+                f"decision for {candidate_id!r} cites unknown Sol call "
+                f"{decision['sol_call_id']!r}",
+            )
+        else:
+            if decision["request_fingerprint"] != call["request_fingerprint"]:
+                res.error(
+                    dec_where,
+                    f"decision for {candidate_id!r} fingerprint does not match "
+                    "its Sol call",
+                )
+            if (
+                decision["model"] != call["model"]
+                or decision["prompt_version"] != call["prompt_version"]
+            ):
+                res.error(
+                    dec_where,
+                    f"decision for {candidate_id!r} model/prompt provenance "
+                    "does not match its Sol call",
+                )
+
+    # Sol call coverage and telemetry reconciliation. This session makes at
+    # most one listing-level call; zero candidates make zero calls.
+    if candidates and len(calls) != 1:
+        res.error(
+            "result.sol_calls",
+            "exactly one listing-level Sol call is required when candidates "
+            f"exist, got {len(calls)}",
+        )
+    if not candidates and calls:
+        res.error("result.sol_calls", "no Sol call may exist without candidates")
+    for call_id, call in sorted(calls.items()):
+        if list(call["package_candidate_ids"]) != sorted(candidates):
+            res.error(
+                "result.sol_calls",
+                f"{call_id} package_candidate_ids must be exactly the "
+                "supplied candidates",
+            )
+    listing = result["sol_listing_usage"]
+    if listing["call_count"] != len(calls):
+        res.error(
+            "result.sol_listing_usage",
+            f"call_count must be {len(calls)}, got {listing['call_count']}",
+        )
+    for name in _SOL_TOKEN_FIELDS:
+        expected_tokens = sum(call[name] for call in calls.values())
+        if listing[name] != expected_tokens:
+            res.error(
+                "result.sol_listing_usage",
+                f"{name} must be exactly {expected_tokens} from the Sol "
+                f"calls, got {listing[name]}",
+            )
+
+    # Snapshot immutability: condition, work, and candidate truth must be
+    # byte-identical through Sol review.
+    expected_hashes = package_review_snapshot_hashes(result)
+    recorded = result["package_review_snapshots"]
+    for name in sorted(expected_hashes):
+        if recorded[name] != expected_hashes[name]:
+            res.error(
+                "result.package_review_snapshots",
+                f"{name} does not match the recomputed section hash — Sol "
+                "review may not change condition, work, or candidate truth",
+            )
     return res
