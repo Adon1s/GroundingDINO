@@ -391,7 +391,7 @@ class Pass2fModelUnavailable(RuntimeError):
     """
 
 
-def _write_renovation_architecture_shadow(
+def _write_renovation_architecture_estimate(
     *,
     cfg: Any,
     photo_intel: Dict[str, Any],
@@ -406,25 +406,33 @@ def _write_renovation_architecture_shadow(
     vlm_client: Any = None,
     artifacts_root: Optional[Path] = None,
 ) -> None:
-    """Shadow seam beside the v4 estimator (Sessions 2-5).
+    """The new-architecture seam beside the v4 estimator (Sessions 2-6).
 
-    current mode adds zero keys; shadow mode runs the full new-architecture
-    chain and writes a private complete (or failed) envelope only to
-    analysis_debug (stripped from the slim artifact, so it reaches
-    photo_intel_debug.json and never the frontend). Never raises: a shadow
-    failure must not fail the job or touch renovation_estimate_v4 — typed
-    failures become a valid failed envelope carrying their taxonomy category,
-    and if even that construction fails the key is omitted entirely; a
-    malformed envelope must never reach the artifact (the publication gate
-    enforces the same rule).
+    Three modes, three different contracts:
+
+    - current: zero keys, nothing computed.
+    - shadow: the full chain, written PRIVATELY to analysis_debug (stripped
+      from the slim artifact, so it reaches photo_intel_debug.json and never
+      the frontend). Never raises — a shadow failure must not fail the job or
+      touch renovation_estimate_v4; typed failures become a valid failed
+      envelope carrying their taxonomy category, and if even that construction
+      fails the key is omitted entirely.
+    - new (Session 6 cutover): the new engine is authoritative. A COMPLETE
+      envelope goes to the artifact root; there is no private copy, and
+      failure is job-fatal rather than a silently missing estimate. v4 is
+      still computed and kept independently for comparison and rollback.
+
+    A malformed envelope must never reach the artifact in any mode (the
+    publication gate enforces the same rule).
     """
-    try:
-        mode = getattr(cfg, "RENOVATION_ARCHITECTURE_MODE", "current") or "current"
-        if mode != "shadow":
-            return
-        from tools.renovation_architecture.runtime import build_shadow_envelope
+    mode = getattr(cfg, "RENOVATION_ARCHITECTURE_MODE", "current") or "current"
+    if mode == "current":
+        return
 
-        envelope = build_shadow_envelope(
+    def _build() -> Dict[str, Any]:
+        from tools.renovation_architecture.runtime import build_estimate_envelope
+
+        return build_estimate_envelope(
             property_key=property_key,
             run_id=run_id,
             created_at=created_at,
@@ -437,6 +445,37 @@ def _write_renovation_architecture_shadow(
             api_key=getattr(cfg, "OPENAI_API_KEY", "") or "",
             artifacts_root=artifacts_root,
         )
+
+    if mode == "new":
+        # Authoritative: no swallowing. A failed/partial envelope must fail the
+        # job instead of publishing an artifact with no estimate.
+        envelope = _build()
+        state = envelope.get("state") if isinstance(envelope, dict) else None
+        if state != "complete":
+            reason = (
+                envelope.get("reason") if isinstance(envelope, dict) else None
+            ) or "unknown"
+            detail = (
+                envelope.get("error_detail") if isinstance(envelope, dict) else None
+            ) or ""
+            raise PassExecutionError(
+                "renovation_architecture", "publish",
+                f"authoritative renovation estimate is not complete "
+                f"(state={state!r}, reason={reason!r}) {detail}".strip(),
+                code="AuthoritativeEstimateIncomplete",
+            )
+        photo_intel[SHADOW_DEBUG_KEY] = envelope
+        # Root and private placement are mutually exclusive; the publication
+        # gate rejects an artifact carrying both.
+        debug = photo_intel.get("analysis_debug")
+        if isinstance(debug, dict):
+            debug.pop(SHADOW_DEBUG_KEY, None)
+        return
+
+    if mode != "shadow":
+        return
+    try:
+        envelope = _build()
         debug = photo_intel.get("analysis_debug")
         if isinstance(debug, dict):
             debug[SHADOW_DEBUG_KEY] = envelope
@@ -1126,15 +1165,15 @@ def write_photo_intel(
     output_path = output_path or Path(job.artifacts_dir) / "photo_intel.json"
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # -- Renovation architecture shadow seam (Session 2: condition review) -----
+    # -- Renovation architecture seam (Sessions 2-6) ---------------------------
     # Placed after the v4 try/except so a shadow failure can never land in the
-    # v4 failure path, and before the publication gate/writes so the private
-    # envelope reaches photo_intel_debug.json alongside the canonical payload.
-    # run_id prefers the stable external source run id (server API runId) so
-    # Terra checkpoints and estimate identity survive worker retries; CLI jobs
-    # fall back to their job id. artifacts_root recovers the run's root from
-    # the job dir (<artifacts_root>/<property_key>/<job_id>).
-    _write_renovation_architecture_shadow(
+    # v4 failure path, and before the publication gate/writes so the envelope
+    # (private in shadow, root in new) reaches the artifact alongside the
+    # canonical payload. run_id prefers the stable external source run id
+    # (server API runId) so Terra checkpoints and estimate identity survive
+    # worker retries; CLI jobs fall back to their job id. artifacts_root
+    # recovers the run's root from <artifacts_root>/<property_key>/<job_id>.
+    _write_renovation_architecture_estimate(
         cfg=cfg,
         photo_intel=photo_intel,
         property_key=job.property_key,

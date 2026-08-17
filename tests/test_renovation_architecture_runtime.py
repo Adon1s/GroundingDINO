@@ -28,6 +28,7 @@ from tools.renovation_architecture.runtime import (
     reset_runtime_for_tests,
 )
 from tools.renovation_architecture.validators import validate_envelope
+from tools.scene_classifier_passes import PassExecutionError
 
 ROOT = Path(__file__).resolve().parents[1]
 SHIPPED_V2_PATH = ROOT / "tools" / "issue_catalog_kind_v2.json"
@@ -42,13 +43,14 @@ def _clean_runtime():
 
 def _init_shadow(
     *,
+    mode="shadow",
     terra_model="terra-test",
     terra_max_output_tokens=8192,
     sol_model="sol-test",
     sol_max_output_tokens=8192,
 ):
     initialize_renovation_architecture(
-        mode="shadow",
+        mode=mode,
         catalog=load_issue_catalog(SHIPPED_V2_PATH),
         catalog_path=SHIPPED_V2_PATH,
         kind_ontology_version="observation_kind_v2",
@@ -89,10 +91,21 @@ class TestSelector:
                 kind_ontology_version=cfg.KIND_ONTOLOGY_LEGACY_V1,
             )
 
-    def test_new_is_recognized_but_unavailable(self):
-        with pytest.raises(ValueError, match="Session 6"):
+    def test_new_resolves_under_the_v2_ontology(self):
+        assert (
             cfg.resolve_renovation_architecture(
                 cfg.RENOVATION_ARCH_NEW, kind_ontology_version=cfg.KIND_ONTOLOGY_V2
+            )
+            == cfg.RENOVATION_ARCH_NEW
+        )
+
+    def test_new_requires_the_v2_ontology(self):
+        """The authoritative mode gets the same catalog coupling as shadow —
+        the new engine accepts only the v3.1 catalog."""
+        with pytest.raises(ValueError, match="requires"):
+            cfg.resolve_renovation_architecture(
+                cfg.RENOVATION_ARCH_NEW,
+                kind_ontology_version=cfg.KIND_ONTOLOGY_LEGACY_V1,
             )
 
     def test_invalid_values_fail_startup(self):
@@ -243,14 +256,52 @@ class TestInitialize:
             )
         assert get_runtime() is None
 
-    def test_new_mode_cannot_initialize(self):
-        with pytest.raises(RenovationArchitectureInitError, match="Session 6"):
+    def test_new_mode_initializes_like_shadow(self):
+        initialize_renovation_architecture(
+            mode="new",
+            catalog=load_issue_catalog(SHIPPED_V2_PATH),
+            catalog_path=SHIPPED_V2_PATH,
+            kind_ontology_version="observation_kind_v2",
+            terra_model="terra-test",
+            sol_model="sol-test",
+        )
+        runtime = get_runtime()
+        assert runtime is not None
+        assert runtime.mode == "new"
+
+    def test_new_mode_enforces_the_same_startup_validation(self):
+        """Opening the authoritative mode must not open a weaker door: the
+        ontology/model checks that gate shadow gate new identically."""
+        with pytest.raises(RenovationArchitectureInitError, match="Terra model"):
             initialize_renovation_architecture(
                 mode="new",
-                catalog={},
+                catalog=load_issue_catalog(SHIPPED_V2_PATH),
                 catalog_path=SHIPPED_V2_PATH,
                 kind_ontology_version="observation_kind_v2",
+                terra_model="",
+                sol_model="sol-test",
             )
+        assert get_runtime() is None
+        with pytest.raises(RenovationArchitectureInitError, match="Sol model"):
+            initialize_renovation_architecture(
+                mode="new",
+                catalog=load_issue_catalog(SHIPPED_V2_PATH),
+                catalog_path=SHIPPED_V2_PATH,
+                kind_ontology_version="observation_kind_v2",
+                terra_model="terra-test",
+                sol_model="",
+            )
+        assert get_runtime() is None
+        with pytest.raises(RenovationArchitectureInitError, match="KIND_ONTOLOGY"):
+            initialize_renovation_architecture(
+                mode="new",
+                catalog=load_issue_catalog(SHIPPED_V2_PATH),
+                catalog_path=SHIPPED_V2_PATH,
+                kind_ontology_version="legacy_v1",
+                terra_model="terra-test",
+                sol_model="sol-test",
+            )
+        assert get_runtime() is None
 
     def test_reinitialization_is_idempotent(self):
         _init_shadow()
@@ -492,9 +543,83 @@ class TestWriterSeam:
         assert isinstance(debug["renovation_estimate_v4"], dict)
         assert "analysis_debug" not in slim
 
+    # ── new mode: the Session 6 cutover contract ─────────────────────────────
+
+    def test_new_writes_the_authoritative_envelope_at_the_root(self, tmp_path):
+        """The cutover contract: a complete envelope at the artifact root,
+        stamped 'new', with v4 still present for comparison/rollback and NO
+        private copy (the publication gate rejects both placements at once)."""
+        _init_shadow(mode="new")
+        slim, debug = _run_writer(
+            tmp_path,
+            SimpleNamespace(LM_STUDIO_MODEL="test-model",
+                            RENOVATION_ARCHITECTURE_MODE="new"),
+        )
+        envelope = debug[SHADOW_DEBUG_KEY]
+        res = validate_envelope(envelope)
+        assert res.ok, res.errors
+        assert envelope["state"] == "complete"
+        assert envelope["provenance"]["architecture_mode"] == "new"
+        assert envelope["provenance"]["catalog_version"] == "3.1"
+        # v4 survives the cutover: it is the comparison and rollback path.
+        assert isinstance(debug["renovation_estimate_v4"], dict)
+        # No private copy anywhere.
+        assert SHADOW_DEBUG_KEY not in (debug.get("analysis_debug") or {})
+        # The authoritative estimate is canonical output, so it reaches the
+        # slim artifact too (analysis_debug never does).
+        assert slim[SHADOW_DEBUG_KEY]["state"] == "complete"
+        assert "analysis_debug" not in slim
+
+    def test_new_mode_failure_fails_the_job(self, tmp_path, monkeypatch):
+        """In shadow a seam failure is silently omitted; in new mode the
+        estimate is authoritative, so a failure must fail the job rather than
+        publish an artifact with no estimate of record."""
+        _init_shadow(mode="new")
+
+        def _boom(**_kwargs):
+            raise RuntimeError("synthetic seam failure")
+
+        monkeypatch.setattr(
+            "tools.renovation_architecture.runtime.build_estimate_envelope", _boom
+        )
+        with pytest.raises(RuntimeError, match="synthetic seam failure"):
+            _run_writer(
+                tmp_path,
+                SimpleNamespace(LM_STUDIO_MODEL="test-model",
+                                RENOVATION_ARCHITECTURE_MODE="new"),
+            )
+
+    def test_new_mode_refuses_to_publish_an_incomplete_envelope(
+        self, tmp_path, monkeypatch
+    ):
+        """A `failed` envelope is a legitimate shadow artifact but must never
+        become the authoritative estimate."""
+        _init_shadow(mode="new")
+
+        def _failed(**_kwargs):
+            return {
+                "schema_version": 5,
+                "estimate_id": "rea1_deadbeefdeadbeef",
+                "state": "failed",
+                "reason": "provider",
+                "error_detail": "synthetic",
+                "provenance": {},
+                "result": None,
+            }
+
+        monkeypatch.setattr(
+            "tools.renovation_architecture.runtime.build_estimate_envelope", _failed
+        )
+        with pytest.raises(PassExecutionError, match="not complete"):
+            _run_writer(
+                tmp_path,
+                SimpleNamespace(LM_STUDIO_MODEL="test-model",
+                                RENOVATION_ARCHITECTURE_MODE="new"),
+            )
+
     def test_seam_failure_cannot_fail_the_job(self, tmp_path, monkeypatch):
         """A seam-level explosion (not a typed pipeline failure — those become
-        valid failed envelopes inside build_shadow_envelope) must omit the key
+        valid failed envelopes inside build_estimate_envelope) must omit the key
         entirely rather than write a malformed envelope: the publication gate
         would reject anything less than a valid complete/failed envelope."""
         _init_shadow()
@@ -503,7 +628,7 @@ class TestWriterSeam:
             raise RuntimeError("synthetic seam failure")
 
         monkeypatch.setattr(
-            "tools.renovation_architecture.runtime.build_shadow_envelope", _boom
+            "tools.renovation_architecture.runtime.build_estimate_envelope", _boom
         )
         slim, debug = _run_writer(
             tmp_path,
@@ -526,7 +651,7 @@ class TestWriterSeam:
         from tools import artifact_writers
 
         monkeypatch.setattr(
-            "tools.renovation_architecture.runtime.build_shadow_envelope", _boom
+            "tools.renovation_architecture.runtime.build_estimate_envelope", _boom
         )
         monkeypatch.setattr(
             artifact_writers,

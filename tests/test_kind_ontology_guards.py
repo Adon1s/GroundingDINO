@@ -293,11 +293,12 @@ def test_load_issue_catalog_passes_root_metadata_through(tmp_path):
     assert loaded["publication_status"] == "blocked_pending_pricing"
 
 
-# ── renovation-architecture envelope gate (Session 5) ────────────────────────
+# ── renovation-architecture envelope gate (Sessions 5-6) ─────────────────────
 #
 # The private shadow key (analysis_debug.<SHADOW_DEBUG_KEY>) may hold only a
-# valid finished envelope; the same key at the photo_intel root is reserved
-# for the Session 6 cutover and must already be a valid complete envelope.
+# valid finished envelope; the same key at the photo_intel root is the
+# authoritative Session 6 placement and must be a valid complete envelope
+# stamped architecture_mode='new'. The two placements are mutually exclusive.
 
 def _failed_envelope():
     from tests.test_renovation_architecture_contracts import _scaffold_envelope
@@ -308,15 +309,24 @@ def _failed_envelope():
     )
 
 
-def _complete_envelope():
+def _complete_envelope(*, architecture_mode=None):
     from tests.test_renovation_architecture_contracts import (
         _complete_result,
         _scaffold_envelope,
     )
 
-    return _scaffold_envelope(
+    envelope = _scaffold_envelope(
         state="complete", reason=None, result=_complete_result()
     )
+    if architecture_mode is not None:
+        envelope["provenance"]["architecture_mode"] = architecture_mode
+    return envelope
+
+
+def _authoritative_envelope():
+    """What the cutover writes at the root: complete AND produced by the
+    authoritative engine."""
+    return _complete_envelope(architecture_mode="new")
 
 
 def _shadow_key():
@@ -375,15 +385,37 @@ def test_gate_rejects_partial_private_envelope(v2_catalog):
 
 
 def test_gate_accepts_valid_complete_root_envelope(v2_catalog):
-    payload = _v2_payload(v2_catalog, **{_shadow_key(): _complete_envelope()})
+    payload = _v2_payload(v2_catalog, **{_shadow_key(): _authoritative_envelope()})
     validate_publication_payload(payload, v2_catalog)
 
 
 def test_gate_rejects_non_complete_root_envelope(v2_catalog):
-    """The root key is reserved for the cutover: even a valid failed envelope
+    """The root key is the estimate of record: even a valid failed envelope
     may not occupy it."""
     payload = _v2_payload(v2_catalog, **{_shadow_key(): _failed_envelope()})
-    with pytest.raises(RuntimeError, match="reserved for the cutover"):
+    with pytest.raises(RuntimeError, match="must be a valid 'complete' envelope"):
+        validate_publication_payload(payload, v2_catalog)
+
+
+def test_gate_rejects_root_envelope_not_from_the_authoritative_engine(v2_catalog):
+    """A shadow-stamped envelope at the root would publish a private
+    experiment as the estimate of record."""
+    payload = _v2_payload(
+        v2_catalog, **{_shadow_key(): _complete_envelope(architecture_mode="shadow")}
+    )
+    with pytest.raises(RuntimeError, match="architecture_mode='new'"):
+        validate_publication_payload(payload, v2_catalog)
+
+
+def test_gate_rejects_simultaneous_private_and_root_envelopes(v2_catalog):
+    """Two estimates of record with no tiebreak rule — reject rather than
+    guess which one the frontend should believe."""
+    payload = _v2_payload(
+        v2_catalog,
+        analysis_debug={_shadow_key(): _complete_envelope()},
+        **{_shadow_key(): _authoritative_envelope()},
+    )
+    with pytest.raises(RuntimeError, match="mutually exclusive"):
         validate_publication_payload(payload, v2_catalog)
 
 

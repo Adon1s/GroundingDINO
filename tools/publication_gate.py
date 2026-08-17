@@ -178,9 +178,13 @@ def _validate_renovation_architecture_keys(photo_intel: Mapping[str, Any]) -> No
     The private shadow key (analysis_debug.<SHADOW_DEBUG_KEY>) may hold only
     a valid finished envelope — 'complete' or 'failed'; partial, mixed-version,
     or malformed payloads fail before writing. The same key at the photo_intel
-    root is reserved for the Session 6 cutover and must already be a valid
-    'complete' envelope. Imports are local so publications that carry neither
-    key never pay for the validator chain.
+    root is the authoritative Session 6 placement: it must be a valid
+    'complete' envelope stamped architecture_mode='new'.
+
+    The two placements are mutually exclusive. One artifact carrying both
+    would leave two estimates of record with no rule for which one wins, so
+    it is rejected outright. Imports are local so publications that carry
+    neither key never pay for the validator chain.
     """
     debug = photo_intel.get("analysis_debug")
     from tools.renovation_architecture.contracts import SHADOW_DEBUG_KEY
@@ -189,6 +193,11 @@ def _validate_renovation_architecture_keys(photo_intel: Mapping[str, Any]) -> No
     root = photo_intel.get(SHADOW_DEBUG_KEY)
     if private is None and root is None:
         return
+    if private is not None and root is not None:
+        _reject(
+            f"{SHADOW_DEBUG_KEY} is present both privately and at the root — "
+            "shadow and authoritative placement are mutually exclusive."
+        )
     from tools.renovation_architecture.validators import validate_envelope
 
     if private is not None:
@@ -218,7 +227,14 @@ def _validate_renovation_architecture_keys(photo_intel: Mapping[str, Any]) -> No
             )
         if root.get("state") != "complete":
             _reject(
-                f"root {SHADOW_DEBUG_KEY} is reserved for the cutover and "
+                f"root {SHADOW_DEBUG_KEY} is the authoritative estimate and "
                 f"must be a valid 'complete' envelope, got state "
                 f"{root.get('state')!r}."
+            )
+        provenance = root.get("provenance")
+        mode = provenance.get("architecture_mode") if isinstance(provenance, Mapping) else None
+        if mode != "new":
+            _reject(
+                f"root {SHADOW_DEBUG_KEY} must be produced by the authoritative "
+                f"engine (architecture_mode='new'), got {mode!r}."
             )

@@ -21,6 +21,7 @@ so model choice is controlled and only the code/ontology differs.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -72,6 +73,45 @@ def _preflight_embeddings() -> bool:
     return False
 
 
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _frozen_images(property_key: str, entry: dict) -> list[str] | None:
+    """Frozen image paths, or None when the freeze no longer matches disk.
+
+    A canary replica is only comparable if every replica saw byte-identical
+    input, so a changed/missing image fails the property instead of silently
+    running on whatever is on disk now.
+    """
+    rows = entry.get("images") or []
+    if not rows:
+        print(f"{property_key}: freeze lists no images", file=sys.stderr)
+        return None
+    images: list[str] = []
+    for row in rows:
+        path = Path(row["path"])
+        if not path.is_file():
+            print(f"{property_key}: frozen image is gone: {path}", file=sys.stderr)
+            return None
+        expected = row.get("sha256")
+        if expected:
+            actual = _sha256_file(path)
+            if actual != expected:
+                print(
+                    f"{property_key}: frozen image changed on disk: {path}\n"
+                    f"  expected sha256 {expected}\n  found    sha256 {actual}",
+                    file=sys.stderr,
+                )
+                return None
+        images.append(str(path))
+    return images
+
+
 def _latest_run_artifact(property_key: str) -> Path | None:
     prop_dir = ARTIFACT_CORPUS / property_key
     if not prop_dir.is_dir():
@@ -85,7 +125,12 @@ def _latest_run_artifact(property_key: str) -> Path | None:
 
 def _stored_property_metadata(property_key: str) -> dict:
     """Same-inputs discipline: metadata comes from the stored baseline
-    artifact, not a fresh scrape."""
+    artifact, not a fresh scrape.
+
+    The listing facts live at the artifact ROOT under `property_metadata`;
+    `property.metadata` is null in current artifacts (the `property` block
+    holds a flattened projection instead), so it is only a legacy fallback.
+    """
     artifact_path = _latest_run_artifact(property_key)
     if artifact_path is None:
         return {}
@@ -93,6 +138,9 @@ def _stored_property_metadata(property_key: str) -> dict:
         artifact = json.loads(artifact_path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return {}
+    metadata = artifact.get("property_metadata")
+    if isinstance(metadata, dict) and metadata:
+        return metadata
     prop = artifact.get("property")
     if isinstance(prop, dict):
         metadata = prop.get("metadata")
@@ -111,6 +159,10 @@ def main(argv=None) -> int:
     parser.add_argument("--model-map", type=Path, default=DEFAULT_MODEL_MAP,
                         help="model map JSON applied to BOTH sides so models are controlled")
     parser.add_argument("--only", help="run a single property_key (retry helper)")
+    parser.add_argument("--input-freeze", type=Path, default=None,
+                        help="frozen-input JSON: run from its recorded image paths "
+                             "(SHA-256 verified) and stored property metadata "
+                             "instead of discovering both from disk")
     parser.add_argument("--allow-proposed", action="store_true",
                         help="run against a manifest that is not frozen yet")
     parser.add_argument("--skip-preflight", action="store_true",
@@ -125,6 +177,11 @@ def main(argv=None) -> int:
         print("error: manifest status is not 'frozen'; get approval or pass --allow-proposed",
               file=sys.stderr)
         return 2
+
+    frozen_properties: dict | None = None
+    if args.input_freeze is not None:
+        freeze = json.loads(args.input_freeze.read_text(encoding="utf-8"))
+        frozen_properties = freeze.get("properties") or {}
 
     routing = json.loads(args.model_map.read_text(encoding="utf-8"))
     model_map = routing.get("model_map") or {}
@@ -170,15 +227,31 @@ def main(argv=None) -> int:
         if any((out_root / key).glob("*/photo_intel.json")):
             print(f"[{index}/{len(rows)}] {key}: already has an artifact, skipping (delete to re-run)")
             continue
-        images = sorted(
-            str(p) for p in (IMAGES_ROOT / key).iterdir()
-            if p.suffix.lower() in IMAGE_SUFFIXES
-        )
-        if not images:
-            print(f"[{index}/{len(rows)}] {key}: NO IMAGES on disk — skipping", file=sys.stderr)
-            failures.append(key)
-            continue
-        metadata = _stored_property_metadata(key)
+        if frozen_properties is not None:
+            entry = frozen_properties.get(key)
+            if not isinstance(entry, dict):
+                print(f"[{index}/{len(rows)}] {key}: manifest/freeze drift — not in the "
+                      "input freeze", file=sys.stderr)
+                failures.append(key)
+                continue
+            frozen = _frozen_images(key, entry)
+            if frozen is None:
+                print(f"[{index}/{len(rows)}] {key}: FROZEN INPUT MISMATCH — skipping",
+                      file=sys.stderr)
+                failures.append(key)
+                continue
+            images = frozen
+            metadata = entry.get("property_metadata") or {}
+        else:
+            images = sorted(
+                str(p) for p in (IMAGES_ROOT / key).iterdir()
+                if p.suffix.lower() in IMAGE_SUFFIXES
+            )
+            if not images:
+                print(f"[{index}/{len(rows)}] {key}: NO IMAGES on disk — skipping", file=sys.stderr)
+                failures.append(key)
+                continue
+            metadata = _stored_property_metadata(key)
         cmd = [
             str(python_exe), str(analyzer),
             "--property-key", key,

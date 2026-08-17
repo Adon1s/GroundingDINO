@@ -128,7 +128,9 @@ PIPELINE_MODE = _KIND_ONTOLOGY.pipeline_mode
 #   shadow  -> v4 unchanged, plus a private scaffold envelope in analysis_debug
 #              (requires the v2 ontology selector: the new engine accepts only
 #              the v3.1 catalog)
-#   new     -> recognized but unavailable until the Session 6 cutover
+#   new     -> the new engine is authoritative: a complete v5 envelope at the
+#              artifact root, v4 still emitted independently, no private copy
+#              (same v2-ontology requirement as shadow)
 # Invalid values and incompatible combinations raise here at import — i.e.
 # process startup — in every entry point. This selector derives nothing else:
 # ISSUE_CATALOG_PATH and PIPELINE_MODE stay owned by the kind-ontology
@@ -143,20 +145,15 @@ def resolve_renovation_architecture(raw: str, *, kind_ontology_version: str) -> 
     """Validate a RENOVATION_ARCHITECTURE_MODE value against the ontology."""
     if raw == RENOVATION_ARCH_CURRENT:
         return raw
-    if raw == RENOVATION_ARCH_SHADOW:
+    if raw in (RENOVATION_ARCH_SHADOW, RENOVATION_ARCH_NEW):
         if kind_ontology_version != KIND_ONTOLOGY_V2:
             raise ValueError(
-                f"RENOVATION_ARCHITECTURE_MODE={RENOVATION_ARCH_SHADOW} requires "
+                f"RENOVATION_ARCHITECTURE_MODE={raw} requires "
                 f"KIND_ONTOLOGY_VERSION={KIND_ONTOLOGY_V2}, got "
                 f"{kind_ontology_version!r}: the new engine accepts only the "
                 "v3.1 catalog"
             )
         return raw
-    if raw == RENOVATION_ARCH_NEW:
-        raise ValueError(
-            f"RENOVATION_ARCHITECTURE_MODE={RENOVATION_ARCH_NEW} is unavailable "
-            "until the Session 6 cutover"
-        )
     raise ValueError(
         f"invalid RENOVATION_ARCHITECTURE_MODE {raw!r}; expected "
         f"{RENOVATION_ARCH_CURRENT!r}, {RENOVATION_ARCH_SHADOW!r}, or "
@@ -220,11 +217,26 @@ def resolve_renovation_terra_max_output_tokens(raw: Optional[str]) -> int:
     return value
 
 
+def resolve_renovation_terra_usage_root(raw: Optional[str]) -> Optional[str]:
+    """Optional shared root for the Terra daily-budget ledger.
+
+    Empty (the default) keeps the ledger under each run's own artifacts root.
+    Setting it points several artifacts roots at ONE daily ledger, so the
+    2.5M/day ceiling is enforced across them — the Session 6 canary runs two
+    isolated replica roots that must share one budget.
+    """
+    value = (raw or "").strip()
+    return value or None
+
+
 RENOVATION_TERRA_MODEL = resolve_renovation_terra_model(
     os.environ.get("RENOVATION_TERRA_MODEL", ""), openai_model=OPENAI_MODEL
 )
 RENOVATION_TERRA_MAX_OUTPUT_TOKENS = resolve_renovation_terra_max_output_tokens(
     os.environ.get("RENOVATION_TERRA_MAX_OUTPUT_TOKENS")
+)
+RENOVATION_TERRA_USAGE_ROOT = resolve_renovation_terra_usage_root(
+    os.environ.get("RENOVATION_TERRA_USAGE_ROOT")
 )
 
 # =============================================================================

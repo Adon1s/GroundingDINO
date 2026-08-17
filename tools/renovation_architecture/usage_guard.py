@@ -1,6 +1,8 @@
 """Cross-process Terra daily token budget (2,500,000/day, UTC).
 
-A SQLite ledger under <artifacts_root>/.renovation_architecture/. Every Terra
+A SQLite ledger under <artifacts_root>/.renovation_architecture/, or under
+RENOVATION_TERRA_USAGE_ROOT when several artifacts roots must share one daily
+budget. Every Terra
 call reserves a conservative token estimate inside one BEGIN IMMEDIATE
 transaction (write lock up front, so concurrent workers on one artifacts root
 serialize — including across processes on Windows), then settles to the
@@ -63,14 +65,27 @@ def estimate_reservation_tokens(
     )
 
 
+def resolve_ledger_root(artifacts_root: Path, *, override: Optional[str] = None) -> Path:
+    """Where the daily ledger lives: the run's artifacts root by default, or a
+    shared override (RENOVATION_TERRA_USAGE_ROOT) so several artifacts roots
+    debit ONE daily budget."""
+    if override and str(override).strip():
+        return Path(str(override).strip())
+    return Path(artifacts_root)
+
+
 class TerraUsageLedger:
     def __init__(
         self,
         artifacts_root: Path,
         *,
         daily_ceiling: int = TERRA_DAILY_TOKEN_CEILING,
+        usage_root_override: Optional[str] = None,
     ):
-        self._path = Path(artifacts_root) / LEDGER_RELATIVE_PATH
+        self._path = (
+            resolve_ledger_root(artifacts_root, override=usage_root_override)
+            / LEDGER_RELATIVE_PATH
+        )
         self._daily_ceiling = int(daily_ceiling)
 
     @property

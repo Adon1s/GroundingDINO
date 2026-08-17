@@ -6,6 +6,7 @@ Run: .venv\\Scripts\\python.exe -m pytest tests/test_renovation_architecture_usa
 """
 import sqlite3
 import threading
+from pathlib import Path
 
 import pytest
 
@@ -25,6 +26,7 @@ from tools.renovation_architecture.usage_guard import (
     TerraDailyBudgetExceeded,
     TerraUsageLedger,
     estimate_reservation_tokens,
+    resolve_ledger_root,
 )
 from tools.scene_classifier_passes import PassExecutionError
 
@@ -235,3 +237,46 @@ class TestPipelineUsage:
         ])
         _run_review(tmp_path, runtime, issues, photos, paths, fake)
         assert (tmp_path / "artifacts" / LEDGER_RELATIVE_PATH).is_file()
+
+
+class TestSharedUsageRoot:
+    """RENOVATION_TERRA_USAGE_ROOT: several artifacts roots, one daily budget.
+
+    The Session 6 canary runs two isolated replica roots that must not each
+    get their own 2.5M/day allowance.
+    """
+
+    def test_override_redirects_the_ledger_path(self, tmp_path):
+        shared = tmp_path / "shared"
+        ledger = TerraUsageLedger(
+            tmp_path / "replica_1", usage_root_override=str(shared)
+        )
+        assert ledger.path == shared / LEDGER_RELATIVE_PATH
+
+    def test_default_keeps_the_per_run_artifacts_root(self, tmp_path):
+        for override in (None, "", "   "):
+            ledger = TerraUsageLedger(tmp_path, usage_root_override=override)
+            assert ledger.path == tmp_path / LEDGER_RELATIVE_PATH
+
+    def test_separate_roots_share_one_daily_ceiling(self, tmp_path):
+        """Without the override each replica would get a full allowance; with
+        it, replica 2's reservation is denied by replica 1's spend."""
+        shared = str(tmp_path / "shared")
+        replica_1 = TerraUsageLedger(
+            tmp_path / "run_1", usage_root_override=shared, daily_ceiling=100_000
+        )
+        replica_2 = TerraUsageLedger(
+            tmp_path / "run_2", usage_root_override=shared, daily_ceiling=100_000
+        )
+        _reserve(replica_1, tokens=60_000)
+        with pytest.raises(TerraDailyBudgetExceeded):
+            _reserve(replica_2, tokens=60_000)
+        # The same reservation succeeds when the roots are NOT shared.
+        isolated = TerraUsageLedger(tmp_path / "run_2", daily_ceiling=100_000)
+        assert _reserve(isolated, tokens=60_000)
+
+    def test_resolver_is_pure(self, tmp_path):
+        assert resolve_ledger_root(tmp_path) == tmp_path
+        assert resolve_ledger_root(tmp_path, override=" C:/shared ") == Path(
+            "C:/shared"
+        )

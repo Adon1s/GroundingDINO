@@ -233,7 +233,14 @@ def run_condition_review(
                 code="MissingSeamInput",
             )
         if ledger is None:
-            ledger = TerraUsageLedger(Path(artifacts_root))
+            from tools import pipeline_config as cfg
+
+            ledger = TerraUsageLedger(
+                Path(artifacts_root),
+                usage_root_override=getattr(
+                    cfg, "RENOVATION_TERRA_USAGE_ROOT", None
+                ),
+            )
         request = build_unit_request(
             estimate_unit_id=unit_id,
             unit_pairs=units[unit_id],

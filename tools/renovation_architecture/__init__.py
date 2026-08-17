@@ -1,4 +1,4 @@
-"""Renovation architecture v1: contracts, validators, and shadow runtime.
+"""Renovation architecture v1: contracts, validators, and estimator runtime.
 
 catalog_projection is deliberately not re-exported — it drags the catalog
 validation and rehab_packages dependency chain, which current-mode startup
@@ -14,6 +14,7 @@ from tools.renovation_architecture.contracts import (
 )
 from tools.renovation_architecture.runtime import (
     RenovationArchitectureInitError,
+    build_estimate_envelope,
     build_shadow_envelope,
     get_runtime,
     initialize_renovation_architecture,
@@ -37,6 +38,7 @@ __all__ = [
     "TERMINAL_ROUTE_POLICY_VERSION",
     "RenovationArchitectureInitError",
     "ValidationResult",
+    "build_estimate_envelope",
     "build_shadow_envelope",
     "get_runtime",
     "initialize_renovation_architecture",

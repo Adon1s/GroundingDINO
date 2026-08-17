@@ -72,19 +72,21 @@ def initialize_renovation_architecture(
     if mode == "current":
         _RUNTIME = None
         return
-    if mode != "shadow":
+    if mode not in ("shadow", "new"):
         raise RenovationArchitectureInitError(
-            f"RENOVATION_ARCHITECTURE_MODE={mode!r} cannot initialize — only "
-            "'current' and 'shadow' are runnable before Session 6"
+            f"RENOVATION_ARCHITECTURE_MODE={mode!r} cannot initialize — expected "
+            "'current', 'shadow', or 'new'"
         )
+    # Identical validation for shadow and new: the authoritative mode must not
+    # be able to start on inputs the shadow mode would have refused.
     if kind_ontology_version != REQUIRED_KIND_ONTOLOGY_SELECTOR:
         raise RenovationArchitectureInitError(
-            f"shadow mode requires KIND_ONTOLOGY_VERSION="
+            f"{mode} mode requires KIND_ONTOLOGY_VERSION="
             f"{REQUIRED_KIND_ONTOLOGY_SELECTOR}, got {kind_ontology_version!r}"
         )
     if not (terra_model or "").strip():
         raise RenovationArchitectureInitError(
-            "shadow mode requires a Terra model: set RENOVATION_TERRA_MODEL "
+            f"{mode} mode requires a Terra model: set RENOVATION_TERRA_MODEL "
             "or OPENAI_MODEL"
         )
     if not isinstance(terra_max_output_tokens, int) or terra_max_output_tokens <= 0:
@@ -94,7 +96,7 @@ def initialize_renovation_architecture(
         )
     if not (sol_model or "").strip():
         raise RenovationArchitectureInitError(
-            "shadow mode requires a Sol model: set RENOVATION_SOL_MODEL "
+            f"{mode} mode requires a Sol model: set RENOVATION_SOL_MODEL "
             "or OPENAI_MODEL"
         )
     if not isinstance(sol_max_output_tokens, int) or sol_max_output_tokens <= 0:
@@ -139,6 +141,20 @@ def reset_runtime_for_tests() -> None:
     _RUNTIME = None
 
 
+def _configured_mode() -> str:
+    """The selected mode when no runtime exists (an entry point that never
+    wired init). The seam only builds envelopes in shadow/new, so stamping the
+    configured selector keeps the failed envelope honest about which mode
+    produced it."""
+    try:
+        from tools import pipeline_config as cfg
+
+        mode = str(getattr(cfg, "RENOVATION_ARCHITECTURE_MODE", "") or "")
+    except Exception:  # noqa: BLE001 - provenance must never fail the envelope
+        mode = ""
+    return mode if mode in ("current", "shadow", "new") else "shadow"
+
+
 def _make_provenance(
     runtime: Optional[RenovationArchitectureRuntime],
     *,
@@ -150,7 +166,7 @@ def _make_provenance(
     if runtime is None:
         return EstimateProvenance(
             schema_version=CONTRACTS_SCHEMA_VERSION,
-            architecture_mode="shadow",
+            architecture_mode=_configured_mode(),
             contracts_schema_version=CONTRACTS_SCHEMA_VERSION,
             projection_version=PROJECTION_VERSION,
             catalog_version=None,
@@ -182,7 +198,7 @@ def _make_provenance(
     )
 
 
-def build_shadow_envelope(
+def build_estimate_envelope(
     *,
     property_key: str,
     run_id: str,
@@ -196,7 +212,8 @@ def build_shadow_envelope(
     api_key: str = "",
     artifacts_root: Optional[Path] = None,
 ) -> Dict[str, Any]:
-    """The shadow output: a complete envelope (Session 2 condition review +
+    """The new engine's output, in shadow and new mode alike: a complete
+    envelope (Session 2 condition review +
     Session 3 work derivation + Session 4 candidates and bounded Sol review +
     Session 5 deterministic reconciliation, ledger, totals, and
     observability), or a valid failed envelope (uninitialized runtime, or a
@@ -345,3 +362,8 @@ def build_shadow_envelope(
             result=None,
         )
         return envelope.to_dict()
+
+
+# Session 1-5 name. The builder is mode-agnostic since the Session 6 cutover;
+# the alias keeps existing callers and tests working.
+build_shadow_envelope = build_estimate_envelope
