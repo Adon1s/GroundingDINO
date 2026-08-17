@@ -41,10 +41,12 @@ WORK_DEDUP_POLICY_VERSION = "work_dedup_max_envelope_v1"
 STANDALONE_PRICING_POLICY_VERSION = "standalone_pricing_v1"
 # Session 4 deterministic package policy: candidates come from the legacy
 # inference primitives (affinities, roles, strength, tiers, escalation) fed
-# with ACTIVE work lineage, then the cost floor is applied against the child
+# with ACTIVE work lineage; the tier spec is scaled by the standalone
+# property_cost_factor (once, on adoption — the legacy primitives price
+# unscaled), then the cost floor is applied against the already-scaled child
 # standalone range. Sol reviews coherence only, through the closed
 # PackageDecision contract.
-PACKAGE_CANDIDATE_POLICY_VERSION = "package_candidates_v1"
+PACKAGE_CANDIDATE_POLICY_VERSION = "package_candidates_v2"
 SOL_REVIEW_PROMPT_VERSION = "sol_package_review_v1"
 SOL_REVIEW_REASONING_EFFORT = "medium"
 # Session 5 deterministic reconciliation policies. Application: absorption
