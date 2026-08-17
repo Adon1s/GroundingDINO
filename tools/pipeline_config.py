@@ -268,11 +268,33 @@ def resolve_renovation_sol_max_output_tokens(raw: Optional[str]) -> int:
     return value
 
 
+def resolve_renovation_sol_daily_ceiling(raw: Optional[str]) -> int:
+    """Daily Sol token budget (Session 8 guard). The ledger shares the
+    RENOVATION_TERRA_USAGE_ROOT location but debits its own file, so the two
+    budgets stay separate. Default matches usage_guard.SOL_DAILY_TOKEN_CEILING
+    (250k/day — the operating budget the Session 6 handoff recorded)."""
+    if raw is None or str(raw).strip() == "":
+        return 250_000
+    try:
+        value = int(str(raw).strip())
+    except ValueError:
+        value = None
+    if value is None or value <= 0:
+        raise ValueError(
+            f"RENOVATION_SOL_DAILY_TOKEN_CEILING must be a positive integer, "
+            f"got {raw!r}"
+        )
+    return value
+
+
 RENOVATION_SOL_MODEL = resolve_renovation_sol_model(
     os.environ.get("RENOVATION_SOL_MODEL", ""), openai_model=OPENAI_MODEL
 )
 RENOVATION_SOL_MAX_OUTPUT_TOKENS = resolve_renovation_sol_max_output_tokens(
     os.environ.get("RENOVATION_SOL_MAX_OUTPUT_TOKENS")
+)
+RENOVATION_SOL_DAILY_TOKEN_CEILING = resolve_renovation_sol_daily_ceiling(
+    os.environ.get("RENOVATION_SOL_DAILY_TOKEN_CEILING")
 )
 
 # =============================================================================

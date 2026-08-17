@@ -52,11 +52,16 @@ These are settled inputs to the implementation, not questions for later sessions
    new artifact while retaining existing v4 output during migration. A later
    frontend redesign will adopt the new contract; this project does not build a v4
    compatibility projection or redesign the UI.
-6. Terra has a hard service budget of 2.5 million tokens per day. The rough current
-   operating reference is 100 listings per day, or approximately 25,000 Terra
-   tokens per listing. Maximize decision quality first, measure actual use throughout
-   shadowing, and optimize only when measurements show where tokens can be removed
-   without reducing performance.
+6. Terra has a hard service budget of 2.5 million tokens per day. The original
+   ~25,000 tokens/listing (~100 listings/day) reference did not survive
+   measurement: canary replica 1 measured architecture condition review alone
+   at ~51,082 Terra tokens per listing (~48 listings/day), and in production
+   the Terra service also carries upstream passes 2a/2b/2c/2d (~10–12
+   listings/day on the all-service reading — denominator decision tracked in
+   docs/analysis/session8_terra_budget_denominator.md). Maximize decision
+   quality first, measure actual use throughout shadowing, and optimize only
+   when measurements show where tokens can be removed without reducing
+   performance.
 
 ## Non-negotiable invariants
 
@@ -468,9 +473,12 @@ authority.
   gain.
 - Terra token usage is fully measured and respects the hard 2.5-million-token daily
   scheduler ceiling.
-- The report states expected listings/day from observed usage; approximately
-  25,000 Terra tokens/listing is the initial capacity reference, not a quality
-  target that overrides correctness.
+- The report states expected listings/day from observed usage; the measured
+  ~51,082 Terra tokens/listing for architecture condition review (canary
+  replica 1) is the capacity reference, not a quality target that overrides
+  correctness. The listings/day statement must name its denominator
+  (architecture-only vs all-Terra-service — see
+  docs/analysis/session8_terra_budget_denominator.md).
 - Selector rollback and worker restart are successfully smoke-tested.
 
 ### Explicitly out of scope

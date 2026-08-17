@@ -344,6 +344,43 @@ def test_generator_refuses_economic_override_on_split_successor(v1_catalog):
         gen.generate(v1_catalog, broken)
 
 
+def test_generator_refuses_unknown_override_key_on_split_successor(v1_catalog):
+    """An override outside INHERITED_FIELDS used to be silently ignored by the
+    inheritance loop; a typo'd key must fail, not vanish (Session 8)."""
+    gen = _load_generator()
+    decisions = json.loads(
+        (ROOT / "tools" / "catalog_migrations" / "kind_v2_decisions.json").read_text(encoding="utf-8")
+    )
+    broken = copy.deepcopy(decisions)
+    split = next(e for e in broken["entries"] if e["change_type"] == "split")
+    split["successors"][0].setdefault("overrides", {})["route_overide"] = "no_action"
+    with pytest.raises(SystemExit, match="non-inherited fields"):
+        gen.generate(v1_catalog, broken)
+
+
+def test_shipped_v2_route_override_pins(v1_catalog, v2_catalog):
+    """The Session 8 triage: exactly these five opportunity/presence items
+    carry route_override — four carried over from v1 and one authored on the
+    landscaping split successor. The degradation sibling must never inherit
+    it, which requires the v1 split parent to stay override-free."""
+    carrying = {
+        it["id"]: it["route_override"]
+        for it in v2_catalog["items"] if "route_override" in it
+    }
+    assert carrying == {
+        "unfinished_basement_present": "no_action",
+        "staging_or_decluttering_opportunity": "no_action",
+        "mismatched_or_inconsistent_furniture_staging": "no_action",
+        "curb_appeal_upgrade": "no_action",
+        "landscaping_enhancement_opportunity": "no_action",
+    }
+    parent = next(
+        it for it in v1_catalog["items"]
+        if it["id"] == "landscape_improvement_needed"
+    )
+    assert "route_override" not in parent
+
+
 def test_generator_refuses_missing_pricing_policy(v1_catalog):
     gen = _load_generator()
     decisions = json.loads(

@@ -89,6 +89,7 @@ _CODE_CATEGORY = {
     # tools/renovation_architecture/usage_guard.py — pre-call daily-budget
     # denial: systemic like an exhausted balance, retry today never works
     "TerraDailyBudgetExceeded": "quota",
+    "SolDailyBudgetExceeded": "quota",
     # stdlib
     "JSONDecodeError": "parse",
     "TimeoutError": "timeout",

@@ -9,7 +9,7 @@ catalog can never fail midway through a listing.
 The builder enforces STRUCTURAL completeness: every catalog condition resolves
 to exactly one terminal route, and unknown routing data fails the build rather
 than disappearing through a default. The exact route distribution
-(12 quarantine / 4 generic / 5 inspection / 4 no-action / 103 work over 128
+(12 quarantine / 4 generic / 5 inspection / 9 no-action / 98 work over 128
 items) is pinned in tests, not here, so a future catalog regeneration updates
 test expectations instead of breaking shadow-mode worker startup.
 """
@@ -18,7 +18,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Dict, FrozenSet, List, Mapping, Tuple
 
-from tools.catalog_validation import validate_issue_catalog
+from tools.catalog_validation import VALID_ROUTE_OVERRIDES, validate_issue_catalog
 from tools.comparison_common import sha256_canonical, sha256_file
 from tools.estimate_scope import classify_estimate_scope_with_reason
 from tools.rehab_packages import build_package_affinity
@@ -52,7 +52,10 @@ def resolve_terminal_route(
     drop_if_generic AND sits in the quarantined electrical bucket, and must
     land in quarantine. drop_if_generic is absent on some items — absent means
     False. inspect_only items keep work codes and cost; inspection is a
-    routing decision, not a pricing gap. The four items lacking BOTH cost and
+    routing decision, not a pricing gap. An explicit route_override forces an
+    otherwise-billable item out of billing (the Session 8 opportunity/presence
+    triage) and must outrank the no-economics check so its reason code states
+    intent rather than an inferred gap. The four items lacking BOTH cost and
     work_item_code are the user-approved optional gaps.
     """
     if item.get("trade_bucket") in quarantined_buckets:
@@ -62,6 +65,8 @@ def resolve_terminal_route(
     estimate = item.get("estimate") or {}
     if estimate.get("strategy") == "inspect_only":
         return "inspection", "strategy_inspect_only"
+    if item.get("route_override") == "no_action":
+        return "no_action", "route_override_no_action"
     if not item.get("cost") and not item.get("work_item_code"):
         return "no_action", "no_economics_approved_gap"
     return "work", "work_default"
@@ -120,6 +125,12 @@ def build_renovation_catalog_projection(
         unit_policy = estimate.get("unit_policy")
         if unit_policy is not None and unit_policy not in UNIT_POLICIES:
             errors.append(f"{item_id}: unknown estimate.unit_policy {unit_policy!r}")
+        route_override = item.get("route_override")
+        if route_override is not None and route_override not in VALID_ROUTE_OVERRIDES:
+            errors.append(
+                f"{item_id}: unknown route_override {route_override!r} — "
+                "unknown routing data must not disappear through a default"
+            )
         route, reason_code = resolve_terminal_route(
             item, quarantined_buckets=quarantined_buckets
         )

@@ -64,6 +64,7 @@ INHERITED_FIELDS = (
     "require_any",
     "deny_any",
     "scene_groups",
+    "route_override",
 )
 
 # Fields a non-split entry's `overrides` may rewrite (wording only).
@@ -88,6 +89,11 @@ def _build_split_successor(parent: dict, succ: dict) -> dict:
     bad = set(overrides) & set(ECONOMIC_FIELDS)
     if bad:
         _fail(f"successor {succ['id']!r} override touches economic fields {sorted(bad)}")
+    unknown = set(overrides) - set(INHERITED_FIELDS)
+    if unknown:
+        # An override outside INHERITED_FIELDS would be silently ignored by
+        # the inheritance loop below — a typo'd key must fail, not vanish.
+        _fail(f"successor {succ['id']!r} override touches non-inherited fields {sorted(unknown)}")
 
     item = {
         "id": succ["id"],

@@ -195,7 +195,7 @@ class TestInitialize:
         assert runtime.mode == "shadow"
         assert runtime.catalog_sha256 == sha256_file(SHIPPED_V2_PATH)
         assert runtime.projection_fingerprint == runtime.projection["fingerprint"]
-        assert runtime.projection["route_counts"]["work"] == 103
+        assert runtime.projection["route_counts"]["work"] == 98
         assert runtime.terra_model == "terra-test"
         assert runtime.terra_max_output_tokens == 8192
         assert runtime.sol_model == "sol-test"

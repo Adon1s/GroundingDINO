@@ -29,7 +29,11 @@ from typing import Any, Dict, Mapping, Optional, Tuple
 CONTRACTS_SCHEMA_VERSION = 5
 ENVELOPE_SCHEMA_VERSION = 5
 PROJECTION_VERSION = "renovation_catalog_projection_v2"
-TERMINAL_ROUTE_POLICY_VERSION = "terminal_route_v1"
+# terminal_route_v2 (Session 8): an explicit catalog route_override outranks
+# the no-economics check, so an otherwise-billable opportunity/presence item
+# can be routed to no_action by product decision with an intent-stating
+# reason code (route_override_no_action).
+TERMINAL_ROUTE_POLICY_VERSION = "terminal_route_v2"
 CONDITION_DISPOSITION_POLICY_VERSION = "condition_disposition_v1"
 # Session 3 deterministic policies. Derivation maps accepted conditions to
 # priced work through the projection's work_policy; dedup is the max-envelope
@@ -477,9 +481,12 @@ class PackageDecision(_Contract):
 @dataclass(frozen=True)
 class SolCall(_Contract):
     """One Sol provider call (or its checkpoint republication) for the whole
-    listing. Telemetry only — Sol has no approved daily budget, so there is
-    no ledger and no debit field; checkpoint reuse keeps the original token
-    numbers with usage_source recording the provenance."""
+    listing. Sol's 250k/day budget is enforced operationally by the Session 8
+    usage-guard ledger (usage_guard.SolUsageLedger); the debit is recorded in
+    SQLite only, not in this contract — adding an artifact-visible debit
+    field is a deliberate schema-v6 decision, not a drive-by. Checkpoint
+    reuse keeps the original token numbers with usage_source recording the
+    provenance and never touches the ledger."""
     call_id: str
     schema_version: int
     package_candidate_ids: Tuple[str, ...]

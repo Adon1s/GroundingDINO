@@ -1334,6 +1334,9 @@
             "yard",
             "plain yard"
           ],
+          "overrides": {
+            "route_override": "no_action"
+          },
           "atomic_claim": {
             "subject": "landscaping",
             "state": "sparse or plain, discretionary enhancement",

@@ -12,12 +12,15 @@ duplicated, unknown, malformed, timeout, or provider responses raise typed
 operational failures — they never become an ``uncertain`` decision, which is
 reserved for Sol honestly judging a supplied grouping's coherence.
 
-Telemetry only: Sol has no approved daily budget, so there is no usage
-ledger — the usage delta is settled into the SolCall record before parsing,
-mirroring the Terra ordering. A successfully parsed listing result is
-checkpointed under its request fingerprint; reuse republishes the original
-decisions and token numbers with usage_source="checkpoint" and no provider
-call.
+Budgeted (Session 8): every fresh call reserves against the 250k/day Sol
+ledger (usage_guard.SolUsageLedger) before the provider call and settles to
+provider truth before parsing, mirroring the Terra guard ordering; a denial
+raises a typed operational failure (code SolDailyBudgetExceeded, category
+quota), never a partial result. The usage delta is settled into the SolCall
+record before parsing. A successfully parsed listing result is checkpointed
+under its request fingerprint; reuse republishes the original decisions and
+token numbers with usage_source="checkpoint", no provider call, and no
+ledger debit.
 """
 from __future__ import annotations
 
@@ -43,6 +46,12 @@ from tools.renovation_architecture.contracts import (
 from tools.renovation_architecture.ids import (
     make_package_decision_id,
     make_sol_call_id,
+)
+from tools.renovation_architecture.usage_guard import (
+    SOL_DAILY_TOKEN_CEILING,
+    SolDailyBudgetExceeded,
+    SolUsageLedger,
+    estimate_sol_reservation_tokens,
 )
 from tools.renovation_architecture.validators import (
     package_review_snapshot_hashes,
@@ -608,18 +617,54 @@ def run_package_review(
         call["usage_source"] = "checkpoint"
         decisions = [dict(decision) for decision in cached["decisions"]]
     else:
-        before = _usage_snapshot(vlm_client)
-        raw_text = call_sol_review(
-            vlm_client, request,
-            model=runtime.sol_model, api_key=api_key,
-            max_output_tokens=runtime.sol_max_output_tokens,
-            reasoning_effort=SOL_REVIEW_REASONING_EFFORT,
+        from tools import pipeline_config as cfg
+
+        ledger = SolUsageLedger(
+            Path(artifacts_root),
+            daily_ceiling=getattr(
+                cfg, "RENOVATION_SOL_DAILY_TOKEN_CEILING", SOL_DAILY_TOKEN_CEILING
+            ),
+            usage_root_override=getattr(cfg, "RENOVATION_TERRA_USAGE_ROOT", None),
         )
+        try:
+            reservation_id = ledger.reserve(
+                property_key=property_key,
+                source_run_id=source_run_id,
+                estimate_unit_id="listing",
+                request_fingerprint=request.request_fingerprint,
+                tokens=estimate_sol_reservation_tokens(
+                    max_output_tokens=runtime.sol_max_output_tokens,
+                    request_bytes=request.request_bytes,
+                ),
+            )
+        except SolDailyBudgetExceeded as exc:
+            raise PassExecutionError(
+                "sol_review", "request", str(exc),
+                code="SolDailyBudgetExceeded", provider="openai",
+                model=runtime.sol_model,
+            ) from exc
+        before = _usage_snapshot(vlm_client)
+        try:
+            raw_text = call_sol_review(
+                vlm_client, request,
+                model=runtime.sol_model, api_key=api_key,
+                max_output_tokens=runtime.sol_max_output_tokens,
+                reasoning_effort=SOL_REVIEW_REASONING_EFFORT,
+            )
+        except PassExecutionError:
+            # The provider may or may not have consumed tokens; keeping the
+            # conservative reservation debited is the honest choice.
+            ledger.settle(reservation_id, provider_total_tokens=None)
+            raise
         # Settle telemetry before parsing: the tokens are spent whether or
         # not the response honors the contract.
         after = _usage_snapshot(vlm_client)
         delta = {key: after[key] - before[key] for key in before}
         metered = delta["metered_calls"] > 0
+        ledger.settle(
+            reservation_id,
+            provider_total_tokens=delta["total_tokens"] if metered else None,
+        )
         usage = (
             {name: delta[name] for name in _TOKEN_FIELDS}
             if metered else _empty_usage()

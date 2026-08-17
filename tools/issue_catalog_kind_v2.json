@@ -2905,6 +2905,7 @@
         "other",
         "pool"
       ],
+      "route_override": "no_action",
       "description": "Yard is maintained but sparse or plain; discretionary landscaping would improve curb appeal.",
       "embed_text": "Landscaping enhancement opportunity. Maintained but sparse, plain, or minimal landscaping where planting beds, shrubs, or hardscape additions would improve curb appeal.",
       "support_any": [
@@ -2950,6 +2951,7 @@
       "embed_text": "Curb appeal upgrade. Exterior entry, porch, facade, or accent details appear tired, dated, plain, or uninviting. Exterior cosmetic updates may improve first impression.",
       "kind": "modernization",
       "id": "curb_appeal_upgrade",
+      "route_override": "no_action",
       "scope": "cosmetic",
       "defaultHidden": false,
       "scene_groups": [
@@ -2990,6 +2992,7 @@
       "embed_text": "Unfinished basement. Bare concrete floor, stripped basement floor, unfinished utility surfaces, exposed concrete slab in basement. Opportunity to finish space and add living area.",
       "kind": "modernization",
       "id": "unfinished_basement_present",
+      "route_override": "no_action",
       "estimate_scope": "optional_value_add",
       "estimate_scope_reason": "catalog_override_discretionary_finish_optional",
       "scope": "replace",
@@ -3032,6 +3035,7 @@
       "embed_text": "Staging or decluttering opportunity. Clean up clutter to improve presentation.",
       "kind": "modernization",
       "id": "staging_or_decluttering_opportunity",
+      "route_override": "no_action",
       "scope": "cosmetic",
       "defaultHidden": true,
       "scene_groups": [
@@ -5210,6 +5214,7 @@
       "embed_text": "Mismatched furniture/staging opportunity. Distracting or inconsistent decor. Improve staging for listing photos.",
       "kind": "modernization",
       "id": "mismatched_or_inconsistent_furniture_staging",
+      "route_override": "no_action",
       "scope": "cosmetic",
       "defaultHidden": true,
       "scene_groups": [

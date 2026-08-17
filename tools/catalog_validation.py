@@ -80,6 +80,14 @@ ECONOMIC_FIELDS = (
 PRICING_STATUS_INHERITED = "inherited_from_split_parent"
 VALID_PRICING_STATUSES = frozenset({PRICING_STATUS_INHERITED})
 
+# Explicit, non-economic terminal-route override read by the v5 projection
+# (tools/renovation_architecture/catalog_projection.resolve_terminal_route);
+# v4/legacy consumers ignore the field. Closed vocabulary: an override can
+# only force an otherwise-billable item out of billing, never invent a work
+# route. Deliberately NOT in ECONOMIC_FIELDS so split successors may author
+# it per-successor in the migration decisions file.
+VALID_ROUTE_OVERRIDES = frozenset({"no_action"})
+
 VALID_CHANGE_TYPES = frozenset({"unchanged", "reclassified", "narrowed", "split", "retired"})
 
 VALID_SCOPES = frozenset({"repair", "replace", "cosmetic", "service"})
@@ -149,6 +157,11 @@ def validate_issue_catalog(issue_catalog: Dict[str, Any]) -> CatalogValidationRe
         if isinstance(bucket, dict)
     ]
     declared_bucket_set = {b for b in declared_buckets if b}
+    quarantined_bucket_set = {
+        str(bucket.get("id") or "")
+        for bucket in catalog.get("trade_buckets") or []
+        if isinstance(bucket, dict) and bucket.get("product_quarantined") is True
+    }
     if not declared_bucket_set:
         result.errors.append("<catalog>: trade_buckets section missing or empty")
 
@@ -184,6 +197,7 @@ def validate_issue_catalog(issue_catalog: Dict[str, Any]) -> CatalogValidationRe
         _validate_cost_model(item, label, result)
         _validate_package_affinity(item, label, result)
         _validate_flat_routing_fields(item, label, result)
+        _validate_route_override(item, label, quarantined_bucket_set, result)
         _validate_field_types(item, label, result)
 
         # Warnings
@@ -394,6 +408,48 @@ def _validate_flat_routing_fields(item: Dict[str, Any], label: str,
             f"{label}: flat package_role {package_role!r} not in "
             f"{sorted(VALID_FLAT_PACKAGE_ROLES)} — driver/support live in "
             "package_affinity blocks"
+        )
+
+
+def _validate_route_override(item: Dict[str, Any], label: str,
+                             quarantined: set,
+                             result: CatalogValidationResult) -> None:
+    override = item.get("route_override")
+    if override is None:
+        return
+    if override not in VALID_ROUTE_OVERRIDES:
+        result.errors.append(
+            f"{label}: route_override {override!r} not in "
+            f"{sorted(VALID_ROUTE_OVERRIDES)}"
+        )
+        return
+    # Projection precedence (quarantine > drop_if_generic > inspect_only >
+    # override) makes the override dead on structurally excluded items, and a
+    # dead override misstates the item's routing to every reader.
+    if item.get("trade_bucket") in quarantined:
+        result.errors.append(
+            f"{label}: route_override is dead — the quarantined trade bucket "
+            "already excludes this item"
+        )
+    if item.get("drop_if_generic") is True:
+        result.errors.append(
+            f"{label}: route_override is dead — drop_if_generic already "
+            "excludes this item"
+        )
+    estimate = item.get("estimate") if isinstance(item.get("estimate"), dict) else {}
+    if (estimate or {}).get("strategy") == "inspect_only":
+        result.errors.append(
+            f"{label}: route_override is dead — strategy inspect_only "
+            "already routes this item to inspection"
+        )
+    # Reason codes must state intent: no_economics_approved_gap is the
+    # inferred gap, route_override_no_action the explicit product decision on
+    # an otherwise-billable item. Overriding an item with no economics would
+    # shadow the former with the latter.
+    if not item.get("cost") and not item.get("work_item_code"):
+        result.errors.append(
+            f"{label}: route_override is redundant — an item with no cost and "
+            "no work_item_code already routes to no_action"
         )
 
 

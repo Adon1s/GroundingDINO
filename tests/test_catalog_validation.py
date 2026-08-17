@@ -472,6 +472,60 @@ def test_whole_word_marker_suffix_is_valid(field_name):
     assert _errors_for(_valid_item(**{field_name: ["mold$", "mildew"]})) == []
 
 
+# ─── Rule: route_override ────────────────────────────────────────────────────
+# The explicit non-economic route override the v5 projection reads. It may
+# only force an otherwise-billable item out of billing; a dead or redundant
+# override misstates the item's routing and must fail loudly.
+
+def test_route_override_on_billable_item_is_valid():
+    assert _errors_for(
+        _valid_item(route_override="no_action", work_item_code="FLOORING_REPAIR")
+    ) == []
+
+
+def test_route_override_unknown_value():
+    errors = _errors_for(
+        _valid_item(route_override="work", work_item_code="FLOORING_REPAIR")
+    )
+    assert any("route_override 'work' not in" in e for e in errors)
+
+
+def test_route_override_dead_under_quarantine():
+    catalog = _catalog(_valid_item(
+        route_override="no_action",
+        work_item_code="FLOORING_REPAIR",
+        trade_bucket="electrical",
+    ))
+    catalog["trade_buckets"].append(
+        {"id": "electrical", "product_quarantined": True}
+    )
+    errors = validate_issue_catalog(catalog).errors
+    assert any("dead" in e and "quarantined" in e for e in errors)
+
+
+def test_route_override_dead_under_drop_if_generic():
+    errors = _errors_for(_valid_item(
+        route_override="no_action",
+        work_item_code="FLOORING_REPAIR",
+        drop_if_generic=True,
+    ))
+    assert any("dead" in e and "drop_if_generic" in e for e in errors)
+
+
+def test_route_override_dead_under_inspect_only():
+    errors = _errors_for(_valid_item(
+        route_override="no_action",
+        work_item_code="FLOORING_REPAIR",
+        estimate={"estimate_tier": "minor", "strategy": "inspect_only"},
+    ))
+    assert any("dead" in e and "inspect_only" in e for e in errors)
+
+
+def test_route_override_redundant_without_economics():
+    errors = _errors_for(_valid_item(route_override="no_action"))
+    assert any("redundant" in e for e in errors)
+
+
 # ─── Warnings ────────────────────────────────────────────────────────────────
 
 def test_warning_driver_without_cost():
