@@ -413,10 +413,14 @@ def _write_renovation_architecture_estimate(
     - current: zero keys, nothing computed.
     - shadow: the full chain, written PRIVATELY to analysis_debug (stripped
       from the slim artifact, so it reaches photo_intel_debug.json and never
-      the frontend). Never raises — a shadow failure must not fail the job or
-      touch renovation_estimate_v4; typed failures become a valid failed
-      envelope carrying their taxonomy category, and if even that construction
-      fails the key is omitted entirely.
+      the frontend). A shadow failure must not fail the job or touch
+      renovation_estimate_v4; typed failures become a valid failed envelope
+      carrying their taxonomy category, and if even that construction fails
+      the key is omitted entirely. One exception (Session 9): with
+      RENOVATION_VLM_BUDGET_GUARD set, quota-category failures re-raise and
+      fail the job — a daily-ceiling denial swallowed here would be a silent
+      continuation past the budget, and the canary resume would skip the
+      property as "completed".
     - new (Session 6 cutover): the new engine is authoritative. A COMPLETE
       envelope goes to the artifact root; there is no private copy, and
       failure is job-fatal rather than a silently missing estimate. v4 is
@@ -480,10 +484,51 @@ def _write_renovation_architecture_estimate(
         if isinstance(debug, dict):
             debug[SHADOW_DEBUG_KEY] = envelope
     except Exception as exc:
+        # Session 9: under the choke-point budget guard a quota denial must
+        # fail the job (no artifact → the canary resume re-runs the property
+        # tomorrow); swallowing it here would be exactly the silent
+        # continuation past the ceiling the plan forbids. Guard off
+        # (production shadow): swallow everything, as before.
+        if getattr(cfg, "RENOVATION_VLM_BUDGET_GUARD", False):
+            from tools.failure_taxonomy import classify_failure
+
+            if classify_failure(exc).category == "quota":
+                raise
         try:
             logger.error(f"Renovation architecture shadow seam failed: {exc}")
         except Exception:
             pass  # last resort: the shadow lane stays empty, the job proceeds
+
+
+def _build_token_usage_block(
+    usage_stats: Dict[str, Any], *, model_routing: List[Dict[str, Any]]
+) -> Dict[str, Any]:
+    """Snapshot the VLM client's per-job token telemetry for the debug
+    artifact (Session 9). The client resets its counters at job start, so
+    this is one property's spend. Each pass bucket is joined with its
+    model_routing entry (both are keyed by the same "2a"/"2f" strings);
+    passes with no routing entry (terra/sol review, unattributed) carry
+    routing=None. Written under analysis_debug, so it reaches
+    photo_intel_debug.json and never the slim artifact."""
+    totals = {
+        key: usage_stats.get(key, 0)
+        for key in (
+            "input_tokens", "cached_input_tokens", "output_tokens",
+            "total_tokens", "attempted_calls", "calls", "failed_calls",
+            "metered_calls", "api_duration_sec",
+        )
+    }
+    routing_by_pass = {
+        str(entry.get("pass")): entry
+        for entry in model_routing
+        if isinstance(entry, dict) and entry.get("pass")
+    }
+    per_pass: Dict[str, Any] = {}
+    for pass_key, bucket in (usage_stats.get("per_pass") or {}).items():
+        entry = copy.deepcopy(bucket)
+        entry["routing"] = routing_by_pass.get(str(pass_key))
+        per_pass[str(pass_key)] = entry
+    return {"schema_version": 1, "totals": totals, "per_pass": per_pass}
 
 
 def write_photo_intel(
@@ -1187,6 +1232,18 @@ def write_photo_intel(
         vlm_client=vlm_client,
         artifacts_root=Path(job.artifacts_dir).parent.parent,
     )
+
+    # -- Per-job token telemetry (Session 9): everything the VLM client
+    # measured this job, after the last provider call (the seam above).
+    # Only a real usage_stats dict is persisted — test doubles and stub
+    # clients without telemetry must not break artifact writing.
+    if vlm_client is not None:
+        _stats = getattr(vlm_client, "usage_stats", None)
+        _debug = photo_intel.get("analysis_debug")
+        if isinstance(_stats, dict) and isinstance(_debug, dict):
+            _debug["token_usage"] = _build_token_usage_block(
+                _stats, model_routing=photo_intel.get("model_routing") or [],
+            )
 
     # -- Publication gate: nothing hits disk unless the payload is consistent
     # with the selected catalog (stamps, ids, kinds, no mixed ontologies).

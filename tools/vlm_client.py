@@ -172,8 +172,14 @@ class VLMClient:
 
     @staticmethod
     def _canonical_pass_key(label: Optional[str]) -> str:
-        match = re.search(r"\bpass\s+([0-9]+[a-z]?)\b", str(label or ""), re.IGNORECASE)
-        return match.group(1).lower() if match else "unattributed"
+        text = str(label or "")
+        match = re.search(r"\bpass\s+([0-9]+[a-z]?)\b", text, re.IGNORECASE)
+        if match:
+            return match.group(1).lower()
+        # Non-numbered callers ("Terra condition review") get a slug bucket
+        # instead of all pooling into "unattributed". Cardinality is bounded:
+        # labels only ever come from call-site kwargs.
+        return re.sub(r"[^a-z0-9]+", "_", text.lower()).strip("_") or "unattributed"
 
     def _pass_usage_locked(self, pass_key: Optional[str] = None) -> Dict[str, Any]:
         key = pass_key or self._active_pass_key.get()
@@ -228,6 +234,9 @@ class VLMClient:
             output_tokens: Optional[int],
             total_tokens: Optional[int],
             cached_input_tokens: Optional[int] = None,
+            *,
+            model: Optional[str] = None,
+            provider: Optional[str] = None,
     ) -> None:
         """Add a single call's token usage to the running totals. Tolerant of None/missing fields."""
         try:
@@ -249,6 +258,25 @@ class VLMClient:
             pass_usage["output_tokens"] += o
             pass_usage["total_tokens"] += t
             pass_usage["metered_calls"] += 1
+            if model:
+                # Per-model attribution within the pass. Absent until the
+                # first metered call, so "no models key" means "no metered
+                # calls" — _empty_pass_usage deliberately omits it.
+                bucket = pass_usage.setdefault("models", {}).setdefault(
+                    f"{provider or 'unknown'}/{model}",
+                    {
+                        "metered_calls": 0,
+                        "input_tokens": 0,
+                        "cached_input_tokens": 0,
+                        "output_tokens": 0,
+                        "total_tokens": 0,
+                    },
+                )
+                bucket["metered_calls"] += 1
+                bucket["input_tokens"] += i
+                bucket["cached_input_tokens"] += c
+                bucket["output_tokens"] += o
+                bucket["total_tokens"] += t
 
     @staticmethod
     def _cached_input_tokens(usage: Any) -> Optional[int]:
@@ -443,6 +471,59 @@ class VLMClient:
         )
 
 
+    async def _execute_openai_call(
+            self,
+            request_factory: Any,
+            *,
+            model: str,
+            max_tokens: int,
+            prompt_chars: int,
+            image_count: int,
+    ) -> str:
+        """Shared tail for every OpenAI call: choke-point budget reservation
+        (Session 9), executor dispatch, usage telemetry, text extraction.
+
+        A budget denial or guard misconfiguration raises BEFORE any provider
+        dispatch. Settlement mirrors the review hooks: provider truth when the
+        response carries usage, otherwise the conservative reservation stands
+        (provider failure included)."""
+        from tools.renovation_architecture import usage_guard
+
+        reservation = usage_guard.maybe_reserve_vlm_call(
+            model=model,
+            pass_key=self._active_pass_key.get(),
+            max_output_tokens=max_tokens,
+            prompt_chars=prompt_chars,
+            image_count=image_count,
+            context=getattr(self, "budget_context", None),
+        )
+        provider_total: Optional[int] = None
+        try:
+            response = await asyncio.get_event_loop().run_in_executor(
+                None, request_factory
+            )
+            usage = getattr(response, "usage", None)
+            if usage is not None:
+                raw_total = getattr(usage, "total_tokens", None)
+                try:
+                    provider_total = int(raw_total) if raw_total is not None else None
+                except (TypeError, ValueError):
+                    provider_total = None
+                self._record_usage(
+                    getattr(usage, "input_tokens", None),
+                    getattr(usage, "output_tokens", None),
+                    raw_total,
+                    cached_input_tokens=self._cached_input_tokens(usage),
+                    model=model,
+                    provider="openai",
+                )
+            output_text = self._extract_openai_output_text(response)
+            self._record_call()
+            return output_text
+        finally:
+            if reservation is not None:
+                reservation.settle(provider_total)
+
     async def _analyze_image_openai(
             self,
             image_path: Path,
@@ -512,18 +593,13 @@ class VLMClient:
                     )
             return client.responses.create(**request)
 
-        response = await asyncio.get_event_loop().run_in_executor(None, _call)
-        usage = getattr(response, "usage", None)
-        if usage is not None:
-            self._record_usage(
-                getattr(usage, "input_tokens", None),
-                getattr(usage, "output_tokens", None),
-                getattr(usage, "total_tokens", None),
-                cached_input_tokens=self._cached_input_tokens(usage),
-            )
-        output_text = self._extract_openai_output_text(response)
-        self._record_call()
-        return output_text
+        return await self._execute_openai_call(
+            _call,
+            model=model,
+            max_tokens=max_tokens,
+            prompt_chars=len(system_prompt) + len(user_prompt),
+            image_count=1,
+        )
 
     async def _analyze_images_openai(
             self,
@@ -593,18 +669,13 @@ class VLMClient:
                     )
             return client.responses.create(**request)
 
-        response = await asyncio.get_event_loop().run_in_executor(None, _call)
-        usage = getattr(response, "usage", None)
-        if usage is not None:
-            self._record_usage(
-                getattr(usage, "input_tokens", None),
-                getattr(usage, "output_tokens", None),
-                getattr(usage, "total_tokens", None),
-                cached_input_tokens=self._cached_input_tokens(usage),
-            )
-        output_text = self._extract_openai_output_text(response)
-        self._record_call()
-        return output_text
+        return await self._execute_openai_call(
+            _call,
+            model=model,
+            max_tokens=max_tokens,
+            prompt_chars=len(system_prompt) + len(user_prompt),
+            image_count=len(image_paths),
+        )
 
     async def _analyze_text_openai(
             self,
@@ -657,21 +728,13 @@ class VLMClient:
                     )
             return client.responses.create(**request)
 
-        response = await asyncio.get_event_loop().run_in_executor(
-            None,
+        return await self._execute_openai_call(
             _call,
+            model=model,
+            max_tokens=max_tokens,
+            prompt_chars=len(system_prompt) + len(user_prompt),
+            image_count=0,
         )
-        usage = getattr(response, "usage", None)
-        if usage is not None:
-            self._record_usage(
-                getattr(usage, "input_tokens", None),
-                getattr(usage, "output_tokens", None),
-                getattr(usage, "total_tokens", None),
-                cached_input_tokens=self._cached_input_tokens(usage),
-            )
-        output_text = self._extract_openai_output_text(response)
-        self._record_call()
-        return output_text
 
     # ═══════════════════════════════════════════════════════════════════════════
     # Google Gemini Methods (using google-genai)
@@ -732,6 +795,8 @@ class VLMClient:
                 getattr(usage, "prompt_token_count", None),
                 getattr(usage, "candidates_token_count", None),
                 getattr(usage, "total_token_count", None),
+                model=model,
+                provider="gemini",
             )
         output_text = response.text
         self._record_call()
@@ -767,6 +832,8 @@ class VLMClient:
                 getattr(usage, "prompt_token_count", None),
                 getattr(usage, "candidates_token_count", None),
                 getattr(usage, "total_token_count", None),
+                model=model,
+                provider="gemini",
             )
         output_text = response.text
         self._record_call()
@@ -848,6 +915,8 @@ class VLMClient:
                 usage.get("prompt_tokens"),
                 usage.get("completion_tokens"),
                 usage.get("total_tokens"),
+                model=model,
+                provider="lmstudio",
             )
         output_text = data["choices"][0]["message"]["content"]
         self._record_call()
@@ -916,6 +985,8 @@ class VLMClient:
                 usage.get("prompt_tokens"),
                 usage.get("completion_tokens"),
                 usage.get("total_tokens"),
+                model=model,
+                provider="lmstudio",
             )
         output_text = data["choices"][0]["message"]["content"]
         self._record_call()
@@ -979,6 +1050,8 @@ class VLMClient:
                 usage.get("prompt_tokens"),
                 usage.get("completion_tokens"),
                 usage.get("total_tokens"),
+                model=model,
+                provider="lmstudio",
             )
         output_text = data["choices"][0]["message"]["content"]
         self._record_call()

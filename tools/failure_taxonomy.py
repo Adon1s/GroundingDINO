@@ -90,6 +90,9 @@ _CODE_CATEGORY = {
     # denial: systemic like an exhausted balance, retry today never works
     "TerraDailyBudgetExceeded": "quota",
     "SolDailyBudgetExceeded": "quota",
+    # choke-point guard misconfiguration (unmapped model / no usage root):
+    # not a quota and not retryable — fix the run config first
+    "VlmBudgetGuardConfigError": "dependency",
     # stdlib
     "JSONDecodeError": "parse",
     "TimeoutError": "timeout",

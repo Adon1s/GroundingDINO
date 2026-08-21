@@ -419,7 +419,7 @@ def _writer_catalog():
     }
 
 
-def _run_writer(tmp_path, writer_cfg, *, source_run_id=None):
+def _run_writer(tmp_path, writer_cfg, *, source_run_id=None, vlm_client=None):
     """A real write_photo_intel run with no lane issues: the shadow seam's
     plumbing (privacy, neutrality, run identity) without any Terra call. The
     end-to-end shadow review with real conditions lives in
@@ -464,7 +464,7 @@ def _run_writer(tmp_path, writer_cfg, *, source_run_id=None):
         gpt_config=None,
         issue_catalog=_writer_catalog(),
         output_path=tmp_path / "photo_intel.json",
-        vlm_client=None,
+        vlm_client=vlm_client,
     )
     slim = json.loads(output_path.read_text(encoding="utf-8"))
     debug = json.loads(

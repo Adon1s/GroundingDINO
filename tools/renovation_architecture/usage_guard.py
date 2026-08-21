@@ -16,9 +16,11 @@ nothing here runs at import time. Checkpoint reuse never touches a ledger.
 from __future__ import annotations
 
 import sqlite3
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional
+from typing import Any, Dict, Iterator, Optional
 
 TERRA_DAILY_TOKEN_CEILING = 2_500_000
 RESERVATION_FLOOR_TOKENS = 25_000
@@ -30,6 +32,12 @@ LEDGER_RELATIVE_PATH = Path(".renovation_architecture") / "terra_usage.sqlite3"
 SOL_DAILY_TOKEN_CEILING = 250_000
 SOL_RESERVATION_FLOOR_TOKENS = 10_000
 SOL_LEDGER_RELATIVE_PATH = Path(".renovation_architecture") / "sol_usage.sqlite3"
+
+# Upstream scene-pass calls are small (~2-10k actual) and run concurrently
+# (several per photo). Settle-to-truth means a reservation only guards the
+# in-flight window, so the choke-point floor stays small — the 25k Terra
+# floor would spuriously deny at day-end under photo-level concurrency.
+VLM_RESERVATION_FLOOR_TOKENS = 4_000
 
 _SCHEMA_TEMPLATE = """
 CREATE TABLE IF NOT EXISTS {table} (
@@ -55,6 +63,12 @@ class TerraDailyBudgetExceeded(RuntimeError):
 
 class SolDailyBudgetExceeded(RuntimeError):
     """Pre-call rejection: the reservation would cross the daily ceiling."""
+
+
+class VlmBudgetGuardConfigError(RuntimeError):
+    """The choke-point guard is on but cannot meter safely: an OpenAI model
+    with no ledger mapping, or no usage root to put the ledgers in. Raised
+    BEFORE any provider call — misconfiguration must never spend tokens."""
 
 
 def _utc_today() -> str:
@@ -85,6 +99,19 @@ def estimate_sol_reservation_tokens(
     return max(
         SOL_RESERVATION_FLOOR_TOKENS,
         int(max_output_tokens) + int(request_bytes),
+    )
+
+
+def estimate_vlm_reservation_tokens(
+    *, max_output_tokens: int, prompt_chars: int, image_count: int
+) -> int:
+    """Choke-point pre-call estimate. prompt_chars is text only (base64 image
+    payloads are excluded — images carry the flat per-image charge instead)."""
+    return max(
+        VLM_RESERVATION_FLOOR_TOKENS,
+        int(max_output_tokens)
+        + int(prompt_chars)
+        + RESERVATION_TOKENS_PER_IMAGE * int(image_count),
     )
 
 
@@ -179,6 +206,20 @@ class _DailyUsageLedger:
         finally:
             conn.close()
 
+    def spent_today(self) -> int:
+        """Total debited tokens for the current UTC day (reserved + settled)."""
+        conn = self._connect()
+        try:
+            return int(
+                conn.execute(
+                    f"SELECT COALESCE(SUM(debited_tokens), 0) "
+                    f"FROM {self._TABLE} WHERE utc_day = ?",
+                    (_utc_today(),),
+                ).fetchone()[0]
+            )
+        finally:
+            conn.close()
+
     def settle(
         self, reservation_id: int, *, provider_total_tokens: Optional[int]
     ) -> int:
@@ -253,3 +294,109 @@ class SolUsageLedger(_DailyUsageLedger):
             daily_ceiling=daily_ceiling,
             usage_root_override=usage_root_override,
         )
+
+
+# =============================================================================
+# Choke-point guard (Session 9): meter every OpenAI call in the VLM client.
+# =============================================================================
+# The Terra/Sol review hooks reserve/settle these same ledgers themselves
+# (with their own contract-visible debits), so they wrap their provider call
+# in external_reservation() and the choke point steps aside. The flag is a
+# ContextVar: Task creation copies the caller's context, so it is visible
+# inside the client coroutines the hooks drive.
+
+_EXTERNALLY_RESERVED: ContextVar[bool] = ContextVar(
+    "vlm_budget_externally_reserved", default=False
+)
+
+
+@contextmanager
+def external_reservation() -> Iterator[None]:
+    """The caller has already reserved/settled this call against a ledger;
+    the choke-point guard must not debit it a second time."""
+    token = _EXTERNALLY_RESERVED.set(True)
+    try:
+        yield
+    finally:
+        _EXTERNALLY_RESERVED.reset(token)
+
+
+class VlmCallReservation:
+    """A live choke-point reservation; settle exactly once per call."""
+
+    def __init__(self, ledger: _DailyUsageLedger, reservation_id: int):
+        self._ledger = ledger
+        self._reservation_id = int(reservation_id)
+
+    def settle(self, provider_total_tokens: Optional[int]) -> int:
+        return self._ledger.settle(
+            self._reservation_id, provider_total_tokens=provider_total_tokens
+        )
+
+
+def maybe_reserve_vlm_call(
+    *,
+    model: str,
+    pass_key: str,
+    max_output_tokens: int,
+    prompt_chars: int,
+    image_count: int,
+    context: Optional[Dict[str, Any]] = None,
+) -> Optional[VlmCallReservation]:
+    """Reserve an OpenAI call against the matching per-model daily ledger.
+
+    Returns None when the guard is off or the call is already reserved by a
+    review hook. Raises the ledger's denial exception at the ceiling, or
+    VlmBudgetGuardConfigError for an unmapped model / missing usage root —
+    always BEFORE any provider dispatch. Unknown models fail closed rather
+    than defaulting to a ledger: a silently wrong bucket would corrupt the
+    pacing math the guard exists to protect.
+    """
+    if _EXTERNALLY_RESERVED.get():
+        return None
+    from tools import pipeline_config as cfg
+
+    if not getattr(cfg, "RENOVATION_VLM_BUDGET_GUARD", False):
+        return None
+    usage_root = (getattr(cfg, "RENOVATION_TERRA_USAGE_ROOT", "") or "").strip()
+    if not usage_root:
+        raise VlmBudgetGuardConfigError(
+            "RENOVATION_VLM_BUDGET_GUARD is set but RENOVATION_TERRA_USAGE_ROOT "
+            "is empty — the guard has nowhere to keep its daily ledgers"
+        )
+    normalized = (model or "").strip().split(":", 1)[0]
+    terra_model = (getattr(cfg, "RENOVATION_TERRA_MODEL", "") or "").strip()
+    sol_model = (getattr(cfg, "RENOVATION_SOL_MODEL", "") or "").strip()
+    ledger: _DailyUsageLedger
+    if normalized and normalized == terra_model:
+        ledger = TerraUsageLedger(
+            Path(usage_root),
+            daily_ceiling=getattr(
+                cfg, "RENOVATION_TERRA_DAILY_TOKEN_CEILING", TERRA_DAILY_TOKEN_CEILING
+            ),
+        )
+    elif normalized and normalized == sol_model:
+        ledger = SolUsageLedger(
+            Path(usage_root),
+            daily_ceiling=getattr(
+                cfg, "RENOVATION_SOL_DAILY_TOKEN_CEILING", SOL_DAILY_TOKEN_CEILING
+            ),
+        )
+    else:
+        raise VlmBudgetGuardConfigError(
+            f"no daily ledger mapped for OpenAI model {model!r} "
+            f"(terra={terra_model!r}, sol={sol_model!r})"
+        )
+    context = context or {}
+    reservation_id = ledger.reserve(
+        property_key=str(context.get("property_key") or "vlm_choke_point"),
+        source_run_id=str(context.get("source_run_id") or "vlm"),
+        estimate_unit_id=str(pass_key or "unattributed"),
+        request_fingerprint=normalized,
+        tokens=estimate_vlm_reservation_tokens(
+            max_output_tokens=max_output_tokens,
+            prompt_chars=prompt_chars,
+            image_count=image_count,
+        ),
+    )
+    return VlmCallReservation(ledger, reservation_id)

@@ -37,6 +37,59 @@ DEFAULT_MODEL_MAP = ROOT / "benchmarks" / "configs" / "kind_canary_model_map.jso
 IMAGE_SUFFIXES = {".jpg", ".jpeg", ".png", ".webp"}
 
 
+def _budget_guard_active(env: dict) -> bool:
+    """Whether the Session 9 choke-point budget guard is on for this run."""
+    if str(ROOT) not in sys.path:
+        sys.path.insert(0, str(ROOT))
+    from tools.pipeline_config import resolve_renovation_vlm_budget_guard
+
+    return resolve_renovation_vlm_budget_guard(
+        env.get("RENOVATION_VLM_BUDGET_GUARD")
+    )
+
+
+def _terra_budget_remaining(env: dict) -> int | None:
+    """Remaining Terra tokens for the current UTC day, or None when the
+    guard is not active for this run (no gate, exactly as before Session 9)."""
+    if not _budget_guard_active(env):
+        return None
+    usage_root = (env.get("RENOVATION_TERRA_USAGE_ROOT") or "").strip()
+    if not usage_root:
+        return None
+    from tools.pipeline_config import resolve_renovation_terra_daily_ceiling
+    from tools.renovation_architecture.usage_guard import TerraUsageLedger
+
+    ceiling = resolve_renovation_terra_daily_ceiling(
+        env.get("RENOVATION_TERRA_DAILY_TOKEN_CEILING")
+    )
+    return max(0, ceiling - TerraUsageLedger(Path(usage_root)).spent_today())
+
+
+def _quota_failed_v5(property_root: Path) -> bool:
+    """True if a written artifact carries a quota-failed v5 envelope.
+
+    With the guard active this can only happen if the guard env failed to
+    reach the analyzer subprocess (the Session 9 carve-out fails the job
+    before an artifact exists otherwise). Such an artifact would be skipped
+    as "completed" on every future resume — a silent continuation past the
+    budget — so the run must stop loudly instead."""
+    for path in property_root.glob("*/photo_intel_debug.json"):
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        envelope = (payload.get("analysis_debug") or {}).get(
+            "renovation_estimate_v5"
+        )
+        if (
+            isinstance(envelope, dict)
+            and envelope.get("state") == "failed"
+            and envelope.get("reason") == "quota"
+        ):
+            return True
+    return False
+
+
 def _preflight_embeddings() -> bool:
     """Real-POST probe of the embeddings sidecar with the CONFIGURED model.
 
@@ -167,6 +220,12 @@ def main(argv=None) -> int:
                         help="run against a manifest that is not frozen yet")
     parser.add_argument("--skip-preflight", action="store_true",
                         help="skip the embeddings probe (only when 2d is intentionally off)")
+    parser.add_argument("--terra-stop-margin", type=int, default=500_000,
+                        help="with the budget guard active, stop cleanly (rc=3) "
+                             "before starting a property once the remaining daily "
+                             "Terra budget drops below this (default 500k ≈ 2.3x "
+                             "the measured 221k/listing mean — a mid-property "
+                             "denial re-pays the whole property tomorrow)")
     args = parser.parse_args(argv)
 
     if not args.skip_preflight and not _preflight_embeddings():
@@ -252,6 +311,16 @@ def main(argv=None) -> int:
                 failures.append(key)
                 continue
             metadata = _stored_property_metadata(key)
+        remaining = _terra_budget_remaining(env)
+        if remaining is not None and remaining < args.terra_stop_margin:
+            print(
+                f"[{index}/{len(rows)}] daily Terra budget nearly exhausted "
+                f"({remaining:,} tokens left < {args.terra_stop_margin:,} "
+                "margin); stopping cleanly before starting another property. "
+                "Resume tomorrow (UTC rollover) with the same command — "
+                "completed properties are skipped."
+            )
+            return 3
         cmd = [
             str(python_exe), str(analyzer),
             "--property-key", key,
@@ -268,6 +337,14 @@ def main(argv=None) -> int:
         if result.returncode != 0:
             print(f"[{index}/{len(rows)}] {key}: FAILED rc={result.returncode}", file=sys.stderr)
             failures.append(key)
+        elif remaining is not None and _quota_failed_v5(out_root / key):
+            print(f"[{index}/{len(rows)}] {key}: artifact carries a QUOTA-FAILED "
+                  "v5 envelope despite the budget guard — the guard env did not "
+                  "reach the analyzer subprocess. Stopping; delete this "
+                  "property's artifact and re-run after fixing the environment.",
+                  file=sys.stderr)
+            failures.append(key)
+            break
 
     print(f"\n{args.side}: {len(rows) - len(failures)}/{len(rows)} completed"
           + (f"; failures: {failures}" if failures else ""))

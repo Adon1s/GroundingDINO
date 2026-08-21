@@ -119,6 +119,16 @@ class TestLedger:
         assert rows[0][4] == "2026-08-14" and rows[0][2] == 2_000
         assert rows[1][4] == "2026-08-15"
 
+    def test_spent_today_sums_only_the_current_day(self, tmp_path, monkeypatch):
+        from tools.renovation_architecture import usage_guard
+
+        monkeypatch.setattr(usage_guard, "_utc_today", lambda: "2026-08-14")
+        ledger = TerraUsageLedger(tmp_path)
+        _reserve(ledger, tokens=50_000)
+        monkeypatch.setattr(usage_guard, "_utc_today", lambda: "2026-08-15")
+        _reserve(ledger, tokens=1_000, unit="bathroom_primary")
+        assert ledger.spent_today() == 1_000
+
     def test_concurrent_reservations_admit_exactly_one(self, tmp_path):
         ledger = TerraUsageLedger(tmp_path, daily_ceiling=30_000)
         barrier = threading.Barrier(2)

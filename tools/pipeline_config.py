@@ -298,6 +298,53 @@ RENOVATION_SOL_DAILY_TOKEN_CEILING = resolve_renovation_sol_daily_ceiling(
 )
 
 # =============================================================================
+# VLM CHOKE-POINT BUDGET GUARD (renovation architecture Session 9)
+# =============================================================================
+# Opt-in metering of EVERY OpenAI call (upstream scene passes included)
+# against the per-model daily ledgers in usage_guard. Off by default:
+# production behavior is unchanged unless RENOVATION_VLM_BUDGET_GUARD is set
+# (the canary coordinator sets it). The Terra ceiling env exists so a paid
+# overage day is an explicit, recorded decision rather than a silent overrun.
+
+
+def resolve_renovation_vlm_budget_guard(raw: Optional[str]) -> bool:
+    value = (str(raw).strip().lower() if raw is not None else "")
+    if value in ("", "0", "false"):
+        return False
+    if value in ("1", "true"):
+        return True
+    raise ValueError(
+        f"RENOVATION_VLM_BUDGET_GUARD must be one of ''/0/false/1/true, "
+        f"got {raw!r}"
+    )
+
+
+def resolve_renovation_terra_daily_ceiling(raw: Optional[str]) -> int:
+    """Daily Terra token budget (input+output combined — the OpenAI free
+    allowance on the Terra model's tier). Default matches
+    usage_guard.TERRA_DAILY_TOKEN_CEILING (2.5M/day)."""
+    if raw is None or str(raw).strip() == "":
+        return 2_500_000
+    try:
+        value = int(str(raw).strip())
+    except ValueError:
+        value = None
+    if value is None or value <= 0:
+        raise ValueError(
+            f"RENOVATION_TERRA_DAILY_TOKEN_CEILING must be a positive integer, "
+            f"got {raw!r}"
+        )
+    return value
+
+
+RENOVATION_VLM_BUDGET_GUARD = resolve_renovation_vlm_budget_guard(
+    os.environ.get("RENOVATION_VLM_BUDGET_GUARD")
+)
+RENOVATION_TERRA_DAILY_TOKEN_CEILING = resolve_renovation_terra_daily_ceiling(
+    os.environ.get("RENOVATION_TERRA_DAILY_TOKEN_CEILING")
+)
+
+# =============================================================================
 # GOOGLE GEMINI SETTINGS (Cloud - for catalog_auditor)
 # =============================================================================
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "AIzaSyBVoSb4gygaBh2ScxfceIIAJ7-1bjnQJLc")

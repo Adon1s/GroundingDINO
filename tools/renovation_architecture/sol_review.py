@@ -52,6 +52,7 @@ from tools.renovation_architecture.usage_guard import (
     SolDailyBudgetExceeded,
     SolUsageLedger,
     estimate_sol_reservation_tokens,
+    external_reservation,
 )
 from tools.renovation_architecture.validators import (
     package_review_snapshot_hashes,
@@ -645,12 +646,15 @@ def run_package_review(
             ) from exc
         before = _usage_snapshot(vlm_client)
         try:
-            raw_text = call_sol_review(
-                vlm_client, request,
-                model=runtime.sol_model, api_key=api_key,
-                max_output_tokens=runtime.sol_max_output_tokens,
-                reasoning_effort=SOL_REVIEW_REASONING_EFFORT,
-            )
+            # This call is already reserved/settled against the Sol ledger
+            # above; the Session 9 choke-point guard must not debit it again.
+            with external_reservation():
+                raw_text = call_sol_review(
+                    vlm_client, request,
+                    model=runtime.sol_model, api_key=api_key,
+                    max_output_tokens=runtime.sol_max_output_tokens,
+                    reasoning_effort=SOL_REVIEW_REASONING_EFFORT,
+                )
         except PassExecutionError:
             # The provider may or may not have consumed tokens; keeping the
             # conservative reservation debited is the honest choice.

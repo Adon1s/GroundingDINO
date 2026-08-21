@@ -925,6 +925,9 @@ def main() -> int:
     _, gpt5_config = get_model_configs_from_pipeline_config(cfg)
     vlm_client = create_vlm_client()
     vlm_client.reset_usage_stats()
+    # Attribution for the choke-point budget guard's ledger rows (Session 9);
+    # source_run_id is filled in once the job id exists below.
+    vlm_client.budget_context = {"property_key": args.property_key}
 
     # Create orchestrator
     orchestrator = create_orchestrator_from_config(
@@ -949,6 +952,7 @@ def main() -> int:
     job_id = f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:8]}"
     job_dir = artifacts_root / args.property_key / job_id
     job_dir.mkdir(parents=True, exist_ok=True)
+    vlm_client.budget_context["source_run_id"] = job_id
 
     # ─────────────────────────────────────────────────────────────────────────
     # Per-image analysis loop

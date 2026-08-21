@@ -222,7 +222,12 @@ def build_estimate_envelope(
     invalid "complete" payload becomes a failed envelope instead. Completed
     Terra checkpoints and any parsed Sol checkpoint survive a downstream
     failure — the deterministic stages are recomputed on retry, and the
-    model calls replay from checkpoints without new spend."""
+    model calls replay from checkpoints without new spend.
+
+    Session 9 exception: with RENOVATION_VLM_BUDGET_GUARD set, quota-category
+    failures re-raise instead of becoming a failed envelope, so a
+    daily-ceiling denial fails the property closed and the canary resume
+    re-runs it (checkpoints keep the completed units free)."""
     runtime = _RUNTIME
     if runtime is None:
         envelope = RenovationEstimateEnvelope(
@@ -344,6 +349,7 @@ def build_estimate_envelope(
             )
         return payload
     except Exception as exc:
+        from tools import pipeline_config as cfg
         from tools.failure_taxonomy import classify_failure
 
         # PassExecutionError carries its own pass/stage/provider/model, which
@@ -352,6 +358,14 @@ def build_estimate_envelope(
             exc, pass_key="terra_review", stage="request",
             provider="openai", model=runtime.terra_model,
         )
+        if descriptor.category == "quota" and getattr(
+            cfg, "RENOVATION_VLM_BUDGET_GUARD", False
+        ):
+            # Session 9: under the choke-point guard a daily-ceiling denial
+            # must fail the property closed, not become a failed envelope
+            # the resume machinery would skip as "completed". Guard off:
+            # behavior unchanged.
+            raise
         envelope = RenovationEstimateEnvelope(
             schema_version=ENVELOPE_SCHEMA_VERSION,
             estimate_id=estimate_id,

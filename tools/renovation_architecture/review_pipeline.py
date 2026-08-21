@@ -50,6 +50,7 @@ from tools.renovation_architecture.usage_guard import (
     TerraDailyBudgetExceeded,
     TerraUsageLedger,
     estimate_reservation_tokens,
+    external_reservation,
 )
 from tools.renovation_architecture.validators import (
     validate_condition_review_result,
@@ -105,12 +106,15 @@ def _review_unit_fresh(
 
     before = _usage_snapshot(vlm_client)
     try:
-        raw_text = call_terra_review(
-            vlm_client, request,
-            model=terra_model, api_key=api_key,
-            max_output_tokens=terra_max_output_tokens,
-            reasoning_effort=TERRA_REVIEW_REASONING_EFFORT,
-        )
+        # This call is already reserved/settled against the Terra ledger
+        # above; the Session 9 choke-point guard must not debit it again.
+        with external_reservation():
+            raw_text = call_terra_review(
+                vlm_client, request,
+                model=terra_model, api_key=api_key,
+                max_output_tokens=terra_max_output_tokens,
+                reasoning_effort=TERRA_REVIEW_REASONING_EFFORT,
+            )
     except PassExecutionError:
         # The provider may or may not have consumed tokens; keeping the
         # conservative reservation debited is the honest choice.
@@ -234,9 +238,17 @@ def run_condition_review(
             )
         if ledger is None:
             from tools import pipeline_config as cfg
+            from tools.renovation_architecture.usage_guard import (
+                TERRA_DAILY_TOKEN_CEILING,
+            )
 
             ledger = TerraUsageLedger(
                 Path(artifacts_root),
+                daily_ceiling=getattr(
+                    cfg,
+                    "RENOVATION_TERRA_DAILY_TOKEN_CEILING",
+                    TERRA_DAILY_TOKEN_CEILING,
+                ),
                 usage_root_override=getattr(
                     cfg, "RENOVATION_TERRA_USAGE_ROOT", None
                 ),
