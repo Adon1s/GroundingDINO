@@ -76,6 +76,27 @@ require written approval per the 4A plan.
       named structural cases.
 - [ ] Kind-mix shift (defect 73%→12% share) acknowledged as intended.
 
+### Sign-off record (2026-08-21, Steven — written waiver)
+
+Recorded through the independent renovation-architecture cutover review
+(`docs/DECISION_renovation_architecture_session9_cutover_20260821.md` §5 C1):
+the architecture cutover (`KIND_ONTOLOGY_VERSION=observation_kind_v2` +
+`RENOVATION_ARCHITECTURE_MODE=new`) knowingly carries the Task 4A v4-on-v2
+deltas as the transitional display until the frontend adopts v5. The boxes
+above are left as originally written; this block is the decision.
+
+- Unresolved-rate gate: **option (a)** — approve the deviation; re-scope the
+  gate to absolute resolved coverage for future comparisons.
+- Headline deltas: **waived**, not per-property approved. Under catalog 3.1
+  (what deploys) the open list is 23 rows on 14 properties
+  (`reports/kind_cutover_canary_catalog31_20260808.json`), not the 26/15 of the
+  3.0 table above; `approved_headline_deltas` in
+  `configs/kind_ontology_cutover.json` is deliberately left `{}`.
+- Package changes (lane-swap pattern + four structural cases): **waived** —
+  v4-on-v2 packages are transitional display; v5 package formation replaces
+  them once the FE adopts v5.
+- Kind-mix shift (defect 73%→12%): **acknowledged as intended**.
+
 On approval: merge/deploy FE branch `kind_ontology_v2_compat`, then enable
 `KIND_ONTOLOGY_VERSION=observation_kind_v2` in production per
 docs/RUNBOOK_kind_ontology_release_rollback.md, and start the 7-day
