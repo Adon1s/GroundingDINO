@@ -113,6 +113,11 @@ run** (a single combined run cannot attribute a regression):
   wave-1 baseline** the wave-2 canary diffs against; keep each session's
   replay outputs under a labelled `analysis_*` dir so E can reproduce the
   chain.
+- QP4 gate-evidence note for Session E (decision-packets §7 item 6 is now
+  an erratum): redfin_125779232 and redfin_80877597's "duplicated v4 rows"
+  were per-surrogate bathroom expansion clones — distinct bathrooms. Both
+  properties count as QP4 under-billing gate evidence in the §10 scoring,
+  not as benign-cleanup examples.
 
 ## 5. Exit criteria
 

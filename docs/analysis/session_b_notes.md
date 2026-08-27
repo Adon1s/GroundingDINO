@@ -7,14 +7,17 @@ calls were made; no estimate behaviour changed; frozen inputs untouched.
 
 ## Tracked outside the close condition
 
-- **Packet P5 item 6** (still open, deliberately not done this session):
-  two headline explanations in the audited review record (properties
-  125779232 and 80877597) describe the bathroom expansion as "duplicated v4
-  rows"; the correct description is v4's per-surrogate expansion clones.
-  Fixing the wording in the review file changes its hash and needs a
-  deterministic offline comparator re-run; fixing only the audit record
-  does not. Owner: Steven's call on which record to correct, any wave-1
-  session can carry it.
+- **Packet P5 item 6 — RESOLVED 2026-08-27 (Steven's call: correct the
+  audit record).** Erratum landed in
+  `docs/DESIGN_renovation_architecture_decision_packets.md` §7 item 6: the
+  "duplicated v4 rows" in the two headline explanations (125779232,
+  80877597) were per-surrogate bathroom expansion clones — distinct
+  bathrooms, i.e. the P3/QP4 under-billing, not redundancy. The frozen
+  review file stays byte-identical (sha256 is an integrity anchor in the
+  session9 handoffs; a post-P5 comparator re-run yields a different,
+  unreviewed item set, so the file-edit option died with the P5 keying
+  fix). Both properties re-filed as QP4 gate evidence — pointer added to
+  the Session C handoff for Session E.
 
 ## Handoff corrections found by fact-check (do not propagate)
 

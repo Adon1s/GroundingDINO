@@ -567,10 +567,34 @@ These are deterministic and cheap; they are what let the findings above hide.
    decision) — it is the only direct variance signal the canary yields for free.
 5. `scripts/cluster_session9_reviews.py`: do not fold multi-surrogate packages
    into `package_key_migration`; add a "disagreement" tier.
-6. Two headline explanations (125779232, 80877597) describe the bathroom
-   expansion as "duplicated v4 rows"; correct the wording in the audit record
-   (or in the review file if Steven prefers, which changes its hash and needs a
-   comparator re-run — the re-run is deterministic and offline).
+6. **ERRATUM (landed 2026-08-27, Session B — this supersedes the original
+   item 6 and is the correction of record).** The two Tier-2 headline
+   explanations for redfin_125779232 (`rar1_56aa0653723ad643`) and
+   redfin_80877597 (`rar1_907cf475274a84b9`) in
+   `reports/renovation_architecture_session9_reviews_20260821.prefilled.json`
+   describe the removed v4 bathroom-modernization allowance as "duplicated
+   v4 rows" being canonicalized. That characterization is wrong. The rows
+   are v4's per-surrogate expansion clones
+   (`bathroom_modernization__bathroom_primary__bathroom_1` / `__bathroom_2`,
+   both 2f-confirmed, identically priced by v4's naive cloning) — two
+   distinct bathrooms, not redundancy — and the allowance v5 dropped is the
+   P3/QP4 under-billing (v5 16/17 under vs the §10 human targets, gap +25),
+   not cleanup. The dollar arithmetic in both explanations is correct and
+   self-consistent; only the characterization is wrong, so the cutover
+   decision does not reopen: dedup-driven deflation was already accepted,
+   and the P3 option call already commissions QP4. These two properties
+   re-file as QP4 gate evidence (Session E scoring vs the §10 targets)
+   instead of benign-cleanup examples. Root cause of the mis-wording: the
+   pre-P5 comparator keyed packages by type|unit, so both clones (same type,
+   empty unit) collapsed into one review row — item 1 above, fixed in
+   Session B — and a reviewer seeing one matching bathroom row per side
+   reasonably inferred a duplicate. The frozen review file stays
+   byte-identical: its sha256 is an integrity anchor in the session9
+   handoffs, and the original suggestion of re-editing it is no longer
+   viable — a post-P5 comparator re-run produces a different, unreviewed
+   item set (967→1065 items, every package review id changed), so the
+   "deterministic and offline re-run" this item originally described no
+   longer re-blesses anything.
 
 **Recommendation (mine).** Do 1–5 before the next canary; they change no
 estimate output, only what the reviewer sees. **What closes it:** the five
