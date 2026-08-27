@@ -1,0 +1,8 @@
+{
+  "label": "verification_guidance_example",
+  "target": "terra",
+  "extra_condition_keys": {
+    "verification_guidance": "PLACEHOLDER - Session F supplies the QP2 rule text (mechanism-match; updated-room contradiction). Extra payload keys are fingerprinted automatically."
+  },
+  "notes": "Mechanism demo only, not a real arm: shows the per-condition extra-key channel (terra_review.py payload dict) and the optional system_prompt override. Do not run live with placeholder text."
+}

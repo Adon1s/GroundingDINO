@@ -1,0 +1,6 @@
+{
+  "label": "remove_observations_v1",
+  "target": "terra",
+  "drop_condition_keys": ["observations"],
+  "notes": "QP1 ablation arm: drop the upstream observation sentences from the payload to test the cross-session anchoring-risk hypothesis. Risky to assert untested - observations also localize generic claims, so removal could raise false positives or cannot_assess."
+}
