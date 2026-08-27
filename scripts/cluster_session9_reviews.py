@@ -1,5 +1,10 @@
 """Cluster the Session 9 canary review items and prefill the review template.
 
+This script targets the frozen Session 9 comparator report shape (type|unit
+package keys, status="applied" v4 rows); it is not updated for the Session B
+package_id-keyed comparator output, where v4/v5 package items are one-sided
+by construction and pairing happens here.
+
 967 review items is unreviewable one-by-one, but they are not 967 distinct
 facts: most are the same few mechanical effects repeated across properties.
 This tool sorts every item into one of three tiers:
@@ -375,10 +380,27 @@ def main(argv=None) -> int:
 
     for prop, grouped in by_prop.items():
         v4_types = {i["baseline"]["package_type"]: i for i in grouped["v4"]}
+        v5_type_counts = defaultdict(int)
+        for i in grouped["v5"]:
+            v5_type_counts[i["candidate"]["package_type"]] += 1
         for item in grouped["v5"]:
             c = item["candidate"]
             mate = v4_types.get(c["package_type"])
-            if mate is not None and mate["baseline"].get("pricing_tier") == c.get("pricing_tier"):
+            if v5_type_counts[c["package_type"]] >= 2:
+                # Multi-surrogate expansion: several v5 packages of one type
+                # against at most one unkeyed v4 row is a real disagreement,
+                # never a key migration.
+                add("package_multi_surrogate_disagreement", item,
+                    f"{v5_type_counts[c['package_type']]} v5 "
+                    f"{c['package_type']} packages vs "
+                    f"{'one' if mate is not None else 'no'} v4 row")
+                paired_ids.add(item["review_id"])
+                if mate is not None and mate["review_id"] not in paired_ids:
+                    add("package_multi_surrogate_disagreement", mate,
+                        f"one v4 '{c['package_type']}|' row vs "
+                        f"{v5_type_counts[c['package_type']]} v5 packages")
+                    paired_ids.add(mate["review_id"])
+            elif mate is not None and mate["baseline"].get("pricing_tier") == c.get("pricing_tier"):
                 add("package_key_migration", item,
                     f"pairs with v4 '{c['package_type']}|' (same tier)")
                 paired_ids.add(item["review_id"])
@@ -441,8 +463,8 @@ def main(argv=None) -> int:
     tier2_n = sum(len(clusters.get(n, [])) for n in TIER2)
     tier3 = ["scope_merge_increased", "scope_added_reattributed",
              "scope_added_routing_diff", "scope_dropped_disposition",
-             "scope_dropped_other", "package_needs_eyes", "headline",
-             "stability"]
+             "scope_dropped_other", "package_multi_surrogate_disagreement",
+             "package_needs_eyes", "headline", "stability"]
     tier3_n = sum(len(clusters.get(n, [])) for n in tier3)
 
     L = ["# Session 9 canary review digest", "",

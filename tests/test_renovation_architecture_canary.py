@@ -1,3 +1,4 @@
+import copy
 import hashlib
 import json
 from types import SimpleNamespace
@@ -5,7 +6,13 @@ from types import SimpleNamespace
 import pytest
 
 from scripts import run_kind_canary, run_renovation_architecture_canary
-from tools.compare_renovation_architecture_cutover import compare_canary
+from tools.compare_renovation_architecture_cutover import (
+    _sol_flips,
+    _v4_packages,
+    _v5_digest,
+    _v5_packages,
+    compare_canary,
+)
 from tools.renovation_architecture.contracts import SHADOW_DEBUG_KEY
 from tests.test_renovation_architecture_contracts import (
     _complete_result,
@@ -320,6 +327,107 @@ def test_existing_canary_driver_rejects_changed_frozen_image(tmp_path, monkeypat
     )
     assert result == 1
     assert not called
+
+
+# ── Session B (P5): package keying, dollars, 2f verdicts, Sol flips ──────────
+
+def _v4_expansion_artifact():
+    """Two expanded bathroom clones: same type, empty estimate_unit_id,
+    distinct package_id — the shape a type|unit key silently collapses."""
+    return {
+        "renovation_estimate_v4": {
+            "packages": [
+                {
+                    "package_id": "bathroom_modernization__bathroom__rs_a",
+                    "package_type": "bathroom_modernization",
+                    "estimate_unit_id": "",
+                    "pricing_tier": "refresh",
+                    "cost_low": 4000,
+                    "cost_high": 9000,
+                    "verification_status": "confirmed",
+                    "raw_pass_2f_response": json.dumps(
+                        {"evidence_summary": "tile wear visible"}
+                    ),
+                },
+                {
+                    "package_id": "bathroom_modernization__bathroom__rs_b",
+                    "package_type": "bathroom_modernization",
+                    "estimate_unit_id": "",
+                    "pricing_tier": "refresh",
+                    "cost_low": 5000,
+                    "cost_high": 11000,
+                    "verification_status": "rejected",
+                    "evidence_summary": "fallback summary",
+                },
+            ],
+        }
+    }
+
+
+def test_expanded_v4_packages_survive_package_id_keying():
+    rows = _v4_packages(_v4_expansion_artifact())
+    assert set(rows) == {
+        "bathroom_modernization__bathroom__rs_a",
+        "bathroom_modernization__bathroom__rs_b",
+    }
+    first = rows["bathroom_modernization__bathroom__rs_a"]
+    assert (first["low"], first["high"]) == (4000, 9000)
+    assert first["verification_status"] == "confirmed"
+    assert first["evidence_summary"] == "tile wear visible"
+    second = rows["bathroom_modernization__bathroom__rs_b"]
+    assert (second["low"], second["high"]) == (5000, 11000)
+    assert second["verification_status"] == "rejected"
+    assert second["evidence_summary"] == "fallback summary"
+    assert "status" not in first  # the hardcoded "applied" label is gone
+
+
+def test_v5_packages_key_by_candidate_id_with_effective_dollars():
+    result = _complete_result()
+    application = result["package_applications"][0]
+    candidate_id = result["package_candidates"][0]["package_candidate_id"]
+    rows = _v5_packages(result)
+    assert set(rows) == {candidate_id}
+    row = rows[candidate_id]
+    assert row["package_candidate_id"] == candidate_id
+    assert row["status"] == application["status"]
+    assert row["effective_low"] == application["effective_low"]
+    assert row["effective_high"] == application["effective_high"]
+
+
+def test_sol_flip_detector_fires_only_on_identical_children():
+    first = _complete_result()
+    flipped = copy.deepcopy(first)
+    flipped["package_decisions"][0]["decision"] = "reject"
+    flips = _sol_flips(first, flipped)
+    assert len(flips) == 1
+    assert flips[0]["decisions"] == ["approve", "reject"]
+
+    # Same identity but different child work: not a flip.
+    changed = copy.deepcopy(flipped)
+    children = set(changed["package_candidates"][0]["child_work_item_ids"])
+    other = [
+        item["work_item_id"] for item in changed["work_items"]
+        if item["work_item_id"] not in children
+    ]
+    changed["package_candidates"][0]["child_work_item_ids"] = [other[0]]
+    assert _sol_flips(first, changed) == []
+
+
+def test_stability_digest_ignores_candidate_id_churn():
+    """Candidate ids embed the run-specific estimate id; renaming every
+    reference to one candidate must not change the run-to-run digest."""
+    first = _complete_result()
+    second = copy.deepcopy(first)
+    old_id = second["package_candidates"][0]["package_candidate_id"]
+    new_id = "pk1_" + "0" * 16
+    second["package_candidates"][0]["package_candidate_id"] = new_id
+    for row in second["package_decisions"] + second["package_applications"]:
+        if row.get("package_candidate_id") == old_id:
+            row["package_candidate_id"] = new_id
+    for row in second["coverage_ledger"]:
+        if row.get("package_id") == old_id:
+            row["package_id"] = new_id
+    assert _v5_digest(first) == _v5_digest(second)
 
 
 # ── Session 9: pre-property budget gate and quota belt-and-braces ────────────

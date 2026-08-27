@@ -182,12 +182,31 @@ def _v4_packages(artifact: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
     for package in estimate.get("packages") or []:
         if not isinstance(package, Mapping):
             continue
-        key = f"{package.get('package_type') or ''}|{package.get('estimate_unit_id') or ''}"
+        # Keyed by package_id: expanded bathroom clones share package_type and
+        # carry an empty estimate_unit_id, so a type|unit key collapses them
+        # to one surviving row.
+        key = str(
+            package.get("package_id")
+            or f"{package.get('package_type') or ''}|{package.get('estimate_unit_id') or ''}"
+        )
+        raw = package.get("raw_pass_2f_response")
+        try:
+            parsed = json.loads(raw) if isinstance(raw, str) else (raw or {})
+        except ValueError:
+            parsed = {}
         rows[key] = {
+            "package_id": package.get("package_id"),
             "package_type": package.get("package_type"),
             "estimate_unit_id": package.get("estimate_unit_id"),
             "pricing_tier": package.get("pricing_tier"),
-            "status": "applied",
+            "low": int(package.get("cost_low") or 0),
+            "high": int(package.get("cost_high") or 0),
+            "verification_status": package.get("verification_status"),
+            "evidence_summary": str(
+                (parsed.get("evidence_summary") if isinstance(parsed, Mapping) else "")
+                or package.get("evidence_summary")
+                or ""
+            ),
         }
     return dict(sorted(rows.items()))
 
@@ -208,16 +227,105 @@ def _v5_packages(result: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
         if not isinstance(candidate, Mapping) or candidate.get("display_only"):
             continue
         candidate_id = str(candidate.get("package_candidate_id") or "")
-        key = f"{candidate.get('package_type') or ''}|{candidate.get('estimate_unit_id') or ''}"
+        application = applications.get(candidate_id) or {}
+        key = candidate_id or (
+            f"{candidate.get('package_type') or ''}|{candidate.get('estimate_unit_id') or ''}"
+        )
         rows[key] = {
+            "package_candidate_id": candidate.get("package_candidate_id"),
             "package_type": candidate.get("package_type"),
             "estimate_unit_id": candidate.get("estimate_unit_id"),
             "pricing_tier": candidate.get("pricing_tier"),
             "decision": (decisions.get(candidate_id) or {}).get("decision"),
-            "status": (applications.get(candidate_id) or {}).get("status"),
-            "reason_code": (applications.get(candidate_id) or {}).get("reason_code"),
+            "status": application.get("status"),
+            "reason_code": application.get("reason_code"),
+            # Applied packages bill the recomputed effective range, not the
+            # stored candidate floor; unapplied candidates fall back to their
+            # own floored allowance so repricing stays visible either way.
+            "effective_low": int(
+                application["effective_low"]
+                if application.get("effective_low") is not None
+                else candidate.get("low") or 0
+            ),
+            "effective_high": int(
+                application["effective_high"]
+                if application.get("effective_high") is not None
+                else candidate.get("high") or 0
+            ),
         }
     return dict(sorted(rows.items()))
+
+
+def _sol_flips(
+    first: Mapping[str, Any], second: Mapping[str, Any]
+) -> List[Dict[str, Any]]:
+    """Run-to-run Sol variance on identical inputs: the same (type, unit)
+    candidate carrying identical child work, decided differently. Work-item
+    and candidate ids embed the run-specific estimate id, so children are
+    compared as (action_code, catalog_item_ids, billable_unit_id) descriptors
+    resolved through each run's own work_items."""
+
+    def _by_identity(result: Mapping[str, Any]) -> Dict[str, Dict[str, Any]]:
+        work = {
+            str(row.get("work_item_id")): row
+            for row in result.get("work_items") or []
+            if isinstance(row, Mapping)
+        }
+        decisions = {
+            str(row.get("package_candidate_id")): row
+            for row in result.get("package_decisions") or []
+            if isinstance(row, Mapping)
+        }
+        grouped: Dict[str, List[Dict[str, Any]]] = {}
+        for candidate in result.get("package_candidates") or []:
+            if not isinstance(candidate, Mapping) or candidate.get("display_only"):
+                continue
+            identity = (
+                f"{candidate.get('package_type') or ''}|{candidate.get('estimate_unit_id') or ''}"
+            )
+            children = sorted(
+                _canonical(
+                    {
+                        "action_code": (work.get(str(child)) or {}).get("action_code"),
+                        "catalog_item_ids": sorted(
+                            (work.get(str(child)) or {}).get("catalog_item_ids") or []
+                        ),
+                        "billable_unit_id": (work.get(str(child)) or {}).get(
+                            "billable_unit_id"
+                        ),
+                    }
+                )
+                for child in candidate.get("child_work_item_ids") or []
+            )
+            grouped.setdefault(identity, []).append(
+                {
+                    "children": children,
+                    "decision": (
+                        decisions.get(str(candidate.get("package_candidate_id"))) or {}
+                    ).get("decision"),
+                }
+            )
+        # An identity carried by more than one candidate in one run is
+        # ambiguous: skipped, never guessed.
+        return {
+            identity: rows[0]
+            for identity, rows in grouped.items()
+            if len(rows) == 1
+        }
+
+    first_map, second_map = _by_identity(first), _by_identity(second)
+    flips = []
+    for identity in sorted(set(first_map) & set(second_map)):
+        a, b = first_map[identity], second_map[identity]
+        if a["children"] == b["children"] and a["decision"] != b["decision"]:
+            flips.append(
+                {
+                    "identity": identity,
+                    "children": a["children"],
+                    "decisions": [a["decision"], b["decision"]],
+                }
+            )
+    return flips
 
 
 def _review_item(
@@ -289,7 +397,20 @@ def _v5_digest(result: Mapping[str, Any]) -> Dict[str, Any]:
             key=_canonical,
         ),
         "work": _v5_scope(result),
-        "packages": _v5_packages(result),
+        # Candidate ids embed the run-specific estimate id, so the run-to-run
+        # digest compares id-stripped rows — identity churn alone must never
+        # flag a property unstable.
+        "packages": sorted(
+            (
+                {
+                    name: value
+                    for name, value in row.items()
+                    if name != "package_candidate_id"
+                }
+                for row in _v5_packages(result).values()
+            ),
+            key=_canonical,
+        ),
         "totals": result.get("totals") or {},
     }
 
@@ -483,6 +604,19 @@ def compare_canary(
                         baseline=first, candidate=second,
                     )
                 )
+            for flip in _sol_flips(
+                envelopes[0][key]["result"], envelopes[1][key]["result"]
+            ):
+                review_items.append(
+                    _review_item(
+                        property_key=key, category="sol_flip",
+                        key=flip["identity"],
+                        baseline={"decision": flip["decisions"][0],
+                                  "children": flip["children"]},
+                        candidate={"decision": flip["decisions"][1],
+                                   "children": flip["children"]},
+                    )
+                )
 
     terra_listing: List[float] = []
     terra_calls: List[Dict[str, Any]] = []
@@ -601,6 +735,24 @@ def _markdown(report: Mapping[str, Any]) -> str:
         lines.extend(f"- FAIL `{row.get('gate')}`: `{_canonical(row)}`" for row in failures)
     else:
         lines.append("- All automated and manual-review gates passed.")
+    sol_flips = [
+        item for item in report.get("review_items") or []
+        if item.get("category") == "sol_flip"
+    ]
+    lines.extend(
+        [
+            "",
+            "## Sol flips",
+            "",
+            f"- Identical-children decision flips across replicas: {len(sol_flips)}",
+        ]
+    )
+    lines.extend(
+        f"- `{item.get('property_key')}` `{item.get('key')}`: "
+        f"{(item.get('baseline') or {}).get('decision')} -> "
+        f"{(item.get('candidate') or {}).get('decision')}"
+        for item in sol_flips
+    )
     usage = report.get("terra_usage") or {}
     lines.extend(
         [
