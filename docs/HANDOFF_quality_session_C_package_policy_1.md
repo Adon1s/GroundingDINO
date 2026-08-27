@@ -1,5 +1,13 @@
 # Handoff — Session C: package policy I (QP3 + QP6)
 
+> **SUPERSEDED 2026-08-27** by
+> `docs/HANDOFF_quality_session_CDE_package_policy_wave1.md`, which runs C,
+> D and E as one session at Steven's direction. Work from that document.
+> Two things below are wrong and are corrected there: QP3's scoped-vs-generic
+> choice is **not** open (S2 already adopted the application gate), and the
+> whole-home rollup side effect **cannot** occur (the rollup takes
+> turnover-category contributors only). Kept for history.
+
 Written 2026-08-27 by Session B · backend `renovation_architecture_rework` ·
 commissioned by `docs/ROADMAP_quality_program_sessions_20260826.md`
 (Session C) · proposals = `docs/PROPOSALS_output_quality_improvements_20260826.md`
