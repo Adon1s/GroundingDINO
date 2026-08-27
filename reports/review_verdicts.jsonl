@@ -1,0 +1,238 @@
+{"card_id": "rc_cf29a5a6f18a", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-23T20:46:13"}
+{"card_id": "rc_46cb65e70972", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-23T20:48:23"}
+{"card_id": "rc_201ccb0c2313", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-23T20:49:05"}
+{"card_id": "rc_df5b348c6ea6", "verdict": "terra_claim_supported", "tag": null, "notes": "The claim here about the door is understated. The condition is much worse than is conveyed", "peeked": false, "extra": null, "ts": "2026-08-23T20:50:22"}
+{"card_id": "rc_a5f2fa9cf45f", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-23T20:51:02"}
+{"card_id": "rc_42f54b0e00fd", "verdict": "terra_claim_unsupported", "tag": null, "notes": "So the actual claim is false but the hallucination is understandable. I dont think any correction is necessary here", "peeked": false, "extra": null, "ts": "2026-08-23T20:51:58"}
+{"card_id": "rc_d58b1f530fd9", "verdict": "terra_claim_supported", "tag": null, "notes": "Paint isnt peeling. There are dents in the wall. But the damage is substantiated. So I am approving for that reason", "peeked": false, "extra": null, "ts": "2026-08-24T11:33:07"}
+{"card_id": "rc_45b9d2f6923c", "verdict": "terra_claim_unsupported", "tag": null, "notes": "I believe it is a backsplash not wallpaper. But it does look dated", "peeked": false, "extra": null, "ts": "2026-08-24T11:33:47"}
+{"card_id": "rc_a44c527324c1", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:32:28"}
+{"card_id": "rc_62b74e10ba7a", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:32:40"}
+{"card_id": "rc_64f996e3a886", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:32:58"}
+{"card_id": "rc_64f996e3a886", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:32:58"}
+{"card_id": "rc_a0e75a18620e", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:33:17"}
+{"card_id": "rc_a0e75a18620e", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:33:18"}
+{"card_id": "rc_fb5cb1edc764", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:33:21"}
+{"card_id": "rc_fb5cb1edc764", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:33:22"}
+{"card_id": "rc_7cbbf388a7c7", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:33:29"}
+{"card_id": "rc_7cbbf388a7c7", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:33:29"}
+{"card_id": "rc_9f95a7795ef2", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:33:36"}
+{"card_id": "rc_9f95a7795ef2", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:33:36"}
+{"card_id": "rc_e2ad788f0845", "verdict": "terra_claim_supported", "tag": null, "notes": "One note, this is not an image of the house itself. It is a shed", "peeked": false, "extra": null, "ts": "2026-08-24T16:33:54"}
+{"card_id": "rc_e2ad788f0845", "verdict": "terra_claim_supported", "tag": null, "notes": "One note, this is not an image of the house itself. It is a shed", "peeked": false, "extra": null, "ts": "2026-08-24T16:33:54"}
+{"card_id": "rc_fb876c9b1b2d", "verdict": "terra_claim_supported", "tag": null, "notes": "It is overgrown which is fair. But in this case I believe it is intentional. Just to note. The model should not be penalized though.", "peeked": false, "extra": null, "ts": "2026-08-24T16:34:30"}
+{"card_id": "rc_fb876c9b1b2d", "verdict": "terra_claim_supported", "tag": null, "notes": "It is overgrown which is fair. But in this case I believe it is intentional. Just to note. The model should not be penalized though.", "peeked": false, "extra": null, "ts": "2026-08-24T16:34:30"}
+{"card_id": "rc_9abee28846d7", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:34:37"}
+{"card_id": "rc_9abee28846d7", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:34:37"}
+{"card_id": "rc_b56ced2976fa", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:34:46"}
+{"card_id": "rc_b56ced2976fa", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:34:46"}
+{"card_id": "rc_6b3c68f12764", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:34:50"}
+{"card_id": "rc_9e57092c89dd", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:34:55"}
+{"card_id": "rc_a22a241b3bf0", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:35:00"}
+{"card_id": "rc_3deb5aaef0f0", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:35:06"}
+{"card_id": "rc_f227f639eb82", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:35:13"}
+{"card_id": "rc_eef1daf73e2a", "verdict": "terra_claim_overstated", "tag": "real_but_overstated", "notes": "I see stains not scuffs", "peeked": false, "extra": null, "ts": "2026-08-24T16:35:49"}
+{"card_id": "rc_dcc3dc3c88f9", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:35:54"}
+{"card_id": "rc_8d81fe4dc909", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:36:01"}
+{"card_id": "rc_2ed75ba413ed", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:36:21"}
+{"card_id": "rc_35a00646adaf", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:36:25"}
+{"card_id": "rc_3c33871fe6e6", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:36:34"}
+{"card_id": "rc_204e2b40978b", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:37:00"}
+{"card_id": "rc_a82fadb087b4", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:37:03"}
+{"card_id": "rc_ff9596f21e23", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:37:16"}
+{"card_id": "rc_56515bc5d0bf", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:37:38"}
+{"card_id": "rc_280d3daca468", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:37:51"}
+{"card_id": "rc_99d4d24745c9", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:37:55"}
+{"card_id": "rc_c8ce7dac3ada", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-24T16:38:04"}
+{"card_id": "rc_7afab64562f3", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:40:10"}
+{"card_id": "rc_29055fb2788a", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:40:34"}
+{"card_id": "rc_492e1a848515", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:40:40"}
+{"card_id": "rc_492e1a848515", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:40:40"}
+{"card_id": "rc_7cceb5c878de", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:42:05"}
+{"card_id": "rc_8c3e76880064", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:42:10"}
+{"card_id": "rc_8c3e76880064", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:42:10"}
+{"card_id": "rc_ffa9829fd6dd", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:42:15"}
+{"card_id": "rc_ffa9829fd6dd", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:42:15"}
+{"card_id": "rc_b051529fd577", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:42:29"}
+{"card_id": "rc_b051529fd577", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:42:30"}
+{"card_id": "rc_025ca614449b", "verdict": "terra_claim_overstated", "tag": "real_but_overstated", "notes": "Painted doorway casing is chipped and dirty is true. The ceiling appears unevenly discolored in places is false. The ceiling claim is a hallucination based on the reflected colors on the ceiling from the window", "peeked": false, "extra": null, "ts": "2026-08-25T07:43:59"}
+{"card_id": "rc_429ba6851d09", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:44:04"}
+{"card_id": "rc_4f4b93c40ef3", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:45:28"}
+{"card_id": "rc_2990cdf4339b", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:45:45"}
+{"card_id": "rc_ebf953038b2d", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:45:51"}
+{"card_id": "rc_d0ffde500a92", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:46:12"}
+{"card_id": "rc_022497229bd3", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T07:46:23"}
+{"card_id": "rc_cf0c3ee00fcb", "verdict": "terra_claim_overstated", "tag": null, "notes": "The green patterned tile flooring appears worn and uneven in places is false. The green tile or vinyl-style floor appears worn and dirty could be true. The main issue is the color of the flooring is just dated and very ugly", "peeked": false, "extra": null, "ts": "2026-08-25T07:47:27"}
+{"card_id": "rc_e9d27cf6e9aa", "verdict": "terra_claim_supported", "tag": null, "notes": "A little worn but the best description would be outdated", "peeked": false, "extra": null, "ts": "2026-08-25T23:04:04"}
+{"card_id": "rc_6285e9a79e45", "verdict": "terra_claim_overstated", "tag": null, "notes": "The wear is overstated. It is more just extremely outdated and needing of refresh", "peeked": false, "extra": null, "ts": "2026-08-25T23:05:42"}
+{"card_id": "rc_2fb133cc012b", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:05:49"}
+{"card_id": "rc_995bdd685522", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:06:00"}
+{"card_id": "rc_6f8278034b05", "verdict": "terra_claim_supported", "tag": null, "notes": "True but this should be generic presence", "peeked": false, "extra": null, "ts": "2026-08-25T23:06:39"}
+{"card_id": "rc_0aff337deda5", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:06:51"}
+{"card_id": "rc_e318178d8993", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:07:21"}
+{"card_id": "rc_f468f4066e3f", "verdict": "terra_claim_supported", "tag": null, "notes": "True but minor as described", "peeked": false, "extra": null, "ts": "2026-08-25T23:07:55"}
+{"card_id": "rc_0b6ca8cfa337", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:08:03"}
+{"card_id": "rc_02bd65d88692", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:08:13"}
+{"card_id": "rc_ceeb17f8e242", "verdict": "terra_claim_overstated", "tag": null, "notes": "Cabinets are a bit dated but not worth replacing. The countertop is the main priority. But I wouldn't fault the LLM for this.", "peeked": false, "extra": null, "ts": "2026-08-25T23:09:06"}
+{"card_id": "rc_3da266b97f62", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:09:16"}
+{"card_id": "rc_268e1cfa1934", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:09:40"}
+{"card_id": "rc_699d79f6ee07", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:09:53"}
+{"card_id": "rc_f7db8c5beea5", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:09:58"}
+{"card_id": "rc_f7db8c5beea5", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:09:58"}
+{"card_id": "rc_84e863a712c3", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:10:06"}
+{"card_id": "rc_b2e9e5a031b4", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:10:17"}
+{"card_id": "rc_49b3ff4a6be8", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:10:25"}
+{"card_id": "rc_05e73bb8810c", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:10:37"}
+{"card_id": "rc_16d8d0177dd8", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:10:44"}
+{"card_id": "rc_9c45d0dc330e", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:10:49"}
+{"card_id": "rc_b8009f046889", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:11:00"}
+{"card_id": "rc_1cd376e14719", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:11:12"}
+{"card_id": "rc_57c6faf79c7e", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:11:35"}
+{"card_id": "rc_949e3d69a8ea", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:12:39"}
+{"card_id": "rc_32ff789c40d0", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:12:43"}
+{"card_id": "rc_e3fa65cc046f", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:12:55"}
+{"card_id": "rc_a2c0f92f2c30", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:13:09"}
+{"card_id": "rc_4cab6e7be02b", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:13:30"}
+{"card_id": "rc_55ca2938c64b", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:13:40"}
+{"card_id": "rc_6f59ce859fb7", "verdict": "terra_claim_overstated", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:14:54"}
+{"card_id": "rc_8afb476fa69f", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:15:36"}
+{"card_id": "rc_ba1ee10f2c7a", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:15:48"}
+{"card_id": "rc_d1b320e5046b", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:16:24"}
+{"card_id": "rc_d5cf0019df00", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:16:34"}
+{"card_id": "rc_8eb12e7236b6", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:16:41"}
+{"card_id": "rc_d2d4a18410aa", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:16:55"}
+{"card_id": "rc_e58eabd29123", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:26:11"}
+{"card_id": "rc_ffad088fa5fe", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:26:18"}
+{"card_id": "rc_f3d19e171c6d", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:26:49"}
+{"card_id": "rc_7c5b9f9bb3aa", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:27:18"}
+{"card_id": "rc_027e592f508b", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:27:30"}
+{"card_id": "rc_7057c3c171e5", "verdict": "terra_claim_unsupported", "tag": "other", "notes": "Trim is missing in some photos, its not visibly scuffed", "peeked": false, "extra": null, "ts": "2026-08-25T23:28:32"}
+{"card_id": "rc_c135e76317be", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:29:03"}
+{"card_id": "rc_cbd64c1aae77", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:29:13"}
+{"card_id": "rc_a5cd88368e02", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:29:19"}
+{"card_id": "rc_790f2b4ac9d4", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:29:31"}
+{"card_id": "rc_924163d5a9c3", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:29:40"}
+{"card_id": "rc_165093fb25c2", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:29:45"}
+{"card_id": "rc_24657c34d6dd", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-25T23:30:11"}
+{"card_id": "rc_9a01fb0bec32", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:31:55"}
+{"card_id": "rc_c95dacf421ce", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:32:05"}
+{"card_id": "rc_905575ed8a3d", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:32:12"}
+{"card_id": "rc_ae8b4be11f8d", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:33:58"}
+{"card_id": "rc_91bb03de4429", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:34:18"}
+{"card_id": "rc_65f169bbe3b4", "verdict": "terra_claim_unsupported", "tag": null, "notes": "The main issue is that I dont see wood paneling. I see wood cabinets. The other probelm is shouldnt this be broken into 2 separate issues? I only see wall paneling dated wood paneling", "peeked": false, "extra": null, "ts": "2026-08-26T10:36:19"}
+{"card_id": "rc_8bcd72621c40", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:36:54"}
+{"card_id": "rc_c34e48007ce2", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:37:06"}
+{"card_id": "rc_128caa6212b8", "verdict": "terra_claim_supported", "tag": "other", "notes": "Looks like hardwood not vinyl or linoleum but yes it is very worn as described", "peeked": false, "extra": null, "ts": "2026-08-26T10:37:43"}
+{"card_id": "rc_ef3234842cb9", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:37:51"}
+{"card_id": "rc_dff4c3209df1", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:38:06"}
+{"card_id": "rc_b6e62d05a805", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:38:13"}
+{"card_id": "rc_8df38cb68fc0", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:38:21"}
+{"card_id": "rc_8907b19a4a2f", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:38:37"}
+{"card_id": "rc_c19a185f9547", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:39:41"}
+{"card_id": "rc_64a78239f11f", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:40:01"}
+{"card_id": "rc_c842443ef5ed", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:41:49"}
+{"card_id": "rc_eccd12ababc5", "verdict": "terra_evidence_inconclusive", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:43:58"}
+{"card_id": "rc_c5afc5b26357", "verdict": "terra_evidence_inconclusive", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:44:41"}
+{"card_id": "rc_eace19540d2d", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:44:48"}
+{"card_id": "rc_d60c090abd2c", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:44:55"}
+{"card_id": "rc_7380e1876137", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:45:03"}
+{"card_id": "rc_8d06abb6ca2d", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:45:12"}
+{"card_id": "rc_a35f1b3a231e", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:45:28"}
+{"card_id": "rc_ce11620495c4", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:45:34"}
+{"card_id": "rc_7a6666b85944", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:45:42"}
+{"card_id": "rc_6f4590af65a3", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:45:48"}
+{"card_id": "rc_b642fe69b86a", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:46:00"}
+{"card_id": "rc_61b0f2981ca9", "verdict": "terra_claim_unsupported", "tag": "other", "notes": "The vanity is just opened. Its not unfinished", "peeked": false, "extra": null, "ts": "2026-08-26T10:46:28"}
+{"card_id": "rc_63fac87a14e4", "verdict": "terra_claim_unsupported", "tag": null, "notes": "Photo is very dark and its hard to see anything", "peeked": false, "extra": null, "ts": "2026-08-26T10:47:10"}
+{"card_id": "rc_790b583fcbf0", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:47:22"}
+{"card_id": "rc_bcb50df30b68", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:47:31"}
+{"card_id": "rc_73d15ca14405", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:47:44"}
+{"card_id": "rc_d0197df43080", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:47:54"}
+{"card_id": "rc_4b066537e31a", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:48:01"}
+{"card_id": "rc_aa7dae68eb01", "verdict": "terra_claim_unsupported", "tag": null, "notes": "It is not carpet it is some other type of flooring. But it does need replacing", "peeked": false, "extra": null, "ts": "2026-08-26T10:48:33"}
+{"card_id": "rc_7b23faa0bd8f", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:49:02"}
+{"card_id": "rc_b21b7a1f56e2", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:49:19"}
+{"card_id": "rc_48ea825e33f8", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:49:28"}
+{"card_id": "rc_ace7463d6837", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:49:34"}
+{"card_id": "rc_5b3b3cb9e726", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:50:03"}
+{"card_id": "rc_6c4e3194c4c9", "verdict": "terra_claim_unsupported", "tag": null, "notes": "Its just paint and discolor. Nothing is chipped", "peeked": false, "extra": null, "ts": "2026-08-26T10:50:43"}
+{"card_id": "rc_ef59cdc91598", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:50:59"}
+{"card_id": "rc_62d0dc3b9df8", "verdict": "terra_claim_unsupported", "tag": null, "notes": "It is a drop ceiling not popcorn. But it does need replacing", "peeked": false, "extra": null, "ts": "2026-08-26T10:51:28"}
+{"card_id": "rc_4c62bf04b442", "verdict": "terra_evidence_inconclusive", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:53:06"}
+{"card_id": "rc_5063066c1a57", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:55:43"}
+{"card_id": "rc_f48a8d9f18d3", "verdict": "terra_evidence_inconclusive", "tag": null, "notes": "The problem is its talking about the bathroom which is barely visible here. This is a photo of a the living room that just happens to show a small part of the bathroom.", "peeked": false, "extra": null, "ts": "2026-08-26T10:56:36"}
+{"card_id": "rc_64a77ba32b06", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:57:09"}
+{"card_id": "rc_cc24e226f76c", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:57:20"}
+{"card_id": "rc_8e2a7d85d9e1", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:57:30"}
+{"card_id": "rc_f8baa9e1dd45", "verdict": "per_bathroom", "tag": null, "notes": "there are 3 bathrooms", "peeked": false, "extra": {"distinct_bathrooms": 2}, "ts": "2026-08-26T10:59:02"}
+{"card_id": "rc_4d4fc50326d1", "verdict": "not_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T10:59:54"}
+{"card_id": "rc_4566d562b525", "verdict": "package_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:00:07"}
+{"card_id": "rc_999f5100e375", "verdict": "not_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:00:14"}
+{"card_id": "rc_98ab0a529d03", "verdict": "per_bathroom", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 1}, "ts": "2026-08-26T11:01:19"}
+{"card_id": "rc_fd0f8feb9102", "verdict": "not_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:01:25"}
+{"card_id": "rc_b8115555321c", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:01:35"}
+{"card_id": "rc_0b7facddd869", "verdict": "package_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:01:46"}
+{"card_id": "rc_6a49c6ea9e5d", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:01:53"}
+{"card_id": "rc_d759ab64908b", "verdict": "package_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:02:06"}
+{"card_id": "rc_f5b22147e2d0", "verdict": "per_bathroom", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 3}, "ts": "2026-08-26T11:02:25"}
+{"card_id": "rc_c5de5d38744c", "verdict": "package_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:02:43"}
+{"card_id": "rc_bf9e666b4365", "verdict": "package_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:03:01"}
+{"card_id": "rc_da63d5adbd8c", "verdict": "package_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:03:15"}
+{"card_id": "rc_e71c301e24ec", "verdict": "package_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:03:30"}
+{"card_id": "rc_21c83ab6629a", "verdict": "per_bathroom", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 2}, "ts": "2026-08-26T11:04:05"}
+{"card_id": "rc_1ba169da23ec", "verdict": "per_bathroom", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 2}, "ts": "2026-08-26T11:04:43"}
+{"card_id": "rc_d75f8a890141", "verdict": "per_bathroom", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 4}, "ts": "2026-08-26T11:04:57"}
+{"card_id": "rc_abad565422e1", "verdict": "per_bathroom", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 2}, "ts": "2026-08-26T11:05:24"}
+{"card_id": "rc_5e5d6c284e98", "verdict": "not_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:05:42"}
+{"card_id": "rc_72b74736d5a0", "verdict": "package_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:06:08"}
+{"card_id": "rc_b613cc1e2555", "verdict": "per_bathroom", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 2}, "ts": "2026-08-26T11:07:09"}
+{"card_id": "rc_e678fac17a88", "verdict": "package_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:07:24"}
+{"card_id": "rc_e390852f1544", "verdict": "unsure", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:08:10"}
+{"card_id": "rc_8f30d87303c3", "verdict": "package_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:08:23"}
+{"card_id": "rc_7b7343ba4892", "verdict": "not_warranted", "tag": null, "notes": "One of the photos is indoor not exterior", "peeked": false, "extra": null, "ts": "2026-08-26T11:08:55"}
+{"card_id": "rc_4ae32d9696df", "verdict": "per_bathroom", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 4}, "ts": "2026-08-26T11:09:49"}
+{"card_id": "rc_d4a7060c5d6e", "verdict": "per_bathroom", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 2}, "ts": "2026-08-26T11:10:16"}
+{"card_id": "rc_2aa55cbedcaf", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:10:23"}
+{"card_id": "rc_c88fe5533dc7", "verdict": "per_bathroom", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 2}, "ts": "2026-08-26T11:10:29"}
+{"card_id": "rc_d0b672271024", "verdict": "per_bathroom", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 3}, "ts": "2026-08-26T11:10:35"}
+{"card_id": "rc_26b5023cbc87", "verdict": "not_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:10:40"}
+{"card_id": "rc_794462a5b0fb", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:10:55"}
+{"card_id": "rc_24fd73eeb7a0", "verdict": "not_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:11:02"}
+{"card_id": "rc_d36f87e74356", "verdict": "per_bathroom", "tag": null, "notes": "The last image is not a bathroom. Its like a utility room", "peeked": false, "extra": {"distinct_bathrooms": 2}, "ts": "2026-08-26T11:11:38"}
+{"card_id": "rc_9fd0c9eb6562", "verdict": "once", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 1}, "ts": "2026-08-26T11:11:50"}
+{"card_id": "rc_5e39debedc3b", "verdict": "per_bathroom", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 3}, "ts": "2026-08-26T11:12:29"}
+{"card_id": "rc_5beb97055895", "verdict": "not_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:13:07"}
+{"card_id": "rc_73b3f8ebedc3", "verdict": "package_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T11:13:18"}
+{"card_id": "rc_9a7cd68a58b7", "verdict": "not_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:13:13"}
+{"card_id": "rc_ed6a04b79198", "verdict": "not_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:13:34"}
+{"card_id": "rc_cc2239ae9b3b", "verdict": "once", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 1}, "ts": "2026-08-26T12:14:27"}
+{"card_id": "rc_9befb8eda6cb", "verdict": "per_bathroom", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 2}, "ts": "2026-08-26T12:14:53"}
+{"card_id": "rc_f2ef2967ae72", "verdict": "not_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:15:13"}
+{"card_id": "rc_bdca0f7b83f7", "verdict": "not_warranted", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:15:29"}
+{"card_id": "rc_26163e5d173a", "verdict": "once", "tag": null, "notes": null, "peeked": false, "extra": {"distinct_bathrooms": 1}, "ts": "2026-08-26T12:15:46"}
+{"card_id": "rc_4be5d2ad67e0", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:16:23"}
+{"card_id": "rc_aeea1143efaf", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:16:41"}
+{"card_id": "rc_9c702893a6ce", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:16:54"}
+{"card_id": "rc_d857c0db9013", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:17:24"}
+{"card_id": "rc_95863a0949d9", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:18:28"}
+{"card_id": "rc_532fa2016ed9", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:18:39"}
+{"card_id": "rc_d7eda0ba34df", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:18:55"}
+{"card_id": "rc_c71bf32491e7", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:19:08"}
+{"card_id": "rc_f3464154930f", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:19:57"}
+{"card_id": "rc_b6816832a408", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:20:20"}
+{"card_id": "rc_05733268e8c4", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:20:33"}
+{"card_id": "rc_48a619175251", "verdict": "terra_claim_unsupported", "tag": "other", "notes": "The paint is not \"yellowed\" it is the color yellow intentionally. Although it is dated and needs repainting its not peeling, bubbling, or aged", "peeked": false, "extra": null, "ts": "2026-08-26T12:21:45"}
+{"card_id": "rc_5b633a3650f2", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:22:11"}
+{"card_id": "rc_9e889631af67", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:22:25"}
+{"card_id": "rc_23ffa00f3c28", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:22:38"}
+{"card_id": "rc_23ffa00f3c28", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:23:54"}
+{"card_id": "rc_0eb9a6d23b21", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:24:58"}
+{"card_id": "rc_4abeff09724f", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:25:09"}
+{"card_id": "rc_b2b0e6b89bc5", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:25:23"}
+{"card_id": "rc_0facd5489248", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:25:34"}
+{"card_id": "rc_3a19f759f2d9", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:26:09"}
+{"card_id": "rc_470fb7e0624f", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:26:32"}
+{"card_id": "rc_637fbfe6f4c4", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:26:44"}
+{"card_id": "rc_ab90ab9da2ab", "verdict": "terra_claim_unsupported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:26:58"}
+{"card_id": "rc_23a332cba56c", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:27:18"}
+{"card_id": "rc_829cc8e95cfa", "verdict": "terra_claim_supported", "tag": null, "notes": null, "peeked": false, "extra": null, "ts": "2026-08-26T12:31:07"}
