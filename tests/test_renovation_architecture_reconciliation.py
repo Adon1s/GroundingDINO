@@ -267,6 +267,108 @@ class TestStandaloneParity:
         assert result["totals"]["headline"] == headline
 
 
+# ── QP3: opportunity-only interior modernization stays standalone ───────────
+
+class TestOpportunityOnlyInteriorModernizationPolicy:
+    @pytest.mark.parametrize("package_type,unit_id", [
+        ("bedroom_modernization", "bedroom_1"),
+        ("living_modernization", "living_room_primary"),
+    ])
+    @pytest.mark.parametrize("treatment", [
+        "opportunity_driver_with_corroboration",
+        "opportunity_driver_with_multiphoto_corroboration",
+    ])
+    def test_approved_candidate_is_retained_but_not_applied(
+        self, package_type, unit_id, treatment
+    ):
+        base = _base_result([
+            ("dated_interior_trim", unit_id, "TRIM_REPLACE", 300, 900),
+        ])
+        work = _item(base, unit_id)
+        candidate = _candidate(
+            package_type,
+            unit_id,
+            [work],
+            proposed_treatment=treatment,
+            unfloored_low=1000,
+            unfloored_high=3000,
+        )
+        result = _complete(_with_packages(
+            base, [candidate], [_decision(candidate, "approve")]
+        ))
+
+        # QP3 is application-side: Sol's reviewed candidate and decision stay
+        # intact, while its child keeps the exact standalone allowance.
+        assert result["package_candidates"] == [candidate]
+        assert result["package_decisions"][0]["decision"] == "approve"
+        (app,) = result["package_applications"]
+        assert app["status"] == "not_applied"
+        assert app["reason_code"] == "opportunity_only_interior_modernization"
+        assert app["absorbed_work_item_ids"] == []
+        assert app["unabsorbed_child_work_item_ids"] == [work["work_item_id"]]
+        assert (app["effective_low"], app["effective_high"]) == (0, 0)
+
+        entry = _ledger_by_work(result)[work["work_item_id"]]
+        assert entry["representation"] == "standalone"
+        assert entry["reason_code"] == "opportunity_only_interior_modernization"
+        assert (entry["low"], entry["high"]) == (work["low"], work["high"])
+        assert result["totals"]["standalone"] == {"low": 300, "high": 900}
+        assert result["totals"]["packaged"] == {"low": 0, "high": 0}
+        assert result["totals"]["headline"] == {"low": 300, "high": 900}
+
+    @pytest.mark.parametrize("treatment", [
+        "package_driver",
+        "multiple_package_support_same_estimate_unit",
+    ])
+    def test_non_opportunity_only_treatments_remain_eligible(self, treatment):
+        unit_id = "bedroom_1"
+        base = _base_result([
+            ("dated_interior_trim", unit_id, "TRIM_REPLACE", 300, 900),
+        ])
+        work = _item(base, unit_id)
+        overrides = {"proposed_treatment": treatment}
+        if treatment == "multiple_package_support_same_estimate_unit":
+            overrides.update({
+                "driver_work_item_ids": [],
+                "support_work_item_ids": [work["work_item_id"]],
+            })
+        candidate = _candidate(
+            "bedroom_modernization", unit_id, [work], **overrides
+        )
+        result = _complete(_with_packages(
+            base, [candidate], [_decision(candidate, "approve")]
+        ))
+
+        (app,) = result["package_applications"]
+        assert app["status"] == "applied"
+        assert app["reason_code"] == "approved_absorbs_children"
+
+    @pytest.mark.parametrize("package_type,unit_id", [
+        ("kitchen_modernization", "kitchen_primary"),
+        ("bathroom_modernization", "bathroom_primary"),
+    ])
+    def test_other_modernization_rooms_remain_eligible(
+        self, package_type, unit_id
+    ):
+        base = _base_result([
+            ("dated_finishes", unit_id, "FINISH_REPLACE", 300, 900),
+        ])
+        work = _item(base, unit_id)
+        candidate = _candidate(
+            package_type,
+            unit_id,
+            [work],
+            proposed_treatment="opportunity_driver_with_corroboration",
+        )
+        result = _complete(_with_packages(
+            base, [candidate], [_decision(candidate, "approve")]
+        ))
+
+        (app,) = result["package_applications"]
+        assert app["status"] == "applied"
+        assert app["reason_code"] == "approved_absorbs_children"
+
+
 # ── combine: non-economic grouping metadata ──────────────────────────────────
 
 class TestCombineGroups:

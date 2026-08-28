@@ -1,7 +1,8 @@
 """Deterministic coverage reconciliation — Session 5.
 
 Applies Sol package decisions to the frozen Session 4 result without touching
-it: absorption eligibility (approved, non-display, no split recommendation),
+it: absorption eligibility (approved, non-display, no split recommendation,
+and not blocked by deterministic application policy),
 at-most-once child ownership under the legacy absorption priority ordering,
 effective ranges recomputed from actually-owned children, exactly one
 reason-coded ledger entry per ACTIVE work item, ledger-derived totals,
@@ -58,6 +59,29 @@ def _reconciliation_failure(
 # evidence before modernization broad-absorbs it and turnover comes last,
 # higher tier first, stable candidate ID last.
 _ABSORPTION_CATEGORY_PRIORITY = {"repair": 0, "modernization": 1, "turnover": 2}
+
+_QP3_PACKAGE_TYPES = frozenset({
+    "bedroom_modernization", "living_modernization",
+})
+_QP3_OPPORTUNITY_ONLY_TREATMENTS = frozenset({
+    "opportunity_driver_with_corroboration",
+    "opportunity_driver_with_multiphoto_corroboration",
+})
+
+
+def _qp3_application_gated(candidate: Mapping[str, Any]) -> bool:
+    """True when QP3 keeps an interior style-only package standalone.
+
+    proposed_treatment is the package builder's closed, deterministic account
+    of the driver lane: either opportunity token means every driver is
+    opportunity-kind. Driverless support packages and other rooms remain
+    eligible.
+    """
+    return (
+        candidate["package_type"] in _QP3_PACKAGE_TYPES
+        and candidate["proposed_treatment"]
+        in _QP3_OPPORTUNITY_ONLY_TREATMENTS
+    )
 
 
 def absorption_priority_key(candidate: Mapping[str, Any]) -> Tuple[int, int, int, str]:
@@ -134,6 +158,7 @@ def compute_reconciliation(
             decision["decision"] == "approve"
             and not candidates[candidate_id]["display_only"]
             and not decision["split_groups"]
+            and not _qp3_application_gated(candidates[candidate_id])
         )
 
     # At-most-once ownership: the first eligible candidate in priority order
@@ -162,6 +187,10 @@ def compute_reconciliation(
             status, reason = "not_applied", "decision_uncertain"
         elif decision["split_groups"]:
             status, reason = "not_applied", "split_recommended"
+        elif _qp3_application_gated(candidate):
+            status, reason = (
+                "not_applied", "opportunity_only_interior_modernization"
+            )
         elif not owned:
             # Every child went to a higher-priority approved package; billing
             # the tier floor with no owned work would double-count.
@@ -227,8 +256,12 @@ def compute_reconciliation(
                     reason = "package_rejected"
                 elif decision["decision"] == "uncertain":
                     reason = "package_uncertain"
-                else:
+                elif decision["split_groups"]:
                     reason = "package_split"
+                else:
+                    # The only remaining non-eligible approval is QP3's
+                    # deterministic application gate.
+                    reason = "opportunity_only_interior_modernization"
         ledger.append({
             "entry_id": make_ledger_entry_id(
                 estimate_id=estimate_id, work_item_id=work_id
@@ -353,6 +386,7 @@ def recompute_reconciliation_audit(result: Mapping[str, Any]) -> Dict[str, Any]:
                 decision["decision"] != "approve"
                 or decision["split_groups"]
                 or candidate["display_only"]
+                or _qp3_application_gated(candidate)
             ):
                 unsupported.append(f"{candidate_id} billed without approval basis")
             if not app["absorbed_work_item_ids"]:

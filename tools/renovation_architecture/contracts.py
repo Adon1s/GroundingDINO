@@ -162,11 +162,13 @@ LEDGER_REPRESENTATIONS = frozenset(
 APPLICATION_STATUSES = frozenset({"applied", "not_applied", "display_only"})
 APPLICATION_REASON_CODES = frozenset(
     {"approved_absorbs_children", "decision_rejected", "decision_uncertain",
-     "split_recommended", "no_owned_children", "display_only_aggregate"}
+     "split_recommended", "opportunity_only_interior_modernization",
+     "no_owned_children", "display_only_aggregate"}
 )
 LEDGER_REASON_CODES = frozenset(
     {"absorbed_by_approved_package", "no_covering_package",
-     "package_rejected", "package_uncertain", "package_split"}
+     "package_rejected", "package_uncertain", "package_split",
+     "opportunity_only_interior_modernization"}
 )
 # Closed observability key sets. total is defined as the exact sum of the
 # other five phases, so the validator can enforce it arithmetically.
@@ -535,9 +537,9 @@ class PackageApplication(_Contract):
     range max(unfloored tier spec, sum of actually-owned child allowances) —
     never the stored candidate floor, which would double-count children lost
     to a higher-priority package. Rejected, uncertain, split-recommended,
-    display-only, and zero-owned candidates are non-billable with a reason
-    code. combine_group_id is non-economic grouping metadata shared by every
-    member of one combine closure."""
+    policy-gated, display-only, and zero-owned candidates are non-billable with
+    a reason code. combine_group_id is non-economic grouping metadata shared
+    by every member of one combine closure."""
     application_id: str
     schema_version: int
     package_candidate_id: str

@@ -180,6 +180,13 @@ _PACKAGE_CANDIDATE_FIELDS = frozenset(
 _ABSORPTION_SCOPE_FIELDS = frozenset(
     {"family", "groups", "trade_buckets", "components"}
 )
+_QP3_PACKAGE_TYPES = frozenset({
+    "bedroom_modernization", "living_modernization",
+})
+_QP3_OPPORTUNITY_ONLY_TREATMENTS = frozenset({
+    "opportunity_driver_with_corroboration",
+    "opportunity_driver_with_multiphoto_corroboration",
+})
 _PACKAGE_DECISION_FIELDS = frozenset(
     {"decision_id", "schema_version", "package_candidate_id", "decision",
      "combine_with", "split_groups", "rationale", "model", "prompt_version",
@@ -262,6 +269,15 @@ _RESULT_KEYS = _PACKAGE_REVIEW_RESULT_KEYS | frozenset(
     {"package_applications", "coverage_ledger", "reconciliation_audit",
      "observability", "totals"}
 )
+
+
+def _qp3_application_gated(candidate: Mapping[str, Any]) -> bool:
+    """Independent validator copy of the QP3 application predicate."""
+    return (
+        candidate["package_type"] in _QP3_PACKAGE_TYPES
+        and candidate["proposed_treatment"]
+        in _QP3_OPPORTUNITY_ONLY_TREATMENTS
+    )
 
 
 @dataclass
@@ -1067,7 +1083,9 @@ def _validate_package_application(
         "applied": {"approved_absorbs_children"},
         "display_only": {"display_only_aggregate"},
         "not_applied": {"decision_rejected", "decision_uncertain",
-                        "split_recommended", "no_owned_children"},
+                        "split_recommended",
+                        "opportunity_only_interior_modernization",
+                        "no_owned_children"},
     }
     if status is not None and reason is not None and reason not in _STATUS_REASONS[status]:
         res.error(
@@ -1541,6 +1559,7 @@ def validate_complete_result(result: Any, *, estimate_id: str) -> ValidationResu
             decision["decision"] == "approve"
             and not candidate["display_only"]
             and not decision["split_groups"]
+            and not _qp3_application_gated(candidate)
         )
         if candidate["display_only"] != (app["status"] == "display_only"):
             res.error(
@@ -1553,7 +1572,8 @@ def validate_complete_result(result: Any, *, estimate_id: str) -> ValidationResu
                 res.error(
                     app_where,
                     f"candidate {candidate_id!r} is applied without an "
-                    "approval basis (approve, non-display, no split)",
+                    "approval basis (approve, non-display, no split, no "
+                    "deterministic policy gate)",
                 )
             union = sorted(
                 list(app["absorbed_work_item_ids"])
@@ -1675,6 +1695,7 @@ def validate_complete_result(result: Any, *, estimate_id: str) -> ValidationResu
             decision["decision"] == "approve"
             and not candidate["display_only"]
             and not decision["split_groups"]
+            and not _qp3_application_gated(candidate)
         )
         if eligible:
             continue
