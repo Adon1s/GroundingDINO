@@ -471,7 +471,7 @@ def _fake_source_tree(tmp_path, freeform="old paint, worn floor"):
     run_dir = tmp_path / "artifacts" / "prop_x" / "20260808_000000_aaaa"
     run_dir.mkdir(parents=True)
     (run_dir / "photo_intel_debug.json").write_text(json.dumps({
-        "catalog_version": "3.1",
+        "catalog_version": "3.2",
         "property_metadata": {"beds": 3},
         "photos": {"photo_001.jpg": {
             "scene": {"id": "kitchen"},
@@ -550,7 +550,7 @@ def test_compute_pre2f_totals_force_confirms_packages():
     # would resolve to v1 here. The CLI sets the env before any tools import.
     from tools.artifact_writers import load_issue_catalog
     catalog = load_issue_catalog(bench.ROOT / "tools" / "issue_catalog_kind_v2.json")
-    assert catalog.get("version") == "3.1"
+    assert catalog.get("version") == "3.2"
     artifact = json.loads(STORED_ARTIFACT.read_text(encoding="utf-8"))
 
     totals = bench.compute_pre2f_totals(artifact, catalog)

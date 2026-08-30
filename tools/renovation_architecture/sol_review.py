@@ -30,6 +30,12 @@ from pathlib import Path
 from typing import Any, Dict, List, Mapping, Optional, Tuple
 
 from tools.comparison_common import sha256_canonical
+from tools.renovation_architecture.candidate_payload import (
+    build_candidate_payload,
+    candidate_payload_hashes,
+    candidate_payload_index,
+    candidate_payload_sha256,
+)
 from tools.renovation_architecture.checkpoints import (
     load_sol_checkpoint,
     save_sol_checkpoint,
@@ -157,37 +163,6 @@ def build_response_schema(candidate_ids: List[str]) -> Dict[str, Any]:
     }
 
 
-def _condition_summary(
-    condition_id: str,
-    *,
-    conditions: Mapping[str, Mapping[str, Any]],
-    evidence_by_condition: Mapping[str, Mapping[str, Any]],
-    reviews_by_condition: Mapping[str, Mapping[str, Any]],
-    dispositions_by_condition: Mapping[str, Mapping[str, Any]],
-) -> Dict[str, Any]:
-    """The three upstream layers, separately labeled, never blended."""
-    condition = conditions[condition_id]
-    evidence = evidence_by_condition[condition_id]
-    review = reviews_by_condition[condition_id]
-    disposition = dispositions_by_condition[condition_id]
-    return {
-        "condition_id": condition_id,
-        "catalog_item_id": condition["catalog_item_id"],
-        "objective_evidence": {
-            "distinct_photo_count": evidence["distinct_photo_count"],
-            "distinct_view_count": evidence["distinct_view_count"],
-        },
-        "terra_verdict": {
-            "verdict": review["verdict"],
-            "rationale": review["rationale"],
-        },
-        "deterministic_disposition": {
-            "disposition": disposition["disposition"],
-            "reason_code": disposition["reason_code"],
-        },
-    }
-
-
 def build_listing_request(
     *,
     standalone_result: Mapping[str, Any],
@@ -197,71 +172,11 @@ def build_listing_request(
     reasoning_effort: str,
     max_output_tokens: int,
 ) -> SolListingRequest:
-    conditions = {
-        condition["condition_id"]: condition
-        for condition in standalone_result["observed_conditions"]
-    }
-    evidence_by_condition = {
-        evidence["condition_id"]: evidence
-        for evidence in standalone_result["evidence_facts"]
-    }
-    reviews_by_condition = {
-        review["condition_id"]: review
-        for review in standalone_result["condition_reviews"]
-    }
-    dispositions_by_condition = {
-        disposition["condition_id"]: disposition
-        for disposition in standalone_result["condition_dispositions"]
-    }
-    work_items = {
-        item["work_item_id"]: item for item in standalone_result["work_items"]
-    }
-
-    candidates_payload: List[Dict[str, Any]] = []
-    for candidate in package_candidates:
-        drivers = set(candidate["driver_work_item_ids"])
-        children: List[Dict[str, Any]] = []
-        for work_id in candidate["child_work_item_ids"]:
-            work = work_items[work_id]
-            children.append({
-                "work_item_id": work_id,
-                "role": "driver" if work_id in drivers else "support",
-                "action_code": work["action_code"],
-                "trade_bucket": work["trade_bucket"],
-                "billable_unit_id": work["billable_unit_id"],
-                "unit_count": work["unit_count"],
-                "estimate_scope": work["estimate_scope"],
-                "low": work["low"],
-                "high": work["high"],
-                "conditions": [
-                    _condition_summary(
-                        condition_id,
-                        conditions=conditions,
-                        evidence_by_condition=evidence_by_condition,
-                        reviews_by_condition=reviews_by_condition,
-                        dispositions_by_condition=dispositions_by_condition,
-                    )
-                    for condition_id in work["condition_ids"]
-                ],
-            })
-        candidates_payload.append({
-            "package_candidate_id": candidate["package_candidate_id"],
-            "package_type": candidate["package_type"],
-            "package_category": candidate["package_category"],
-            "package_level": candidate["package_level"],
-            "room": candidate["room"],
-            "estimate_unit_id": candidate["estimate_unit_id"],
-            "strength": candidate["strength"],
-            "pricing_tier": candidate["pricing_tier"],
-            "proposed_treatment": candidate["proposed_treatment"],
-            "allowance_low": candidate["low"],
-            "allowance_high": candidate["high"],
-            "display_only": candidate["display_only"],
-            "contributing_candidate_ids": list(
-                candidate["contributing_candidate_ids"]
-            ),
-            "child_work_snapshots": children,
-        })
+    payload_index = candidate_payload_index(standalone_result)
+    candidates_payload: List[Dict[str, Any]] = [
+        build_candidate_payload(candidate, **payload_index)
+        for candidate in package_candidates
+    ]
 
     candidate_ids = [
         entry["package_candidate_id"] for entry in candidates_payload

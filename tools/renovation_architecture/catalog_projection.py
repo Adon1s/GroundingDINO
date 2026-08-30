@@ -1,6 +1,6 @@
-"""Strict, versioned projection of the newest issue catalog (v3.1).
+"""Strict, versioned projection of the newest issue catalog (v3.2).
 
-The new engine accepts only the generated v3.1 / observation-kind-v2 catalog
+The new engine accepts only the generated v3.2 / observation-kind-v2 catalog
 (tools/issue_catalog_kind_v2.json — never hand-edit it; edit
 tools/catalog_migrations/kind_v2_decisions.json and re-run the generator).
 The build collects every problem and raises once, at startup, so an invalid
@@ -21,7 +21,7 @@ from typing import Any, Dict, FrozenSet, List, Mapping, Tuple
 from tools.catalog_validation import VALID_ROUTE_OVERRIDES, validate_issue_catalog
 from tools.comparison_common import sha256_canonical, sha256_file
 from tools.estimate_scope import classify_estimate_scope_with_reason
-from tools.rehab_packages import build_package_affinity
+from tools.rehab_packages import REPAIR_SUPPORT_MARKER, build_package_affinity
 from tools.renovation_architecture.contracts import (
     PROJECTION_VERSION,
     REQUIRED_CATALOG_ONTOLOGY,
@@ -210,10 +210,18 @@ def build_renovation_catalog_projection(
             }
         affinity = item.get("package_affinity")
         if isinstance(affinity, dict) and affinity:
+            # The Catalog 3.2 marker is projected only where it is set, so an
+            # unmarked route keeps its exact pre-3.2 projected shape and the
+            # fingerprint moves only for catalogs that actually carry markers.
             affinities[item_id] = {
                 room: {
                     "package_type": entry.get("package_type"),
                     "package_role": entry.get("package_role"),
+                    **(
+                        {REPAIR_SUPPORT_MARKER: True}
+                        if entry.get(REPAIR_SUPPORT_MARKER)
+                        else {}
+                    ),
                 }
                 for room, entry in sorted(affinity.items())
             }

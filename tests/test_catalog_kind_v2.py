@@ -29,6 +29,7 @@ from tools.catalog_validation import (
     validate_migration_manifest,
 )
 from tools.observation_kinds import OBSERVATION_KINDS, ONTOLOGY_VERSION
+from tools.rehab_packages import REPAIR_SUPPORT_MARKER, paired_repair_package_type
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -69,7 +70,7 @@ def _minimal_v2_catalog(item_overrides=None, root_overrides=None):
     }
     item.update(item_overrides or {})
     catalog = {
-        "version": "3.1",
+        "version": "3.2",
         "ontology_version": ONTOLOGY_VERSION,
         "publication_status": "blocked_pending_pricing",
         "trade_buckets": [{"id": "flooring", "name": "Flooring"}],
@@ -87,7 +88,7 @@ def test_shipped_v2_catalog_has_no_errors(v2_catalog):
 
 
 def test_shipped_v2_root_metadata(v2_catalog):
-    assert v2_catalog["version"] == "3.1"
+    assert v2_catalog["version"] == "3.2"
     assert v2_catalog["ontology_version"] == ONTOLOGY_VERSION
     assert v2_catalog["publication_status"] == "publishable"
 
@@ -105,11 +106,30 @@ def test_shipped_v2_every_item_has_an_atomic_claim(v2_catalog):
         assert claim["ontology_basis"].strip()
 
 
+def _without_repair_support_marker(value):
+    """Strip the Catalog 3.2 affinity marker so parity compares the inherited
+    economics only. The marker is added by a post-inheritance generator stage
+    and is additive metadata — it never rewrites package_type, package_role or
+    any cost field."""
+    if not isinstance(value, dict):
+        return value
+    return {
+        room: {k: v for k, v in entry.items() if k != REPAIR_SUPPORT_MARKER}
+        if isinstance(entry, dict) else entry
+        for room, entry in value.items()
+    }
+
+
 def test_shipped_v2_split_successors_inherit_parent_economics(
     v1_catalog, v2_catalog, manifest
 ):
     """Task 4A bridge: every split successor carries exactly the economic
-    fields its v1 parent carried, byte-identically; absent stays absent."""
+    fields its v1 parent carried, byte-identically; absent stays absent.
+
+    The one recorded exception is the Catalog 3.2 `repair_support_when_driven`
+    marker inside package_affinity — see
+    test_repair_support_marker_parity_exceptions_are_recorded for the pin.
+    """
     inherited = [it for it in v2_catalog["items"] if it.get("pricing_status")]
     assert len(inherited) == 42
     v1_by_id = {it["id"]: it for it in v1_catalog["items"]}
@@ -123,8 +143,12 @@ def test_shipped_v2_split_successors_inherit_parent_economics(
         parent = v1_by_id[parent_of[item["id"]]]
         for field in ECONOMIC_FIELDS:
             assert (field in parent) == (field in item), (item["id"], field)
-            if field in parent:
-                assert parent[field] == item[field], (item["id"], field)
+            if field not in parent:
+                continue
+            expected, actual = parent[field], item[field]
+            if field == "package_affinity":
+                actual = _without_repair_support_marker(actual)
+            assert expected == actual, (item["id"], field)
 
 
 def test_shipped_v2_has_no_deferred_pricing_status(v2_catalog):
@@ -239,7 +263,7 @@ def test_v2_unknown_pricing_status_errors():
 
 def test_v2_bad_root_metadata_errors():
     result = validate_issue_catalog(_minimal_v2_catalog(root_overrides={"version": "2.9"}))
-    assert any("must be '3.1'" in e for e in result.errors)
+    assert any("must be '3.2'" in e for e in result.errors)
     result = validate_issue_catalog(
         _minimal_v2_catalog(root_overrides={"publication_status": "shippable"})
     )
@@ -330,6 +354,172 @@ def test_audit_report_kind_counts_match_the_catalog(v2_catalog):
         f"{kinds['modernization']} modernization)"
     )
     assert expected in audit
+
+
+# ── Catalog 3.2: contextual repair support ───────────────────────────────────
+
+# The approved matrix: 10 items, 24 {room}_modernization routes. Pinned here so
+# widening or narrowing it is a deliberate edit with a visible diff, not a
+# side effect of regenerating the catalog.
+EXPECTED_REPAIR_SUPPORT_MATRIX = {
+    "peeling_or_discolored_paint": {"bedroom", "kitchen", "living"},
+    "worn_or_stained_carpet": {"bedroom", "kitchen", "living"},
+    "vinyl_linoleum_worn_or_stained": {"bedroom", "kitchen", "living"},
+    "worn_or_stained_flooring": {"bedroom", "kitchen", "living"},
+    "baseboard_wear_scuffs": {"bathroom", "bedroom", "kitchen", "living"},
+    "wall_scuffs_marks_or_dents": {"bathroom", "bedroom", "kitchen", "living"},
+    "cabinets_worn_finish": {"kitchen"},
+    "appliances_worn_or_neglected": {"kitchen"},
+    "vanity_countertop_worn": {"bathroom"},
+    "vanity_countertop_dated": {"bathroom"},
+}
+
+# Split successors inherit package_affinity verbatim; these routes carry the
+# marker anyway, which is the recorded departure from that parity.
+EXPECTED_PARITY_EXCEPTION_IDS = frozenset({
+    "vinyl_linoleum_worn_or_stained",
+    "cabinets_worn_finish",
+    "appliances_worn_or_neglected",
+    "vanity_countertop_worn",
+    "vanity_countertop_dated",
+})
+
+
+def _marked_routes(catalog):
+    return {
+        (item["id"], room)
+        for item in catalog["items"]
+        for room, entry in (item.get("package_affinity") or {}).items()
+        if entry.get(REPAIR_SUPPORT_MARKER)
+    }
+
+
+def test_shipped_v2_repair_support_matrix(v2_catalog):
+    expected = {
+        (item_id, room)
+        for item_id, rooms in EXPECTED_REPAIR_SUPPORT_MATRIX.items()
+        for room in rooms
+    }
+    assert _marked_routes(v2_catalog) == expected
+    assert len(expected) == 24
+    assert len(EXPECTED_REPAIR_SUPPORT_MATRIX) == 10
+
+
+def test_marked_routes_are_modernization_with_a_paired_repair_family(v2_catalog):
+    """The marker's whole contract: a primary modernization route that has
+    somewhere to move to."""
+    for item in v2_catalog["items"]:
+        for room, entry in (item.get("package_affinity") or {}).items():
+            if not entry.get(REPAIR_SUPPORT_MARKER):
+                continue
+            assert entry["package_type"] == f"{room}_modernization", (item["id"], room)
+            assert paired_repair_package_type(entry["package_type"]) == f"{room}_repair"
+
+
+def test_marker_does_not_disturb_base_routing(v1_catalog, v2_catalog):
+    """Additive metadata only: every marked route keeps the package_type and
+    package_role it had before Catalog 3.2, and gains no other key."""
+    v1_by_id = {it["id"]: it for it in v1_catalog["items"]}
+    for item_id, rooms in EXPECTED_REPAIR_SUPPORT_MATRIX.items():
+        item = next(it for it in v2_catalog["items"] if it["id"] == item_id)
+        for room in rooms:
+            entry = item["package_affinity"][room]
+            assert set(entry) == {"package_type", "package_role", REPAIR_SUPPORT_MARKER}
+            parent = v1_by_id.get(item_id)
+            if parent is None:  # split successor — parity is covered elsewhere
+                continue
+            inherited = parent["package_affinity"][room]
+            assert entry["package_type"] == inherited["package_type"]
+            assert entry["package_role"] == inherited["package_role"]
+
+
+def test_repair_support_marker_parity_exceptions_are_recorded(manifest):
+    """Every split-successor marker is listed in the generated manifest, so the
+    departure from inherited-affinity parity is reviewable, not implicit."""
+    routing = manifest["package_routing"]
+    assert routing["policy"] == "contextual_repair_support_v1"
+    assert routing["marker"] == REPAIR_SUPPORT_MARKER
+    assert len(routing["marked_routes"]) == 24
+    exceptions = routing["inherited_affinity_parity_exceptions"]
+    assert {e["id"] for e in exceptions} == EXPECTED_PARITY_EXCEPTION_IDS
+    for entry in exceptions:
+        assert entry["inherited_from"]
+        assert entry["package_type"].endswith("_modernization")
+
+
+def test_audit_reports_every_marked_route():
+    audit = (ROOT / "tools" / "catalog_migrations" / "2.1_to_3.0_audit.md").read_text(encoding="utf-8")
+    assert "## Contextual repair support (Catalog 3.2)" in audit
+    assert "### Inherited-affinity parity exceptions" in audit
+    for item_id, rooms in EXPECTED_REPAIR_SUPPORT_MATRIX.items():
+        for room in rooms:
+            assert f"| `{item_id}` | {room} |" in audit
+
+
+def _decisions():
+    return json.loads(
+        (ROOT / "tools" / "catalog_migrations" / "kind_v2_decisions.json").read_text(encoding="utf-8")
+    )
+
+
+def test_generator_refuses_marker_on_unknown_item(v1_catalog):
+    gen = _load_generator()
+    broken = copy.deepcopy(_decisions())
+    broken["package_routing_decisions"][REPAIR_SUPPORT_MARKER].append(
+        {"id": "no_such_item", "rooms": ["bedroom"]}
+    )
+    with pytest.raises(SystemExit, match="unknown item"):
+        gen.generate(v1_catalog, broken)
+
+
+def test_generator_refuses_marker_on_a_room_without_a_route(v1_catalog):
+    gen = _load_generator()
+    broken = copy.deepcopy(_decisions())
+    rule = next(r for r in broken["package_routing_decisions"][REPAIR_SUPPORT_MARKER]
+                if r["id"] == "cabinets_worn_finish")
+    rule["rooms"] = ["exterior"]
+    with pytest.raises(SystemExit, match="no package_affinity route"):
+        gen.generate(v1_catalog, broken)
+
+
+def test_generator_refuses_marker_on_a_repair_route(v1_catalog):
+    """A repair route has no paired repair family — marking one is an authoring
+    error, not a silent no-op."""
+    gen = _load_generator()
+    broken = copy.deepcopy(_decisions())
+    broken["package_routing_decisions"][REPAIR_SUPPORT_MARKER].append(
+        {"id": "damaged_drywall_or_cracks", "rooms": ["bedroom"]}
+    )
+    with pytest.raises(SystemExit, match="no paired"):
+        gen.generate(v1_catalog, broken)
+
+
+def test_generator_refuses_duplicate_marked_route(v1_catalog):
+    gen = _load_generator()
+    broken = copy.deepcopy(_decisions())
+    broken["package_routing_decisions"][REPAIR_SUPPORT_MARKER].append(
+        {"id": "cabinets_worn_finish", "rooms": ["kitchen"]}
+    )
+    with pytest.raises(SystemExit, match="twice"):
+        gen.generate(v1_catalog, broken)
+
+
+def test_generator_refuses_an_unknown_routing_policy(v1_catalog):
+    gen = _load_generator()
+    broken = copy.deepcopy(_decisions())
+    broken["package_routing_decisions"]["policy"] = "something_else_v9"
+    with pytest.raises(SystemExit, match="package_routing_decisions.policy"):
+        gen.generate(v1_catalog, broken)
+
+
+def test_generator_refuses_an_empty_room_list(v1_catalog):
+    gen = _load_generator()
+    broken = copy.deepcopy(_decisions())
+    broken["package_routing_decisions"][REPAIR_SUPPORT_MARKER].append(
+        {"id": "cabinets_worn_finish", "rooms": []}
+    )
+    with pytest.raises(SystemExit, match="lists no rooms"):
+        gen.generate(v1_catalog, broken)
 
 
 def test_generator_refuses_economic_override_on_split_successor(v1_catalog):

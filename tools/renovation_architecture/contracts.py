@@ -28,7 +28,9 @@ from typing import Any, Dict, Mapping, Optional, Tuple
 
 CONTRACTS_SCHEMA_VERSION = 5
 ENVELOPE_SCHEMA_VERSION = 5
-PROJECTION_VERSION = "renovation_catalog_projection_v2"
+# renovation_catalog_projection_v3 (Catalog 3.2): package_policy.affinities
+# entries may carry the repair_support_when_driven marker.
+PROJECTION_VERSION = "renovation_catalog_projection_v3"
 # terminal_route_v2 (Session 8): an explicit catalog route_override outranks
 # the no-economics check, so an otherwise-billable opportunity/presence item
 # can be routed to no_action by product decision with an intent-stating
@@ -50,7 +52,12 @@ STANDALONE_PRICING_POLICY_VERSION = "standalone_pricing_v1"
 # unscaled), then the cost floor is applied against the already-scaled child
 # standalone range. Sol reviews coherence only, through the closed
 # PackageDecision contract.
-PACKAGE_CANDIDATE_POLICY_VERSION = "package_candidates_v2"
+# package_candidates_v3 (Catalog 3.2): contextual repair support — a marked
+# {room}_modernization occurrence moves into the paired {room}_repair family as
+# support when that room has an accepted defect/degradation repair driver.
+# Changes candidate membership and child roles, so every Sol request and
+# snapshot hash moves with it.
+PACKAGE_CANDIDATE_POLICY_VERSION = "package_candidates_v3"
 SOL_REVIEW_PROMPT_VERSION = "sol_package_review_v1"
 SOL_REVIEW_REASONING_EFFORT = "medium"
 # Session 5 deterministic reconciliation policies. Application: absorption
@@ -84,7 +91,7 @@ SCAFFOLD_REASON = "session_1_not_implemented"
 # The catalog's own ontology stamp uses hyphens; the KIND_ONTOLOGY_VERSION env
 # selector value uses underscores. Provenance records both, in separate fields,
 # so the two spellings can never be conflated.
-REQUIRED_CATALOG_VERSION = "3.1"
+REQUIRED_CATALOG_VERSION = "3.2"
 REQUIRED_CATALOG_ONTOLOGY = "observation-kind-v2"
 REQUIRED_KIND_ONTOLOGY_SELECTOR = "observation_kind_v2"
 

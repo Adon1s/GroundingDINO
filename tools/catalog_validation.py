@@ -37,8 +37,10 @@ from tools.rehab_packages import (
     PACKAGE_ROLE_DRIVER,
     PACKAGE_ROLE_IGNORE,
     PACKAGE_ROLE_STANDALONE,
+    REPAIR_SUPPORT_MARKER,
     VALID_DISPLAY_CLASSES,
     build_package_affinity,
+    paired_repair_package_type,
 )
 from tools.renovation_estimate import (
     EstimateStackBehavior,
@@ -60,7 +62,7 @@ VALID_KINDS_V2 = OBSERVATION_KINDS
 # v2 root metadata vocabulary. The writer guard (artifact_writers) treats any
 # non-"publishable" status as blocked; the validator pins the enum.
 VALID_PUBLICATION_STATUSES = frozenset({"blocked_pending_pricing", "publishable"})
-V2_CATALOG_VERSION = "3.1"
+V2_CATALOG_VERSION = "3.2"
 
 # Fields that carry economic behavior. Split successors inherit them verbatim
 # from their v1 parent (pricing_status == "inherited_from_split_parent" — the
@@ -196,6 +198,7 @@ def validate_issue_catalog(issue_catalog: Dict[str, Any]) -> CatalogValidationRe
         _validate_static_classifications(item, label, result)
         _validate_cost_model(item, label, result)
         _validate_package_affinity(item, label, result)
+        _validate_repair_support_marker(item, label, is_v2, result)
         _validate_flat_routing_fields(item, label, result)
         _validate_route_override(item, label, quarantined_bucket_set, result)
         _validate_field_types(item, label, result)
@@ -392,6 +395,43 @@ def _validate_package_affinity(item: Dict[str, Any], label: str,
         if not message.startswith(label):
             message = f"{label}: {message}"
         result.errors.append(message)
+
+
+def _validate_repair_support_marker(item: Dict[str, Any], label: str, is_v2: bool,
+                                   result: CatalogValidationResult) -> None:
+    """Catalog 3.2: ``repair_support_when_driven`` may only mark a paired route.
+
+    build_package_affinity reads only package_type/package_role and ignores
+    unknown keys inside an affinity entry, so without this rule the marker
+    would validate by accident wherever it were placed. v2-only: the v1 catalog
+    goes through the same validator and has no 3.2 concepts.
+    """
+    affinity = item.get("package_affinity")
+    if not isinstance(affinity, dict):
+        return
+    for room, entry in sorted(affinity.items()):
+        if not isinstance(entry, dict) or REPAIR_SUPPORT_MARKER not in entry:
+            continue
+        if not is_v2:
+            result.errors.append(
+                f"{label}: {REPAIR_SUPPORT_MARKER} on room {room!r} requires the "
+                "observation-kind-v2 catalog"
+            )
+            continue
+        marker = entry[REPAIR_SUPPORT_MARKER]
+        if marker is not True:
+            result.errors.append(
+                f"{label}: {REPAIR_SUPPORT_MARKER} on room {room!r} must be true "
+                f"(got {marker!r})"
+            )
+            continue
+        package_type = entry.get("package_type")
+        if paired_repair_package_type(str(package_type or "")) is None:
+            result.errors.append(
+                f"{label}: {REPAIR_SUPPORT_MARKER} on room {room!r} targets "
+                f"{package_type!r} — the marker is only valid on a "
+                "{room}_modernization route with a paired {room}_repair family"
+            )
 
 
 def _validate_flat_routing_fields(item: Dict[str, Any], label: str,

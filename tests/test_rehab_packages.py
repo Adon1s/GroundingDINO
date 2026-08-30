@@ -26,6 +26,7 @@ from tools.rehab_packages import (
     PACKAGE_ROLE_SUPPORT,
     PACKAGE_TYPE_EXTERIOR_REPAIR,
     PACKAGE_VERIFICATION_NOT_RUN,
+    REPAIR_SUPPORT_MARKER,
     ROOM_EXTERIOR,
     _escalate_pricing_tier_if_undercut,
     _package_absorption_scope,
@@ -37,6 +38,7 @@ from tools.rehab_packages import (
     finalize_package_candidates,
     infer_package_candidates,
     package_affinity_for,
+    paired_repair_package_type,
     reconcile_packages_and_estimate_units,
     run_pass_2f_batch,
 )
@@ -4795,3 +4797,110 @@ class TestRepeatedEvidenceIsNotRepeatedScope:
             "absorbed_high=20000" in note
             for note in emitted[0]["level_decision_notes"]
         )
+
+
+# ── Catalog 3.2: contextual repair support in the shared inference core ──────
+
+class TestContextualRepairSupportFlag:
+    """infer_package_candidates is shared with the v4 estimator, which must keep
+    its pre-3.2 routing. The flag is the seam; these tests pin both sides."""
+
+    @staticmethod
+    def _catalog():
+        def item(cid, kind, room, package_type, role, marked=False):
+            entry = {"package_type": package_type, "package_role": role}
+            if marked:
+                entry[REPAIR_SUPPORT_MARKER] = True
+            return {**_cat_item(cid, kind=kind),
+                    "package_affinity": {room: entry}}
+
+        return {"items": [
+            item("drywall_crack", "defect", "bedroom",
+                 "bedroom_repair", PACKAGE_ROLE_DRIVER),
+            item("carpet_worn", "degradation", "bedroom",
+                 "bedroom_modernization", PACKAGE_ROLE_DRIVER, marked=True),
+            item("paint_worn", "degradation", "bedroom",
+                 "bedroom_modernization", PACKAGE_ROLE_SUPPORT, marked=True),
+        ]}
+
+    @staticmethod
+    def _inputs():
+        surrogates = [_surrogate("bedroom_1", "bedroom")]
+        units = [{"estimate_unit_id": "bedroom_primary",
+                  "source_room_surrogate_ids": ["bedroom_1"]}]
+        candidates = [
+            _candidate(catalog_item_id="drywall_crack", kind="defect",
+                       room_surrogate_id="bedroom_1", issue_ids=["i_drywall"]),
+            _candidate(catalog_item_id="carpet_worn", kind="degradation",
+                       room_surrogate_id="bedroom_1", issue_ids=["i_carpet"]),
+            _candidate(catalog_item_id="paint_worn", kind="degradation",
+                       room_surrogate_id="bedroom_1", issue_ids=["i_paint"]),
+        ]
+        return candidates, surrogates, units
+
+    def _run(self, flag):
+        candidates, surrogates, units = self._inputs()
+        packages = infer_package_candidates(
+            candidates, surrogates, self._catalog(),
+            estimate_units=units, contextual_repair_support=flag,
+        )
+        return {p["package_type"]: p for p in packages}
+
+    def test_default_is_off_so_v4_routing_is_unchanged(self):
+        """The v4 guarantee: a marker in the catalog changes nothing unless the
+        caller opts in."""
+        candidates, surrogates, units = self._inputs()
+        default = infer_package_candidates(
+            candidates, surrogates, self._catalog(), estimate_units=units,
+        )
+        explicit_off = self._run(False)
+        assert {p["package_type"] for p in default} == set(explicit_off)
+        assert set(explicit_off) == {"bedroom_modernization", "bedroom_repair"}
+        assert explicit_off["bedroom_modernization"]["driver_issue_ids"] == ["i_carpet"]
+
+    def test_flag_on_moves_marked_wear_into_the_paired_repair_family(self):
+        on = self._run(True)
+        assert set(on) == {"bedroom_repair"}
+        repair = on["bedroom_repair"]
+        assert repair["driver_issue_ids"] == ["i_drywall"]
+        supports = set(repair["support_issue_ids"]) - set(repair["driver_issue_ids"])
+        assert supports == {"i_carpet", "i_paint"}
+
+    def test_no_issue_is_emitted_under_two_families(self):
+        on = self._run(True)
+        seen = [i for p in on.values() for i in p["support_issue_ids"]]
+        assert len(seen) == len(set(seen))
+
+
+def test_real_catalog_marked_routes_have_a_wired_repair_family():
+    """Catalog 3.2 coverage for the marked routes: each one is a modernization
+    route whose paired {room}_repair family is a real package type. Rooms whose
+    repair family has no catalog driver are recorded in
+    docs/FINDINGS_catalog_3_2_deferred_issues.md — the marker is inert there,
+    deliberately, until a driver exists."""
+    root = Path(__file__).resolve().parents[1]
+    catalog = json.loads(
+        (root / "tools" / "issue_catalog_kind_v2.json").read_text(encoding="utf-8")
+    )
+    table = build_package_affinity(catalog)
+    marked = {
+        (room, issue_id): meta
+        for (room, issue_id), meta in table.items()
+        if meta.get(REPAIR_SUPPORT_MARKER)
+    }
+    assert len(marked) == 24
+
+    repair_drivers_by_room = {
+        room for (room, _), meta in table.items()
+        if meta["package_category"] == PACKAGE_CATEGORY_REPAIR
+        and meta["package_role"] == PACKAGE_ROLE_DRIVER
+    }
+    for (room, issue_id), meta in marked.items():
+        assert meta["package_type"] == f"{room}_modernization", (room, issue_id)
+        assert paired_repair_package_type(meta["package_type"]) == f"{room}_repair"
+
+    # The recorded gap: kitchen has a kitchen_repair package type and tier
+    # specs, but no catalog item drives it, so its 8 marked routes cannot fire.
+    assert "kitchen" not in repair_drivers_by_room
+    assert sum(1 for room, _ in marked if room == "kitchen") == 8
+    assert {"bathroom", "bedroom", "living"} <= repair_drivers_by_room

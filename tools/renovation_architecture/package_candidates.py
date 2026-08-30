@@ -281,6 +281,10 @@ def build_package_candidates(
             room_surrogates,
             dict(catalog),
             estimate_units=estimate_units,
+            # Catalog 3.2. v5 only: infer_package_candidates is shared with the
+            # v4 estimator, which keeps its pre-3.2 routing (the flag defaults
+            # off). See docs/FINDINGS_catalog_3_2_deferred_issues.md.
+            contextual_repair_support=True,
         )
     except ValueError as exc:
         raise _candidate_failure(

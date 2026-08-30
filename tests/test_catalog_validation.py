@@ -15,8 +15,11 @@ import pytest
 
 from tools.catalog_validation import (
     CatalogValidationResult,
+    V2_CATALOG_VERSION,
     validate_issue_catalog,
 )
+from tools.observation_kinds import ONTOLOGY_VERSION
+from tools.rehab_packages import REPAIR_SUPPORT_MARKER
 
 
 def _load_shipped_catalog():
@@ -413,6 +416,87 @@ def test_valid_package_affinity_accepted():
             "package_role": "package_support",
         },
     })) == []
+
+
+# ─── Rule 14: repair_support_when_driven (Catalog 3.2) ───────────────────────
+
+def _v2_errors_for(package_affinity, **item_overrides) -> list:
+    """The marker is v2-only, so these cases need a real observation-kind-v2
+    root — the shared _catalog() helper is unstamped and therefore v1."""
+    item = _valid_item(
+        kind="degradation",
+        package_affinity=package_affinity,
+        atomic_claim={
+            "subject": "carpet",
+            "state": "visible wear",
+            "ontology_basis": "visible_deterioration",
+        },
+        **item_overrides,
+    )
+    return validate_issue_catalog({
+        "version": V2_CATALOG_VERSION,
+        "ontology_version": ONTOLOGY_VERSION,
+        "publication_status": "publishable",
+        "trade_buckets": [{"id": "flooring"}],
+        "items": [item],
+    }).errors
+
+
+def test_repair_support_marker_on_a_paired_modernization_route_is_accepted():
+    assert _v2_errors_for({
+        "kitchen": {
+            "package_type": "kitchen_modernization",
+            "package_role": "package_support",
+            REPAIR_SUPPORT_MARKER: True,
+        },
+    }) == []
+
+
+def test_repair_support_marker_rejected_on_a_repair_route():
+    """A repair route has no paired {room}_repair family to move into."""
+    errors = _v2_errors_for({
+        "exterior": {
+            "package_type": "exterior_repair",
+            "package_role": "package_support",
+            REPAIR_SUPPORT_MARKER: True,
+        },
+    })
+    assert any(REPAIR_SUPPORT_MARKER in e and "exterior_repair" in e for e in errors)
+
+
+def test_repair_support_marker_rejected_on_a_turnover_route():
+    errors = _v2_errors_for({
+        "kitchen": {
+            "package_type": "kitchen_turnover",
+            "package_role": "package_support",
+            REPAIR_SUPPORT_MARKER: True,
+        },
+    })
+    assert any(REPAIR_SUPPORT_MARKER in e and "kitchen_turnover" in e for e in errors)
+
+
+@pytest.mark.parametrize("value", [False, "true", 1, None])
+def test_repair_support_marker_must_be_exactly_true(value):
+    errors = _v2_errors_for({
+        "kitchen": {
+            "package_type": "kitchen_modernization",
+            "package_role": "package_support",
+            REPAIR_SUPPORT_MARKER: value,
+        },
+    })
+    assert any(REPAIR_SUPPORT_MARKER in e and "must be true" in e for e in errors)
+
+
+def test_repair_support_marker_rejected_on_the_v1_catalog():
+    """v1 has no 3.2 concepts; the same validator runs over both files."""
+    errors = _errors_for(_valid_item(package_affinity={
+        "kitchen": {
+            "package_type": "kitchen_modernization",
+            "package_role": "package_support",
+            REPAIR_SUPPORT_MARKER: True,
+        },
+    }))
+    assert any("observation-kind-v2" in e for e in errors)
 
 
 # ─── Rule 11: flat routing fields are forbidden ──────────────────────────────

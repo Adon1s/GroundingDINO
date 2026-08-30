@@ -1,5 +1,5 @@
 {
-  "version": "3.1",
+  "version": "3.2",
   "ontology_version": "observation-kind-v2",
   "publication_status": "publishable",
   "trade_buckets": [
@@ -190,15 +190,18 @@
       "package_affinity": {
         "bedroom": {
           "package_type": "bedroom_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         },
         "kitchen": {
           "package_type": "kitchen_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         },
         "living": {
           "package_type": "living_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         }
       },
       "atomic_claim": {
@@ -540,15 +543,18 @@
       "package_affinity": {
         "bedroom": {
           "package_type": "bedroom_modernization",
-          "package_role": "package_driver"
+          "package_role": "package_driver",
+          "repair_support_when_driven": true
         },
         "kitchen": {
           "package_type": "kitchen_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         },
         "living": {
           "package_type": "living_modernization",
-          "package_role": "package_driver"
+          "package_role": "package_driver",
+          "repair_support_when_driven": true
         }
       },
       "atomic_claim": {
@@ -679,15 +685,18 @@
       "package_affinity": {
         "bedroom": {
           "package_type": "bedroom_modernization",
-          "package_role": "package_driver"
+          "package_role": "package_driver",
+          "repair_support_when_driven": true
         },
         "kitchen": {
           "package_type": "kitchen_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         },
         "living": {
           "package_type": "living_modernization",
-          "package_role": "package_driver"
+          "package_role": "package_driver",
+          "repair_support_when_driven": true
         }
       },
       "package_role": "ignore",
@@ -1362,7 +1371,8 @@
       "package_affinity": {
         "kitchen": {
           "package_type": "kitchen_modernization",
-          "package_role": "package_driver"
+          "package_role": "package_driver",
+          "repair_support_when_driven": true
         }
       },
       "pricing_status": "inherited_from_split_parent"
@@ -1648,7 +1658,8 @@
       "package_affinity": {
         "kitchen": {
           "package_type": "kitchen_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         }
       },
       "estimate_scope": "marketability_rehab",
@@ -3110,19 +3121,23 @@
       "package_affinity": {
         "bathroom": {
           "package_type": "bathroom_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         },
         "bedroom": {
           "package_type": "bedroom_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         },
         "kitchen": {
           "package_type": "kitchen_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         },
         "living": {
           "package_type": "living_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         }
       },
       "atomic_claim": {
@@ -3178,19 +3193,23 @@
       "package_affinity": {
         "bathroom": {
           "package_type": "bathroom_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         },
         "bedroom": {
           "package_type": "bedroom_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         },
         "kitchen": {
           "package_type": "kitchen_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         },
         "living": {
           "package_type": "living_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         }
       },
       "atomic_claim": {
@@ -4815,7 +4834,8 @@
       "package_affinity": {
         "bathroom": {
           "package_type": "bathroom_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         }
       },
       "pricing_status": "inherited_from_split_parent"
@@ -4874,7 +4894,8 @@
       "package_affinity": {
         "bathroom": {
           "package_type": "bathroom_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         }
       },
       "pricing_status": "inherited_from_split_parent"
@@ -6620,15 +6641,18 @@
       "package_affinity": {
         "bedroom": {
           "package_type": "bedroom_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         },
         "kitchen": {
           "package_type": "kitchen_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         },
         "living": {
           "package_type": "living_modernization",
-          "package_role": "package_support"
+          "package_role": "package_support",
+          "repair_support_when_driven": true
         }
       },
       "atomic_claim": {

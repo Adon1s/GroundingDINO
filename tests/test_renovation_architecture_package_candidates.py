@@ -22,7 +22,7 @@ from tests.test_renovation_architecture_contracts import (
     _lattice,
 )
 from tools.cost_factors import resolve_property_cost_factor
-from tools.rehab_packages import _package_absorption_scope
+from tools.rehab_packages import REPAIR_SUPPORT_MARKER, _package_absorption_scope
 from tools.renovation_architecture.catalog_projection import (
     build_renovation_catalog_projection,
 )
@@ -46,17 +46,21 @@ _TOKEN_FIELDS = (
 )
 
 
-def _pkg_item(item_id, room, package_type, role, **over):
-    """A synthetic v3.1 item routed to a package via its affinity block."""
+def _pkg_item(item_id, room, package_type, role, repair_support=False, **over):
+    """A synthetic v3.2 item routed to a package via its affinity block.
+
+    ``repair_support`` stamps the Catalog 3.2 contextual-repair-support marker
+    on the route (valid only on a ``{room}_modernization`` family)."""
     scene_groups = over.pop(
         "scene_groups", ["living_areas" if room == "living" else room]
     )
+    entry = {"package_type": package_type, "package_role": role}
+    if repair_support:
+        entry[REPAIR_SUPPORT_MARKER] = True
     return _v31_item(
         item_id,
         scene_groups=scene_groups,
-        package_affinity={
-            room: {"package_type": package_type, "package_role": role}
-        },
+        package_affinity={room: entry},
         **over,
     )
 
@@ -76,9 +80,14 @@ def _projection_and_catalog(tmp_path, *items):
     return build_renovation_catalog_projection(catalog, catalog_path=path), catalog
 
 
-def _cond(catalog_item_id, unit_id, scene_group):
+def _cond(catalog_item_id, unit_id, scene_group, room_surrogate_id=None):
     condition = _condition(catalog_item_id, unit_id)
     condition["scene_group"] = scene_group
+    if room_surrogate_id is not None:
+        # Two physical rooms can collapse into one billable unit; the surrogate
+        # is what keeps them distinct for contextual repair support.
+        condition["room_surrogate_id"] = room_surrogate_id
+        condition["source_room_surrogate_ids"] = [room_surrogate_id]
     return condition
 
 
@@ -179,8 +188,10 @@ def _build(tmp_path, items, conditions_spec, property_metadata=None):
     evidence_tweak|None)."""
     projection, catalog = _projection_and_catalog(tmp_path, *items)
     lattices = []
-    for item_id, unit_id, scene, tweak in conditions_spec:
-        condition = _cond(item_id, unit_id, scene)
+    for spec in conditions_spec:
+        item_id, unit_id, scene, tweak = spec[:4]
+        surrogate = spec[4] if len(spec) > 4 else None
+        condition = _cond(item_id, unit_id, scene, surrogate)
         evidence, review, disposition = _lattice(condition)
         if tweak is not None:
             tweak(evidence)
@@ -600,3 +611,158 @@ class TestWholeHome:
         _, candidates = _build(tmp_path, [self._turnover_items()[0]], spec)
         assert len(candidates) == 1
         assert not any(c["display_only"] for c in candidates)
+
+
+# ── Catalog 3.2: contextual repair support ───────────────────────────────────
+
+class TestContextualRepairSupport:
+    """A marked {room}_modernization occurrence moves into the paired
+    {room}_repair family as SUPPORT when that room has an accepted
+    defect/degradation repair driver — and stays put otherwise."""
+
+    DRIVER = ("drywall_cracks", "bedroom", "bedroom_repair", "package_driver")
+
+    def _items(self, driver_kind="defect"):
+        return [
+            _pkg_item(*self.DRIVER, kind=driver_kind, trade_bucket="paint_drywall"),
+            # Marked wear that DRIVES its modernization package — its role must
+            # be forced to support when it moves.
+            _pkg_item("worn_carpet", "bedroom", "bedroom_modernization",
+                      "package_driver", repair_support=True),
+            # Marked wear that already supports.
+            _pkg_item("wall_scuffs", "bedroom", "bedroom_modernization",
+                      "package_support", repair_support=True,
+                      trade_bucket="paint_drywall"),
+            # Unmarked modernization supports — must never move. Two of them,
+            # because a driverless bucket needs two distinct billable supports
+            # to survive the emit gate at all (pre-existing rule).
+            _pkg_item("dated_fixture", "bedroom", "bedroom_modernization",
+                      "package_support", kind="modernization"),
+            _pkg_item("dated_trim", "bedroom", "bedroom_modernization",
+                      "package_support", kind="modernization",
+                      trade_bucket="paint_drywall"),
+        ]
+
+    def _by_type(self, candidates):
+        return {c["package_type"]: c for c in candidates}
+
+    def _members(self, candidate):
+        return set(candidate["contributing_candidate_ids"])
+
+    def _work_ids(self, standalone, catalog_item_id):
+        work = _work_by_condition(standalone)
+        return {
+            work[c["condition_id"]]["work_item_id"]
+            for c in standalone["observed_conditions"]
+            if c["catalog_item_id"] == catalog_item_id
+            and c["condition_id"] in work
+        }
+
+    def test_marked_wear_stays_in_modernization_without_a_driver(self, tmp_path):
+        _, candidates = _build(tmp_path, self._items(), [
+            ("worn_carpet", "bedroom_primary", "bedroom", None),
+            ("wall_scuffs", "bedroom_primary", "bedroom", None),
+        ])
+        by_type = self._by_type(candidates)
+        assert "bedroom_modernization" in by_type
+        assert "bedroom_repair" not in by_type
+
+    def test_driver_pulls_marked_wear_into_repair(self, tmp_path):
+        _, candidates = _build(tmp_path, self._items(), [
+            ("drywall_cracks", "bedroom_primary", "bedroom", None),
+            ("worn_carpet", "bedroom_primary", "bedroom", None),
+            ("wall_scuffs", "bedroom_primary", "bedroom", None),
+        ])
+        by_type = self._by_type(candidates)
+        assert "bedroom_repair" in by_type
+        # Every marked occurrence moved, so the modernization bucket is deleted
+        # rather than emitted as a driverless husk.
+        assert "bedroom_modernization" not in by_type
+
+    def test_an_occurrence_is_never_in_both_families(self, tmp_path):
+        """Exclusive switching: the move is a move, not a copy."""
+        _, candidates = _build(tmp_path, self._items(), [
+            ("drywall_cracks", "bedroom_primary", "bedroom", None),
+            ("worn_carpet", "bedroom_primary", "bedroom", None),
+            ("dated_fixture", "bedroom_primary", "bedroom", None),
+            ("dated_trim", "bedroom_primary", "bedroom", None),
+        ])
+        by_type = self._by_type(candidates)
+        seen = [m for c in candidates for m in self._members(c)]
+        assert len(seen) == len(set(seen)), "an occurrence appears in two packages"
+        # The unmarked item held the modernization package open.
+        assert "bedroom_modernization" in by_type
+        assert self._members(by_type["bedroom_modernization"]).isdisjoint(
+            self._members(by_type["bedroom_repair"])
+        )
+
+    def test_moved_wear_is_support_never_a_driver(self, tmp_path):
+        """worn_carpet drives bedroom_modernization; inside repair it may only
+        corroborate the driver that opened the package."""
+        standalone, candidates = _build(tmp_path, self._items(), [
+            ("drywall_cracks", "bedroom_primary", "bedroom", None),
+            ("worn_carpet", "bedroom_primary", "bedroom", None),
+        ])
+        repair = self._by_type(candidates)["bedroom_repair"]
+        driver_work = self._work_ids(standalone, "drywall_cracks")
+        carpet_work = self._work_ids(standalone, "worn_carpet")
+        assert set(repair["driver_work_item_ids"]) == driver_work
+        assert carpet_work <= set(repair["support_work_item_ids"])
+        assert carpet_work.isdisjoint(repair["driver_work_item_ids"])
+
+    def test_a_degradation_driver_also_qualifies(self, tmp_path):
+        _, candidates = _build(tmp_path, self._items(driver_kind="degradation"), [
+            ("drywall_cracks", "bedroom_primary", "bedroom", None),
+            ("worn_carpet", "bedroom_primary", "bedroom", None),
+        ])
+        assert "bedroom_repair" in self._by_type(candidates)
+
+    def test_a_modernization_driver_cannot_bootstrap_repair(self, tmp_path):
+        """The anti-bootstrap guard: only a concrete defect/degradation repair
+        driver opens a repair package for marked wear to join."""
+        _, candidates = _build(tmp_path, self._items(driver_kind="modernization"), [
+            ("drywall_cracks", "bedroom_primary", "bedroom", None),
+            ("worn_carpet", "bedroom_primary", "bedroom", None),
+        ])
+        by_type = self._by_type(candidates)
+        carpet = "bedroom_modernization"
+        assert carpet in by_type, "marked wear must not have been re-routed"
+        repair = by_type.get("bedroom_repair")
+        if repair is not None:
+            assert self._members(by_type[carpet]).isdisjoint(self._members(repair))
+
+    def test_wear_in_another_surrogate_is_not_pulled_in(self, tmp_path):
+        """Two bedrooms collapsed into one billable unit: a driver in bedroom_1
+        must not re-route wear observed in bedroom_2."""
+        _, candidates = _build(tmp_path, self._items(), [
+            ("drywall_cracks", "bedroom_primary", "bedroom", None, "bedroom_1"),
+            ("worn_carpet", "bedroom_primary", "bedroom", None, "bedroom_2"),
+            ("wall_scuffs", "bedroom_primary", "bedroom", None, "bedroom_2"),
+        ])
+        by_type = self._by_type(candidates)
+        assert "bedroom_modernization" in by_type
+        assert "bedroom_repair" in by_type
+        assert self._members(by_type["bedroom_modernization"]).isdisjoint(
+            self._members(by_type["bedroom_repair"])
+        )
+
+    def test_same_surrogate_still_moves_when_units_collapse(self, tmp_path):
+        _, candidates = _build(tmp_path, self._items(), [
+            ("drywall_cracks", "bedroom_primary", "bedroom", None, "bedroom_1"),
+            ("worn_carpet", "bedroom_primary", "bedroom", None, "bedroom_1"),
+        ])
+        by_type = self._by_type(candidates)
+        assert "bedroom_repair" in by_type
+        assert "bedroom_modernization" not in by_type
+
+    def test_unmarked_routes_are_untouched(self, tmp_path):
+        """dated_fixture carries no marker, so a repair driver in its room
+        leaves it exactly where the catalog put it."""
+        _, candidates = _build(tmp_path, self._items(), [
+            ("drywall_cracks", "bedroom_primary", "bedroom", None),
+            ("dated_fixture", "bedroom_primary", "bedroom", None),
+            ("dated_trim", "bedroom_primary", "bedroom", None),
+        ])
+        by_type = self._by_type(candidates)
+        assert "bedroom_modernization" in by_type
+        assert by_type["bedroom_modernization"]["package_category"] == "modernization"

@@ -202,7 +202,7 @@ class TestInitialize:
         assert runtime.sol_max_output_tokens == 8192
         # The raw catalog rides the runtime for the Session 4 candidate
         # builder, pinned to the same file as the projection.
-        assert runtime.catalog.get("version") == "3.1"
+        assert runtime.catalog.get("version") == "3.2"
 
     def test_shadow_requires_v2_selector_value(self):
         with pytest.raises(RenovationArchitectureInitError, match="KIND_ONTOLOGY_VERSION"):
@@ -373,7 +373,7 @@ class TestShadowEnvelope:
         assert timings["total"] == sum(
             value for phase, value in timings.items() if phase != "total"
         )
-        assert envelope["provenance"]["catalog_version"] == "3.1"
+        assert envelope["provenance"]["catalog_version"] == "3.2"
         assert envelope["provenance"]["catalog_ontology_version"] == "observation-kind-v2"
         assert envelope["provenance"]["kind_ontology_selector"] == "observation_kind_v2"
 
@@ -560,7 +560,7 @@ class TestWriterSeam:
         assert res.ok, res.errors
         assert envelope["state"] == "complete"
         assert envelope["provenance"]["architecture_mode"] == "new"
-        assert envelope["provenance"]["catalog_version"] == "3.1"
+        assert envelope["provenance"]["catalog_version"] == "3.2"
         # v4 survives the cutover: it is the comparison and rollback path.
         assert isinstance(debug["renovation_estimate_v4"], dict)
         # No private copy anywhere.

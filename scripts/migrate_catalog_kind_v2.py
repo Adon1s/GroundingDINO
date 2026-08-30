@@ -4,7 +4,7 @@ Deterministic, byte-stable transformation:
 
     tools/issue_catalog.json  (v1, untouched)
   + tools/catalog_migrations/kind_v2_decisions.json  (the reviewable source of truth)
-  ->  tools/issue_catalog_kind_v2.json               (catalog version 3.1, publishable)
+  ->  tools/issue_catalog_kind_v2.json               (catalog version 3.2, publishable)
       tools/catalog_migrations/2.1_to_3.0.json       (audit-only manifest, one entry per legacy id)
       tools/catalog_migrations/2.1_to_3.0_audit.md   (generated audit report)
 
@@ -18,6 +18,11 @@ Inheritance rules are code, not authoring discipline:
   project — inherit the parent's economic fields verbatim, stamped
   pricing_status=inherited_from_split_parent. Successor overrides can never
   rewrite an economic field (hard error, not convention).
+- Catalog 3.2 adds one post-inheritance stage: package_routing_decisions stamps
+  the affinity-level `repair_support_when_driven` marker onto named
+  {room}_modernization routes. It is additive metadata — it never rewrites a
+  package_type, a package_role, or any cost field — so it layers cleanly on top
+  of both inheritance paths without touching ECONOMIC_FIELDS parity.
 
 Run:  .venv/Scripts/python.exe scripts/migrate_catalog_kind_v2.py
 Running twice produces byte-identical outputs (pinned by the parity test in
@@ -36,6 +41,10 @@ sys.path.insert(0, str(ROOT))
 
 from tools.catalog_validation import ECONOMIC_FIELDS, PRICING_STATUS_INHERITED  # noqa: E402
 from tools.observation_kinds import OBSERVATION_KINDS, ONTOLOGY_VERSION  # noqa: E402
+from tools.rehab_packages import (  # noqa: E402
+    REPAIR_SUPPORT_MARKER,
+    paired_repair_package_type,
+)
 
 V1_PATH = ROOT / "tools" / "issue_catalog.json"
 DECISIONS_PATH = ROOT / "tools" / "catalog_migrations" / "kind_v2_decisions.json"
@@ -43,13 +52,16 @@ V2_PATH = ROOT / "tools" / "issue_catalog_kind_v2.json"
 MANIFEST_PATH = ROOT / "tools" / "catalog_migrations" / "2.1_to_3.0.json"
 AUDIT_PATH = ROOT / "tools" / "catalog_migrations" / "2.1_to_3.0_audit.md"
 
-TARGET_VERSION = "3.1"
+TARGET_VERSION = "3.2"
 PUBLICATION_STATUS = "publishable"
 
 # The one pricing policy generate() accepts from the decisions file. Split
 # successors carry their parent's economics verbatim until the dedicated
 # pricing project authors real successor prices.
 SPLIT_SUCCESSOR_PRICING_POLICY = "inherit_parent_economics_v1"
+
+# The one routing policy generate() accepts from the decisions file (Catalog 3.2).
+PACKAGE_ROUTING_POLICY = "contextual_repair_support_v1"
 
 # Structural, non-economic fields a split successor inherits from its parent
 # when it does not author its own value.
@@ -129,6 +141,61 @@ def _build_carryover(parent: dict, succ: dict) -> dict:
     return item
 
 
+def _apply_package_routing_decisions(items: list[dict], decisions: dict) -> list[dict]:
+    """Stamp the Catalog 3.2 ``repair_support_when_driven`` affinity marker.
+
+    Runs AFTER carryover/split inheritance, so it layers on top of inherited
+    economics instead of fighting the ECONOMIC_FIELDS guard. Purely additive:
+    package_type, package_role and every cost field keep the values inheritance
+    produced. Returns the marked (id, room, package_type) routes, in authored
+    order, for the manifest and the audit report.
+    """
+    section = decisions.get("package_routing_decisions") or {}
+    policy = section.get("policy")
+    if policy != PACKAGE_ROUTING_POLICY:
+        _fail(
+            f"decisions must declare package_routing_decisions.policy == "
+            f"{PACKAGE_ROUTING_POLICY!r} (got {policy!r})"
+        )
+
+    by_id = {it["id"]: it for it in items}
+    marked: list[dict] = []
+    seen: set[tuple[str, str]] = set()
+    for rule in section.get(REPAIR_SUPPORT_MARKER) or []:
+        item_id = rule.get("id")
+        item = by_id.get(item_id or "")
+        if item is None:
+            _fail(f"{REPAIR_SUPPORT_MARKER} names unknown item {item_id!r}")
+        rooms = rule.get("rooms") or []
+        if not rooms:
+            _fail(f"{REPAIR_SUPPORT_MARKER} entry {item_id!r} lists no rooms")
+        affinity = item.get("package_affinity") or {}
+        for room in rooms:
+            if (item_id, room) in seen:
+                _fail(f"{REPAIR_SUPPORT_MARKER} lists {item_id!r} room {room!r} twice")
+            seen.add((item_id, room))
+            entry = affinity.get(room)
+            if not isinstance(entry, dict):
+                _fail(
+                    f"{REPAIR_SUPPORT_MARKER} names {item_id!r} room {room!r}, "
+                    "which has no package_affinity route"
+                )
+            package_type = entry.get("package_type")
+            paired = paired_repair_package_type(str(package_type or ""))
+            if paired is None:
+                # Either the route is not a {room}_modernization family, or its
+                # room has no repair family to pair with. Both are authoring
+                # errors, not silent no-ops.
+                _fail(
+                    f"{REPAIR_SUPPORT_MARKER} on {item_id!r} room {room!r} targets "
+                    f"{package_type!r}, which has no paired {{room}}_repair family"
+                )
+            entry[REPAIR_SUPPORT_MARKER] = True
+            marked.append({"id": item_id, "room": room, "package_type": package_type,
+                           "paired_repair_package_type": paired})
+    return marked
+
+
 def generate(v1: dict, decisions: dict) -> tuple[dict, dict]:
     v1_items = v1.get("items") or []
     v1_by_id = {it["id"]: it for it in v1_items}
@@ -173,6 +240,8 @@ def generate(v1: dict, decisions: dict) -> tuple[dict, dict]:
             seen_ids.add(item["id"])
             items.append(item)
 
+    marked_routes = _apply_package_routing_decisions(items, decisions)
+
     catalog = {
         "version": TARGET_VERSION,
         "ontology_version": ONTOLOGY_VERSION,
@@ -180,6 +249,21 @@ def generate(v1: dict, decisions: dict) -> tuple[dict, dict]:
         "trade_buckets": v1.get("trade_buckets") or [],
         "items": items,
     }
+
+    # Split successors inherit package_affinity from their v1 parent verbatim
+    # (ECONOMIC_FIELDS). A marker stamped on one is a deliberate, recorded
+    # departure from that parity — every such route is listed here and in the
+    # audit so the divergence is reviewable rather than discovered later.
+    split_parent = {
+        s_["id"]: e["legacy_id"]
+        for e in entries if e["change_type"] == "split"
+        for s_ in e["successors"]
+    }
+    parity_exceptions = [
+        {**route, "inherited_from": split_parent[route["id"]]}
+        for route in marked_routes
+        if route["id"] in split_parent
+    ]
 
     manifest = {
         "migration": "2.1_to_3.0",
@@ -206,6 +290,17 @@ def generate(v1: dict, decisions: dict) -> tuple[dict, dict]:
             }
             for e in entries
         ],
+        "package_routing": {
+            "policy": PACKAGE_ROUTING_POLICY,
+            "marker": REPAIR_SUPPORT_MARKER,
+            "note": (
+                "Catalog 3.2 contextual repair support. Additive affinity metadata: "
+                "the marked {room}_modernization route stays the item's primary route "
+                "and its package_type/package_role/cost fields are unchanged."
+            ),
+            "marked_routes": marked_routes,
+            "inherited_affinity_parity_exceptions": parity_exceptions,
+        },
     }
     return catalog, manifest
 
@@ -291,6 +386,57 @@ def render_audit(catalog: dict, manifest: dict, decisions: dict) -> str:
         if absent:
             parts.append(f"absent on parent: {', '.join(absent)}")
         lines.append(f"- `{it['id']}` <- `{successor_parent[it['id']]}`: {'; '.join(parts)}")
+
+    routing = manifest.get("package_routing") or {}
+    marked = routing.get("marked_routes") or []
+    if marked:
+        by_room = Counter(r["room"] for r in marked)
+        lines += [
+            "",
+            "## Contextual repair support (Catalog 3.2)",
+            "",
+            f"Policy `{routing.get('policy')}`. The affinity-level marker",
+            f"`{routing.get('marker')}` is stamped on {len(marked)} "
+            f"{{room}}_modernization routes across "
+            f"{len({r['id'] for r in marked})} items.",
+            "",
+            "Modernization stays each item's primary route. The marker only lets",
+            "package inference move that occurrence into the paired {room}_repair",
+            "family as SUPPORT when the same room already has an accepted",
+            "defect/degradation repair driver — so a marked route can never open a",
+            "repair package on its own, and no occurrence is ever counted in both",
+            "families. package_type, package_role and every cost field are unchanged.",
+            "",
+            "- By room: "
+            + ", ".join(f"{room} {n}" for room, n in sorted(by_room.items())),
+            "",
+            "| item | room | primary route | paired repair family |",
+            "|---|---|---|---|",
+        ]
+        for r in marked:
+            lines.append(
+                f"| `{r['id']}` | {r['room']} | {r['package_type']} | "
+                f"{r['paired_repair_package_type']} |"
+            )
+
+        exceptions = routing.get("inherited_affinity_parity_exceptions") or []
+        lines += ["", "### Inherited-affinity parity exceptions", ""]
+        if exceptions:
+            lines += [
+                "Split successors inherit `package_affinity` from their v1 parent",
+                "verbatim. The routes below carry the marker and therefore diverge",
+                "from that inheritance deliberately — recorded here so the departure",
+                "is reviewable. The parent route itself is untouched.",
+                "",
+            ]
+            for r in exceptions:
+                lines.append(
+                    f"- `{r['id']}` ({r['room']}) <- `{r['inherited_from']}`: "
+                    f"marker added post-inheritance"
+                )
+        else:
+            lines.append("None — no marked route lands on a split successor.")
+        lines.append("")
 
     flagged = [e for e in entries if e.get("task3_flags")]
     if flagged:

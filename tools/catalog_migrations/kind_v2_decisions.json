@@ -6,6 +6,87 @@
     "policy": "inherit_parent_economics_v1",
     "note": "Task 4A bridge: split successors mechanically inherit the parent's economic fields (ECONOMIC_FIELDS) byte-identically; fields absent on the parent stay absent. Not an endorsement of v1 pricing — replaced by the dedicated pricing project."
   },
+  "package_routing_decisions": {
+    "policy": "contextual_repair_support_v1",
+    "note": "Catalog 3.2. Wear keeps its modernization route by default; the generated marker repair_support_when_driven lets package inference move the occurrence into the paired {room}_repair family when that room has an accepted defect/degradation repair driver. Base package_type, package_role, flat package_role, and every cost field are untouched — this adds affinity metadata only, never a route rewrite.",
+    "repair_support_when_driven": [
+      {
+        "id": "peeling_or_discolored_paint",
+        "rooms": [
+          "bedroom",
+          "kitchen",
+          "living"
+        ]
+      },
+      {
+        "id": "worn_or_stained_carpet",
+        "rooms": [
+          "bedroom",
+          "kitchen",
+          "living"
+        ]
+      },
+      {
+        "id": "vinyl_linoleum_worn_or_stained",
+        "rooms": [
+          "bedroom",
+          "kitchen",
+          "living"
+        ]
+      },
+      {
+        "id": "worn_or_stained_flooring",
+        "rooms": [
+          "bedroom",
+          "kitchen",
+          "living"
+        ]
+      },
+      {
+        "id": "baseboard_wear_scuffs",
+        "rooms": [
+          "bathroom",
+          "bedroom",
+          "kitchen",
+          "living"
+        ]
+      },
+      {
+        "id": "wall_scuffs_marks_or_dents",
+        "rooms": [
+          "bathroom",
+          "bedroom",
+          "kitchen",
+          "living"
+        ]
+      },
+      {
+        "id": "cabinets_worn_finish",
+        "rooms": [
+          "kitchen"
+        ]
+      },
+      {
+        "id": "appliances_worn_or_neglected",
+        "rooms": [
+          "kitchen"
+        ]
+      },
+      {
+        "id": "vanity_countertop_worn",
+        "rooms": [
+          "bathroom"
+        ]
+      },
+      {
+        "id": "vanity_countertop_dated",
+        "rooms": [
+          "bathroom"
+        ],
+        "rationale": "Explicitly approved repair support. Modernization-kind, support-role only: it can join a bathroom_repair package that a defect/degradation driver already opened, and can never open one itself."
+      }
+    ]
+  },
   "entries": [
     {
       "legacy_id": "water_stain_ceiling",

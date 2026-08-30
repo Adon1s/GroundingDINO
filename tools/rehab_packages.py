@@ -661,6 +661,39 @@ _PACKAGE_TYPE_TO_ROOM = {
 }
 
 
+# ── Catalog 3.2: contextual repair support ───────────────────────────────────
+# Affinity-level marker (generated — authored in
+# tools/catalog_migrations/kind_v2_decisions.json, never hand-edited into a
+# catalog). A marked {room}_modernization route keeps modernization as its
+# primary route; inference may move that occurrence into the paired
+# {room}_repair family as support when the same room already has an accepted
+# defect/degradation repair driver. See contextual_repair_support in
+# infer_package_candidates.
+REPAIR_SUPPORT_MARKER = "repair_support_when_driven"
+
+# Stamped on the effective catalog item of a moved occurrence, recording the
+# modernization route it came from. Diagnostic only — nothing routes off it.
+_CONTEXTUAL_REPAIR_SUPPORT_NOTE = "_contextual_repair_support_from"
+
+
+def paired_repair_package_type(package_type: str) -> Optional[str]:
+    """The ``{room}_repair`` family paired with a ``{room}_modernization`` type.
+
+    Derived from the same vocabulary maps the router uses, so a new room family
+    gets its pairing for free and cannot drift. Returns None when the argument
+    is not a modernization package type, or when its room has no repair family.
+    """
+    if _PACKAGE_TYPE_TO_CATEGORY.get(package_type) != PACKAGE_CATEGORY_MODERNIZATION:
+        return None
+    room = _PACKAGE_TYPE_TO_ROOM.get(package_type)
+    if not room:
+        return None
+    paired = f"{room}_repair"
+    if paired not in VALID_PACKAGE_TYPES or _PACKAGE_TYPE_TO_ROOM.get(paired) != room:
+        return None
+    return paired
+
+
 # ── Catalog-driven package affinity ──────────────────────────────────────────
 # Routing ("which issue, seen in which room, feeds which package, in which
 # role") lives in the catalog: each routable item carries a `package_affinity`
@@ -685,11 +718,13 @@ _PACKAGE_TYPE_TO_ROOM = {
 
 def build_package_affinity(
     issue_catalog: Dict[str, Any],
-) -> Dict[Tuple[str, str], Dict[str, str]]:
+) -> Dict[Tuple[str, str], Dict[str, Any]]:
     """Flatten per-item ``package_affinity`` blocks into the runtime table.
 
     Returns {(room, issue_id): {package_type, package_role, package_category,
-    room}} with category/room derived from package_type. The catalog is the
+    room}} with category/room derived from package_type, plus
+    ``repair_support_when_driven: True`` on rows that carry the Catalog 3.2
+    contextual-repair-support marker. The catalog is the
     single source of truth for routing, so validation raises instead of
     silently skipping malformed entries.
     """
@@ -739,12 +774,19 @@ def build_package_affinity(
                     f"{item_id}/{room}: package_role must be {PACKAGE_ROLE_DRIVER!r} "
                     f"or {PACKAGE_ROLE_SUPPORT!r}, got {entry.get('package_role')!r}"
                 )
-            table[(room, item_id)] = {
+            row: Dict[str, Any] = {
                 "package_type": package_type,
                 "package_role": package_role,
                 "package_category": _PACKAGE_TYPE_TO_CATEGORY[package_type],
                 "room": room,
             }
+            if entry.get(REPAIR_SUPPORT_MARKER):
+                # Catalog 3.2 marker rides the affinity row so the effective
+                # catalog item built per occurrence can be tested for it. The
+                # generator already guarantees it only lands on a modernization
+                # route with a paired repair family.
+                row[REPAIR_SUPPORT_MARKER] = True
+            table[(room, item_id)] = row
     return table
 
 
@@ -1964,6 +2006,93 @@ def _resolve_package_category_and_room(
     )
 
 
+def _qualifying_repair_driver_surrogates(
+    unit_candidates: List[EstimateCandidate],
+    candidate_catalog_meta: Dict[int, Dict[str, Any]],
+) -> Optional[set]:
+    """Room surrogates of the accepted repair drivers in one repair bucket.
+
+    A qualifying driver is an occurrence whose EFFECTIVE affinity role is
+    package_driver and whose kind is defect or degradation. Keying off the
+    effective role (not the flat ``package_role``) is what lets an item priced
+    standalone still count as the driver its affinity says it is, and keying off
+    kind is what stops a dated/modernization item from bootstrapping a repair
+    package on its own.
+
+    Returns None when the bucket has no qualifying driver. An empty set means
+    "driven, but no surrogate identity resolved" — the estimate-unit fallback.
+    """
+    surrogates = set()
+    found = False
+    for candidate in unit_candidates:
+        cat_item = candidate_catalog_meta.get(id(candidate)) or {}
+        if catalog_package_role(cat_item) != PACKAGE_ROLE_DRIVER:
+            continue
+        if cat_item.get("kind") not in _DEFECT_DRIVER_KINDS:
+            continue
+        found = True
+        surrogate = str(getattr(candidate, "room_surrogate_id", "") or "")
+        if surrogate:
+            surrogates.add(surrogate)
+    return surrogates if found else None
+
+
+def _apply_contextual_repair_support(
+    by_unit_type: Dict[Tuple[str, str], List[EstimateCandidate]],
+    candidate_catalog_meta: Dict[int, Dict[str, Any]],
+) -> None:
+    """Move marked wear from {room}_modernization into {room}_repair.
+
+    Mutates ``by_unit_type`` and ``candidate_catalog_meta`` in place. Each
+    occurrence is MOVED, never copied, so it can never be counted in both
+    families. The effective role is forced to support: a marked item that drives
+    its modernization package (carpet and vinyl drive bedrooms and living rooms)
+    must not also be able to drive the repair package it joins.
+    """
+    for (unit_id, package_type) in sorted(by_unit_type):
+        paired_repair = paired_repair_package_type(package_type)
+        if paired_repair is None:
+            continue
+        repair_bucket = by_unit_type.get((unit_id, paired_repair))
+        if not repair_bucket:
+            continue
+        driver_surrogates = _qualifying_repair_driver_surrogates(
+            repair_bucket, candidate_catalog_meta,
+        )
+        if driver_surrogates is None:
+            continue
+
+        modernization_bucket = by_unit_type[(unit_id, package_type)]
+        staying: List[EstimateCandidate] = []
+        for candidate in modernization_bucket:
+            cat_item = candidate_catalog_meta.get(id(candidate)) or {}
+            if not cat_item.get(REPAIR_SUPPORT_MARKER):
+                staying.append(candidate)
+                continue
+            surrogate = str(getattr(candidate, "room_surrogate_id", "") or "")
+            # Same physical room. Surrogate identity when both sides have it;
+            # the estimate unit (already the bucket key, so implicitly equal)
+            # only when identity is missing on either side.
+            if surrogate and driver_surrogates and surrogate not in driver_surrogates:
+                staying.append(candidate)
+                continue
+            moved = dict(cat_item)
+            moved["package_type"] = paired_repair
+            moved["package_role"] = PACKAGE_ROLE_SUPPORT
+            moved["package_category"] = _PACKAGE_TYPE_TO_CATEGORY[paired_repair]
+            moved["room"] = _PACKAGE_TYPE_TO_ROOM[paired_repair]
+            moved[_CONTEXTUAL_REPAIR_SUPPORT_NOTE] = package_type
+            candidate_catalog_meta[id(candidate)] = moved
+            repair_bucket.append(candidate)
+
+        if staying:
+            by_unit_type[(unit_id, package_type)] = staying
+        else:
+            # An emptied modernization bucket must not reach the emit loop as a
+            # driverless husk; the whole room moved into repair.
+            del by_unit_type[(unit_id, package_type)]
+
+
 def infer_package_candidates(
     candidates: List[EstimateCandidate],
     room_surrogates: List[Dict[str, Any]],
@@ -1972,6 +2101,7 @@ def infer_package_candidates(
     estimate_units: Optional[List[Dict[str, Any]]] = None,
     suppressed_out: Optional[List[Dict[str, Any]]] = None,
     builder_inputs_out: Optional[Dict[str, "PackageBuilderInputs"]] = None,
+    contextual_repair_support: bool = False,
 ) -> List[Dict[str, Any]]:
     """Build package candidates from catalog-driven scene-aware affinity.
 
@@ -1981,6 +2111,12 @@ def infer_package_candidates(
     build_package_affinity); single-room blocks fall back to their only room
     when no scene resolves. Weak buckets are suppressed and (optionally)
     reported through ``suppressed_out``.
+
+    ``contextual_repair_support`` (Catalog 3.2) enables the re-route pass below:
+    an occurrence on a marked ``{room}_modernization`` route moves into the
+    paired ``{room}_repair`` family as SUPPORT when that room already has an
+    accepted defect/degradation repair driver. Off by default — this function is
+    shared with the v4 estimator, which must keep its pre-3.2 routing.
     """
     catalog_lookup = _catalog_lookup(issue_catalog)
     affinity_table = build_package_affinity(issue_catalog)
@@ -2033,6 +2169,14 @@ def infer_package_candidates(
         cat_id for cat_id, units in support_unit_tally.items()
         if len(units) >= _AMBIENT_SUPPORT_MIN_UNITS
     }
+
+    if contextual_repair_support:
+        # Catalog 3.2 — contextual repair support. Primary routes are already
+        # resolved above, so every bucket membership is final and nothing has
+        # been priced, scored or emitted yet. Deliberately AFTER the ambient
+        # tally: ambient demotion measures how many distinct units an item
+        # supports in, which a within-unit family move does not change.
+        _apply_contextual_repair_support(by_unit_type, candidate_catalog_meta)
 
     out: List[Dict[str, Any]] = []
     for (unit_id, package_type), unit_candidates in sorted(by_unit_type.items()):

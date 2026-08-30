@@ -91,7 +91,7 @@ def _provenance(**over):
         architecture_mode="shadow",
         contracts_schema_version=CONTRACTS_SCHEMA_VERSION,
         projection_version=PROJECTION_VERSION,
-        catalog_version="3.1",
+        catalog_version="3.2",
         catalog_ontology_version="observation-kind-v2",
         catalog_sha256="a" * 64,
         projection_fingerprint="b" * 64,

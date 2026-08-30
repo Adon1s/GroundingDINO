@@ -127,7 +127,7 @@ PIPELINE_MODE = _KIND_ONTOLOGY.pipeline_mode
 #   current -> the existing v4 estimator only; no new output anywhere
 #   shadow  -> v4 unchanged, plus a private scaffold envelope in analysis_debug
 #              (requires the v2 ontology selector: the new engine accepts only
-#              the v3.1 catalog)
+#              the v3.2 catalog)
 #   new     -> the new engine is authoritative: a complete v5 envelope at the
 #              artifact root, v4 still emitted independently, no private copy
 #              (same v2-ontology requirement as shadow)
@@ -151,7 +151,7 @@ def resolve_renovation_architecture(raw: str, *, kind_ontology_version: str) -> 
                 f"RENOVATION_ARCHITECTURE_MODE={raw} requires "
                 f"KIND_ONTOLOGY_VERSION={KIND_ONTOLOGY_V2}, got "
                 f"{kind_ontology_version!r}: the new engine accepts only the "
-                "v3.1 catalog"
+                "v3.2 catalog"
             )
         return raw
     raise ValueError(

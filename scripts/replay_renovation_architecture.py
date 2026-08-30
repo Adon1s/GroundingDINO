@@ -6,15 +6,23 @@ reused verbatim, while dispositions, work items, package candidates, and
 reconciliation are recomputed deterministically. The stored estimate_id is
 held fixed so every derived ID stays joinable to the stored Sol decisions.
 
+A stored decision is reused only when the rebuilt candidate's FULL payload
+hashes identically to the stored one. Candidate IDs cover only
+(estimate_id, package_type, estimate_unit_id), so membership, child roles,
+pricing tier and range can all move under a stable ID — matching on ID alone
+would reuse Sol's judgement of a package that no longer exists in that shape.
+
 Dispositions are recomputed from stored VERDICTS via decide_disposition —
 never reused — because stored disposition records embed the terminal routes
 of the code that produced them. Stored Sol decisions are mapped onto rebuilt
-candidates by package_candidate_id; candidates the stored run never judged
-are dropped (Sol truth is never fabricated) and every such sanitization is
-counted in the report.
+candidates by package_candidate_id AND payload hash; candidates the stored run
+never judged — and candidates whose payload has changed — are dropped (Sol
+truth is never fabricated) and every such sanitization is counted in the
+report.
 
-This module imports only the deterministic renovation-architecture modules,
-so it is structurally incapable of spending provider tokens.
+This module imports only the deterministic renovation-architecture modules
+(candidate_payload is deliberately split out of sol_review for exactly this
+reason), so it is structurally incapable of spending provider tokens.
 
 Usage:
   .venv\\Scripts\\python.exe scripts\\replay_renovation_architecture.py \
@@ -32,6 +40,9 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tools.renovation_architecture.candidate_payload import (  # noqa: E402
+    candidate_payload_hashes,
+)
 from tools.renovation_architecture.catalog_projection import (  # noqa: E402
     build_renovation_catalog_projection,
 )
@@ -66,6 +77,7 @@ _SOL_TOKEN_FIELDS = (
 )
 _SANITIZATION_KEYS = (
     "stored_decisions_unused", "candidates_dropped_no_stored_decision",
+    "stored_decisions_payload_mismatch",
     "split_degraded_to_no_split", "combine_edges_filtered",
     "sol_call_candidate_ids_rewritten", "sol_calls_dropped",
     "disposition_diffs_vs_stored",
@@ -142,8 +154,17 @@ def _map_stored_decisions(
     candidates: List[Dict[str, Any]],
     stored: Mapping[str, Any],
     counters: Dict[str, int],
+    rebuilt_result: Optional[Mapping[str, Any]] = None,
 ) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
-    """Join stored Sol decisions onto rebuilt candidates by candidate ID.
+    """Join stored Sol decisions onto rebuilt candidates.
+
+    Matching on candidate ID alone is NOT sufficient: make_package_candidate_id
+    hashes only (estimate_id, package_type, estimate_unit_id), so a candidate
+    that gains or loses members — or changes a child's role, its tier or its
+    range — keeps its ID while becoming a different package. Reusing the stored
+    decision there would silently attribute Sol's judgement of one package to
+    another. So the full per-candidate payload is hashed on both sides and a
+    mismatch drops the decision exactly like a missing one.
 
     Candidates the stored run never judged are dropped (never fabricated);
     stored split/combine references to vanished work items or candidates are
@@ -152,12 +173,23 @@ def _map_stored_decisions(
     stored_by_candidate = {
         d["package_candidate_id"]: d for d in stored["package_decisions"]
     }
+    stored_hashes = candidate_payload_hashes(
+        stored, list(stored["package_candidates"])
+    )
+    rebuilt_hashes = candidate_payload_hashes(
+        rebuilt_result if rebuilt_result is not None else stored, candidates
+    )
     kept: List[Dict[str, Any]] = []
     for candidate in candidates:
-        if candidate["package_candidate_id"] in stored_by_candidate:
-            kept.append(candidate)
-        else:
+        candidate_id = candidate["package_candidate_id"]
+        if candidate_id not in stored_by_candidate:
             counters["candidates_dropped_no_stored_decision"] += 1
+            continue
+        if rebuilt_hashes.get(candidate_id) != stored_hashes.get(candidate_id):
+            # Same id, different package. Sol never judged this one.
+            counters["stored_decisions_payload_mismatch"] += 1
+            continue
+        kept.append(candidate)
     kept_ids = {c["package_candidate_id"] for c in kept}
     children_by_candidate = {
         c["package_candidate_id"]: set(c["child_work_item_ids"]) for c in kept
@@ -285,7 +317,7 @@ def replay_property(
         estimate_id=estimate_id,
     )
     kept, decisions, sol_calls = _map_stored_decisions(
-        candidates, stored, counters
+        candidates, stored, counters, rebuilt_result=standalone_result
     )
     package_review_result = _assemble_package_review_result(
         standalone_result, kept, decisions, sol_calls, estimate_id=estimate_id
@@ -304,6 +336,12 @@ def replay_property(
         "state": "complete",
         "estimate_id": estimate_id,
         "sanitization": counters,
+        # The candidates as REBUILT, before stored-decision sanitization drops
+        # the ones Sol never judged in this shape. result["package_candidates"]
+        # holds only the kept subset, so a census that read it would report a
+        # payload-changed candidate as "removed" and undercount the work a
+        # fresh Sol review has to cover.
+        "rebuilt_package_candidates": candidates,
         "stored_factor": stored["standalone_estimate"]["property_cost_factor"],
         "replayed_factor": complete["standalone_estimate"]["property_cost_factor"],
         "v4_final_rehab": {"low": v4_low, "high": v4_high},

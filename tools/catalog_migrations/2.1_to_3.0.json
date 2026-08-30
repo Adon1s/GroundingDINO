@@ -1,7 +1,7 @@
 {
   "migration": "2.1_to_3.0",
   "source_version": "2.1",
-  "target_version": "3.1",
+  "target_version": "3.2",
   "ontology_version": "observation-kind-v2",
   "audit_only": true,
   "note": "Audit record of the v1->v2 kind migration. NOT a runtime alias table: historical artifacts are migrated by re-resolution (Task 4B), never aliased in place.",
@@ -2244,5 +2244,207 @@
         "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
       }
     }
-  ]
+  ],
+  "package_routing": {
+    "policy": "contextual_repair_support_v1",
+    "marker": "repair_support_when_driven",
+    "note": "Catalog 3.2 contextual repair support. Additive affinity metadata: the marked {room}_modernization route stays the item's primary route and its package_type/package_role/cost fields are unchanged.",
+    "marked_routes": [
+      {
+        "id": "peeling_or_discolored_paint",
+        "room": "bedroom",
+        "package_type": "bedroom_modernization",
+        "paired_repair_package_type": "bedroom_repair"
+      },
+      {
+        "id": "peeling_or_discolored_paint",
+        "room": "kitchen",
+        "package_type": "kitchen_modernization",
+        "paired_repair_package_type": "kitchen_repair"
+      },
+      {
+        "id": "peeling_or_discolored_paint",
+        "room": "living",
+        "package_type": "living_modernization",
+        "paired_repair_package_type": "living_repair"
+      },
+      {
+        "id": "worn_or_stained_carpet",
+        "room": "bedroom",
+        "package_type": "bedroom_modernization",
+        "paired_repair_package_type": "bedroom_repair"
+      },
+      {
+        "id": "worn_or_stained_carpet",
+        "room": "kitchen",
+        "package_type": "kitchen_modernization",
+        "paired_repair_package_type": "kitchen_repair"
+      },
+      {
+        "id": "worn_or_stained_carpet",
+        "room": "living",
+        "package_type": "living_modernization",
+        "paired_repair_package_type": "living_repair"
+      },
+      {
+        "id": "vinyl_linoleum_worn_or_stained",
+        "room": "bedroom",
+        "package_type": "bedroom_modernization",
+        "paired_repair_package_type": "bedroom_repair"
+      },
+      {
+        "id": "vinyl_linoleum_worn_or_stained",
+        "room": "kitchen",
+        "package_type": "kitchen_modernization",
+        "paired_repair_package_type": "kitchen_repair"
+      },
+      {
+        "id": "vinyl_linoleum_worn_or_stained",
+        "room": "living",
+        "package_type": "living_modernization",
+        "paired_repair_package_type": "living_repair"
+      },
+      {
+        "id": "worn_or_stained_flooring",
+        "room": "bedroom",
+        "package_type": "bedroom_modernization",
+        "paired_repair_package_type": "bedroom_repair"
+      },
+      {
+        "id": "worn_or_stained_flooring",
+        "room": "kitchen",
+        "package_type": "kitchen_modernization",
+        "paired_repair_package_type": "kitchen_repair"
+      },
+      {
+        "id": "worn_or_stained_flooring",
+        "room": "living",
+        "package_type": "living_modernization",
+        "paired_repair_package_type": "living_repair"
+      },
+      {
+        "id": "baseboard_wear_scuffs",
+        "room": "bathroom",
+        "package_type": "bathroom_modernization",
+        "paired_repair_package_type": "bathroom_repair"
+      },
+      {
+        "id": "baseboard_wear_scuffs",
+        "room": "bedroom",
+        "package_type": "bedroom_modernization",
+        "paired_repair_package_type": "bedroom_repair"
+      },
+      {
+        "id": "baseboard_wear_scuffs",
+        "room": "kitchen",
+        "package_type": "kitchen_modernization",
+        "paired_repair_package_type": "kitchen_repair"
+      },
+      {
+        "id": "baseboard_wear_scuffs",
+        "room": "living",
+        "package_type": "living_modernization",
+        "paired_repair_package_type": "living_repair"
+      },
+      {
+        "id": "wall_scuffs_marks_or_dents",
+        "room": "bathroom",
+        "package_type": "bathroom_modernization",
+        "paired_repair_package_type": "bathroom_repair"
+      },
+      {
+        "id": "wall_scuffs_marks_or_dents",
+        "room": "bedroom",
+        "package_type": "bedroom_modernization",
+        "paired_repair_package_type": "bedroom_repair"
+      },
+      {
+        "id": "wall_scuffs_marks_or_dents",
+        "room": "kitchen",
+        "package_type": "kitchen_modernization",
+        "paired_repair_package_type": "kitchen_repair"
+      },
+      {
+        "id": "wall_scuffs_marks_or_dents",
+        "room": "living",
+        "package_type": "living_modernization",
+        "paired_repair_package_type": "living_repair"
+      },
+      {
+        "id": "cabinets_worn_finish",
+        "room": "kitchen",
+        "package_type": "kitchen_modernization",
+        "paired_repair_package_type": "kitchen_repair"
+      },
+      {
+        "id": "appliances_worn_or_neglected",
+        "room": "kitchen",
+        "package_type": "kitchen_modernization",
+        "paired_repair_package_type": "kitchen_repair"
+      },
+      {
+        "id": "vanity_countertop_worn",
+        "room": "bathroom",
+        "package_type": "bathroom_modernization",
+        "paired_repair_package_type": "bathroom_repair"
+      },
+      {
+        "id": "vanity_countertop_dated",
+        "room": "bathroom",
+        "package_type": "bathroom_modernization",
+        "paired_repair_package_type": "bathroom_repair"
+      }
+    ],
+    "inherited_affinity_parity_exceptions": [
+      {
+        "id": "vinyl_linoleum_worn_or_stained",
+        "room": "bedroom",
+        "package_type": "bedroom_modernization",
+        "paired_repair_package_type": "bedroom_repair",
+        "inherited_from": "worn_or_stained_vinyl_linoleum"
+      },
+      {
+        "id": "vinyl_linoleum_worn_or_stained",
+        "room": "kitchen",
+        "package_type": "kitchen_modernization",
+        "paired_repair_package_type": "kitchen_repair",
+        "inherited_from": "worn_or_stained_vinyl_linoleum"
+      },
+      {
+        "id": "vinyl_linoleum_worn_or_stained",
+        "room": "living",
+        "package_type": "living_modernization",
+        "paired_repair_package_type": "living_repair",
+        "inherited_from": "worn_or_stained_vinyl_linoleum"
+      },
+      {
+        "id": "cabinets_worn_finish",
+        "room": "kitchen",
+        "package_type": "kitchen_modernization",
+        "paired_repair_package_type": "kitchen_repair",
+        "inherited_from": "outdated_or_damaged_cabinets"
+      },
+      {
+        "id": "appliances_worn_or_neglected",
+        "room": "kitchen",
+        "package_type": "kitchen_modernization",
+        "paired_repair_package_type": "kitchen_repair",
+        "inherited_from": "appliance_damage_or_missing"
+      },
+      {
+        "id": "vanity_countertop_worn",
+        "room": "bathroom",
+        "package_type": "bathroom_modernization",
+        "paired_repair_package_type": "bathroom_repair",
+        "inherited_from": "dated_or_worn_vanity_countertop"
+      },
+      {
+        "id": "vanity_countertop_dated",
+        "room": "bathroom",
+        "package_type": "bathroom_modernization",
+        "paired_repair_package_type": "bathroom_repair",
+        "inherited_from": "dated_or_worn_vanity_countertop"
+      }
+    ]
+  }
 }

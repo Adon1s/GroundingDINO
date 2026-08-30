@@ -109,7 +109,7 @@ def _v31_item(item_id, **over):
 
 def _v31_catalog(*items, **root_over):
     catalog = {
-        "version": "3.1",
+        "version": "3.2",
         "ontology_version": "observation-kind-v2",
         "publication_status": "publishable",
         "trade_buckets": [
@@ -139,7 +139,7 @@ def _build_error(catalog, tmp_path):
 class TestBuildPreconditions:
     def test_happy_synthetic_catalog_builds(self, tmp_path):
         projection = _build(_v31_catalog(), tmp_path)
-        assert projection["version"] == "renovation_catalog_projection_v2"
+        assert projection["version"] == "renovation_catalog_projection_v3"
         assert projection["route_counts"]["work"] == 1
 
     def test_wrong_version_fails(self, tmp_path):
