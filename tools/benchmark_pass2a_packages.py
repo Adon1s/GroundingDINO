@@ -43,6 +43,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 from tools.benchmark_pass2a import (
     BENCH_DIR,
     RUNS_DIR,
+    V3_DIR,
     _load_json,
     _photo_ckpt_dir,
     _split_ids,
@@ -55,27 +56,43 @@ from tools.benchmark_pass2a import (
     manifest_photos,
     preflight_embeddings,
     rep_job_id,
-    stage_dir_for,
+    v3_stage_dir,
 )
 
 PACKAGE_GOLD_PATH = BENCH_DIR / "gold" / "package_reference.json"
 PACKAGE_GOLD_TEMPLATE_PATH = BENCH_DIR / "gold" / "package_reference.template.json"
-TAIL_DIR = RUNS_DIR / "package_tail_resolution"
-CELLS_DIR = RUNS_DIR / "package_cells"
-PASS2F_DIR = RUNS_DIR / "package_2f"
-REVIEW_DIR = RUNS_DIR / "package_review"
-EVAL_DIR = RUNS_DIR / "package_eval"
+# v3-lineage package stages: consume the frozen-scene variant artifacts under
+# runs/v3/. The flat runs/package_* dirs are the frozen v2 lineage, reachable
+# only through the LEGACY_* constants (legacy rescore, read-only).
+TAIL_DIR = V3_DIR / "package_tail_resolution"
+CELLS_DIR = V3_DIR / "package_cells"
+PASS2F_DIR = V3_DIR / "package_2f"
+REVIEW_DIR = V3_DIR / "package_review"
+EVAL_DIR = V3_DIR / "package_eval"
+LEGACY_TAIL_DIR = RUNS_DIR / "package_tail_resolution"
+LEGACY_CELLS_DIR = RUNS_DIR / "package_cells"
+LEGACY_PASS2F_DIR = RUNS_DIR / "package_2f"
+LEGACY_REVIEW_DIR = RUNS_DIR / "package_review"
+LEGACY_EVAL_DIR = RUNS_DIR / "package_eval"
 
-PACKAGE_GOLD_SCHEMA_VERSION = "package_reference_v1"
+PACKAGE_GOLD_SCHEMA_VERSION = "package_reference_v2"
+
+GOLD_POLICIES = ("strict", "diagnostic_only")
 
 REVIEW_DECISIONS = ("false_positive", "equivalent", "gold_gap")
 
 PACKAGE_REVIEW_COLUMNS = [
     "row_id", "property", "outcome_kind", "package_type", "estimate_unit_id",
+    "room_id", "alignment_status",
     "catalog_item_id", "item_name", "observed_pricing_profiles",
     "cost_low", "cost_high", "occurs_in", "evidence_photos", "evidence_summary",
     "human_decision", "equivalent_gold_id", "reviewer_note",
 ]
+
+
+def variant_dir(variant: str) -> Path:
+    """v3-lineage variant artifacts (controlled frozen-scene runs)."""
+    return v3_stage_dir(f"variant_{variant}")
 
 
 def cells_for_round(variant_a: str, variant_b: str) -> Dict[str, Tuple[str, str]]:
@@ -171,13 +188,19 @@ def two_phase_v4(artifact: Dict[str, Any],
 def v4_line_items(v4: Dict[str, Any], *, valid_only: bool = True) -> List[Dict[str, Any]]:
     """Flatten v4 groups into the line-item projection scoring reads.
 
+    is_valid_detection is tri-state (None = Pass 2f never reviewed the line,
+    which is normal for priced standalone work): valid_only drops only
+    explicit False rejections and the export preserves the raw value.
+
     billable_estimate_unit_id is the room unit; the line item's own
     estimate_unit_id is a synthetic cluster key and deliberately not exported.
+    room_surrogate_id / source_room_surrogate_ids carry the physical-room
+    provenance canonical-room alignment reads.
     """
     out: List[Dict[str, Any]] = []
     for group in v4.get("groups") or []:
         for li in group.get("line_items") or []:
-            if valid_only and not li.get("is_valid_detection"):
+            if valid_only and li.get("is_valid_detection") is False:
                 continue
             out.append({
                 "catalog_item_id": li.get("catalog_item_id"),
@@ -187,9 +210,21 @@ def v4_line_items(v4: Dict[str, Any], *, valid_only: bool = True) -> List[Dict[s
                 "cost_high": int(li.get("cost_high") or 0),
                 "package_id": li.get("package_id"),
                 "trade_bucket": li.get("trade_bucket"),
-                "is_valid_detection": bool(li.get("is_valid_detection")),
+                "is_valid_detection": li.get("is_valid_detection"),
+                "room_surrogate_id": li.get("room_surrogate_id"),
+                "source_room_surrogate_ids": li.get("source_room_surrogate_ids") or [],
             })
     return out
+
+
+def estimate_units_projection(v4: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Unit -> photo-group provenance the canonical-room alignment reads."""
+    return [
+        {"estimate_unit_id": u.get("estimate_unit_id"),
+         "photo_ids": sorted(u.get("photo_ids") or [])}
+        for u in v4.get("estimate_units") or []
+        if u.get("estimate_unit_id")
+    ]
 
 
 def _scoreable_package(pkg: Dict[str, Any]) -> bool:
@@ -261,7 +296,7 @@ def observed_units_by_property(config: Dict[str, Any], manifest: Dict[str, Any],
         for variant in variants:
             stage = f"variant_{variant}"
             for rep in range(1, repeats + 1):
-                paths.append(stage_dir_for(stage) / f"rep{rep}" / prop_key
+                paths.append(variant_dir(variant) / f"rep{rep}" / prop_key
                              / rep_job_id(stage, rep) / "photo_intel.json")
         for cell_dir in sorted(CELLS_DIR.glob("*")) if CELLS_DIR.is_dir() else []:
             for rep in range(1, repeats + 1):
@@ -319,7 +354,8 @@ def package_gold_template(config: Dict[str, Any], manifest: Dict[str, Any]) -> P
             "observations are never extras. Whole-home display-only and "
             "audit-only packages are out of scope."),
         "properties": {
-            prop: {"expected_packages": [], "required_work_items": [], "notes": ""}
+            prop: {"canonical_rooms": [], "expected_packages": [],
+                   "required_work_items": [], "notes": ""}
             for prop in sorted(manifest["properties"])
         },
         "_vocabulary": {
@@ -332,21 +368,38 @@ def package_gold_template(config: Dict[str, Any], manifest: Dict[str, Any]) -> P
             },
             "pricing_profile_adjacency": {
                 k: sorted(v) for k, v in sorted(adjacency.items())},
-            "observed_estimate_units": observed_units_by_property(
-                config, manifest, catalog),
+            "manifest_photos": {
+                prop: [{"photo_key": p["photo_key"], "scene": p.get("scene")}
+                       for p in manifest["properties"][prop]["photos"]]
+                for prop in sorted(manifest["properties"])
+            },
             "catalog_items": catalog_rows,
             "quarantined_not_authorable": quarantined_rows,
+            "canonical_room_fields": {
+                "room_id": "stable id, distinct namespace from predicted "
+                           "units (e.g. bedroom_A, never bedroom_1)",
+                "room": "family: kitchen|bathroom|bedroom|living|exterior|"
+                        "utility|other",
+                "photo_keys": "non-empty, disjoint subset of manifest photos",
+                "label": "optional human label",
+            },
             "expected_package_fields": {
                 "package_type": "one of package_types",
-                "estimate_unit_id": "one of observed_estimate_units for the property",
+                "room_id": "one of canonical_rooms",
                 "target_pricing_profile": "family-qualified, e.g. kitchen_full_rehab",
                 "adjacent_acceptable": "bool — one adjacent profile also passes",
+                "policy": "strict (default) | diagnostic_only",
+                "diagnostic_reason": "required iff diagnostic_only",
                 "diagnostic_cost_range": "optional {low, high}, report-only",
                 "rationale": "short human reason + photo refs",
             },
             "required_work_item_fields": {
                 "catalog_item_id": "non-quarantined catalog id",
-                "estimate_unit_id": "room unit the work belongs to",
+                "room_id": "one of canonical_rooms",
+                "policy": "strict (default) | diagnostic_only",
+                "diagnostic_reason": "required iff diagnostic_only",
+                "accepted_sibling_ids": "adjudicated same-concept ids that "
+                                        "also satisfy this target",
                 "rationale": "short human reason + photo refs",
             },
         },
@@ -365,22 +418,56 @@ def load_package_gold() -> Dict[str, Any]:
     return _load_json(PACKAGE_GOLD_PATH)
 
 
+def package_gold_sha(gold: Dict[str, Any]) -> str:
+    """Line-ending-independent gold provenance (raw file bytes differ between
+    CRLF and LF checkouts of the identical gold)."""
+    from tools.comparison_common import sha256_canonical
+    return sha256_canonical(gold)
+
+
+def gold_rooms_by_id(gold: Dict[str, Any], prop: str) -> Dict[str, Dict[str, Any]]:
+    entry = (gold.get("properties") or {}).get(prop) or {}
+    return {r.get("room_id"): r for r in entry.get("canonical_rooms") or []}
+
+
 def package_gold_ids(gold: Dict[str, Any], prop: str) -> Dict[str, Set[str]]:
+    """Gold signatures keyed by canonical room_id (v2). Falls back to
+    estimate_unit_id so pre-migration fixtures keep working."""
     entry = (gold.get("properties") or {}).get(prop) or {}
     return {
-        "pkg": {f"{p['package_type']}__{p['estimate_unit_id']}"
+        "pkg": {f"{p['package_type']}__{p.get('room_id') or p.get('estimate_unit_id')}"
                 for p in entry.get("expected_packages") or []},
-        "item": {f"{w['catalog_item_id']}@{w['estimate_unit_id']}"
+        "item": {f"{w['catalog_item_id']}@{w.get('room_id') or w.get('estimate_unit_id')}"
                  for w in entry.get("required_work_items") or []},
     }
 
 
+def _check_policy(record: Dict[str, Any], where: str, errors: List[str]) -> None:
+    policy = record.get("policy") or "strict"
+    if policy not in GOLD_POLICIES:
+        errors.append(f"{where}: policy must be one of {GOLD_POLICIES}")
+    if policy == "diagnostic_only" and not (record.get("diagnostic_reason") or "").strip():
+        errors.append(f"{where}: diagnostic_only requires a diagnostic_reason")
+    if policy == "strict" and (record.get("diagnostic_reason") or "").strip():
+        errors.append(f"{where}: diagnostic_reason is only valid on "
+                      "diagnostic_only targets")
+
+
 def package_gold_check(config: Dict[str, Any], manifest: Dict[str, Any],
                        gold: Optional[Dict[str, Any]] = None) -> str:
-    """Validate the authored gold; returns its sha256 on success."""
+    """Validate the authored gold; returns its canonical sha256 on success.
+
+    v2 validates canonical physical rooms (stable IDs + disjoint manifest
+    photo groups) instead of predicted estimate units — gold no longer
+    depends on what the pipeline happened to produce — and every strict
+    target must pass the reachability audit."""
     from tools import pipeline_config as cfg
     from tools.artifact_writers import load_issue_catalog
-    from tools.comparison_common import sha256_file
+    from tools.benchmark_pass2a_reachability import (
+        ROOM_FAMILY_SCENE_GROUPS,
+        audit_gold_reachability,
+        strict_unreachable_errors,
+    )
     from tools.renovation_estimate import product_quarantined_trade_buckets
 
     gold = gold if gold is not None else load_package_gold()
@@ -389,7 +476,6 @@ def package_gold_check(config: Dict[str, Any], manifest: Dict[str, Any],
     catalog_by_id = {item.get("id"): item for item in catalog.get("items") or []}
     valid_types = set(_authorable_package_types())
     profile_universe = pricing_profile_universe()
-    observed_units = observed_units_by_property(config, manifest, catalog)
     errors: List[str] = []
 
     if gold.get("schema_version") != PACKAGE_GOLD_SCHEMA_VERSION:
@@ -401,35 +487,68 @@ def package_gold_check(config: Dict[str, Any], manifest: Dict[str, Any],
                       f"config {sorted(config_props)}")
 
     for prop, entry in sorted((gold.get("properties") or {}).items()):
-        units = set(observed_units.get(prop) or [])
+        manifest_keys = {
+            p["photo_key"]
+            for p in (manifest["properties"].get(prop) or {}).get("photos") or []
+        } if prop in (manifest.get("properties") or {}) else set()
+        rooms: Dict[str, Dict[str, Any]] = {}
+        claimed: Dict[str, str] = {}
+        for room in entry.get("canonical_rooms") or []:
+            rid = room.get("room_id")
+            family = room.get("room")
+            where = f"{prop} canonical room {rid}"
+            if not rid or rid in rooms:
+                errors.append(f"{where}: missing or duplicate room_id")
+                continue
+            if family not in ROOM_FAMILY_SCENE_GROUPS:
+                errors.append(f"{where}: unknown room family {family!r}")
+            photo_keys = list(room.get("photo_keys") or [])
+            if not photo_keys:
+                errors.append(f"{where}: photo_keys must be non-empty")
+            for key in photo_keys:
+                if key not in manifest_keys:
+                    errors.append(f"{where}: photo {key!r} is not in the manifest")
+                elif key in claimed:
+                    errors.append(f"{where}: photo {key!r} already belongs to "
+                                  f"room {claimed[key]!r} — photo groups must "
+                                  "be disjoint")
+                else:
+                    claimed[key] = rid
+            rooms[rid] = room
+
         seen_pkg: Set[Tuple[str, str]] = set()
         for pkg in entry.get("expected_packages") or []:
             ptype = pkg.get("package_type")
-            unit = pkg.get("estimate_unit_id")
+            rid = pkg.get("room_id")
             profile = pkg.get("target_pricing_profile")
-            where = f"{prop} expected package {ptype}__{unit}"
+            where = f"{prop} expected package {ptype}__{rid}"
             if ptype not in valid_types:
                 errors.append(f"{where}: unknown or non-authorable package_type")
                 continue
-            room = _package_type_room(ptype)
-            if unit not in units:
-                errors.append(f"{where}: estimate_unit_id {unit!r} was never "
-                              f"produced for this property (known: {sorted(units)})")
+            family = _package_type_room(ptype)
+            room = rooms.get(rid)
+            if room is None:
+                errors.append(f"{where}: unknown room_id {rid!r}")
+            elif room.get("room") != family:
+                errors.append(f"{where}: package family {family!r} != room "
+                              f"family {room.get('room')!r}")
             if profile not in profile_universe:
                 errors.append(f"{where}: unknown target_pricing_profile {profile!r}")
-            elif room and not str(profile).startswith(f"{room}_"):
+            elif family and not str(profile).startswith(f"{family}_"):
                 errors.append(f"{where}: profile {profile!r} is not in the "
-                              f"{room} family")
-            if (ptype, unit) in seen_pkg:
-                errors.append(f"{where}: duplicate (package_type, unit)")
-            seen_pkg.add((ptype, unit))
+                              f"{family} family")
+            if (ptype, rid) in seen_pkg:
+                errors.append(f"{where}: duplicate (package_type, room_id)")
+            seen_pkg.add((ptype, rid))
+            _check_policy(pkg, where, errors)
             if not (pkg.get("rationale") or "").strip():
                 errors.append(f"{where}: rationale is required")
+
         seen_item: Set[Tuple[str, str]] = set()
         for work in entry.get("required_work_items") or []:
             cid = work.get("catalog_item_id")
-            unit = work.get("estimate_unit_id")
-            where = f"{prop} required work {cid}@{unit}"
+            rid = work.get("room_id")
+            where = f"{prop} required work {cid}@{rid}"
             item = catalog_by_id.get(cid)
             if item is None:
                 errors.append(f"{where}: unknown catalog_item_id")
@@ -438,19 +557,30 @@ def package_gold_check(config: Dict[str, Any], manifest: Dict[str, Any],
                     f"{where}: trade {item.get('trade_bucket')!r} is "
                     "product-quarantined — quarantined work cannot be required "
                     "(it can never be satisfied by the pipeline)")
-            if unit not in units:
-                errors.append(f"{where}: estimate_unit_id {unit!r} was never "
-                              f"produced for this property")
-            if (cid, unit) in seen_item:
-                errors.append(f"{where}: duplicate (catalog_item_id, unit)")
-            seen_item.add((cid, unit))
+            if rid not in rooms:
+                errors.append(f"{where}: unknown room_id {rid!r}")
+            for sibling in work.get("accepted_sibling_ids") or []:
+                if sibling == cid:
+                    errors.append(f"{where}: accepted sibling equals the id itself")
+                elif sibling not in catalog_by_id:
+                    errors.append(f"{where}: unknown accepted sibling {sibling!r}")
+            if (cid, rid) in seen_item:
+                errors.append(f"{where}: duplicate (catalog_item_id, room_id)")
+            seen_item.add((cid, rid))
+            _check_policy(work, where, errors)
             if not (work.get("rationale") or "").strip():
                 errors.append(f"{where}: rationale is required")
 
+    audit: Optional[Dict[str, Any]] = None
+    if not errors:
+        audit = audit_gold_reachability(gold, catalog)
+        errors.extend(strict_unreachable_errors(audit))
     if errors:
         raise SystemExit("package gold check FAILED:\n  " + "\n  ".join(errors))
-    sha = sha256_file(PACKAGE_GOLD_PATH)
-    print(f"package gold OK — sha256 {sha}")
+    _write_json(EVAL_DIR / "gold_reachability.json", audit)
+    sha = package_gold_sha(gold)
+    print(f"package gold OK — canonical sha256 {sha}\n"
+          f"reachability audit -> {EVAL_DIR / 'gold_reachability.json'}")
     return sha
 
 
@@ -463,7 +593,7 @@ def _variant_fp_shas(variants: Tuple[str, ...]) -> Dict[str, Optional[str]]:
     from tools.comparison_common import sha256_canonical
     out: Dict[str, Optional[str]] = {}
     for variant in variants:
-        path = stage_dir_for(f"variant_{variant}") / "fingerprint.json"
+        path = variant_dir(variant) / "fingerprint.json"
         out[variant] = sha256_canonical(_load_json(path)) if path.is_file() else None
     return out
 
@@ -544,7 +674,7 @@ def assert_variant_never_capped(config: Dict[str, Any], manifest: Dict[str, Any]
     for rep in range(1, int(config["repeats"]) + 1):
         for prop_key, photo in manifest_photos(manifest):
             ckpt_path = (_photo_ckpt_dir(
-                stage_dir_for(f"variant_{variant}") / f"rep{rep}" / prop_key)
+                variant_dir(variant) / f"rep{rep}" / prop_key)
                 / f"{photo['photo_key']}.json")
             kept, resolved = _checkpoint_lanes(_load_json(ckpt_path))
             if len(kept) > len(resolved):
@@ -591,7 +721,7 @@ def stage_package_tail(config: Dict[str, Any], manifest: Dict[str, Any],
                 skipped += 1
                 continue
             ckpt_path = (_photo_ckpt_dir(
-                stage_dir_for(f"variant_{variant_b}") / f"rep{rep}" / prop_key)
+                variant_dir(variant_b) / f"rep{rep}" / prop_key)
                 / f"{photo_key}.json")
             kept, resolved = _checkpoint_lanes(_load_json(ckpt_path))
             if len(kept) > ceiling:
@@ -741,7 +871,7 @@ def cell_artifact_path(cell: str, rep: int, prop: str,
     variant, mode = cells[cell]
     if mode == "cap25":
         stage = f"variant_{variant}"
-        return (stage_dir_for(stage) / f"rep{rep}" / prop
+        return (variant_dir(variant) / f"rep{rep}" / prop
                 / rep_job_id(stage, rep) / "photo_intel.json")
     return (CELLS_DIR / cell / f"rep{rep}" / prop
             / f"pkgcell_{cell}_rep{rep}" / "photo_intel.json")
@@ -780,7 +910,7 @@ def stage_package_cells(config: Dict[str, Any], manifest: Dict[str, Any],
             for photo in manifest["properties"][prop_key]["photos"]:
                 photo_key = photo["photo_key"]
                 ckpt = _load_json(_photo_ckpt_dir(
-                    stage_dir_for(f"variant_{variant_b}") / f"rep{rep}"
+                    variant_dir(variant_b) / f"rep{rep}"
                     / prop_key) / f"{photo_key}.json")
                 tail_path = TAIL_DIR / f"rep{rep}" / prop_key / f"{photo_key}.json"
                 if not tail_path.is_file():
@@ -918,6 +1048,7 @@ def stage_package_2f(config: Dict[str, Any], manifest: Dict[str, Any],
         _write_json(out_dir / "candidates.json", {
             "cell": cell, "rep": rep, "property_key": prop,
             "candidates": [package_projection(p) for p in candidates],
+            "estimate_units": estimate_units_projection(probe),
         })
         print(f"[package 2f] {cell} rep{rep} {prop}: "
               f"{len(candidates)} candidates ...")
@@ -958,6 +1089,7 @@ def stage_package_2f(config: Dict[str, Any], manifest: Dict[str, Any],
             "packages": [package_projection(p)
                          for p in (final.get("packages") or [])],
             "line_items": v4_line_items(final),
+            "estimate_units": estimate_units_projection(final),
             "final_rehab": final.get("final_rehab") or {},
             "pass_2f_trace": final.get("pass_2f_trace") or {},
         })
@@ -1087,419 +1219,13 @@ def load_package_decisions() -> Dict[str, Any]:
     return (_load_json(path).get("decisions") or {}) if path.is_file() else {}
 
 
-def _match_expected(expected: Dict[str, Any], approved: List[Dict[str, Any]],
-                    adjacency: Dict[str, Set[str]]) -> Tuple[str, Optional[str]]:
-    """(status, observed_profile): matched_exact | matched_adjacent |
-    wrong_tier | missing."""
-    target = expected["target_pricing_profile"]
-    for pkg in approved:
-        if pkg.get("package_type") == expected["package_type"] and \
-                pkg.get("estimate_unit_id") == expected["estimate_unit_id"]:
-            profile = pkg.get("pricing_profile")
-            if profile == target:
-                return "matched_exact", profile
-            if expected.get("adjacent_acceptable", True) and \
-                    profile in adjacency.get(target, set()):
-                return "matched_adjacent", profile
-            return "wrong_tier", profile
-    return "missing", None
-
-
 def score_package_round(config: Dict[str, Any], manifest: Dict[str, Any],
                         round_label: str, gold: Dict[str, Any],
                         decisions: Dict[str, Any]) -> Dict[str, Any]:
-    from tools.comparison_common import sha256_file
-    variant_a, variant_b = package_round_variants(config, round_label)
-    cells = cells_for_round(variant_a, variant_b)
-    repeats = int(config["repeats"])
-    gates = package_eval_config(config).get("gates") or {}
-    pass_reps = int(gates.get("pass_reps_required", 2))
-    adjacency = pricing_profile_adjacency()
-    gold_sha = (sha256_file(PACKAGE_GOLD_PATH)
-                if PACKAGE_GOLD_PATH.is_file() else None)
-
-    outcomes: Dict[str, Any] = {}
-    review_rows: Dict[str, Dict[str, Any]] = {}
-    # Distinct row_ids, not occurrences — one signature spanning three cells is
-    # still one review decision.
-    pending: Dict[str, Set[str]] = {"extras_pending": set(), "gold_gap": set(),
-                                    "needs_rereview": set()}
-    missing_for_gold: Set[str] = set()
-
-    for cell in cells:
-        per_prop: Dict[str, Any] = {}
-        for prop in sorted(manifest["properties"]):
-            entry = (gold.get("properties") or {}).get(prop) or {}
-            expected = entry.get("expected_packages") or []
-            required = entry.get("required_work_items") or []
-            gold_ids = package_gold_ids(gold, prop)
-            reps: Dict[str, Any] = {}
-            complete_reps = 0
-            for rep in range(1, repeats + 1):
-                cell_dir = _cell_dir(cell, rep, prop)
-                final_path = cell_dir / "final_estimate.json"
-                if not final_path.is_file():
-                    reps[str(rep)] = {"status": "not_evaluated"}
-                    continue
-                final = _load_json(final_path)
-                approved = [p for p in final.get("packages") or []
-                            if p.get("estimate_eligible") and _scoreable_package(p)]
-                items = final.get("line_items") or []
-                approved_ids = {p.get("package_id") for p in approved}
-                evidence_ids: Set[str] = set()
-                for p in approved:
-                    evidence_ids.update(p.get("supporting_catalog_item_ids") or [])
-
-                # Extras first: an 'equivalent' decision both clears the extra
-                # and credits the mapped gold id during expected matching.
-                extras_confirmed: List[str] = []
-                extras_open: List[str] = []
-                equivalent_credit = {"pkg": set(), "item": set()}
-
-                def _judge_extra(row_id: str, kind: str) -> Optional[str]:
-                    verdict = _extra_verdict(
-                        row_id, decisions, gold_ids[kind], gold_sha)
-                    if verdict == "equivalent":
-                        equivalent_credit[kind].add(
-                            decisions[row_id]["equivalent_gold_id"])
-                        return verdict
-                    if verdict == "false_positive":
-                        extras_confirmed.append(row_id)
-                    elif verdict in ("gold_gap", "needs_rereview"):
-                        pending[verdict].add(row_id)
-                        extras_open.append(row_id)
-                    else:
-                        pending["extras_pending"].add(row_id)
-                        extras_open.append(row_id)
-                    return verdict
-
-                for pkg in approved:
-                    sig = f"{pkg.get('package_type')}__{pkg.get('estimate_unit_id')}"
-                    if sig in gold_ids["pkg"]:
-                        continue
-                    row_id = f"{prop}|pkg|{sig}"
-                    if _judge_extra(row_id, "pkg") != "equivalent":
-                        _collect_review_row(review_rows, row_id, prop,
-                                            "package", pkg, None, cell, rep)
-                for li in items:
-                    if li.get("package_id"):
-                        continue
-                    if not (li.get("cost_low") or li.get("cost_high")):
-                        continue
-                    sig = (f"{li.get('catalog_item_id')}"
-                           f"@{li.get('billable_estimate_unit_id')}")
-                    if sig in gold_ids["item"]:
-                        continue
-                    if li.get("catalog_item_id") in evidence_ids:
-                        continue  # evidence of an approved package, never an extra
-                    row_id = f"{prop}|item|{sig}"
-                    if _judge_extra(row_id, "item") != "equivalent":
-                        _collect_review_row(review_rows, row_id, prop,
-                                            "work_item", None, li, cell, rep)
-
-                pkg_status: Dict[str, Any] = {}
-                adjacent_used: List[str] = []
-                missing: List[str] = []
-                for exp in expected:
-                    gid = f"{exp['package_type']}__{exp['estimate_unit_id']}"
-                    status, observed = _match_expected(exp, approved, adjacency)
-                    if status == "missing" and gid in equivalent_credit["pkg"]:
-                        status = "matched_equivalent"
-                    pkg_status[gid] = {"status": status,
-                                       "observed_profile": observed}
-                    if status == "matched_adjacent":
-                        adjacent_used.append(gid)
-                    elif status in ("wrong_tier", "missing"):
-                        missing.append(gid)
-                work_status: Dict[str, str] = {}
-                for work in required:
-                    gid = f"{work['catalog_item_id']}@{work['estimate_unit_id']}"
-                    # Satisfied as priced standalone work, as a surviving
-                    # package-member line item, or as absorbed evidence of an
-                    # approved package on the same unit — 2f's photo-capped
-                    # review prunes member line items it did not explicitly
-                    # confirm, but the approved package still covers that work.
-                    satisfied = gid in equivalent_credit["item"] or any(
-                        li.get("catalog_item_id") == work["catalog_item_id"]
-                        and li.get("billable_estimate_unit_id") == work["estimate_unit_id"]
-                        and (not li.get("package_id")
-                             or li.get("package_id") in approved_ids)
-                        for li in items) or any(
-                        pkg.get("estimate_unit_id") == work["estimate_unit_id"]
-                        and work["catalog_item_id"]
-                        in (pkg.get("supporting_catalog_item_ids") or [])
-                        for pkg in approved)
-                    work_status[gid] = "satisfied" if satisfied else "missing"
-                    if not satisfied:
-                        missing.append(gid)
-                matched_signatures = {
-                    f"{p.get('package_type')}__{p.get('estimate_unit_id')}"
-                    for p in approved
-                    if f"{p.get('package_type')}__{p.get('estimate_unit_id')}"
-                    in gold_ids["pkg"]}
-
-                complete = (not missing and not extras_confirmed
-                            and not extras_open)
-                if complete:
-                    complete_reps += 1
-                missing_for_gold.update(f"{prop}: {m}" for m in missing)
-                reps[str(rep)] = {
-                    "status": "complete" if complete else "incomplete",
-                    "expected_packages": pkg_status,
-                    "required_work": work_status,
-                    "missing": sorted(missing),
-                    "adjacent_used": sorted(adjacent_used),
-                    "extras_confirmed": sorted(set(extras_confirmed)),
-                    "extras_open": sorted(set(extras_open)),
-                    "final_midpoint": int((final.get("final_rehab") or {})
-                                          .get("midpoint") or 0),
-                    "matched_gold_packages": sorted(matched_signatures),
-                }
-            evaluated = [r for r in reps.values()
-                         if r.get("status") != "not_evaluated"]
-            per_prop[prop] = {
-                "reps": reps,
-                "passing_reps": complete_reps,
-                "passed": (complete_reps >= pass_reps) if evaluated else None,
-            }
-        outcomes[cell] = per_prop
-
-    pending_counts = {k: len(v) for k, v in pending.items()}
-    blocked = sum(pending_counts.values()) > 0
-    if blocked:
-        # Verdicts are withheld until every extra is adjudicated — a pending
-        # row could flip pass/fail either way.
-        for per_prop in outcomes.values():
-            for data in per_prop.values():
-                data["passed"] = None
-    cap_experiment = _cap_experiment(config, manifest, outcomes, variant_b,
-                                     gates, blocked)
-    status = ("blocked" if blocked else "final") if any(
-        r.get("status") != "not_evaluated"
-        for cell in outcomes.values() for prop in cell.values()
-        for r in prop["reps"].values()) else "no_2f_results"
-    return {
-        "round": round_label,
-        "status": status,
-        "pending_review": pending_counts,
-        "outcomes": outcomes,
-        "cap_experiment": cap_experiment,
-        "candidate_diagnostics": _candidate_diagnostics(
-            config, manifest, round_label, gold, adjacency,
-            variant_a, variant_b),
-        "missing_for_gold_reconsideration": sorted(missing_for_gold),
-        "cost_deviation": _cost_deviation(config, manifest, gold, outcomes),
-        "_review_rows": review_rows,
-        "gold_sha256": gold_sha,
-        "decisions_count": len(decisions),
-    }
-
-
-def _extra_verdict(row_id: str, decisions: Dict[str, Any],
-                   valid_gold_ids: Set[str],
-                   gold_sha: Optional[str]) -> Optional[str]:
-    decision = decisions.get(row_id)
-    if not decision:
-        return None
-    kind = decision.get("decision")
-    if kind == "equivalent":
-        target = decision.get("equivalent_gold_id")
-        return "equivalent" if target in valid_gold_ids else "needs_rereview"
-    if kind == "gold_gap":
-        return "gold_gap" if decision.get("gold_sha256") == gold_sha \
-            else "needs_rereview"
-    return kind  # false_positive survives gold edits — it judges the property
-
-
-def _collect_review_row(rows: Dict[str, Dict[str, Any]], row_id: str,
-                        prop: str, outcome_kind: str,
-                        pkg: Optional[Dict[str, Any]],
-                        item: Optional[Dict[str, Any]],
-                        cell: str, rep: int) -> None:
-    row = rows.setdefault(row_id, {
-        "row_id": row_id, "property": prop, "outcome_kind": outcome_kind,
-        "package_type": (pkg or {}).get("package_type", ""),
-        "estimate_unit_id": ((pkg or {}).get("estimate_unit_id")
-                             or (item or {}).get("billable_estimate_unit_id", "")),
-        "catalog_item_id": (item or {}).get("catalog_item_id", ""),
-        "item_name": (item or {}).get("name", ""),
-        "profiles": set(), "cost_low": 0, "cost_high": 0,
-        "occurs": {}, "evidence_photos": set(),
-        "evidence_summary": (pkg or {}).get("evidence_summary", ""),
-    })
-    if pkg:
-        row["profiles"].add(pkg.get("pricing_profile") or "")
-        row["cost_low"] = max(row["cost_low"], int(pkg.get("cost_low") or 0))
-        row["cost_high"] = max(row["cost_high"], int(pkg.get("cost_high") or 0))
-        row["evidence_photos"].update(pkg.get("review_photo_keys") or [])
-    if item:
-        row["cost_low"] = max(row["cost_low"], int(item.get("cost_low") or 0))
-        row["cost_high"] = max(row["cost_high"], int(item.get("cost_high") or 0))
-    row["occurs"].setdefault(cell, set()).add(rep)
-
-
-def _cap_experiment(config: Dict[str, Any], manifest: Dict[str, Any],
-                    outcomes: Dict[str, Any], variant_b: str,
-                    gates: Dict[str, Any], blocked: bool) -> Dict[str, Any]:
-    capped, allret = f"{variant_b}_cap25", f"{variant_b}_all_retained"
-    repeats = int(config["repeats"])
-    out: Dict[str, Any] = {}
-    for prop in sorted(manifest["properties"]):
-        c = (outcomes.get(capped) or {}).get(prop) or {}
-        a = (outcomes.get(allret) or {}).get(prop) or {}
-        verdict = None
-        if not blocked and c.get("passed") is not None and a.get("passed") is not None:
-            verdict = {
-                (True, True): "cap_benign",
-                (False, True): "cap_hurts",
-                (True, False): "surplus_hurts",
-                (False, False): "both_wrong",
-            }[(bool(c["passed"]), bool(a["passed"]))]
-
-        flags: List[str] = []
-        instability = _pass_2f_instability(prop, capped, allret, repeats)
-        c_mids = [r.get("final_midpoint") or 0 for r in (c.get("reps") or {}).values()
-                  if r.get("status") != "not_evaluated"]
-        a_mids = [r.get("final_midpoint") or 0 for r in (a.get("reps") or {}).values()
-                  if r.get("status") != "not_evaluated"]
-        if verdict == "cap_benign" and c_mids and a_mids:
-            c_med, a_med = statistics.median(c_mids), statistics.median(a_mids)
-            delta = abs(a_med - c_med)
-            pct = 100.0 * delta / c_med if c_med else 0.0
-            if pct > float(gates.get("cost_flag_pct", 20)) or \
-                    delta > float(gates.get("cost_flag_abs_usd", 10000)):
-                flags.append(f"both modes pass but median midpoints differ "
-                             f"${c_med:,.0f} vs ${a_med:,.0f}")
-            c_adj = {g for r in (c.get("reps") or {}).values()
-                     for g in r.get("adjacent_used") or []}
-            a_adj = {g for r in (a.get("reps") or {}).values()
-                     for g in r.get("adjacent_used") or []}
-            if c_adj != a_adj:
-                flags.append(f"both modes pass but via different adjacent "
-                             f"tiers: cap25 {sorted(c_adj)} vs all_retained "
-                             f"{sorted(a_adj)}")
-        confidence = "normal"
-        if verdict and verdict != "cap_benign" and instability["count"]:
-            confidence = "reduced_by_2f_noise"
-        out[prop] = {"verdict": verdict, "flags": flags,
-                     "pass_2f_instability": instability,
-                     "verdict_confidence": confidence}
-    return out
-
-
-def _pass_2f_instability(prop: str, capped: str, allret: str,
-                         repeats: int) -> Dict[str, Any]:
-    """When both cap modes produced the SAME candidate multiset for a repeat and
-    2f still decided differently, the disagreement is 2f noise, not a cap
-    effect. Rule-confirmed turnover packages are deterministic and never flagged."""
-    count = 0
-    package_ids: Set[str] = set()
-    for rep in range(1, repeats + 1):
-        c_path = _cell_dir(capped, rep, prop)
-        a_path = _cell_dir(allret, rep, prop)
-        if not ((c_path / "candidates.json").is_file()
-                and (a_path / "candidates.json").is_file()
-                and (c_path / "verifications.json").is_file()
-                and (a_path / "verifications.json").is_file()):
-            continue
-
-        def _sig(path: Path) -> List[Tuple[str, str, str]]:
-            return sorted(
-                (p.get("package_type") or "", p.get("estimate_unit_id") or "",
-                 p.get("pricing_profile") or "")
-                for p in _load_json(path / "candidates.json")["candidates"]
-                if _candidate_in_scope(p))
-
-        if _sig(c_path) != _sig(a_path):
-            continue
-        c_ver = _load_json(c_path / "verifications.json")["verifications"]
-        a_ver = _load_json(a_path / "verifications.json")["verifications"]
-        for pid in set(c_ver) & set(a_ver):
-            c_status = c_ver[pid].get("verification_status")
-            a_status = a_ver[pid].get("verification_status")
-            if "confirmed_by_rule" in (c_status, a_status):
-                continue
-            if c_status != a_status:
-                count += 1
-                package_ids.add(pid)
-    return {"count": count, "package_ids": sorted(package_ids)}
-
-
-def _candidate_diagnostics(config: Dict[str, Any], manifest: Dict[str, Any],
-                           round_label: str, gold: Dict[str, Any],
-                           adjacency: Dict[str, Set[str]],
-                           variant_a: str, variant_b: str) -> Dict[str, Any]:
-    repeats = int(config["repeats"])
-    out: Dict[str, Any] = {}
-    for cell in cells_for_round(variant_a, variant_b):
-        per_prop: Dict[str, Any] = {}
-        for prop in sorted(manifest["properties"]):
-            expected = ((gold.get("properties") or {}).get(prop) or {}) \
-                .get("expected_packages") or []
-            tiers = {"exact": 0, "adjacent": 0, "wrong": 0, "missing": 0}
-            recalls: List[float] = []
-            extra_counts: List[int] = []
-            id_sets: List[Set[str]] = []
-            for rep in range(1, repeats + 1):
-                path = _cell_dir(cell, rep, prop) / "candidates.json"
-                if not path.is_file():
-                    continue
-                candidates = [p for p in _load_json(path)["candidates"]
-                              if _candidate_in_scope(p)]
-                sigs = {f"{p.get('package_type')}__{p.get('estimate_unit_id')}"
-                        for p in candidates}
-                id_sets.append(sigs)
-                gold_sigs = {f"{e['package_type']}__{e['estimate_unit_id']}"
-                             for e in expected}
-                if gold_sigs:
-                    recalls.append(len(sigs & gold_sigs) / len(gold_sigs))
-                extra_counts.append(len(sigs - gold_sigs))
-                for exp in expected:
-                    status, _ = _match_expected(exp, candidates, adjacency)
-                    key = {"matched_exact": "exact",
-                           "matched_adjacent": "adjacent",
-                           "wrong_tier": "wrong", "missing": "missing"}[status]
-                    tiers[key] += 1
-            pairs = [(a, b) for i, a in enumerate(id_sets)
-                     for b in id_sets[i + 1:]]
-            per_prop[prop] = {
-                "expected_recall_mean": round(statistics.mean(recalls), 3)
-                if recalls else None,
-                "extra_candidates_mean": round(statistics.mean(extra_counts), 1)
-                if extra_counts else None,
-                "tier": tiers,
-                "stability_jaccard": round(statistics.mean(
-                    [jaccard(a, b) for a, b in pairs]), 3) if pairs else None,
-            }
-        out[cell] = per_prop
-    return out
-
-
-def _cost_deviation(config: Dict[str, Any], manifest: Dict[str, Any],
-                    gold: Dict[str, Any],
-                    outcomes: Dict[str, Any]) -> Dict[str, Any]:
-    """Matched-package cost vs the gold's diagnostic range. Report-only."""
-    out: Dict[str, List[Dict[str, Any]]] = {}
-    for cell, per_prop in outcomes.items():
-        for prop, data in per_prop.items():
-            expected = ((gold.get("properties") or {}).get(prop) or {}) \
-                .get("expected_packages") or []
-            ranges = {f"{e['package_type']}__{e['estimate_unit_id']}":
-                      e.get("diagnostic_cost_range")
-                      for e in expected if e.get("diagnostic_cost_range")}
-            if not ranges:
-                continue
-            for rep, row in (data.get("reps") or {}).items():
-                for gid, status in (row.get("expected_packages") or {}).items():
-                    rng = ranges.get(gid)
-                    if not rng or status["status"] in ("missing",):
-                        continue
-                    out.setdefault(prop, []).append({
-                        "cell": cell, "rep": rep, "gold_id": gid,
-                        "observed_profile": status.get("observed_profile"),
-                        "diagnostic_range": [rng.get("low"), rng.get("high")],
-                    })
-    return out
+    """Canonical-room scoring lives in benchmark_pass2a_scoring; this thin
+    delegator keeps the CLI/review/report call sites stable."""
+    from tools.benchmark_pass2a_scoring import score_package_round as _score
+    return _score(config, manifest, round_label, gold, decisions)
 
 
 # ---------------------------------------------------------------------------
@@ -1546,9 +1272,8 @@ def package_review_export(config: Dict[str, Any], manifest: Dict[str, Any],
 
 def package_review_import(config: Dict[str, Any], manifest: Dict[str, Any],
                           round_label: str, csv_path: str) -> Path:
-    from tools.comparison_common import sha256_file
     gold = load_package_gold()
-    gold_sha = sha256_file(PACKAGE_GOLD_PATH)
+    gold_sha = package_gold_sha(gold)
     valid_rows = score_package_round(config, manifest, round_label, gold,
                                      {})["_review_rows"]
     errors: List[str] = []
@@ -1641,9 +1366,35 @@ def package_report_md_lines(pkg: Dict[str, Any]) -> List[str]:
         lines.append(f"**Not final — {pend}.** Export the package review CSV, "
                      "adjudicate, import, and rerun the report.")
         lines.append("")
-    lines.append("| property | cap verdict | confidence | flags |")
+    lines.append("Paired cap deltas (all_retained − capped, per property/repeat; "
+                 "primary signal):")
+    lines.append("")
+    lines.append("| property | rep | cap bound | Δ family recall | Δ |tier| "
+                 "| Δ component | Δ exact-ID | Δ extras | Δ midpoint | strict c/a |")
+    lines.append("| --- | --- | --- | --- | --- | --- | --- | --- | --- |")
+    for prop, reps in (pkg.get("cap_pairs") or {}).items():
+        for rep, row in sorted(reps.items()):
+            if row.get("status") != "paired":
+                lines.append(f"| {prop} | {rep} | — | — | — | — | — | — | "
+                             "unpaired |")
+                continue
+            d = row.get("delta") or {}
+            strict = row.get("strict") or {}
+            lines.append(
+                f"| {prop} | {rep} | {row.get('cap_bound')} | "
+                f"{d.get('package_family_recall')} | "
+                f"{d.get('mean_abs_tier_distance')} | "
+                f"{d.get('component_coverage')} | "
+                f"{d.get('exact_id_coverage')} | {d.get('extras')} | "
+                f"{d.get('final_midpoint')} | "
+                f"{strict.get('capped')}/{strict.get('all_retained')} |")
+    lines.append("")
+    lines.append("| property | aggregate strict verdict (secondary) | "
+                 "confidence | flags |")
     lines.append("| --- | --- | --- | --- |")
     for prop, row in (pkg.get("cap_experiment") or {}).items():
+        if prop.startswith("_"):
+            continue
         lines.append(f"| {prop} | {row.get('verdict') or 'pending'} | "
                      f"{row.get('verdict_confidence')} | "
                      f"{'; '.join(row.get('flags') or []) or '—'} |")
@@ -1655,20 +1406,24 @@ def package_report_md_lines(pkg: Dict[str, Any]) -> List[str]:
             lines.append(f"| {cell} | {prop} | {data['passing_reps']}/3 | "
                          f"{data['passed']} |")
     lines.append("")
-    noise = {prop: row["pass_2f_instability"]
-             for prop, row in (pkg.get("cap_experiment") or {}).items()
-             if row["pass_2f_instability"]["count"]}
+    noise = {prop: row for prop, row
+             in (pkg.get("pass_2f_disagreements") or {}).items()
+             if row.get("count")}
     if noise:
-        lines.append("2f instability on identical candidate sets (noise, not "
+        lines.append("2f disagreements on equivalent evidence (noise, not "
                      "cap effects): "
-                     + "; ".join(f"{prop}: {n['count']} ({', '.join(n['package_ids'])})"
-                                 for prop, n in noise.items()))
+                     + "; ".join(
+                         f"{prop}: {row['count']} "
+                         f"({', '.join(sorted({r['identity'] for r in row['records']}))})"
+                         for prop, row in noise.items()))
         lines.append("")
-    missing = pkg.get("missing_for_gold_reconsideration") or []
+    missing = pkg.get("distinct_missing_targets_across_runs") or {}
     if missing:
-        lines.append(f"Missing expected outcomes ({len(missing)}, fail "
-                     "directly — listed for gold reconsideration):")
-        for m in missing:
-            lines.append(f"- {m}")
+        lines.append(f"Distinct missing targets across runs ({len(missing)}):")
+        for target, row in missing.items():
+            occurs = ", ".join(f"{cell}:{';'.join(map(str, reps))}"
+                               for cell, reps in sorted(row["cells"].items()))
+            lines.append(f"- {target} [{row['policy']}] × {row['occurrences']} "
+                         f"({occurs})")
         lines.append("")
     return lines

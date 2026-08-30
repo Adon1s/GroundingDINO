@@ -1,16 +1,18 @@
 {
-  "note": "Pass 2a prompt-ablation benchmark configuration. Model routing mirrors benchmarks/configs/kind_canary_model_map.json for 2a/2b/2c; 2d deliberately absent so it runs on local Qwen; 2e rule-based; 2f DISABLED (totals are pre-2f with all packages force-confirmed). Judge is gpt-5.6-sol.",
+  "note": "Pass 2a prompt-ablation benchmark configuration. Explicit OpenAI routing for 1a/2a/2b/2c; 2d deliberately absent so it runs on local Qwen; 2e rule-based; 2f DISABLED in-pipeline (totals are pre-2f with all packages force-confirmed). Pass 1a is captured once per photo by the scene-capture stage and replayed frozen across every variant/repeat. Judge is gpt-5.6-sol.",
   "properties": ["redfin_11000447", "redfin_10806500"],
   "images_root": "C:/Users/Steven/IntelliJProjects/renointel-prod/public/images/properties",
   "source_artifacts_root": "C:/Users/Steven/PycharmProjects/realtorvision-backend/artifacts_canary/candidate",
   "repeats": 3,
   "photo_concurrency": 3,
   "model_overrides": {
+    "1a": "gpt-5.6-terra",
     "2a": "gpt-5.6-terra",
     "2b": "gpt-5.6-terra",
     "2c": "gpt-5.6-terra"
   },
   "reasoning_efforts": {
+    "1a": "low",
     "2a": "low",
     "2b": "low",
     "2c": "low"

@@ -35,7 +35,7 @@ try:
 except ImportError:
     cfg = None
 
-from tools.pipeline_common import SCENE_TO_GROUP_UI
+from tools.pipeline_common import SCENE_TO_GROUP_UI, normalize_scene_id
 
 from tools.pass_config import (
     ALLOWED_PIPELINE_MODES,
@@ -685,23 +685,41 @@ class SceneClassifierOrchestrator:
         # Pass 1a: Scene Type Classification
         # ─────────────────────────────────────────────────────────────────────
         if self._t(toggles, '1a'):
-            model_config = self._get_model_config('1a', options)
-            model_name = self._get_model_name('1a', options)
-            self._record_model_routing('1a', options, model_config, result)
+            # Benchmark hook (options.meta, absent in production requests):
+            #   pass_1a_frozen_scene — replay a captured scene label without a
+            #     vision call so every variant/repeat shares identical scene
+            #     and room assignments. Mirrors pass_2a_frozen_freeform.
+            _meta_1a = getattr(options, "meta", None) or {}
+            _frozen_scene = _meta_1a.get("pass_1a_frozen_scene")
+            if _frozen_scene is not None:
+                result.pass_1a = Pass1aResult(
+                    scene=normalize_scene_id(str(_frozen_scene)),
+                    reasoning="frozen_replay",
+                    raw_response=str(_frozen_scene),
+                )
+                result.pass_timings['1a'] = 0.0
+                result.scene = result.pass_1a.scene
+                context['scene'] = result.scene
+                result.passes_run.append('1a')
+                result.models_used['1a'] = "frozen_replay"
+            else:
+                model_config = self._get_model_config('1a', options)
+                model_name = self._get_model_name('1a', options)
+                self._record_model_routing('1a', options, model_config, result)
 
-            logger.debug(f"Running Pass 1a with {model_name}")
-            t0 = time.perf_counter()
-            result.pass_1a = await run_pass_1a_scene_type(
-                image_path=image_path,
-                vlm_client=self.vlm_client,
-                model_config=model_config,
-            )
-            result.pass_timings['1a'] = time.perf_counter() - t0
+                logger.debug(f"Running Pass 1a with {model_name}")
+                t0 = time.perf_counter()
+                result.pass_1a = await run_pass_1a_scene_type(
+                    image_path=image_path,
+                    vlm_client=self.vlm_client,
+                    model_config=model_config,
+                )
+                result.pass_timings['1a'] = time.perf_counter() - t0
 
-            result.scene = result.pass_1a.scene
-            context['scene'] = result.scene
-            result.passes_run.append('1a')
-            result.models_used['1a'] = model_name
+                result.scene = result.pass_1a.scene
+                context['scene'] = result.scene
+                result.passes_run.append('1a')
+                result.models_used['1a'] = model_name
 
         # ─────────────────────────────────────────────────────────────────────
         # Pass 1b: Feature/Market Appeal Notes (FREEFORM)

@@ -198,6 +198,14 @@ offline. Old 3.1 artifacts stay labelled historical — they do not demonstrate
 Note the audit's `_subsumption_bridge` is directional by design (repair never
 subsumes modernization), which is precisely the wall Catalog 3.2 routes around.
 
+**Port landed 2026-08-30; one trap for the flip.** The benchmark computes
+packages through v4, which deliberately does not pass
+`contextual_repair_support` (§2), and the ported reachability audit predates
+the `repair_support_when_driven` marker — so flipping these targets to
+`strict` before either the audit learns the marker or the §2 v4-flag question
+is resolved produces strict-but-unreachable, which fails gold validation by
+design.
+
 ---
 
 ## 11. Replay totals are an undercount while candidates are unreviewed

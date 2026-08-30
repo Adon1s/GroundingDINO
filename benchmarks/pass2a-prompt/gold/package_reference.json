@@ -1,239 +1,401 @@
 {
-  "schema_version": "package_reference_v1",
+  "schema_version": "package_reference_v2",
   "authored_at": "2026-08-11",
   "author": "steven",
+  "migrated_at": "2026-08-13",
+  "migration_note": "v1 -> v2: canonical physical rooms with photo groups replace predicted estimate-unit ids; per-target policy added. Steven 2026-08-13: damaged_drywall_or_cracks@bathroom (Carroll) folded into the bathroom_repair package rationale (no reachable bathroom-repair wall item exists); dated_entry_or_patio_door is diagnostic_only (unreachable by construction).",
   "closed_world_note": "Unlisted approved packages and unlisted cost-bearing standalone work are provisional false positives. Evidence and package-member observations are never extras. Whole-home display-only and audit-only packages are out of scope.",
   "properties": {
     "redfin_10806500": {
+      "canonical_rooms": [
+        {
+          "room_id": "exterior",
+          "room": "exterior",
+          "photo_keys": [
+            "photo_001.jpg"
+          ]
+        },
+        {
+          "room_id": "kitchen",
+          "room": "kitchen",
+          "photo_keys": [
+            "photo_002.jpg",
+            "photo_004.jpg"
+          ]
+        },
+        {
+          "room_id": "basement",
+          "room": "utility",
+          "photo_keys": [
+            "photo_003.jpg",
+            "photo_007.jpg"
+          ],
+          "label": "basement, out of scope (no expected packages)"
+        },
+        {
+          "room_id": "bedroom_A",
+          "room": "bedroom",
+          "photo_keys": [
+            "photo_005.jpg"
+          ]
+        },
+        {
+          "room_id": "bathroom",
+          "room": "bathroom",
+          "photo_keys": [
+            "photo_006.jpg"
+          ]
+        }
+      ],
       "expected_packages": [
         {
           "package_type": "kitchen_modernization",
-          "estimate_unit_id": "kitchen_primary",
+          "room_id": "kitchen",
           "target_pricing_profile": "kitchen_full_rehab",
           "adjacent_acceptable": true,
+          "policy": "strict",
           "rationale": "Photos 002/004: whole kitchen needs a flip - dated laminate counters with unfinished caulked end, cabinets with unfinished area above sink and abrupt end, incomplete mismatched backsplash, outdated flooring, wall patch needing repaint. Stove/oven serviceable, not replacement-driving. Lighting dated but electrical-quarantined."
         },
         {
           "package_type": "bathroom_modernization",
-          "estimate_unit_id": "bathroom_primary",
+          "room_id": "bathroom",
           "target_pricing_profile": "bathroom_partial_rehab",
           "adjacent_acceptable": true,
+          "policy": "strict",
           "rationale": "Photo 006: broken floor tiles needing complete tile replacement, dated/damaged vanity with unfinished side needing replacement or major repair, worn shower sliding door, exposed sink caulk, bland walls needing repaint. Surface renovation, not a gut."
         },
         {
           "package_type": "bedroom_modernization",
-          "estimate_unit_id": "bedroom_1",
+          "room_id": "bedroom_A",
           "target_pricing_profile": "bedroom_refresh",
           "adjacent_acceptable": true,
+          "policy": "strict",
           "rationale": "Photo 005: textured ceiling needing removal/sanding. Ceiling light dated but electrical-quarantined."
         },
         {
           "package_type": "exterior_repair",
-          "estimate_unit_id": "exterior_primary",
+          "room_id": "exterior",
           "target_pricing_profile": "exterior_repair_light",
           "adjacent_acceptable": true,
+          "policy": "strict",
           "rationale": "Photo 001: walkway scuffed and stained, porch overhang/cornice discoloration (algae/mold/water). Cosmetic envelope wear, no structural defect. Handrail ugly but functional - skipped. Window security grates neutral for the area."
         }
       ],
       "required_work_items": [
         {
           "catalog_item_id": "countertop_damage",
-          "estimate_unit_id": "kitchen_primary",
+          "room_id": "kitchen",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photos 002/004: laminate counters outdated, unfinished end with exposed caulk."
         },
         {
           "catalog_item_id": "older_flooring_style",
-          "estimate_unit_id": "kitchen_primary",
+          "room_id": "kitchen",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photos 002/004: kitchen flooring outdated, needs replacing."
         },
         {
           "catalog_item_id": "cabinets_damaged_or_water_stained",
-          "estimate_unit_id": "kitchen_primary",
+          "room_id": "kitchen",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 002: unfinished area above sink, abrupt cabinet end."
         },
         {
           "catalog_item_id": "tile_or_grout_damage",
-          "estimate_unit_id": "bathroom_primary",
+          "room_id": "bathroom",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 006: broken floor tiles, complete tile replacement needed."
         },
         {
           "catalog_item_id": "vanity_damaged_or_water_stained",
-          "estimate_unit_id": "bathroom_primary",
+          "room_id": "bathroom",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 006: vanity dated and damaged, side unfinished - replace or heavily repair."
         },
         {
           "catalog_item_id": "bathroom_paint_refresh_recommended",
-          "estimate_unit_id": "bathroom_primary",
+          "room_id": "bathroom",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 006: walls outdated and bland, need paint refresh."
         },
         {
           "catalog_item_id": "popcorn_or_acoustic_ceiling_texture",
-          "estimate_unit_id": "bedroom_1",
+          "room_id": "bedroom_A",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 005: textured ceiling needs texture removal and sanding."
         },
         {
           "catalog_item_id": "patio_or_porch_surface_wear",
-          "estimate_unit_id": "exterior_primary",
+          "room_id": "exterior",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 001: walkway surface scuffed and stained."
         },
         {
           "catalog_item_id": "soffit_or_porch_ceiling_weathered",
-          "estimate_unit_id": "exterior_primary",
+          "room_id": "exterior",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 001: porch overhang discoloration - algae, mold, or water exposure."
         }
       ],
       "notes": "Basement (photos 003/007: failing drop ceiling, exposed overhead pipes, wall stains, chipped paint, scuffed door, stained cement floor, ceiling water stains) has no estimate unit on this property - conditions are real but structurally unrepresentable in the package model; treated as out of scope, not gold. All dated-lighting observations are electrical-trade quarantined and deliberately excluded. Steven judged the stove/oven serviceable."
     },
     "redfin_11000447": {
+      "canonical_rooms": [
+        {
+          "room_id": "exterior",
+          "room": "exterior",
+          "photo_keys": [
+            "photo_001.jpg"
+          ]
+        },
+        {
+          "room_id": "living_room",
+          "room": "living",
+          "photo_keys": [
+            "photo_002.jpg",
+            "photo_006.jpg"
+          ],
+          "label": "living room, two views"
+        },
+        {
+          "room_id": "bedroom_A",
+          "room": "bedroom",
+          "photo_keys": [
+            "photo_003.jpg"
+          ],
+          "label": "bedroom, photo order 1 (v1 bedroom_1)"
+        },
+        {
+          "room_id": "kitchen",
+          "room": "kitchen",
+          "photo_keys": [
+            "photo_004.jpg"
+          ]
+        },
+        {
+          "room_id": "bedroom_B",
+          "room": "bedroom",
+          "photo_keys": [
+            "photo_005.jpg"
+          ],
+          "label": "bedroom, photo order 2 (v1 bedroom_2)"
+        },
+        {
+          "room_id": "bedroom_C",
+          "room": "bedroom",
+          "photo_keys": [
+            "photo_007.jpg"
+          ],
+          "label": "bedroom, photo order 3 (v1 bedroom_3)"
+        },
+        {
+          "room_id": "bathroom",
+          "room": "bathroom",
+          "photo_keys": [
+            "photo_008.jpg"
+          ]
+        }
+      ],
       "expected_packages": [
         {
           "package_type": "exterior_repair",
-          "estimate_unit_id": "exterior_primary",
+          "room_id": "exterior",
           "target_pricing_profile": "exterior_repair_light",
           "adjacent_acceptable": true,
+          "policy": "strict",
           "rationale": "Photo 001: front steps worn/patched with cracking, cornice and upper trim weathered with paint wear, transom staining, worn window frames. Steven judged light (heavy passes as adjacent). Public sidewalk cracking excluded - city right-of-way, not the property. Security door/grates neutral."
         },
         {
           "package_type": "living_modernization",
-          "estimate_unit_id": "living_room_primary",
+          "room_id": "living_room",
           "target_pricing_profile": "living_full_rehab",
           "adjacent_acceptable": true,
+          "policy": "strict",
           "rationale": "Photos 002/006: painted plank flooring heavily worn/stained/patched with uneven boards and gaps, walls need full repaint (patches, scuffs, exposed joint compound at kitchen header), rough/incomplete baseboards, broad discolored ceiling band, stair tread/baluster finish wear."
         },
         {
           "package_type": "kitchen_modernization",
-          "estimate_unit_id": "kitchen_primary",
+          "room_id": "kitchen",
           "target_pricing_profile": "kitchen_full_rehab",
           "adjacent_acceptable": true,
+          "policy": "strict",
           "rationale": "Photo 004: minimal dated cabinetry with open/missing door fronts at the base, makeshift site-built counter worn and stained, no finished backsplash, older worn range, worn/discolored plank flooring with gaps, scuffed stained walls, old worn back door. 4 of 5 full-rehab driver classes."
         },
         {
           "package_type": "bathroom_repair",
-          "estimate_unit_id": "bathroom_primary",
+          "room_id": "bathroom",
           "target_pricing_profile": "bathroom_repair_heavy",
           "adjacent_acceptable": true,
-          "rationale": "Photo 008: damage-led - rough wall cutout/hole, crudely fitted access panels, missing vanity toe-kick, missing baseboard along much of the left wall/partition, chipped partition edge, plus worn/dated vanity and top."
+          "policy": "strict",
+          "rationale": "Photo 008: damage-led - rough wall cutout/hole, crudely fitted access panels, missing vanity toe-kick, missing baseboard along much of the left wall/partition, chipped partition edge, plus worn/dated vanity and top. Wall damage (open unfinished cutout, crude screw-fastened access panels, chipped partition edge) drives the heavy tier; it is not a separate required work id because no bathroom-repair-family wall item exists in the catalog (Steven 2026-08-13)."
         },
         {
           "package_type": "bedroom_repair",
-          "estimate_unit_id": "bedroom_1",
+          "room_id": "bedroom_A",
           "target_pricing_profile": "bedroom_repair_heavy",
           "adjacent_acceptable": true,
+          "policy": "strict",
           "rationale": "Photo 003 (bedroom photo order 1): ceiling has long open cracks/failed seams with dark staining, walls heavily patched with peeling paint needing full repaint, window frames peeling, flooring residue/stains/scratches."
         },
         {
           "package_type": "bedroom_modernization",
-          "estimate_unit_id": "bedroom_2",
+          "room_id": "bedroom_B",
           "target_pricing_profile": "bedroom_refresh",
           "adjacent_acceptable": true,
+          "policy": "strict",
           "rationale": "Photo 005 (bedroom photo order 2): wear-led, no damage - dingy scuffed walls with patch spots, worn faded stained flooring, worn window frames/sills, dated bent blinds. Exposed uninsulated duct has no catalog item (see notes)."
         },
         {
           "package_type": "bedroom_repair",
-          "estimate_unit_id": "bedroom_3",
+          "room_id": "bedroom_C",
           "target_pricing_profile": "bedroom_repair_light",
           "adjacent_acceptable": true,
+          "policy": "strict",
           "rationale": "Photo 007 (bedroom photo order 3): large failed/peeling paint area on striped accent wall, damaged/patched spot with exposed filler, rough wall opening covered with tape, worn door and casing. Wall repair plus repaint, single trade."
         }
       ],
       "required_work_items": [
         {
           "catalog_item_id": "patio_or_porch_surface_wear",
-          "estimate_unit_id": "exterior_primary",
+          "room_id": "exterior",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 001: front concrete steps worn and patched with visible cracking."
         },
         {
           "catalog_item_id": "damaged_or_rotted_siding_or_trim",
-          "estimate_unit_id": "exterior_primary",
+          "room_id": "exterior",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 001: cornice and upper trim weathering with paint wear. Mapping note: id claims more severity than 'weathered' - accepted by Steven with caution."
         },
         {
           "catalog_item_id": "hard_flooring_broken_or_warped",
-          "estimate_unit_id": "living_room_primary",
+          "room_id": "living_room",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photos 002/006: plank flooring heavily worn with uneven boards and gaps."
         },
         {
           "catalog_item_id": "paint_refresh_recommended",
-          "estimate_unit_id": "living_room_primary",
+          "room_id": "living_room",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photos 002/006: walls with unpainted patch repairs, scuffs, marks - full repaint."
         },
         {
           "catalog_item_id": "ceiling_cracks_or_sagging",
-          "estimate_unit_id": "bedroom_1",
+          "room_id": "bedroom_A",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 003: long open ceiling cracks/failed seams with dark staining."
         },
         {
           "catalog_item_id": "peeling_or_discolored_paint",
-          "estimate_unit_id": "bedroom_1",
-          "rationale": "Photo 003: walls heavily patched with peeling paint and scuffs."
+          "room_id": "bedroom_A",
+          "policy": "diagnostic_only",
+          "accepted_sibling_ids": [],
+          "rationale": "Photo 003: walls heavily patched with peeling paint and scuffs.",
+          "diagnostic_reason": "unreachable per 2026-08-13 audit: affinity_package_mismatch:bedroom_modernization vs expected ['bedroom_repair']"
         },
         {
           "catalog_item_id": "paint_refresh_recommended",
-          "estimate_unit_id": "bedroom_2",
+          "room_id": "bedroom_B",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 005: dingy walls with scuffs, marks, and patch spots."
         },
         {
           "catalog_item_id": "worn_or_stained_flooring",
-          "estimate_unit_id": "bedroom_2",
+          "room_id": "bedroom_B",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 005: painted plank flooring worn, faded, and stained."
         },
         {
           "catalog_item_id": "peeling_or_discolored_paint",
-          "estimate_unit_id": "bedroom_3",
-          "rationale": "Photo 007: large failed/peeling paint area with exposed patching on accent wall."
+          "room_id": "bedroom_C",
+          "policy": "diagnostic_only",
+          "accepted_sibling_ids": [],
+          "rationale": "Photo 007: large failed/peeling paint area with exposed patching on accent wall.",
+          "diagnostic_reason": "unreachable per 2026-08-13 audit: affinity_package_mismatch:bedroom_modernization vs expected ['bedroom_repair']"
         },
         {
           "catalog_item_id": "damaged_drywall_or_cracks",
-          "estimate_unit_id": "bedroom_3",
+          "room_id": "bedroom_C",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 007: damaged/patched wall spot with exposed filler; taped-over rough wall opening."
         },
         {
           "catalog_item_id": "cabinets_damaged_or_water_stained",
-          "estimate_unit_id": "kitchen_primary",
+          "room_id": "kitchen",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 004: base cabinets with open/missing door fronts by the sink."
         },
         {
           "catalog_item_id": "countertop_damage",
-          "estimate_unit_id": "kitchen_primary",
+          "room_id": "kitchen",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 004: makeshift site-built counter worn and stained; sink counter worn with no finished backsplash."
         },
         {
           "catalog_item_id": "appliances_worn_or_neglected",
-          "estimate_unit_id": "kitchen_primary",
+          "room_id": "kitchen",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 004: free-standing electric range older and worn."
         },
         {
           "catalog_item_id": "worn_or_stained_flooring",
-          "estimate_unit_id": "kitchen_primary",
+          "room_id": "kitchen",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 004: painted plank flooring worn, marked, discolored with gaps."
         },
         {
           "catalog_item_id": "dated_entry_or_patio_door",
-          "estimate_unit_id": "kitchen_primary",
-          "rationale": "Photo 004: back door old and worn."
-        },
-        {
-          "catalog_item_id": "damaged_drywall_or_cracks",
-          "estimate_unit_id": "bathroom_primary",
-          "rationale": "Photo 008: open unfinished wall cutout, crude screw-fastened access panels, chipped partition edge."
+          "room_id": "kitchen",
+          "policy": "diagnostic_only",
+          "accepted_sibling_ids": [],
+          "rationale": "Photo 004: back door old and worn.",
+          "diagnostic_reason": "unreachable by construction: tier=optional, package_role=ignore, no package_affinity, no estimate block"
         },
         {
           "catalog_item_id": "vanity_damaged_or_water_stained",
-          "estimate_unit_id": "bathroom_primary",
+          "room_id": "bathroom",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 008: vanity worn edges with missing toe-kick panel (open gap)."
         },
         {
           "catalog_item_id": "vanity_countertop_dated",
-          "estimate_unit_id": "bathroom_primary",
-          "rationale": "Photo 008: one-piece integral sink top with basic chrome faucet, dated styling."
+          "room_id": "bathroom",
+          "policy": "diagnostic_only",
+          "accepted_sibling_ids": [],
+          "rationale": "Photo 008: one-piece integral sink top with basic chrome faucet, dated styling.",
+          "diagnostic_reason": "unreachable per 2026-08-13 audit: affinity_package_mismatch:bathroom_modernization vs expected ['bathroom_repair']"
         },
         {
           "catalog_item_id": "tile_or_grout_damage",
-          "estimate_unit_id": "bathroom_primary",
+          "room_id": "bathroom",
+          "policy": "strict",
+          "accepted_sibling_ids": [],
           "rationale": "Photo 008: floor with white residue/staining and darkened grout lines. Mapping note: id claims damage vs observed staining - accepted by Steven with caution."
         }
       ],
-      "notes": "Derived from the frozen 112-condition observation gold (Steven-adjudicated), tiers proposed by Claude and verified by Steven 2026-08-11; exterior downgraded heavy->light by Steven. Bedroom units assigned by photo order: 003->bedroom_1, 005->bedroom_2, 007->bedroom_3. Excluded: all ceiling fans / light fixtures / surface-run cables (electrical quarantine), security door and window bars (neutral for the area), public sidewalk cracking (city right-of-way, not the property), exposed uninsulated duct in bedroom_2 (no catalog item exists), bent blinds / valances / shelf brackets / leaning door panels / floor register / window AC (minor or removable, below package materiality)."
+      "notes": "Derived from the frozen 112-condition observation gold (Steven-adjudicated), tiers proposed by Claude and verified by Steven 2026-08-11; exterior downgraded heavy->light by Steven. Bedroom units assigned by photo order: 003->bedroom_1, 005->bedroom_2, 007->bedroom_3. Excluded: all ceiling fans / light fixtures / surface-run cables (electrical quarantine), security door and window bars (neutral for the area), public sidewalk cracking (city right-of-way, not the property), exposed uninsulated duct in bedroom_2 (no catalog item exists), bent blinds / valances / shelf brackets / leaning door panels / floor register / window AC (minor or removable, below package materiality). | v2: bedroom identity is canonical by photo group (003->bedroom_A, 005->bedroom_B, 007->bedroom_C); bathroom wall damage folded into bathroom_repair rationale."
     }
   }
 }

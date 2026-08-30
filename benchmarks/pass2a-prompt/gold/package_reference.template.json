@@ -1,5 +1,11 @@
 {
   "_vocabulary": {
+    "canonical_room_fields": {
+      "label": "optional human label",
+      "photo_keys": "non-empty, disjoint subset of manifest photos",
+      "room": "family: kitchen|bathroom|bedroom|living|exterior|utility|other",
+      "room_id": "stable id, distinct namespace from predicted units (e.g. bedroom_A, never bedroom_1)"
+    },
     "catalog_items": [
       {
         "catalog_item_id": "water_stain_ceiling",
@@ -585,29 +591,80 @@
     "expected_package_fields": {
       "adjacent_acceptable": "bool — one adjacent profile also passes",
       "diagnostic_cost_range": "optional {low, high}, report-only",
-      "estimate_unit_id": "one of observed_estimate_units for the property",
+      "diagnostic_reason": "required iff diagnostic_only",
       "package_type": "one of package_types",
+      "policy": "strict (default) | diagnostic_only",
       "rationale": "short human reason + photo refs",
+      "room_id": "one of canonical_rooms",
       "target_pricing_profile": "family-qualified, e.g. kitchen_full_rehab"
     },
-    "note": "Reference only — delete nothing, the check ignores this block.",
-    "observed_estimate_units": {
+    "manifest_photos": {
       "redfin_10806500": [
-        "bathroom_primary",
-        "bedroom_1",
-        "exterior_primary",
-        "kitchen_primary"
+        {
+          "photo_key": "photo_001.jpg",
+          "scene": "exterior_front"
+        },
+        {
+          "photo_key": "photo_002.jpg",
+          "scene": "kitchen"
+        },
+        {
+          "photo_key": "photo_003.jpg",
+          "scene": "basement"
+        },
+        {
+          "photo_key": "photo_004.jpg",
+          "scene": "kitchen"
+        },
+        {
+          "photo_key": "photo_005.jpg",
+          "scene": "bedroom"
+        },
+        {
+          "photo_key": "photo_006.jpg",
+          "scene": "bathroom"
+        },
+        {
+          "photo_key": "photo_007.jpg",
+          "scene": "basement"
+        }
       ],
       "redfin_11000447": [
-        "bathroom_primary",
-        "bedroom_1",
-        "bedroom_2",
-        "bedroom_3",
-        "kitchen_primary",
-        "living_room_primary",
-        "multiple_estimate_units"
+        {
+          "photo_key": "photo_001.jpg",
+          "scene": "exterior_front"
+        },
+        {
+          "photo_key": "photo_002.jpg",
+          "scene": "living_room"
+        },
+        {
+          "photo_key": "photo_003.jpg",
+          "scene": "bedroom"
+        },
+        {
+          "photo_key": "photo_004.jpg",
+          "scene": "kitchen"
+        },
+        {
+          "photo_key": "photo_005.jpg",
+          "scene": "bedroom"
+        },
+        {
+          "photo_key": "photo_006.jpg",
+          "scene": "living_room"
+        },
+        {
+          "photo_key": "photo_007.jpg",
+          "scene": "bedroom"
+        },
+        {
+          "photo_key": "photo_008.jpg",
+          "scene": "bathroom"
+        }
       ]
     },
+    "note": "Reference only — delete nothing, the check ignores this block.",
     "package_types": [
       "bathroom_modernization",
       "bathroom_repair",
@@ -814,9 +871,12 @@
       }
     ],
     "required_work_item_fields": {
+      "accepted_sibling_ids": "adjudicated same-concept ids that also satisfy this target",
       "catalog_item_id": "non-quarantined catalog id",
-      "estimate_unit_id": "room unit the work belongs to",
-      "rationale": "short human reason + photo refs"
+      "diagnostic_reason": "required iff diagnostic_only",
+      "policy": "strict (default) | diagnostic_only",
+      "rationale": "short human reason + photo refs",
+      "room_id": "one of canonical_rooms"
     }
   },
   "author": "",
@@ -824,15 +884,17 @@
   "closed_world_note": "Unlisted approved packages and unlisted cost-bearing standalone work are provisional false positives. Evidence and package-member observations are never extras. Whole-home display-only and audit-only packages are out of scope.",
   "properties": {
     "redfin_10806500": {
+      "canonical_rooms": [],
       "expected_packages": [],
       "notes": "",
       "required_work_items": []
     },
     "redfin_11000447": {
+      "canonical_rooms": [],
       "expected_packages": [],
       "notes": "",
       "required_work_items": []
     }
   },
-  "schema_version": "package_reference_v1"
+  "schema_version": "package_reference_v2"
 }

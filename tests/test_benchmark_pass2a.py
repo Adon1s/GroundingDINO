@@ -129,6 +129,91 @@ def test_orchestrator_without_meta_uses_production_prompt(tmp_path):
 
 
 # ---------------------------------------------------------------------------
+# Frozen Pass 1a scene replay (pass_1a_frozen_scene meta hook)
+# ---------------------------------------------------------------------------
+
+def _options_1a(toggles_on=("1a",), **meta):
+    from tools.pass_config import SceneClassifierRunOptions
+    all_passes = ("1a", "1b", "1c", "2a", "2b", "2c", "2d", "2e", "2f")
+    options = SceneClassifierRunOptions.from_analysis_profile(
+        analysis_profile="standard",
+        toggles={p: p in toggles_on for p in all_passes},
+        pipeline_mode="classification_only",
+    )
+    return options.with_meta(run_id="t", photo_key="x.jpg", **meta)
+
+
+def test_orchestrator_frozen_scene_skips_vision_call(tmp_path):
+    client = SimpleNamespace(analyze_image=AsyncMock(side_effect=AssertionError(
+        "frozen scene replay must not call the vision model")))
+    orchestrator = _bare_orchestrator(client)
+    result = asyncio.run(orchestrator.analyze_image(
+        image_path=tmp_path / "x.jpg",
+        options=_options_1a(pass_1a_frozen_scene="bedroom"),
+    ))
+    assert result.scene == "bedroom"
+    assert result.models_used["1a"] == "frozen_replay"
+    assert result.pass_timings["1a"] == 0.0
+    # Replay records no model routing entry: the routing source enum stays
+    # {explicit_override, premium_default, standard_default}.
+    assert all(entry.get("pass") != "1a" for entry in result.model_routing)
+    client.analyze_image.assert_not_called()
+
+
+def test_orchestrator_frozen_scene_normalizes_unknown_label(tmp_path):
+    client = SimpleNamespace(analyze_image=AsyncMock(side_effect=AssertionError(
+        "frozen scene replay must not call the vision model")))
+    orchestrator = _bare_orchestrator(client)
+    result = asyncio.run(orchestrator.analyze_image(
+        image_path=tmp_path / "x.jpg",
+        options=_options_1a(pass_1a_frozen_scene="not_a_real_scene"),
+    ))
+    assert result.scene == "other"
+
+
+def test_orchestrator_frozen_scene_feeds_pass_2c(tmp_path, monkeypatch):
+    import tools.scene_classifier_orchestrator as orch_mod
+    from tools.scene_classifier_passes import Pass2cResult
+
+    seen = {}
+
+    async def fake_run_pass_2c(vlm_client, model_config, observations, scene="other"):
+        seen["scene"] = scene
+        return Pass2cResult()
+
+    monkeypatch.setattr(orch_mod, "run_pass_2c", fake_run_pass_2c)
+    client = SimpleNamespace(
+        analyze_image=AsyncMock(side_effect=AssertionError("no vision calls")),
+        analyze_text=AsyncMock(side_effect=AssertionError("2c is stubbed")),
+    )
+    orchestrator = _bare_orchestrator(client)
+    result = asyncio.run(orchestrator.analyze_image(
+        image_path=tmp_path / "x.jpg",
+        options=_options_1a(toggles_on=("1a", "2c"),
+                            pass_1a_frozen_scene="kitchen"),
+    ))
+    assert seen["scene"] == "kitchen"
+    assert result.scene == "kitchen"
+
+
+def test_orchestrator_live_1a_unchanged_without_meta(tmp_path):
+    async def analyze_image(**kwargs):
+        return '{"scene": "bedroom", "reasoning": "bed visible"}'
+    orchestrator = _bare_orchestrator(SimpleNamespace(analyze_image=analyze_image))
+    result = asyncio.run(orchestrator.analyze_image(
+        image_path=tmp_path / "x.jpg",
+        options=_options_1a(),
+    ))
+    assert result.scene == "bedroom"
+    assert result.models_used["1a"] != "frozen_replay"
+    # Live path still records routing with a known source.
+    entries = [e for e in result.model_routing if e.get("pass") == "1a"]
+    assert len(entries) == 1
+    assert entries[0]["source"] in {
+        "explicit_override", "premium_default", "standard_default"}
+
+
+# ---------------------------------------------------------------------------
 # Fingerprint guard / resume rejection
 # ---------------------------------------------------------------------------
 
@@ -142,6 +227,32 @@ def test_guard_fingerprint_accepts_identical_and_rejects_changed(tmp_path):
         with pytest.raises(SystemExit) as excinfo:
             bench.guard_fingerprint(tmp_path, changed)
         assert key in str(excinfo.value)
+
+
+def test_v2_stage_cannot_resume_under_v3_fingerprint(tmp_path):
+    config = {"model_overrides": {"1a": "gpt-5.6-terra"}, "reasoning_efforts": {},
+              "pass_toggles": {"2f": False}, "repeats": 3}
+    manifest = {"properties": {"prop": {"photos": [
+        {"photo_key": "photo_001.jpg", "image_sha256": "ih1",
+         "frozen_2a_sha256": "fh1"}]}}}
+    fp = bench.compute_fingerprint(manifest, config, "psha",
+                                   scene_capture_sha="cap123")
+    # The v3 provenance keys exist and are pinned.
+    assert fp["scene_capture_sha"] == "cap123"
+    assert fp["image_detail"] == "original"
+    assert fp["pass_2c_prompt_version"]
+
+    # A legacy v2 stage dir (fingerprint written before these keys existed)
+    # loudly rejects any resume under the repaired harness.
+    legacy = {k: v for k, v in fp.items() if k not in (
+        "scene_capture_sha", "pass_2c_prompt_version", "image_detail")}
+    legacy_dir = tmp_path / "variant_baseline"
+    legacy_dir.mkdir()
+    (legacy_dir / "fingerprint.json").write_text(json.dumps(legacy),
+                                                 encoding="utf-8")
+    with pytest.raises(SystemExit) as excinfo:
+        bench.guard_fingerprint(legacy_dir, fp)
+    assert "scene_capture_sha" in str(excinfo.value)
 
 
 # ---------------------------------------------------------------------------
@@ -520,7 +631,10 @@ def test_prompts_file_baseline_matches_production():
 
 def test_config_routes_terra_low_and_disables_2f():
     config = bench.load_config()
-    assert config["model_overrides"] == {k: "gpt-5.6-terra" for k in ("2a", "2b", "2c")}
+    # 1a joined the explicit Terra routing with the benchmark repair: scene
+    # classification must never silently fall back to the local model.
+    assert config["model_overrides"] == {
+        k: "gpt-5.6-terra" for k in ("1a", "2a", "2b", "2c")}
     assert "2d" not in config["model_overrides"]  # local Qwen route
     assert all(v == "low" for v in config["reasoning_efforts"].values())
     assert config["pass_toggles"] == {"2f": False}
@@ -1008,12 +1122,14 @@ def bench_tree(tmp_path, monkeypatch):
     (bench_dir / "gold").mkdir(parents=True)
     paths = SimpleNamespace(
         dir=bench_dir, runs=bench_dir / "runs",
+        v3=bench_dir / "runs" / "v3",
         gold=bench_dir / "gold" / "reference.json",
         manifest=bench_dir / "manifest.json",
         prompts=bench_dir / "prompts.json",
     )
     monkeypatch.setattr(bench, "BENCH_DIR", bench_dir)
     monkeypatch.setattr(bench, "RUNS_DIR", paths.runs)
+    monkeypatch.setattr(bench, "V3_DIR", paths.v3)
     monkeypatch.setattr(bench, "GOLD_PATH", paths.gold)
     monkeypatch.setattr(bench, "MANIFEST_PATH", paths.manifest)
     monkeypatch.setattr(bench, "PROMPTS_PATH", paths.prompts)
@@ -1068,7 +1184,7 @@ def _seed_round(tree, claims_by_variant, matcher_rows_by_variant):
     }
     tree.manifest.write_text(json.dumps(manifest), encoding="utf-8")
     for variant, claims in claims_by_variant.items():
-        _write_variant_photo(tree.runs, variant, claims)
+        _write_variant_photo(tree.v3, variant, claims)
     mapping = bench.match_blinding(ROUND, "prop", PHOTO, "baseline", "checklist")
     artifact = {
         "property_key": "prop", "photo_key": PHOTO, "blinding": mapping,
@@ -1077,7 +1193,7 @@ def _seed_round(tree, claims_by_variant, matcher_rows_by_variant):
                                      "matched_at": "now"}
                   for letter, variant in mapping.items()},
     }
-    path = tree.runs / f"match_{ROUND}" / "photos" / f"prop__{PHOTO}.json"
+    path = tree.v3 / f"match_{ROUND}" / "photos" / f"prop__{PHOTO}.json"
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(artifact), encoding="utf-8")
     return manifest
@@ -1222,14 +1338,14 @@ def test_review_row_id_roundtrips():
 def test_match_fingerprint_rejects_every_material_change(bench_tree):
     manifest = _standard_round(bench_tree)
     for variant in ("baseline", "checklist"):
-        bench.guard_fingerprint(bench.stage_dir_for(f"variant_{variant}"),
+        bench.guard_fingerprint(bench.resolve_stage_dir(f"variant_{variant}"),
                                 {"prompt_sha256": variant})
     base = bench.compute_match_fingerprint(
         manifest, BENCH_CONFIG, ROUND, "baseline", "checklist")
     # Harness commits must not orphan paid matcher calls.
     assert "git_head" not in base
 
-    stage_dir = bench.stage_dir_for(f"match_{ROUND}")
+    stage_dir = bench.resolve_stage_dir(f"match_{ROUND}")
     bench.guard_fingerprint(stage_dir, base)
     bench.guard_fingerprint(stage_dir, dict(base))       # identical resume is fine
 
@@ -1257,7 +1373,7 @@ def test_match_fingerprint_rejects_every_material_change(bench_tree):
         manifest, BENCH_CONFIG, ROUND, "baseline", "checklist"), "gold_sha256")
 
     # Regenerating a variant run (new git head, model or cap) invalidates too.
-    (bench.stage_dir_for("variant_checklist") / "fingerprint.json").write_text(
+    (bench.resolve_stage_dir("variant_checklist") / "fingerprint.json").write_text(
         json.dumps({"prompt_sha256": "regenerated"}), encoding="utf-8")
     _rejects(bench.compute_match_fingerprint(
         manifest, BENCH_CONFIG, ROUND, "baseline", "checklist"),

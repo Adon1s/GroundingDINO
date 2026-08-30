@@ -12,7 +12,13 @@ Stages (each resumable, each fingerprint-guarded):
                frozen Pass 2a captures)
   attribution  replay 2b->2c->2d->pre-2f costing k times per property from the
                FROZEN 2a captures; evaluate the material-flip stop gate
-  run          k full repeats per photo for one prompt variant
+  scene-capture  freeze Terra Pass 1a scenes once per photo (v3 lineage);
+               --check validates provenance/routing without any VLM call
+  run          k full repeats per photo for one prompt variant, replaying the
+               frozen scene capture (pass_1a_frozen_scene) into runs/v3/
+  legacy-rescore  offline rescore of the frozen v2 artifacts with the
+               repaired projection + canonical-room scorer (no VLM calls);
+               output confined to runs/legacy_v2_rescore/
   match        blinded TEXT-ONLY alignment of every generated claim to the
                human gold, one call per variant-repeat per photo
   review       export the match to one editable CSV / import the decisions back
@@ -65,6 +71,10 @@ PROMPTS_PATH = BENCH_DIR / "prompts.json"
 CONFIG_PATH = BENCH_DIR / "config.json"
 GOLD_PATH = BENCH_DIR / "gold" / "reference.json"
 RUNS_DIR = BENCH_DIR / "runs"
+# v3 artifact lineage: controlled Terra Pass 1a via frozen scene replay.
+# Everything under runs/v3/ is produced by the repaired harness; the flat
+# runs/* stage dirs are the frozen v2 lineage (read-only legacy evidence).
+V3_DIR = RUNS_DIR / "v3"
 
 logger = logging.getLogger("benchmark_pass2a")
 
@@ -91,6 +101,13 @@ def _setup_env() -> None:
     os.environ.pop("ARTIFACTS_ROOT", None)
     os.environ.pop("ISSUE_CATALOG_PATH", None)
     os.environ["KIND_ONTOLOGY_VERSION"] = "observation_kind_v2"
+    # The gold and the paid Pass 2f artifacts are v4/2f-bound; an inherited
+    # `new` mode would silently add v5 work to every benchmark photo
+    # (tools/artifact_writers.py branches on it), so pin rather than trust
+    # the default. RENOVATION_TERRA_USAGE_ROOT is deliberately NOT set:
+    # benchmark live runs debit the shared production Terra/Sol daily
+    # ledgers (Steven, 2026-08-30).
+    os.environ["RENOVATION_ARCHITECTURE_MODE"] = "current"
     # Per-pass output caps must be exported BEFORE tools.pipeline_config is
     # imported (it snapshots the env at import time). Inventory-framed 2a
     # wording overflows the production 2000-token cap.
@@ -177,9 +194,18 @@ def compute_fingerprint(
     manifest: Dict[str, Any],
     config: Dict[str, Any],
     prompt_sha: Optional[str],
+    *,
+    scene_capture_sha: Optional[str] = None,
 ) -> Dict[str, Any]:
-    """Everything that must be identical for a resume to be valid."""
+    """Everything that must be identical for a resume to be valid.
+
+    scene_capture_sha pins the frozen Pass 1a scene capture (v3 lineage);
+    None marks a legacy-v2-style run without controlled scenes. Together with
+    pass_2c_prompt_version and image_detail it makes v2 and v3 artifacts
+    mutually non-resumable.
+    """
     from tools.comparison_common import sha256_canonical, sha256_file
+    from tools.scene_classifier_passes import PASS_2C_PROMPT_VERSION
     from tools import pipeline_config as cfg
     return {
         "git_head": _git_head(),
@@ -187,6 +213,7 @@ def compute_fingerprint(
             _manifest_hashes(manifest, "image_sha256")),
         "frozen_2a_sha": sha256_canonical(
             _manifest_hashes(manifest, "frozen_2a_sha256")),
+        "scene_capture_sha": scene_capture_sha,
         "prompt_sha256": prompt_sha,
         "model_overrides": config["model_overrides"],
         "reasoning_efforts": config["reasoning_efforts"],
@@ -194,6 +221,8 @@ def compute_fingerprint(
         "openai_max_output_tokens": config.get("openai_max_output_tokens") or {},
         "catalog_sha256": sha256_file(Path(cfg.ISSUE_CATALOG_PATH)),
         "embeddings_model": cfg.EMBEDDINGS_MODEL_NAME,
+        "pass_2c_prompt_version": PASS_2C_PROMPT_VERSION,
+        "image_detail": "original",
         "pipeline_mode": "publish",
         "repeats": config["repeats"],
     }
@@ -398,10 +427,15 @@ async def run_property_once(
     *,
     variant_prompt: Optional[str] = None,
     frozen: bool = False,
+    scenes: Optional[Dict[str, str]] = None,
     concurrency: int = 3,
 ) -> Path:
     """One repeat of one property. Checkpoints after every photo; skips
-    photos already checkpointed; returns the photo_intel.json path."""
+    photos already checkpointed; returns the photo_intel.json path.
+
+    scenes ({photo_key: scene}) replays a frozen Pass 1a scene capture via the
+    pass_1a_frozen_scene orchestrator hook — no scene-classification VLM call
+    is made and every repeat shares identical room assignments."""
     import time as _time
     from tools.analyzer_cli import ImageResult, PropertyAnalysisJob
     from tools.artifact_writers import write_photo_intel
@@ -426,10 +460,20 @@ async def run_property_once(
 
     started = _time.perf_counter()
 
+    if scenes is not None:
+        missing_scenes = [p.name for p in image_paths if p.name not in scenes]
+        if missing_scenes:
+            raise SystemExit(
+                f"{property_key}: scene capture has no entry for "
+                f"{missing_scenes} — rerun scene-capture before this stage"
+            )
+
     async def _analyze_one(idx: int, image_path: Path) -> Any:
         meta: Dict[str, Any] = dict(
             run_id=job_id, photo_key=image_path.name, property_key=property_key,
         )
+        if scenes is not None:
+            meta["pass_1a_frozen_scene"] = scenes[image_path.name]
         if frozen:
             meta["pass_2a_frozen_freeform"] = frozen_by_key[image_path.name]
         elif variant_prompt is not None:
@@ -558,7 +602,9 @@ def compute_pre2f_totals(artifact: Dict[str, Any], catalog: Dict[str, Any]) -> D
     line_items: List[Dict[str, Any]] = []
     for group in v4.get("groups") or []:
         for li in group.get("line_items") or []:
-            if not li.get("is_valid_detection"):
+            # Tri-state: None means 2f never reviewed the line (standalone
+            # work) — only an explicit False rejection excludes it.
+            if li.get("is_valid_detection") is False:
                 continue
             line_items.append({
                 "catalog_item_id": li.get("catalog_item_id"),
@@ -613,6 +659,25 @@ def stage_dir_for(stage_label: str) -> Path:
     return RUNS_DIR / stage_label
 
 
+def v3_stage_dir(stage_label: str) -> Path:
+    """v3-lineage stage directory (controlled Terra Pass 1a, frozen scenes)."""
+    return V3_DIR / stage_label
+
+
+# Stage-lineage routing (mirrors the V3_DIR/LEGACY_* split in
+# benchmark_pass2a_packages): v3 stages resolve under runs/v3/, everything
+# else stays on the flat legacy layout. "attribution" is frozen v2 evidence
+# read only as a gate by `run`; "judge_*" is the archived image-based Sol
+# round, superseded by the text-only match stage — both deliberately flat.
+V3_STAGE_PREFIXES = ("variant_", "match_", "review_")
+
+
+def resolve_stage_dir(stage_label: str) -> Path:
+    if stage_label.startswith(V3_STAGE_PREFIXES):
+        return v3_stage_dir(stage_label)
+    return stage_dir_for(stage_label)
+
+
 def rep_job_id(stage_label: str, rep: int) -> str:
     return f"{stage_label}_rep{rep}"
 
@@ -626,13 +691,20 @@ def run_matrix(
     prompt_sha: Optional[str] = None,
     frozen: bool = False,
     skip_preflight: bool = False,
+    stage_dir: Optional[Path] = None,
+    scenes_by_prop: Optional[Dict[str, Dict[str, str]]] = None,
+    scene_capture_sha: Optional[str] = None,
 ) -> Dict[str, Dict[int, Path]]:
     """Run k repeats of every manifest property. Returns
-    {property_key: {rep: artifact_path}}. Fully resumable."""
+    {property_key: {rep: artifact_path}}. Fully resumable.
+
+    stage_dir overrides the flat runs/<label> layout (v3 lineage);
+    scenes_by_prop + scene_capture_sha replay a frozen Pass 1a capture."""
     if not skip_preflight and not preflight_embeddings():
         raise SystemExit(2)
-    stage_dir = stage_dir_for(stage_label)
-    fingerprint = compute_fingerprint(manifest, config, prompt_sha)
+    stage_dir = stage_dir if stage_dir is not None else resolve_stage_dir(stage_label)
+    fingerprint = compute_fingerprint(
+        manifest, config, prompt_sha, scene_capture_sha=scene_capture_sha)
     guard_fingerprint(stage_dir, fingerprint)
 
     ctx = build_pipeline_context(config)
@@ -646,6 +718,7 @@ def run_matrix(
                 ctx, manifest, prop_key, rep_dir,
                 rep_job_id(stage_label, rep),
                 variant_prompt=variant_prompt, frozen=frozen,
+                scenes=(scenes_by_prop or {}).get(prop_key),
                 concurrency=int(config.get("photo_concurrency", 3)),
             ))
             ensure_totals(path, ctx.catalog)
@@ -659,7 +732,7 @@ def find_stage_artifacts(stage_label: str, manifest: Dict[str, Any],
     out: Dict[str, Dict[int, Path]] = {}
     for rep in range(1, repeats + 1):
         for prop_key in sorted(manifest["properties"]):
-            path = (stage_dir_for(stage_label) / f"rep{rep}" / prop_key
+            path = (resolve_stage_dir(stage_label) / f"rep{rep}" / prop_key
                     / rep_job_id(stage_label, rep) / "photo_intel.json")
             if path.is_file():
                 out.setdefault(prop_key, {})[rep] = path
@@ -759,7 +832,7 @@ def stage_attribution(config: Dict[str, Any], manifest: Dict[str, Any],
         flip_pct=float(config["gates"]["attribution_flip_pct"]),
     )
     gate["evaluated_at"] = _utcnow()
-    _write_json(stage_dir_for("attribution") / "gate.json", gate)
+    _write_json(resolve_stage_dir("attribution") / "gate.json", gate)
     verdict = "PASSED" if gate["passed"] else "FAILED"
     print(f"\nattribution gate: {verdict}")
     for flip in gate["failing_flips"]:
@@ -878,7 +951,7 @@ def load_photo_repeat_records(
     stage_label: str, rep: int, property_key: str, photo_key: str,
 ) -> Dict[str, Any]:
     """Compact per-repeat record from the per-photo checkpoint + totals."""
-    prop_dir = stage_dir_for(stage_label) / f"rep{rep}" / property_key
+    prop_dir = resolve_stage_dir(stage_label) / f"rep{rep}" / property_key
     ckpt = _load_json(_photo_ckpt_dir(prop_dir) / f"{photo_key}.json")
     scene_data = ckpt.get("scene_data") or {}
     claims = [
@@ -1138,7 +1211,7 @@ def stage_judge(config: Dict[str, Any], manifest: Dict[str, Any],
                 "done — finish the run stage first"
             )
 
-    stage_dir = stage_dir_for(f"judge_{round_label}")
+    stage_dir = resolve_stage_dir(f"judge_{round_label}")
     fingerprint = compute_fingerprint(
         manifest, config,
         prompt_sha=f"{prompts[variant_a]['sha256']}|{prompts[variant_b]['sha256']}",
@@ -1302,7 +1375,7 @@ def compute_match_fingerprint(
     matcher = config.get("matcher") or {}
     run_fps: Dict[str, Optional[str]] = {}
     for variant in (variant_a, variant_b):
-        fp_path = stage_dir_for(f"variant_{variant}") / "fingerprint.json"
+        fp_path = resolve_stage_dir(f"variant_{variant}") / "fingerprint.json"
         run_fps[variant] = (sha256_canonical(_load_json(fp_path))
                             if fp_path.is_file() else None)
     return {
@@ -1390,7 +1463,7 @@ async def run_matcher_call(
 
 
 def match_photos_dir(round_label: str) -> Path:
-    return stage_dir_for(f"match_{round_label}") / "photos"
+    return resolve_stage_dir(f"match_{round_label}") / "photos"
 
 
 def load_match_artifacts(round_label: str) -> Dict[str, Dict[str, Any]]:
@@ -1463,7 +1536,7 @@ def stage_match(config: Dict[str, Any], manifest: Dict[str, Any],
         return _match_dry_run(config, manifest, gold, round_label,
                               variant_a, variant_b)
 
-    stage_dir = stage_dir_for(f"match_{round_label}")
+    stage_dir = resolve_stage_dir(f"match_{round_label}")
     guard_fingerprint(stage_dir, compute_match_fingerprint(
         manifest, config, round_label, variant_a, variant_b))
     vlm_client, gpt5_config = build_matcher_client(config)
@@ -1547,7 +1620,7 @@ def _match_dry_run(config: Dict[str, Any], manifest: Dict[str, Any],
         if by_photo.get(f"{prop_key}/{photo['photo_key']}"))
     summary["photos_total"] = len(manifest_photos(manifest))
     summary["planned_calls"] = 2 * repeats * summary["photos_total"]
-    out = stage_dir_for(f"match_{round_label}") / "dry_run.json"
+    out = resolve_stage_dir(f"match_{round_label}") / "dry_run.json"
     _write_json(out, summary)
     print(json.dumps(summary, indent=2))
     print(f"\ndry run only - no model calls made. -> {out}")
@@ -1572,7 +1645,7 @@ REVIEW_COLUMNS = [
 
 
 def review_dir_for(round_label: str) -> Path:
-    return RUNS_DIR / f"review_{round_label}"
+    return v3_stage_dir(f"review_{round_label}")
 
 
 def decisions_path_for(round_label: str) -> Path:
@@ -1842,7 +1915,7 @@ def variant_stability_metrics(
         excl_counts: Dict[int, int] = {}
         totals_by_rep: Dict[int, Dict[str, Any]] = {}
         for rep in range(1, repeats + 1):
-            prop_dir = stage_dir_for(stage_label) / f"rep{rep}" / prop_key
+            prop_dir = resolve_stage_dir(stage_label) / f"rep{rep}" / prop_key
             ids: set = set()
             n_obs = n_excl = 0
             for photo in manifest["properties"][prop_key]["photos"]:
@@ -2174,7 +2247,7 @@ def stage_report(config: Dict[str, Any], manifest: Dict[str, Any]) -> Path:
     repeats = int(config["repeats"])
     report: Dict[str, Any] = {"generated_at": _utcnow(), "stages": {}}
 
-    gate_path = stage_dir_for("attribution") / "gate.json"
+    gate_path = resolve_stage_dir("attribution") / "gate.json"
     if gate_path.is_file():
         report["attribution_gate"] = _load_json(gate_path)
 
@@ -2188,7 +2261,7 @@ def stage_report(config: Dict[str, Any], manifest: Dict[str, Any]) -> Path:
             stabilities[variant] = variant_stability_metrics(
                 stage_label, manifest, repeats)
     if "attribution" not in stabilities and \
-            (stage_dir_for("attribution") / "rep1").is_dir():
+            (resolve_stage_dir("attribution") / "rep1").is_dir():
         found = find_stage_artifacts("attribution", manifest, repeats)
         if sum(len(r) for r in found.values()) == len(manifest["properties"]) * repeats:
             stabilities["__frozen_2a_attribution__"] = variant_stability_metrics(
@@ -2196,6 +2269,7 @@ def stage_report(config: Dict[str, Any], manifest: Dict[str, Any]) -> Path:
     report["stability"] = stabilities
 
     report["rounds"] = {}
+    # Archived image-based Sol rounds live on the flat legacy layout.
     for round_dir in sorted(RUNS_DIR.glob("judge_*")):
         judgments_path = round_dir / "judgments.json"
         if not judgments_path.is_file():
@@ -2234,7 +2308,7 @@ def stage_report(config: Dict[str, Any], manifest: Dict[str, Any]) -> Path:
     report["match_rounds"] = {}
     gold = _load_json(GOLD_PATH) if GOLD_PATH.is_file() else {"photos": {}}
     tie_pct = float((config.get("gates") or {}).get("match_tie_breaker_pct", 25.0))
-    for round_dir in sorted(RUNS_DIR.glob("match_*")):
+    for round_dir in sorted(V3_DIR.glob("match_*")):
         round_label = round_dir.name[len("match_"):]
         if not (round_dir / "photos").is_dir():
             continue
@@ -2246,10 +2320,10 @@ def stage_report(config: Dict[str, Any], manifest: Dict[str, Any]) -> Path:
         report["match_rounds"][round_label] = score_match_round(
             rows, stabilities, baseline_variant, candidate_variant, tie_pct)
 
-    out_json = RUNS_DIR / "report.json"
+    out_json = V3_DIR / "report.json"
     _write_json(out_json, report)
-    _write_report_md(RUNS_DIR / "report.md", report, config)
-    print(f"report -> {out_json} and {RUNS_DIR / 'report.md'}")
+    _write_report_md(V3_DIR / "report.md", report, config)
+    print(f"report -> {out_json} and {V3_DIR / 'report.md'}")
     return out_json
 
 
@@ -2378,6 +2452,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     sub.add_parser("init")
     p_attr = sub.add_parser("attribution")
     p_attr.add_argument("--skip-preflight", action="store_true")
+    p_scenes = sub.add_parser(
+        "scene-capture",
+        help="freeze Terra Pass 1a scenes once per photo (v3 lineage)")
+    p_scenes.add_argument("--check", action="store_true",
+                          help="validate the existing capture, no VLM call")
     p_run = sub.add_parser("run")
     p_run.add_argument("--variant", required=True)
     p_run.add_argument("--skip-preflight", action="store_true")
@@ -2415,6 +2494,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     p_prev.add_argument("action", choices=["export", "import"])
     p_prev.add_argument("--round", required=True)
     p_prev.add_argument("--csv", default=None)
+    p_legacy = sub.add_parser(
+        "legacy-rescore",
+        help="offline rescore of the frozen v2 artifacts (no VLM calls)")
+    p_legacy.add_argument("--round", required=True,
+                          help="e.g. baseline_vs_checklist")
     sub.add_parser("report")
     args = parser.parse_args(argv)
 
@@ -2432,22 +2516,34 @@ def main(argv: Optional[List[str]] = None) -> int:
         gate = stage_attribution(config, manifest,
                                  skip_preflight=args.skip_preflight)
         return 0 if gate["passed"] else 3
+    if args.stage == "scene-capture":
+        from tools import benchmark_pass2a_scenes as scenes_mod
+        if args.check:
+            scenes_mod.check_scene_capture(config, manifest)
+        else:
+            scenes_mod.stage_scene_capture(config, manifest)
+        return 0
     if args.stage == "run":
         prompts = load_prompts()
         if args.variant not in prompts:
             raise SystemExit(f"unknown variant {args.variant!r}; "
                              f"choices: {sorted(prompts)}")
-        gate_path = stage_dir_for("attribution") / "gate.json"
+        gate_path = resolve_stage_dir("attribution") / "gate.json"
         if not gate_path.is_file():
             raise SystemExit("attribution stage has not been evaluated — run it first")
         if not _load_json(gate_path)["passed"]:
             raise SystemExit("attribution gate FAILED — prompt variants are "
                              "off the table until 2b/2c instability is addressed")
+        from tools import benchmark_pass2a_scenes as scenes_mod
+        capture = scenes_mod.load_scene_capture(config, manifest)
         run_matrix(
             config, manifest, f"variant_{args.variant}",
             variant_prompt=prompts[args.variant]["text"],
             prompt_sha=prompts[args.variant]["sha256"],
             skip_preflight=args.skip_preflight,
+            stage_dir=v3_stage_dir(f"variant_{args.variant}"),
+            scenes_by_prop=scenes_mod.scenes_by_property(capture),
+            scene_capture_sha=capture["capture_sha256"],
         )
         return 0
     if args.stage == "judge":
@@ -2466,6 +2562,10 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 0
     if args.stage == "repin-gold":
         stage_repin_gold(manifest)
+        return 0
+    if args.stage == "legacy-rescore":
+        from tools import benchmark_pass2a_legacy as legacy
+        legacy.stage_legacy_rescore(config, manifest, args.round)
         return 0
     if args.stage == "package-gold":
         from tools import benchmark_pass2a_packages as pkg
