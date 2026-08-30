@@ -1,5 +1,11 @@
 # Handoff — Session C+D+E combined: wave-1 package policy (QP3, QP6, QP5, QP4)
 
+> **Superseded 2026-08-27.** After source and artifact review, Steven narrowed
+> wave 1 to QP3 only and declared it complete. QP6, QP5, and QP4 were not
+> implemented and are deferred outside wave 1. Do not execute this combined
+> charter. The implementation and replay record is
+> `docs/RESULT_quality_wave1_qp3_20260827.md`.
+
 Written 2026-08-27 by Session B · backend `renovation_architecture_rework`
 (clean at `bdc27ff`) · commissioned by
 `docs/ROADMAP_quality_program_sessions_20260826.md` (sessions C, D, E, run

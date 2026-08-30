@@ -4,10 +4,11 @@ Written 2026-08-26 · backend `renovation_architecture_rework` · commissioned b
 `docs/ROADMAP_quality_program_sessions_20260826.md` (Session B) · proposals =
 `docs/PROPOSALS_output_quality_improvements_20260826.md` (QP1, QP8, QP9/P5,
 QP7-instrumentation). **This session builds and measures; it ships no
-estimate-behaviour change and makes NO live provider calls** (observation
-window C5 monitors daily ledger spend through end of 2026-08-28; live harness
-runs belong to Session F). Inherit the roadmap's hygiene + simplicity
-guardrail blocks in full.
+estimate-behaviour change and makes NO live provider calls** (live harness
+runs belong to Session F). *Update 2026-08-27: the observation window closed
+early (`DECISION_…cutover_20260821.md` §10), so the in-window timing caveats
+below no longer bind — but B's charter is unchanged: build + dry-run only.*
+Inherit the roadmap's hygiene + simplicity guardrail blocks in full.
 
 ## 1. Deliverable 1 — the re-decide harness (QP1)
 
@@ -99,6 +100,14 @@ notes; it is outside the close condition. Do NOT re-run or modify the audited
 `tests/test_review_analysis.py` (19) are all untracked working-tree code —
 commit them as-is (suite green first). Do not "improve" them in passing; the
 frozen reports they produced are audited.
+
+Commit the re-tag tooling in the same pass: `scripts/build_retag_queue.py`,
+`scripts/retag_tally.py`, `reports/retag_queue.json` (generated 2026-08-26,
+verified 26+20 cards, masses reconcile with `review_analysis.md` §9) and
+`reports/retag_verdicts.jsonl` if Steven has started answering — see
+`docs/HANDOFF_retag_mechanism_vs_perception.md`. It reuses
+`scripts/review_server.py` unchanged via `--queue` / `--verdicts`, so nothing
+about the main review path moves.
 
 ## 4. Deliverable 4 — two read-only audits (short notes, e.g. `docs/analysis/`)
 

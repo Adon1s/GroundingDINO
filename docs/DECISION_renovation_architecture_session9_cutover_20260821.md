@@ -154,4 +154,89 @@ Steven's decisions (2026-08-21 evening): C1 **written waiver**; C2 **accept 1 & 
 | Smoke caveats | what the smokes do not prove | the FE's per-day 2f allocation (`OPENAI_PASS_2F_PRIORITY_LIMIT`, DB-backed) is not reproduced — the smoke always uses the priority (Sol) model for 2f; FE rendering of a `new`-mode artifact not exercised (kind runbook step 5 — do on the first real listing) |
 | Commit | operational set (3 docs, 4 scripts, 6 tests, the edited kind-canary report), no push | **`df35f23`** on `renovation_architecture_rework` (14 files, +5,073) — this SHA line is the one edit left uncommitted on purpose |
 
-**State at hand-off (2026-08-21 ~22:55 CT):** production is **staged, not flipped** — `renointel-prod/.env` carries the `new` block; no worker was restarted by this session (pre-existing `node` processes untouched; the last logged worker launch was plain `npm run worker`). The embeddings sidecar started for the smokes (llama-server PID 34564, CPU-only, `scripts/start-embeddings-server.ps1`) is still running. Smoke artifacts: `artifacts_canary/worker_smoke_20260821/` (gitignored). The flip is Steven's: `npm run worker -- --premium` in `renointel-prod`, then `scripts/verify_renovation_artifact.py --artifact <first artifact> --expect-mode new --expect-terra-model gpt-5.6-terra --expect-sol-model gpt-5.6-sol`, confirm the FE renders it, and start the 7-day observation (C5). Watch the Sol ledger on day one (`show_daily_token_spend.py --root <FE artifacts>`).
+**State at hand-off (2026-08-21 ~22:55 CT)** *(superseded the same evening — Steven flipped ~23:20 CT; see §10 for the observation outcome)*: production is **staged, not flipped** — `renointel-prod/.env` carries the `new` block; no worker was restarted by this session (pre-existing `node` processes untouched; the last logged worker launch was plain `npm run worker`). The embeddings sidecar started for the smokes (llama-server PID 34564, CPU-only, `scripts/start-embeddings-server.ps1`) is still running. Smoke artifacts: `artifacts_canary/worker_smoke_20260821/` (gitignored). The flip is Steven's: `npm run worker -- --premium` in `renointel-prod`, then `scripts/verify_renovation_artifact.py --artifact <first artifact> --expect-mode new --expect-terra-model gpt-5.6-terra --expect-sol-model gpt-5.6-sol`, confirm the FE renders it, and start the 7-day observation (C5). Watch the Sol ledger on day one (`show_daily_token_spend.py --root <FE artifacts>`).
+
+---
+
+## 10. C5 observation outcome — window CLOSED (Steven, 2026-08-27, one day early)
+
+Written 2026-08-27 from first-hand evidence (production artifacts root, the
+`.renovation_architecture/{terra,sol}_usage.sqlite3` ledgers, and
+`renointel-prod/prisma/dev.db::AnalysisRun`, all read-only). Day 1 was
+2026-08-22; nominal close was end of 2026-08-28. Steven closed the window on
+2026-08-27 (day 6). The marginal day carried no information: only 2 of the 6
+elapsed days had any production runs at all (08-22 and 08-25; 08-23/24/26/27
+were empty), so extending the calendar without running listings observed
+nothing.
+
+### Volume
+
+14 post-cutover run attempts (run dirs ≥ `20260821_230000`) across the 2
+active days — 08-22: 6 attempts, 08-25: 8. **10 published artifacts, 4
+failed closed with no artifact.** Both active days completed exactly 5
+listings and then hit the Sol ceiling — the predicted Sol-bound envelope.
+
+### Invariants — none of the §5/C5 rollback triggers fired
+
+- Zero ontology/resolver/writer failures; the rollback trigger was three
+  consecutive — the observed maximum was 2 consecutive failures, and those two
+  had *different* causes.
+- Every published artifact carries the complete v5 envelope at the root
+  (`state: complete`), v4 alongside, no private copy; publication gate clean.
+  Spot-verified end-to-end on `redfin_10949071/20260825_052355_3b380cca`
+  (headline 39,423/116,990).
+- No mixed or invalid artifact, no accepted-work loss, no double counting, no
+  model mutation of condition/work truth, no silent Terra ceiling overrun.
+- The budget guard behaved exactly as designed on both denials: refuse the
+  reservation, fail the listing closed, category `quota`, visible in
+  `AnalysisRun` — never a partial artifact.
+
+### The four failures (complete list, from `AnalysisRun`)
+
+| listing | day | category | pass/stage | code / message |
+|---|---|---|---|---|
+| redfin_11009190 | 08-22 | quota | **2f** (v4) / request | `SolDailyBudgetExceeded` — 227,739 debited, reservation needed 25,149 |
+| redfin_11216749 | 08-25 | quota | sol_review / request | `SolDailyBudgetExceeded` — 219,442 debited, reservation needed 33,110 |
+| redfin_10937111 | 08-25 | parse | postprocessing | `UnicodeEncodeError: '\udc8f' surrogates not allowed` |
+| redfin_10993751 | 08-25 | parse | postprocessing | `UnicodeEncodeError: '\udc9d' surrogates not allowed` |
+
+The two parse failures are a lone-surrogate serialization bug in
+postprocessing (scraped listing text), engine-agnostic — v4-only mode would
+fail identically; each left a ~1.7 KB `photo_intel_debug.json.tmp` truncated
+mid-`property.description`, before any analysis ran. **Not a v5 defect.**
+
+### Ledger (UTC days, shared production ledgers)
+
+| day | Sol | of 250k | Terra | of 2.5M |
+|---|---|---|---|---|
+| 2026-08-22 | 227,739 | **91.1%** | 1,825,562 | 73.0% |
+| 2026-08-25 | 219,442 | **87.8%** | 1,165,034 | 46.6% |
+
+Sol binds first on both days, and the majority of Sol spend is **v4's Pass
+2f** (2f ≈ 24–58k/listing vs v5 Sol review ≈ 8.5k) — 2f runs solely to feed
+the FE, which still renders v4.
+
+### Carry-forward findings (recorded so they do not vanish with the window)
+
+1. **Lone-surrogate `UnicodeEncodeError` in postprocessing** — killed 2 of 8
+   attempts on 08-25 (25% of the day's capacity on top of the quota cap).
+   Cheap, engine-agnostic fix; unowned as of this writing. The orphaned
+   `.tmp` files in the two run dirs are litter from the same bug.
+2. **Pass 2f is the binding-quota consumer.** Retiring v4+2f after FE
+   adoption moves the bottleneck to Terra (~10–11 listings/day, roughly double)
+   — this is the S8 forcing function, now measured in production.
+3. The thumbnail-ingest fix thread starts 2026-08-29+ (its own handoff);
+   unrelated to this window.
+
+### Consequences of closing
+
+- The freeze on estimate behaviour, prompts, and catalog is **lifted as of
+  2026-08-27**: wave-1 offline work (quality roadmap Sessions C–E) and live
+  re-decide harness runs may start.
+- The rollback ladder is unchanged — closing the window does not retire v4;
+  L1 (`mode=current`) remains proven and available.
+- Honest caveat: 10 published artifacts over 2 active days is a thin
+  operational sample; the window's power against rare failures was low at day
+  7 and is marginally lower at day 6. The observation that matters most —
+  users seeing v5 numbers — has not happened yet, because the FE still
+  renders v4; the post-FE-adoption period is where that vigilance belongs.

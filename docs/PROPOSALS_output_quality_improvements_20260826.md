@@ -527,9 +527,22 @@ decision-packets §9 log, `docs/DESIGN_renovation_architecture_decision_packets.
 S8 stays open by design. Implementation is commissioned across sessions B–H:
 `docs/ROADMAP_quality_program_sessions_20260826.md`.
 
+**Re-tag amendment (2026-08-28).** The completed 46-card
+mechanism-vs-perception re-tag is formally **inconclusive** under its
+pre-committed rule: canary weighted and raw views are mixed, production
+weighted and raw views are perception-limited, and one Group A card is
+`cannot_tell`. See
+`docs/RESULT_retag_mechanism_vs_perception_20260828.md`. S1 still advances to
+the QP1/Session F harness, but it no longer pre-selects rubric plus coarsening
+as the shipping shape: Session F must compare **rubric-only,
+coarsened-only, and combined** arms. Fine mechanism wording remains in place
+until that scorecard. The structured-fields and remove-observations
+hypotheses are unchanged. A separate severity/threshold follow-up opens
+because `too_trivial` crossed its pre-committed gate.
+
 | # | decision | call (2026-08-26) |
 |---|---|---|
-| S1 | QP2 rubric v2 + catalog wording, goal-2 trade | **Adopted** — ship rules + wording; prompt-only lane, no 4th verdict; shape (light vs structured-fields) decided by the QP1 harness |
+| S1 | QP2 rubric v2 + catalog wording, goal-2 trade | **Adopted; shape refined by the re-tag** — keep the prompt-only lane and no 4th verdict; Session F must test rubric-only, coarsened-only, and combined arms before selecting what ships. Structured-fields and remove-observations remain independent harness hypotheses; fine mechanism wording is not yet retired |
 | S2 | QP3 scope | **Adopted** — interior-modernization application gate (not the tier demotion) |
 | S3 | QP4 | **Adopted** — build; ships only on the replay gate (exactness ≥ v4's 6/17, over ≤ 1/17) |
 | S4 | QP5 split→sub-package | **Adopted** — build |
