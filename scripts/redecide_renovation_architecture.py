@@ -52,6 +52,17 @@ from typing import Any, Dict, List, Mapping, Optional, Tuple
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
+from tools.model_comparison_config import (  # noqa: E402
+    load_dotenv_without_override,
+)
+
+# tools.pipeline_config resolves the model, key, and ceiling constants at
+# IMPORT time, and the imports below pull it in transitively, so the .env has
+# to land before them or --live cannot resolve a model. Exported process
+# variables still win (the loader uses setdefault), and loading env vars keeps
+# the dry-run path provider-free.
+load_dotenv_without_override(REPO_ROOT / ".env")
+
 from tools.comparison_common import sha256_canonical  # noqa: E402
 from tools.pass_2f_artifact_inputs import photo_key_to_path  # noqa: E402
 from tools.renovation_architecture.catalog_projection import (  # noqa: E402
