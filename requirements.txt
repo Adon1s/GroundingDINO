@@ -21,3 +21,5 @@ huggingface-hub>=0.20
 torch==2.10.0
 pytest~=9.0.2
 typer~=0.24.1
+# Pass 2a prompt comparator (tools/pass2a_comparator) and tools/artifact_viewer
+streamlit~=1.56.0
