@@ -8,6 +8,8 @@ import pytest
 
 from scripts.redecide_renovation_architecture import (
     CONTROL_VARIANT,
+    FACTORIZED_VARIANT,
+    PAYLOAD_DELIMITER,
     apply_variant,
     load_variant,
     main,
@@ -254,6 +256,66 @@ def test_variant_spec_guards(tmp_path):
     )
     with pytest.raises(SystemExit):
         load_variant(protected)
+
+
+def test_factorized_arm_keeps_the_payload_and_swaps_the_contract(tmp_path):
+    """The factorized arm must change the question, never the evidence: same
+    claims, same observations, same photos as the control arm."""
+    run_dir = _write_run(tmp_path)
+    row = _redecide(tmp_path, run_dir, variant=dict(FACTORIZED_VARIANT))
+    assert row["counts"]["verified"] == 1
+    record = json.loads(
+        next((tmp_path / "out" / "prop" / "units").glob("*.json")).read_text(
+            encoding="utf-8"
+        )
+    )
+    assert record["response_contract"] == "factorized_v1"
+    assert "three separate questions" in record["system_prompt"]
+
+    control_out = tmp_path / "out_control" / "prop"
+    _redecide(tmp_path, run_dir, out=control_out)
+    control = json.loads(
+        next((control_out / "units").glob("*.json")).read_text(encoding="utf-8")
+    )
+    assert control["response_contract"] == "terra_verdict"
+    # Byte-identical payload half; only the system prompt differs.
+    assert (
+        record["user_prompt"].split(PAYLOAD_DELIMITER, 1)[1]
+        == control["user_prompt"].split(PAYLOAD_DELIMITER, 1)[1]
+    )
+    assert record["system_prompt"] != control["system_prompt"]
+    assert record["variant_fingerprint"] != control["variant_fingerprint"]
+
+
+def test_factorized_request_carries_the_factorized_schema(tmp_path):
+    image_path = tmp_path / "images" / PHOTO
+    _write_photo(image_path)
+    request = _reference_request(image_path)
+    mutated = apply_variant(request, dict(FACTORIZED_VARIANT))
+    # apply_variant does not swap the schema; _redecide_unit does. What must
+    # hold here is that the arm is fingerprint-distinct from control.
+    control = apply_variant(request, CONTROL_VARIANT)
+    assert mutated.request_fingerprint != control.request_fingerprint
+    assert mutated.request_fingerprint != request.request_fingerprint
+
+
+def test_factorized_label_and_contract_are_reserved(tmp_path):
+    hijack = tmp_path / "hijack.json"
+    hijack.write_text(
+        json.dumps({"label": "factorized_v1",
+                    "system_prompt": "You are something else."}),
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit, match="reserved"):
+        load_variant(hijack)
+
+    bogus = tmp_path / "bogus.json"
+    bogus.write_text(
+        json.dumps({"label": "x", "response_contract": "made_up"}),
+        encoding="utf-8",
+    )
+    with pytest.raises(SystemExit, match="unknown response_contract"):
+        load_variant(bogus)
 
 
 def test_out_root_inside_the_canary_is_refused(tmp_path):

@@ -27,10 +27,16 @@ Safety invariants:
   reasoning-effort constant) drifted, and a re-decision would measure
   garbage.
 
+The --factorized arm is the shadow experiment in
+docs/HANDOFF_factorized_verifier_replay.md: the same payload under a different
+question structure (three bounded factors, class derived in code), which also
+swaps the response schema. It measures only — it never feeds dispositions.
+
 Usage (dry run, the only Session B mode):
   .venv\\Scripts\\python.exe scripts\\redecide_renovation_architecture.py --control
   .venv\\Scripts\\python.exe scripts\\redecide_renovation_architecture.py \
       --variant configs\\redecide_variants\\example_remove_observations.json
+  .venv\\Scripts\\python.exe scripts\\redecide_renovation_architecture.py --factorized
 """
 from __future__ import annotations
 
@@ -53,12 +59,18 @@ from tools.renovation_architecture.catalog_projection import (  # noqa: E402
 )
 from tools.renovation_architecture.conditions import ConditionDraft  # noqa: E402
 from tools.renovation_architecture.contracts import (  # noqa: E402
+    TERRA_REVIEW_PROMPT_VERSION,
     TERRA_REVIEW_REASONING_EFFORT,
     EvidenceFacts,
     ObservedCondition,
 )
 from tools.renovation_architecture.evidence import (  # noqa: E402
     build_photo_identity_index,
+)
+from tools.renovation_architecture.factorized_review import (  # noqa: E402
+    FACTORIZED_PROMPT_VERSION,
+    FACTORIZED_SYSTEM_PROMPT,
+    build_factorized_response_schema,
 )
 from tools.renovation_architecture.terra_review import (  # noqa: E402
     TerraUnitRequest,
@@ -78,12 +90,23 @@ HARNESS_NAMESPACE = "redecide_v1"
 PAYLOAD_DELIMITER = "\n\nConditions to review:\n"
 VARIANT_KEYS = frozenset(
     {"label", "target", "system_prompt", "extra_condition_keys",
-     "drop_condition_keys", "notes"}
+     "drop_condition_keys", "notes", "response_contract"}
 )
 # condition_id is what parse_unit_reviews joins on; photo_keys is the photo
 # contract. Neither may be dropped or overwritten by a variant.
 PROTECTED_CONDITION_KEYS = frozenset({"condition_id", "photo_keys"})
 CONTROL_VARIANT = {"label": "control", "target": "terra"}
+# The factorized arm (docs/HANDOFF_factorized_verifier_replay.md): same model,
+# same payload, three bounded factors instead of one verdict. It swaps the
+# system prompt AND the response schema, so it is a built-in arm rather than a
+# variant spec — a spec file may not invent a response contract.
+FACTORIZED_CONTRACT = "factorized_v1"
+FACTORIZED_VARIANT = {
+    "label": "factorized_v1",
+    "target": "terra",
+    "system_prompt": FACTORIZED_SYSTEM_PROMPT,
+    "response_contract": FACTORIZED_CONTRACT,
+}
 
 
 def load_variant(path: Optional[Path]) -> Dict[str, Any]:
@@ -96,12 +119,18 @@ def load_variant(path: Optional[Path]) -> Dict[str, Any]:
     label = str(variant.get("label") or "")
     if not label or not all(c.isalnum() or c == "_" for c in label):
         raise SystemExit("variant label must be a non-empty [A-Za-z0-9_]+ slug")
-    if label == "control" and (
+    if label in ("control", FACTORIZED_VARIANT["label"]) and (
         variant.get("system_prompt")
         or variant.get("extra_condition_keys")
         or variant.get("drop_condition_keys")
     ):
-        raise SystemExit("the label 'control' is reserved for the built-in arm")
+        raise SystemExit(f"the label {label!r} is reserved for a built-in arm")
+    contract = variant.get("response_contract")
+    if contract is not None and contract != FACTORIZED_CONTRACT:
+        raise SystemExit(
+            f"unknown response_contract {contract!r}; the only non-default "
+            f"contract is {FACTORIZED_CONTRACT!r}, reached with --factorized"
+        )
     if str(variant.get("target") or "terra") != "terra":
         raise SystemExit("only target='terra' is implemented (Sol is Session F)")
     touched = set(variant.get("drop_condition_keys") or []) | set(
@@ -395,7 +424,20 @@ def _redecide_unit(
         )
 
     variant_request = apply_variant(request, variant)
+    # The factorized arm also swaps the response schema. That schema is NOT a
+    # variant_fingerprint input, but `label` is — and `factorized_v1` is unique
+    # — so no arm/arm or arm/production collision is possible. A future arm
+    # reusing a system prompt under a different schema must extend the
+    # fingerprint rather than rely on this.
+    if variant.get("response_contract") == FACTORIZED_CONTRACT:
+        variant_request = replace(
+            variant_request,
+            response_schema=build_factorized_response_schema(
+                list(request.condition_ids)
+            ),
+        )
     base["variant_fingerprint"] = variant_request.request_fingerprint
+    base["response_contract"] = str(variant.get("response_contract") or "terra_verdict")
 
     # Resume: an existing output for this unit under the same variant
     # fingerprint is final — never re-bought, never re-dry-run.
@@ -433,10 +475,21 @@ def _redecide_unit(
 
     # Live (Session F): reuse the production reserve -> call -> settle ->
     # parse path verbatim so nothing double-debits and failure keeps the
-    # conservative reservation. Imported here, never at module level.
-    from tools.renovation_architecture.review_pipeline import _review_unit_fresh
+    # conservative reservation. The factorized arm uses its own mirrored
+    # fresh-call (same ordering, different contract). Imported here, never at
+    # module level.
+    factorized = variant.get("response_contract") == FACTORIZED_CONTRACT
+    if factorized:
+        from tools.renovation_architecture.factorized_review import (
+            FACTOR_KEYS,
+            factorized_unit_fresh as unit_fresh,
+        )
+    else:
+        from tools.renovation_architecture.review_pipeline import (
+            _review_unit_fresh as unit_fresh,
+        )
 
-    terra_call, reviews = _review_unit_fresh(
+    terra_call, reviews = unit_fresh(
         request=variant_request,
         vlm_client=live_ctx["vlm_client"],
         api_key=live_ctx["api_key"],
@@ -447,14 +500,18 @@ def _redecide_unit(
         source_run_id=f"redecide_{variant['label']}",
         estimate_id=estimate_id,
     )
+    if factorized:
+        answer_keys = FACTOR_KEYS + (
+            "derived_class", "observed_description", "rationale",
+        )
+    else:
+        answer_keys = ("verdict", "rationale")
     return {
         **record,
         "status": "redecided",
         "terra_call": terra_call,
         "reviews": {
-            review["condition_id"]: {
-                "verdict": review["verdict"], "rationale": review["rationale"]
-            }
+            review["condition_id"]: {key: review[key] for key in answer_keys}
             for review in reviews
         },
     }
@@ -581,6 +638,10 @@ def main(argv=None) -> int:
     arm.add_argument("--variant", type=Path, help="variant spec JSON")
     arm.add_argument("--control", action="store_true",
                      help="the built-in same-prompt control arm")
+    arm.add_argument("--factorized", action="store_true",
+                     help="the built-in factorized arm: same payload, three "
+                          "bounded factors instead of one verdict "
+                          "(docs/HANDOFF_factorized_verifier_replay.md)")
     parser.add_argument("--out-root", type=Path, default=None)
     parser.add_argument("--properties", nargs="*", default=None)
     parser.add_argument("--limit-units", type=int, default=None,
@@ -591,7 +652,10 @@ def main(argv=None) -> int:
     )
     args = parser.parse_args(argv)
 
-    variant = load_variant(None if args.control else args.variant)
+    if args.factorized:
+        variant = dict(FACTORIZED_VARIANT)
+    else:
+        variant = load_variant(None if args.control else args.variant)
     candidate_root = args.root / "candidate"
     if not candidate_root.is_dir():
         print(f"no candidate directory under {args.root}", file=sys.stderr)
@@ -651,6 +715,14 @@ def main(argv=None) -> int:
         "schema_version": 1,
         "harness": HARNESS_NAMESPACE,
         "variant": dict(variant),
+        "response_contract": str(
+            variant.get("response_contract") or "terra_verdict"
+        ),
+        "prompt_version": (
+            FACTORIZED_PROMPT_VERSION
+            if variant.get("response_contract") == FACTORIZED_CONTRACT
+            else TERRA_REVIEW_PROMPT_VERSION
+        ),
         "root": str(args.root),
         "dry_run": not args.live,
         "catalog_sha256": projection["catalog_sha256"],
