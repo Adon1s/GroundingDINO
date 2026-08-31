@@ -214,11 +214,23 @@ def _envelope(run_dir: Path) -> Optional[Dict[str, Any]]:
     return env if isinstance(env, dict) and env.get("state") == "complete" else None
 
 
-def load_stored_verdicts(candidate_root: Path) -> Dict[Tuple[str, str], str]:
-    """(property_key, condition_id) -> stored Terra verdict."""
-    out: Dict[Tuple[str, str], str] = {}
+def load_stored_verdicts(candidate_root: Path) -> Dict[str, Dict[Any, str]]:
+    """Stored Terra verdicts under two keys.
+
+    `by_cid` is (property_key, condition_id) — the join the arm uses, since the
+    arm replayed run_1's own conditions.
+
+    `by_key` is (property_key, catalog_item_id, estimate_unit_id) — the SEMANTIC
+    identity, needed to compare replicas at all: condition_id derives from
+    estimate_id, which includes source_run_id, so run_1 and run_2 share zero
+    condition_ids for the same logical condition (verified: 0 overlap, vs 702
+    under this key). `cid_to_key` carries the arm across to that space.
+    """
+    by_cid: Dict[Any, str] = {}
+    by_key: Dict[Any, str] = {}
+    cid_to_key: Dict[Any, Any] = {}
     if not candidate_root.is_dir():
-        return out
+        return {"by_cid": by_cid, "by_key": by_key, "cid_to_key": cid_to_key}
     for prop in sorted(p for p in candidate_root.iterdir() if p.is_dir()):
         runs = sorted(
             r for r in prop.iterdir()
@@ -229,9 +241,21 @@ def load_stored_verdicts(candidate_root: Path) -> Dict[Tuple[str, str], str]:
         env = _envelope(runs[-1])
         if env is None:
             continue
+        identity = {
+            str(c["condition_id"]): (
+                prop.name, str(c["catalog_item_id"]), str(c["estimate_unit_id"])
+            )
+            for c in env["result"]["observed_conditions"]
+        }
         for review in env["result"]["condition_reviews"]:
-            out[(prop.name, str(review["condition_id"]))] = str(review["verdict"])
-    return out
+            cid = str(review["condition_id"])
+            verdict = str(review["verdict"])
+            by_cid[(prop.name, cid)] = verdict
+            key = identity.get(cid)
+            if key is not None:
+                by_key[key] = verdict
+                cid_to_key[(prop.name, cid)] = key
+    return {"by_cid": by_cid, "by_key": by_key, "cid_to_key": cid_to_key}
 
 
 # ----------------------------------------------------------------- scoring
@@ -382,26 +406,52 @@ def disagreements(answers, stored) -> Dict[str, List[Dict[str, str]]]:
     return out
 
 
+def _presence(answer: Mapping[str, Any]) -> str:
+    """Fold a factorized answer onto Terra's presence axis for a like-for-like
+    count. Only `visible` is comparable; accuracy and materiality have no
+    counterpart in the verdict vocabulary."""
+    visible = answer.get("visible")
+    if visible == "no":
+        return "unsupported"
+    if visible == "unclear":
+        return "cannot_assess"
+    return "supported"
+
+
 def replica_benchmark(answers, run1, run2) -> Dict[str, Any]:
-    """Factorized-vs-run_1 next to run_1-vs-run_2: never report against zero."""
-    shared = set(run1) & set(run2)
-    replica_flips = sum(1 for key in shared if run1[key] != run2[key])
-    judged = [key for key in answers if key in run1]
-    # Fold the factorized class onto Terra's axis for a like-for-like count.
-    factorized_present = {
-        key: "unsupported" if answers[key].get("visible") == "no"
-        else "cannot_assess" if answers[key].get("visible") == "unclear"
-        else "supported"
-        for key in judged
+    """Factorized-vs-run_1 next to run_1-vs-run_2: never report against zero.
+
+    Both sides are compared in the semantic key space so the replica pair can
+    join at all (see load_stored_verdicts).
+    """
+    shared = set(run1["by_key"]) & set(run2["by_key"])
+    replica_flips = sum(
+        1 for key in shared if run1["by_key"][key] != run2["by_key"][key]
+    )
+    # Restrict the arm to the SAME shared population, so the two rates are
+    # measured on one population rather than two.
+    cid_to_key = run1["cid_to_key"]
+    arm_on_shared = {
+        cid_to_key[cid]: answer for cid, answer in answers.items()
+        if cid in cid_to_key and cid_to_key[cid] in shared
     }
-    arm_flips = sum(1 for key in judged if factorized_present[key] != run1[key])
+    arm_flips = sum(
+        1 for key, answer in arm_on_shared.items()
+        if _presence(answer) != run1["by_key"][key]
+    )
+    judged_all = [cid for cid in answers if cid in run1["by_cid"]]
     return {
         "replica_pairs": len(shared),
         "replica_flips": replica_flips,
         "replica_rate": (replica_flips / len(shared)) if shared else None,
-        "arm_pairs": len(judged),
+        "arm_pairs": len(arm_on_shared),
         "arm_flips": arm_flips,
-        "arm_rate": (arm_flips / len(judged)) if judged else None,
+        "arm_rate": (arm_flips / len(arm_on_shared)) if arm_on_shared else None,
+        "arm_pairs_all": len(judged_all),
+        "arm_flips_all": sum(
+            1 for cid in judged_all
+            if _presence(answers[cid]) != run1["by_cid"][cid]
+        ),
     }
 
 
@@ -581,10 +631,17 @@ def render_md(a: Dict[str, Any]) -> str:
     rep = a["replica"]
     lines += [
         "## 7. Stability benchmark", "",
-        f"Factorized vs stored run_1: **{rep['arm_flips']}/{rep['arm_pairs']}** "
-        f"({_pct(rep['arm_rate'])}) on Terra's presence axis. Stored run_1 vs "
-        f"run_2: **{rep['replica_flips']}/{rep['replica_pairs']}** "
-        f"({_pct(rep['replica_rate'])}).",
+        f"Both rates below are measured on the {rep['replica_pairs']} conditions "
+        f"the two replicas share, keyed by (property, catalog item, unit) — "
+        f"condition_id embeds the run id, so replicas share none of those.",
+        "",
+        f"- Factorized vs stored run_1: **{rep['arm_flips']}/{rep['arm_pairs']}** "
+        f"({_pct(rep['arm_rate'])}) on Terra's presence axis",
+        f"- Stored run_1 vs run_2 (the noise floor): "
+        f"**{rep['replica_flips']}/{rep['replica_pairs']}** "
+        f"({_pct(rep['replica_rate'])})",
+        f"- Factorized vs run_1 across all replayed conditions: "
+        f"**{rep['arm_flips_all']}/{rep['arm_pairs_all']}**",
         "",
         "## 8. Prompt adherence", "",
         f"- Misnamed answers with no `observed_description`: "
@@ -651,14 +708,14 @@ def main(argv=None) -> int:
             "unit_statuses": arm["statuses"],
             "labels_total": len(rows),
             "labels_joined": joined,
-            "stored_run1_conditions": len(run1),
-            "stored_run2_conditions": len(run2),
+            "stored_run1_conditions": len(run1["by_cid"]),
+            "stored_run2_conditions": len(run2["by_cid"]),
         },
         "gates": evaluate_gates(rows, answers),
         "g4": evaluate_g4(answers),
         "axes": axis_confusions(rows, answers),
         "class_confusion": class_confusion(rows, answers),
-        "disagreements": disagreements(answers, run1),
+        "disagreements": disagreements(answers, run1["by_cid"]),
         "replica": replica_benchmark(answers, run1, run2),
         "adherence": adherence(answers),
         "not_shown": NOT_SHOWN,

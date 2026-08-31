@@ -1,0 +1,1131 @@
+{
+ "adherence": {
+  "invisible_factors_not_unclear": 0,
+  "missing_observed_description": 0
+ },
+ "arm": {
+  "dry_run": false,
+  "label": "factorized_v1",
+  "prompt_version": "terra_factorized_review_v1",
+  "response_contract": "factorized_v1"
+ },
+ "axes": {
+  "claim_accurate_as_written": {
+   "agree": 61,
+   "rate": 0.7176470588235294,
+   "scoreable": 85,
+   "table": {
+    "absent": {
+     "unclear": 1,
+     "yes": 2
+    },
+    "exact": {
+     "no": 3,
+     "unclear": 16,
+     "yes": 59
+    },
+    "misnamed": {
+     "no": 2,
+     "unclear": 2,
+     "yes": 3
+    }
+   }
+  },
+  "material_enough_for_work": {
+   "agree": 55,
+   "rate": 0.6470588235294118,
+   "scoreable": 85,
+   "table": {
+    "none": {
+     "unclear": 1,
+     "yes": 2
+    },
+    "trivial": {
+     "yes": 5
+    },
+    "warranted": {
+     "no": 14,
+     "unclear": 11,
+     "yes": 55
+    }
+   }
+  },
+  "visible": {
+   "agree": 75,
+   "rate": 0.8522727272727273,
+   "scoreable": 88,
+   "table": {
+    "absent": {
+     "no": 1,
+     "yes": 2
+    },
+    "exact": {
+     "no": 9,
+     "unclear": 1,
+     "yes": 68
+    },
+    "misnamed": {
+     "no": 1,
+     "yes": 6
+    }
+   }
+  }
+ },
+ "class_confusion": {
+  "absent": {
+   "absent": 1,
+   "exact_and_warranted": 2
+  },
+  "exact_and_warranted": {
+   "absent": 9,
+   "exact_and_warranted": 42,
+   "exact_but_trivial": 13,
+   "inconclusive": 6,
+   "misnamed_but_warranted": 3
+  },
+  "exact_but_trivial": {
+   "exact_and_warranted": 4,
+   "inconclusive": 1
+  },
+  "misnamed_but_warranted": {
+   "absent": 1,
+   "exact_and_warranted": 2,
+   "exact_but_trivial": 1,
+   "inconclusive": 1,
+   "misnamed_but_warranted": 2
+  }
+ },
+ "coverage": {
+  "conditions_answered": 1047,
+  "labels_joined": 88,
+  "labels_total": 88,
+  "stored_run1_conditions": 1047,
+  "stored_run2_conditions": 1046,
+  "unit_statuses": {
+   "redecided": 148
+  }
+ },
+ "disagreements": {
+  "misnamed_with_description": [
+   {
+    "condition_id": "oc1_a60baea9299f9b1f",
+    "derived_class": "misnamed_and_trivial",
+    "observed_description": "masonry wall discoloration and patching",
+    "property_key": "redfin_10806500",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_f4c2c32f1c6dba1d",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "Swollen, peeling, deteriorated vanity cabinet surfaces.",
+    "property_key": "redfin_10806500",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_3c1a032f6a249ccb",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "weathered fence with leaning sections",
+    "property_key": "redfin_10952874",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_6506e0627a3977ec",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "moderate tub discoloration with aged caulk and dark grout",
+    "property_key": "redfin_10952874",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_7be7d3fe909651c6",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "areas of missing and scraped paint",
+    "property_key": "redfin_10952874",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_8178b1b9c823f719",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "Paint splatters, debris, and discoloration on hard flooring.",
+    "property_key": "redfin_10952874",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_09c51c2555f3b64f",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "Open seams and raised plank edges in the worn flooring.",
+    "property_key": "redfin_11000447",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_4f0058d96b06f3a3",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "The vanity base/toe-kick is detached, exposing the lower interior.",
+    "property_key": "redfin_11000447",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_961e6edcac992934",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "Patterned flooring with visible discoloration and debris.",
+    "property_key": "redfin_11000447",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_be4b77f1d023f9bd",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "Worn and soiled older wood plank flooring.",
+    "property_key": "redfin_11000447",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_fa37e7520234829c",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "Open seams and raised plank edges in addition to worn finish.",
+    "property_key": "redfin_11000447",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_f5a8a54a0117c5b3",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "large graffiti and uneven paint patches",
+    "property_key": "redfin_11077450",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_1c17f0199476323d",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "older tan square tile with darkened grout",
+    "property_key": "redfin_11185681",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_5286f255058331d4",
+    "derived_class": "misnamed_and_trivial",
+    "observed_description": "water spotting on shower glass",
+    "property_key": "redfin_11185681",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_69e1058725f35008",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "chipped paint and discoloration on the lower walls",
+    "property_key": "redfin_11185681",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_56be9b9975981f37",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "dirty, scuffed parquet-pattern flooring",
+    "property_key": "redfin_125779232",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_777cd635cf27aeee",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "worn and discolored parquet-pattern flooring",
+    "property_key": "redfin_125779232",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_562dd1da5b0d9252",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "Corroded fixtures with damaged or missing shower-valve trim.",
+    "property_key": "redfin_125970550",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_7ec3de5f129a5fd5",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "heavily soiled white tile flooring",
+    "property_key": "redfin_125970550",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_8bf0920221ea6796",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "water staining and torn wall paneling",
+    "property_key": "redfin_125970550",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_9ec347a23f3ed720",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "Stained tile flooring with cracked and missing pieces.",
+    "property_key": "redfin_125970550",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_dd9ca495af2f633a",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "torn and lifted sheet flooring",
+    "property_key": "redfin_125970550",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_17e2478acfc349e8",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "worn and stained resilient flooring",
+    "property_key": "redfin_126224899",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_4900757ed55e17c9",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "dark lower-wall staining and finish deterioration",
+    "property_key": "redfin_126224899",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_4f7604e7064dce56",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "dark ceiling staining near the window corner",
+    "property_key": "redfin_126224899",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_8b6bf7c321af5b5d",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "heavy dark staining and growth-like discoloration on lower walls",
+    "property_key": "redfin_126224899",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_999efd853008d114",
+    "derived_class": "misnamed_and_trivial",
+    "observed_description": "grime and discoloration on vanity surfaces",
+    "property_key": "redfin_126224899",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_a72e30e0a8cb65b6",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "weathered fence with leaning sections",
+    "property_key": "redfin_126224899",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_d32b38b4d91549c0",
+    "derived_class": "misnamed_and_trivial",
+    "observed_description": "heavy surface grime and dark speckling on the vanity countertop",
+    "property_key": "redfin_126224899",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_efe915a40d1bb026",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "soiled and worn carpet",
+    "property_key": "redfin_126224899",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_e6be634a3ab8e0f6",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "heavy swirled plaster ceiling texture",
+    "property_key": "redfin_126418713",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_6a1409628ae9f4d7",
+    "derived_class": "inconclusive",
+    "observed_description": "dark staining and discoloration at the rear wall and lower area",
+    "property_key": "redfin_127468088",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_7d6a7e398269765b",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "Mottled, flattened carpet with visible discoloration.",
+    "property_key": "redfin_127468088",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_a4bd1f8bffa6aaf2",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "worn, discolored carpet",
+    "property_key": "redfin_127468088",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_f2c05ba24db79c17",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "patched drywall and cracking near the outlet",
+    "property_key": "redfin_127468088",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_5a69289015183dbc",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "Open rectangular cutouts and removed mounting strips in painted wall paneling.",
+    "property_key": "redfin_166147710",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_da54345fcbb9a21e",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "widespread wall and ceiling staining and discoloration",
+    "property_key": "redfin_166147710",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_eac5f9ac3822499a",
+    "derived_class": "misnamed_and_trivial",
+    "observed_description": "white horizontal blinds",
+    "property_key": "redfin_25809814",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_5f38b2b4122714d0",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "surface dirt and scattered dark marks on the green flooring",
+    "property_key": "redfin_80925528",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_c069fa037c3edff7",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "wall cracks and missing wall material",
+    "property_key": "redfin_80925528",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_deac9c5f5a4d7002",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "peeling and missing wall finish",
+    "property_key": "redfin_80925528",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_4b3f89eedadc45c8",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "aged tile flooring with visible discoloration",
+    "property_key": "redfin_80990371",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_4ffe22494347c74f",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "heavily worn and discolored dark wood flooring",
+    "property_key": "redfin_80990371",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_c125a458f7d0a996",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "Worn and chipped cabinet finish with damaged or misaligned lower components.",
+    "property_key": "redfin_80990371",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_c6c4c4017b1ed9dd",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "wide painted and dark wood trim",
+    "property_key": "redfin_80990371",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_f9a08cb1f999f9d1",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "Discolored ceramic tile and grout.",
+    "property_key": "redfin_80990371",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_3f6e5bad63a676b2",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "mismatched rectangular floor patch sections",
+    "property_key": "redfin_81000709",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_b3123b462c35d319",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "multiple unpainted wall patch areas",
+    "property_key": "redfin_81000709",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_d5b44af2d2921c16",
+    "derived_class": "inconclusive",
+    "observed_description": "wall discoloration around and below the A/C unit",
+    "property_key": "redfin_81000709",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_fa61e7912fb0d9de",
+    "derived_class": "misnamed_but_warranted",
+    "observed_description": "large unpainted wall patch areas",
+    "property_key": "redfin_81000709",
+    "stored_verdict": "supported"
+   }
+  ],
+  "terra_rejected_factorized_visible": [
+   {
+    "condition_id": "oc1_084ff89ca4edc1c4",
+    "derived_class": "inconclusive",
+    "property_key": "redfin_10803207",
+    "stored_verdict": "cannot_assess"
+   },
+   {
+    "condition_id": "oc1_75c70a45e8012f91",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_10803207",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_bd04d765dac55f9b",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_10803207",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_32bf8869e625ef1f",
+    "derived_class": "exact_but_trivial",
+    "property_key": "redfin_10806500",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_42608fe1098b2fd3",
+    "derived_class": "exact_but_trivial",
+    "property_key": "redfin_10952874",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_4fb1ea73e633e933",
+    "derived_class": "exact_but_trivial",
+    "property_key": "redfin_10952874",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_8302615f64b86ad8",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_10952874",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_864108a3c69987e5",
+    "derived_class": "inconclusive",
+    "property_key": "redfin_10952874",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_b10d0b1346b9e17a",
+    "derived_class": "exact_but_trivial",
+    "property_key": "redfin_10952874",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_f9479bf4cec50774",
+    "derived_class": "inconclusive",
+    "property_key": "redfin_10952874",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_0e1dd7b103a3668e",
+    "derived_class": "inconclusive",
+    "property_key": "redfin_11000447",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_1a2fda15544c6ef5",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_11077450",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_261de865e0dd299d",
+    "derived_class": "exact_but_trivial",
+    "property_key": "redfin_11077450",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_d080389e1f69a331",
+    "derived_class": "inconclusive",
+    "property_key": "redfin_11077450",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_347ca41214e79635",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_11185681",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_425d26fff888e4d0",
+    "derived_class": "inconclusive",
+    "property_key": "redfin_11185681",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_447f84bf58498da7",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_11185681",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_8af6e2681d935d03",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_11185681",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_517203b47860a7b5",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_125779232",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_9cec506b34da7c09",
+    "derived_class": "inconclusive",
+    "property_key": "redfin_125779232",
+    "stored_verdict": "cannot_assess"
+   },
+   {
+    "condition_id": "oc1_57552de0acadd8f2",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_126224899",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_3076cec157f5028b",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_126418713",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_da003b161d312a1e",
+    "derived_class": "inconclusive",
+    "property_key": "redfin_126418713",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_0636246f917808d6",
+    "derived_class": "inconclusive",
+    "property_key": "redfin_127468088",
+    "stored_verdict": "cannot_assess"
+   },
+   {
+    "condition_id": "oc1_b2512c3ca661799e",
+    "derived_class": "inconclusive",
+    "property_key": "redfin_127468088",
+    "stored_verdict": "cannot_assess"
+   },
+   {
+    "condition_id": "oc1_ce4012ad532858ac",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_127468088",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_6d404e73b5011de5",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_166147710",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_fccbc233d1bfed8b",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_166147710",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_d2af12342ab4be23",
+    "derived_class": "inconclusive",
+    "property_key": "redfin_25809814",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_eac5f9ac3822499a",
+    "derived_class": "misnamed_and_trivial",
+    "property_key": "redfin_25809814",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_f5459a0921a1c8b3",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_80877597",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_223827b97305711a",
+    "derived_class": "exact_but_trivial",
+    "property_key": "redfin_80925528",
+    "stored_verdict": "cannot_assess"
+   },
+   {
+    "condition_id": "oc1_37259140a0a25612",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_80925528",
+    "stored_verdict": "cannot_assess"
+   },
+   {
+    "condition_id": "oc1_511055d138621ad9",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_80925528",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_5e97f1da622ba53b",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_80925528",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_2ea4e1c604959e70",
+    "derived_class": "exact_but_trivial",
+    "property_key": "redfin_80990371",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_6ea2a14d497dece9",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_80990371",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_8d844512b3e5a7d5",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_80990371",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_c6c4c4017b1ed9dd",
+    "derived_class": "misnamed_but_warranted",
+    "property_key": "redfin_80990371",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_d7af7b65b4a20624",
+    "derived_class": "exact_but_trivial",
+    "property_key": "redfin_80990371",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_00003e5139dec42a",
+    "derived_class": "exact_and_warranted",
+    "property_key": "redfin_81000709",
+    "stored_verdict": "unsupported"
+   },
+   {
+    "condition_id": "oc1_0bf928c505baf47f",
+    "derived_class": "inconclusive",
+    "property_key": "redfin_81000709",
+    "stored_verdict": "cannot_assess"
+   },
+   {
+    "condition_id": "oc1_9a34d1d80f89f088",
+    "derived_class": "inconclusive",
+    "property_key": "redfin_81000709",
+    "stored_verdict": "cannot_assess"
+   }
+  ],
+  "terra_supported_factorized_absent": [
+   {
+    "condition_id": "oc1_7d70c51ae086a11b",
+    "derived_class": "absent",
+    "property_key": "redfin_10806500",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_0807db3d5e597991",
+    "derived_class": "absent",
+    "property_key": "redfin_10952874",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_63292c2bf411d389",
+    "derived_class": "absent",
+    "property_key": "redfin_10952874",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_74eaab9cd204a68b",
+    "derived_class": "absent",
+    "property_key": "redfin_10952874",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_36d8fa941a803d52",
+    "derived_class": "absent",
+    "property_key": "redfin_11000447",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_e5469dc550971856",
+    "derived_class": "absent",
+    "property_key": "redfin_11000447",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_89ad6ab89688e3d0",
+    "derived_class": "absent",
+    "property_key": "redfin_11077450",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_882bfbf383946f88",
+    "derived_class": "absent",
+    "property_key": "redfin_11079485",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_1b4fee27685b292a",
+    "derived_class": "absent",
+    "property_key": "redfin_11185681",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_632bb9339aa62c29",
+    "derived_class": "absent",
+    "property_key": "redfin_11185681",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_ff239f3d892cf7d7",
+    "derived_class": "absent",
+    "property_key": "redfin_11185681",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_1e0e7b032023c8cc",
+    "derived_class": "absent",
+    "property_key": "redfin_125779232",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_3d1a0d63fb088044",
+    "derived_class": "absent",
+    "property_key": "redfin_125779232",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_7369dbd37bee24fd",
+    "derived_class": "absent",
+    "property_key": "redfin_125779232",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_8cbdae2f9bb3f32a",
+    "derived_class": "absent",
+    "property_key": "redfin_125779232",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_7523eef3a6530618",
+    "derived_class": "absent",
+    "property_key": "redfin_125970550",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_83c3115cf9901e78",
+    "derived_class": "absent",
+    "property_key": "redfin_125970550",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_63c3bbcd36bb9ab4",
+    "derived_class": "absent",
+    "property_key": "redfin_126224899",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_ba45c5daaa4d8976",
+    "derived_class": "absent",
+    "property_key": "redfin_126224899",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_e26a6139d357929b",
+    "derived_class": "absent",
+    "property_key": "redfin_126224899",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_10549b84d801b895",
+    "derived_class": "absent",
+    "property_key": "redfin_126418713",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_ba42ccbb1d813f8b",
+    "derived_class": "absent",
+    "property_key": "redfin_126418713",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_04d2943d36e6b9c2",
+    "derived_class": "absent",
+    "property_key": "redfin_127468088",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_89bd165f94cc0cd5",
+    "derived_class": "absent",
+    "property_key": "redfin_127468088",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_976e7ea07df8f23d",
+    "derived_class": "absent",
+    "property_key": "redfin_127468088",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_3a337d2373f8a0a5",
+    "derived_class": "absent",
+    "property_key": "redfin_166147710",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_51d732cb5528153f",
+    "derived_class": "absent",
+    "property_key": "redfin_166147710",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_83d04b2a94407233",
+    "derived_class": "absent",
+    "property_key": "redfin_166147710",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_8cddfc0a63490297",
+    "derived_class": "absent",
+    "property_key": "redfin_166147710",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_ea47eedfb3b43b31",
+    "derived_class": "absent",
+    "property_key": "redfin_166147710",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_f5ce61c6410fa96e",
+    "derived_class": "absent",
+    "property_key": "redfin_166147710",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_421a504b7114063e",
+    "derived_class": "absent",
+    "property_key": "redfin_25809814",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_874eea526d4e2aab",
+    "derived_class": "absent",
+    "property_key": "redfin_80877597",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_463b9e4badebe6a2",
+    "derived_class": "absent",
+    "property_key": "redfin_80925528",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_bdf60e6067e8b909",
+    "derived_class": "absent",
+    "property_key": "redfin_80925528",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_4107ebc052757d12",
+    "derived_class": "absent",
+    "property_key": "redfin_80990371",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_bd5632567e6d5300",
+    "derived_class": "absent",
+    "property_key": "redfin_80990371",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_df199e226e8c8bd7",
+    "derived_class": "absent",
+    "property_key": "redfin_80990371",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_e9ed24991a5bb5cb",
+    "derived_class": "absent",
+    "property_key": "redfin_80990371",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_ff31806fd5d908df",
+    "derived_class": "absent",
+    "property_key": "redfin_80990371",
+    "stored_verdict": "supported"
+   },
+   {
+    "condition_id": "oc1_fb9da6ba8a71f786",
+    "derived_class": "absent",
+    "property_key": "redfin_81000709",
+    "stored_verdict": "supported"
+   }
+  ]
+ },
+ "g4": {
+  "checks": {
+   "exact_and_warranted_share": {
+    "cmp": "<=",
+    "limit": 0.9,
+    "note": "Terra's own supported rate on this population is 84.2%; near-total exactness means the verifier is not discriminating.",
+    "passed": true,
+    "value": 0.562559694364852
+   },
+   "misnamed_share": {
+    "cmp": ">=",
+    "limit": 0.03,
+    "note": "the labels say the class is real and material; ~0% means the accuracy axis is inert.",
+    "passed": true,
+    "value": 0.045845272206303724
+   },
+   "unclear_claim_accurate_as_written": {
+    "cmp": "<=",
+    "limit": 0.1,
+    "note": "Terra's cannot_assess rate on this population is 2.8%.",
+    "passed": false,
+    "value": 0.28939828080229224
+   },
+   "unclear_material_enough_for_work": {
+    "cmp": "<=",
+    "limit": 0.1,
+    "note": "Terra's cannot_assess rate on this population is 2.8%.",
+    "passed": false,
+    "value": 0.16809933142311365
+   },
+   "unclear_visible": {
+    "cmp": "<=",
+    "limit": 0.1,
+    "note": "Terra's cannot_assess rate on this population is 2.8%.",
+    "passed": true,
+    "value": 0.013371537726838587
+   }
+  },
+  "class_distribution": {
+   "absent": 149,
+   "exact_and_warranted": 589,
+   "exact_but_trivial": 98,
+   "inconclusive": 163,
+   "misnamed_and_trivial": 5,
+   "misnamed_but_warranted": 43
+  },
+  "passed": false,
+  "total_conditions": 1047
+ },
+ "gates": {
+  "G1": {
+   "basis": "8.8% — just above the 6.4% replica noise floor, which a different prompt inherits at minimum.",
+   "cmp": "<=",
+   "exploratory": false,
+   "fired": 10,
+   "klass": "supported_billed",
+   "n_expected": 57,
+   "n_judged": 57,
+   "n_population": 57,
+   "passed": false,
+   "rule": "derived class suppresses work",
+   "status": "decisive",
+   "threshold": 5,
+   "title": "false suppression"
+  },
+  "G2": {
+   "basis": "humans confirmed these present and exactly named; the hypothesis is that Terra's single verdict conflated 'not visible' with 'the wording does not fit'.",
+   "cmp": ">=",
+   "exploratory": false,
+   "fired": 6,
+   "klass": "dirB_recovery",
+   "n_expected": 16,
+   "n_judged": 16,
+   "n_population": 16,
+   "passed": false,
+   "rule": "visible == yes",
+   "status": "decisive",
+   "threshold": 11,
+   "title": "recovery of Terra's false rejections"
+  },
+  "G3a": {
+   "basis": "n=7 is below the 10-judgment exploratory floor; decisive only after the L2 rescore.",
+   "cmp": ">=",
+   "exploratory": true,
+   "fired": 2,
+   "klass": "misnamed_billed",
+   "n_expected": 7,
+   "n_judged": 7,
+   "n_population": 7,
+   "passed": false,
+   "rule": "claim_accurate_as_written == no",
+   "status": "exploratory",
+   "threshold": 4,
+   "title": "misnamed catch"
+  },
+  "G3b": {
+   "basis": "n=5; the category no verdict-flip arm can measure at all.",
+   "cmp": ">=",
+   "exploratory": true,
+   "fired": 0,
+   "klass": "trivial_billed",
+   "n_expected": 5,
+   "n_judged": 5,
+   "n_population": 5,
+   "passed": false,
+   "rule": "material_enough_for_work == no",
+   "status": "exploratory",
+   "threshold": 3,
+   "title": "trivial catch"
+  },
+  "G3c": {
+   "basis": "n=3 is the population that blocked gate 2b for verdict-flip arms; directional here by construction.",
+   "cmp": ">=",
+   "exploratory": true,
+   "fired": 1,
+   "klass": "hard_false_billed",
+   "n_expected": 3,
+   "n_judged": 3,
+   "n_population": 3,
+   "passed": false,
+   "rule": "visible == no",
+   "status": "directional",
+   "threshold": 2,
+   "title": "absent catch"
+  }
+ },
+ "inputs": [
+  {
+   "bytes": 99808,
+   "path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\reports\\labels_v1_1.json",
+   "sha256": "7f9b03017195144195550074b49dbb0488ed3ad33fdde905ba4e5867dfdbe3bd"
+  },
+  {
+   "bytes": 3091,
+   "path": "artifacts_canary\\factorized_v1_20260831\\manifest.json",
+   "sha256": "89f8fccdf2769bdff0db404ffc1ed771328ba6ecc013c7bcd81a7b5463b3a4d0"
+  }
+ ],
+ "integrity_ok": true,
+ "label_meta": {
+  "excluded_production_cards": 37,
+  "pending_cards": 0
+ },
+ "label_version": "v1.1",
+ "not_shown": [
+  "Production listings. This scores the canary only (see §inputs for the excluded count): production contributes one misnamed and one trivial card, not enough to pay for a second input path.",
+  "A production error rate. The labeled cards were sampled disagreements-first, so catch rates sit on a hard, non-representative slice, and the full-sweep class distribution is not a population rate.",
+  "Specificity on Terra's correct rejections. There is no dirB loss population (`dirB_terra_correct` = 0 cards), so G2 measures recovery with no paired over-revival check until Session L2 adds one.",
+  "Anything downstream: Sol, packages, pricing, dispositions, or whether a trivial condition should be absorbed by turnover rather than dropped."
+ ],
+ "replica": {
+  "arm_flips": 39,
+  "arm_flips_all": 101,
+  "arm_pairs": 702,
+  "arm_pairs_all": 1047,
+  "arm_rate": 0.05555555555555555,
+  "replica_flips": 42,
+  "replica_pairs": 702,
+  "replica_rate": 0.05982905982905983
+ },
+ "schema_version": 1
+}
