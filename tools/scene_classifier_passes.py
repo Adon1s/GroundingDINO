@@ -614,6 +614,7 @@ async def run_pass_2a(
         model_config: dict,
         context: Optional[Dict[str, Any]] = None,
         *,
+        system_prompt: Optional[str] = None,
         user_prompt: Optional[str] = None,
 ) -> Pass2aResult:
     """
@@ -627,7 +628,13 @@ async def run_pass_2a(
         vlm_client: VLM client instance
         model_config: Model configuration
         context: Optional context from previous passes
+        system_prompt: Benchmark-only override of PASS_2A_SYSTEM_PROMPT
         user_prompt: Benchmark-only override of PASS_2A_USER_PROMPT
+
+    Both overrides fall back to the production constant when None, so a
+    caller can never accidentally send an empty prompt; the comparator hashes
+    whichever text it supplies into the experiment identity, so a silently
+    ignored override would key results by a prompt that never ran.
 
     Returns:
         Pass2aResult with freeform observations
@@ -637,7 +644,9 @@ async def run_pass_2a(
     try:
         response = await vlm_client.analyze_image(
             image_path=image_path,
-            system_prompt=PASS_2A_SYSTEM_PROMPT,
+            system_prompt=(
+                PASS_2A_SYSTEM_PROMPT if system_prompt is None else system_prompt
+            ),
             user_prompt=PASS_2A_USER_PROMPT if user_prompt is None else user_prompt,
             **_with_analysis_pass(model_config, "Pass 2a (observations freeform)"),
         )
