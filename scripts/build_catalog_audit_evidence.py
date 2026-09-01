@@ -1127,10 +1127,12 @@ def load_git(paths: Sequence[str]) -> Dict[str, Any]:
     return {
         "head": _git("rev-parse", "HEAD").decode("utf-8").strip(),
         "branch": _git("rev-parse", "--abbrev-ref", "HEAD").decode("utf-8").strip(),
-        "tracked_changes": sorted(l for l in _git("status", "--porcelain", "--untracked-files=no")
+        # Scoped to consumed inputs: the builder's own tracked outputs are dirty by
+        # construction between a regeneration and its commit.
+        "tracked_changes": sorted(l for l in _git("status", "--porcelain", "--untracked-files=no", "--", *paths)
                                   .decode("utf-8").splitlines() if l.strip()),
         "tracked_inputs": {p: p in tracked for p in sorted(paths)},
-        "note": "not part of the fingerprint; untracked files are deliberately not counted",
+        "note": "not part of the fingerprint; scoped to consumed inputs; untracked files are not counted",
     }
 
 
