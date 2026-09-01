@@ -328,6 +328,62 @@ def test_latest_verdict_wins_and_null_undoes(tmp_path):
     assert "rc_b" not in got
 
 
+def gold_fixture(**over):
+    """Gold cases are review output, so they arrive beside the frozen queue."""
+    case = {"case_id": "ga_p_photo_001_g1", "lane": "miss_gold", "attribute": True,
+            "run_ref": {"source": "canary", "property_key": "p", "run_id": "r"},
+            "human_truth": {"basis": "gold", "gold_id": "g1", "finding": "Ceiling is stained."},
+            "v5_claim": {"condition_id": "", "catalog_item_id": None, "terra_verdict": None},
+            "mechanical_hints": {"join_methods": []}, "status": "pending"}
+    case.update(over)
+    return {"schema_version": 1, "cases": [case],
+            "matching_table": [{"gold_id": "g1", "decision": "miss_candidate"},
+                               {"gold_id": "g2", "decision": "out_of_catalog"}]}
+
+
+def test_gold_cases_merge_into_reconciliation_and_the_miss_headline():
+    """The gold lane is real misses; it must reach the headline, not a side table."""
+    gold_verdict = verdict(case_id="ga_p_photo_001_g1", first_responsible_stage="2c",
+                           confidence="medium", rationale="the bullet never survived 2c")
+    verdicts = {"rc_a": verdict(), "ga_p_photo_001_g1": gold_verdict}
+
+    with pytest.raises(ReconciliationError, match="no queue case"):
+        reconcile(queue_fixture(), verdicts)  # without --gold-cases it is an orphan
+
+    status = reconcile(queue_fixture(), verdicts, gold=gold_fixture())
+    assert status["ok"] is True and status["gold_cases"] == 1
+
+    report = tally(queue_fixture(), verdicts, gold=gold_fixture())
+    assert report["misses"]["judged"] == 2
+    assert report["by_lane"]["miss_gold"] == {"downstream": 1}
+    assert report["by_basis"]["gold"] == {"downstream": 1}
+    assert report["gold"]["matching"] == {"miss_candidate": 1, "out_of_catalog": 1}
+    assert report["gold"]["cases"] == 1
+
+
+def test_gold_cases_must_obey_their_own_contract():
+    verdicts = {"rc_a": verdict()}
+    for over, match in (
+        ({"case_id": "rc_a"}, "collide with the queue"),
+        ({"case_id": "zz_bad"}, "must start with ga_ or gx_"),
+        ({"lane": "miss_label"}, "outside"),
+        ({"attribute": False}, "must be attributable"),
+        ({"human_truth": {"basis": "v1_1"}}, "basis must be 'gold'"),
+    ):
+        with pytest.raises(ReconciliationError, match=match):
+            reconcile(queue_fixture(), verdicts, gold=gold_fixture(**over),
+                      allow_incomplete=True)
+
+
+def test_gold_extra_cannot_duplicate_a_condition_the_queue_already_carries():
+    """A gx_ case anchored on an rc_ case's condition would double-count one error."""
+    extra = gold_fixture(case_id="gx_p_" + CID, lane="halluc_gold_extra",
+                         v5_claim={"condition_id": CID, "catalog_item_id": "item",
+                                   "terra_verdict": "supported"})
+    with pytest.raises(ReconciliationError, match="appears in"):
+        reconcile(queue_fixture(), {"rc_a": verdict()}, gold=extra, allow_incomplete=True)
+
+
 def test_tally_totals_reconcile_with_the_ledger():
     report = tally(queue_fixture(), {"rc_a": verdict()})
     assert report["misses"] == {"counts": {"downstream": 1}, "judged": 1, "pass_2a": 0,

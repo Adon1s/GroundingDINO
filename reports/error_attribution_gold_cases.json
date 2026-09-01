@@ -1,0 +1,2527 @@
+{
+  "cases": [
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_002_g1",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Countertops are basic/dated laminate",
+        "gold_id": "g1",
+        "photo": "redfin_10806500/photo_002.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_002_g3",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Large open upper-cabinet niche contains an exposed unfinished wood shelf or board",
+        "gold_id": "g3",
+        "photo": "redfin_10806500/photo_002.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_002_g6",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Flush-dome ceiling lights are basic/dated",
+        "gold_id": "g6",
+        "photo": "redfin_10806500/photo_002.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_002_g8",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Faucet and sink fittings are older/basic",
+        "gold_id": "g8",
+        "photo": "redfin_10806500/photo_002.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_003_g4",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Old wood rear door is rough and weathered with gaps",
+        "gold_id": "g4",
+        "photo": "redfin_10806500/photo_003.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_004_g4",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Laminate countertop is worn/stained near the range",
+        "gold_id": "g4",
+        "photo": "redfin_10806500/photo_004.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_005_g3",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Ceiling has a basic exposed-bulb light holder",
+        "gold_id": "g3",
+        "photo": "redfin_10806500/photo_005.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_005_g4",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Walls have minor scuffs, small holes, and applied decal stickers",
+        "gold_id": "g4",
+        "photo": "redfin_10806500/photo_005.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": "oc1_32bf8869e625ef1f",
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_006_g6",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Floor tile grout is darkened or stained in places",
+        "gold_id": "g6",
+        "photo": "redfin_10806500/photo_006.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_006_g7",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Ceiling above the window has broad, uneven discoloration",
+        "gold_id": "g7",
+        "photo": "redfin_10806500/photo_006.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_007_g3",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Cords/wiring are strung across the ceiling (surface-run)",
+        "gold_id": "g3",
+        "photo": "redfin_10806500/photo_007.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_007_g6",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Painted masonry walls show peeling paint and staining",
+        "gold_id": "g6",
+        "photo": "redfin_10806500/photo_007.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_001_g6",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Cornice and upper trim show weathering and paint wear",
+        "gold_id": "g6",
+        "photo": "redfin_11000447/photo_001.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_001_g7",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Entry transom and surrounding trim show dark staining and finish wear",
+        "gold_id": "g7",
+        "photo": "redfin_11000447/photo_001.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_002_g4",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Kitchen beyond has an older basic range and refrigerator",
+        "gold_id": "g4",
+        "photo": "redfin_11000447/photo_002.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_002_g5",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Kitchen cabinetry visible beyond is minimal and dated",
+        "gold_id": "g5",
+        "photo": "redfin_11000447/photo_002.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_002_g8",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Baseboards and door trim are scuffed with paint wear",
+        "gold_id": "g8",
+        "photo": "redfin_11000447/photo_002.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_003_g2",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Window frames and sills show peeling paint and wear",
+        "gold_id": "g2",
+        "photo": "redfin_11000447/photo_003.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_003_g5",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Loose cable wiring is coiled on the floor and surface-run along the wall",
+        "gold_id": "g5",
+        "photo": "redfin_11000447/photo_003.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_003_g8",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Ceiling fan is dated",
+        "gold_id": "g8",
+        "photo": "redfin_11000447/photo_003.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_004_g3",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Free-standing electric range is older and worn",
+        "gold_id": "g3",
+        "photo": "redfin_11000447/photo_004.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_004_g7",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Window has bent/damaged blinds and plastic sheeting remnants; valance is dated",
+        "gold_id": "g7",
+        "photo": "redfin_11000447/photo_004.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": "oc1_d3e7cd176d2f8dd6",
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_004_g8",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Round ceiling light fixture is dated",
+        "gold_id": "g8",
+        "photo": "redfin_11000447/photo_004.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_005_g1",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Exposed uninsulated flexible/metal duct runs across the ceiling and down through the room (unfinished HVAC run)",
+        "gold_id": "g1",
+        "photo": "redfin_11000447/photo_005.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_005_g4",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Venetian blinds are dated and bent/partial",
+        "gold_id": "g4",
+        "photo": "redfin_11000447/photo_005.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": "oc1_ae87b5f70145990a",
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_005_g7",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Ceiling fan is an older dated style",
+        "gold_id": "g7",
+        "photo": "redfin_11000447/photo_005.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_005_g8",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Detached louvered door panels lean against the left wall and show worn paint",
+        "gold_id": "g8",
+        "photo": "redfin_11000447/photo_005.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_006_g4",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Stair treads, nosing, and stained-wood balusters show finish wear",
+        "gold_id": "g4",
+        "photo": "redfin_11000447/photo_006.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_006_g5",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Baseboards and wall-to-floor edges are incomplete and rough in places",
+        "gold_id": "g5",
+        "photo": "redfin_11000447/photo_006.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": "oc1_b2598baee164e79a",
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_006_g7",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Ceiling shows a broad discolored band toward the stairwell",
+        "gold_id": "g7",
+        "photo": "redfin_11000447/photo_006.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_007_g5",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Red cable is surface-run across the left wall",
+        "gold_id": "g5",
+        "photo": "redfin_11000447/photo_007.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_007_g7",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Ceiling fan is dated",
+        "gold_id": "g7",
+        "photo": "redfin_11000447/photo_007.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_007_g8",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Door and casing show worn finish and hardware",
+        "gold_id": "g8",
+        "photo": "redfin_11000447/photo_007.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_008_g2",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Open unfinished cutout/hole in the wall above (rough-edged opening)",
+        "gold_id": "g2",
+        "photo": "redfin_11000447/photo_008.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_11000447_photo_008_g10",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Baseboard trim is missing along much of the left wall and partition",
+        "gold_id": "g10",
+        "photo": "redfin_11000447/photo_008.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_11000447\\20260817_224602_d422d7ae\\photo_intel_debug.json",
+        "artifact_sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e",
+        "property_key": "redfin_11000447",
+        "run_id": "20260817_224602_d422d7ae",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_001_g1",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Long concrete entry steps are weathered and stained",
+        "gold_id": "g1",
+        "photo": "redfin_10806500/photo_001.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_001_g3",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Front porch and window openings have prominent metal security bars or grilles",
+        "gold_id": "g3",
+        "photo": "redfin_10806500/photo_001.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_001_g4",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Corrugated downspout extension terminates at grade close to the basement window and foundation",
+        "gold_id": "g4",
+        "photo": "redfin_10806500/photo_001.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_001_g6",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Storm/screen door is dated",
+        "gold_id": "g6",
+        "photo": "redfin_10806500/photo_001.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    },
+    {
+      "attribute": true,
+      "case_id": "ga_redfin_10806500_photo_001_g7",
+      "human_truth": {
+        "basis": "gold",
+        "finding": "Metal step handrail is older with worn paint",
+        "gold_id": "g7",
+        "photo": "redfin_10806500/photo_001.jpg"
+      },
+      "lane": "miss_gold",
+      "mechanical_hints": {
+        "join_methods": [],
+        "note": "gold lane; forward walk from this photo's 2a"
+      },
+      "run_ref": {
+        "artifact_path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\artifacts_canary\\renovation_session9_20260818\\run_1\\candidate\\redfin_10806500\\20260817_224354_3633e400\\photo_intel_debug.json",
+        "artifact_sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898",
+        "property_key": "redfin_10806500",
+        "run_id": "20260817_224354_3633e400",
+        "source": "canary"
+      },
+      "status": "pending",
+      "untraceable_reason": null,
+      "v5_claim": {
+        "accepted": null,
+        "catalog_item_id": null,
+        "catalog_kind": null,
+        "claim_text": null,
+        "condition_id": "",
+        "covering_rejected_condition_id": null,
+        "disposition": null,
+        "terra_verdict": null
+      }
+    }
+  ],
+  "generated_at": "2026-09-01T01:13:57.100718+00:00",
+  "matching_table": [
+    {
+      "case_id": "ga_redfin_10806500_photo_002_g1",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Countertops are basic/dated laminate",
+      "gold_id": "g1",
+      "matched_condition_id": null,
+      "note": "Counters read as granite-look laminate with a rolled edge \u2014 basic/dated, as gold says. No accepted condition covers countertops and no rejected condition on this photo covers them either (the only listed condition is the flooring one). A dated/basic countertop modernization item is the sort of thing this v5 catalog plainly carries (it carries older_flooring_style and dated_lighting_fixtures), so this is billable-in-principle, hence a miss rather than out_of_catalog. Note the catalog inventory itself was not inspected (Read-only review), so the in-catalog judgement is by analogy.",
+      "photo": "redfin_10806500/photo_002.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Backsplash has a small-format mosaic-look finish",
+      "gold_id": "g2",
+      "matched_condition_id": null,
+      "note": "Gold states the backsplash 'has a small-format mosaic-look finish' \u2014 a neutral description of an intact, comparatively current finish, not a deficiency. Nothing in a defect/degradation/modernization catalog would bill a serviceable recent mosaic backsplash. The pipeline in fact read it correctly as newer than the rest of the room and 2c dropped it, which is the right outcome. Not a miss.",
+      "photo": "redfin_10806500/photo_002.jpg"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_002_g3",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Large open upper-cabinet niche contains an exposed unfinished wood shelf or board",
+      "gold_id": "g3",
+      "matched_condition_id": null,
+      "note": "The open upper-cabinet bay on the right has a bare unfinished wood shelf board with a raw front edge \u2014 an incomplete/unfinished cabinetry condition, not just a styling choice. No accepted condition covers cabinetry on this photo, and no rejected condition is listed. A cabinet defect/repair item (missing door / unfinished cabinetry) is the kind of item the catalog carries, so miss_candidate rather than out_of_catalog; catalog contents were not directly inspected.",
+      "photo": "redfin_10806500/photo_002.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Sheet vinyl flooring is dated with wear and staining near the range",
+      "gold_id": "g5",
+      "matched_condition_id": "oc1_224fbf7969ce359e",
+      "note": "older_flooring_style, accepted, disposition accepted_for_work, Terra supported ('patterned sheet-style flooring is visible and has a visually dated appearance'). Covers the dated sheet vinyl and bills its replacement. One nuance worth recording but not a separate decision: the claim text says 'flooring clean but visually outdated' whereas gold also notes wear and staining near the range, so the degradation aspect visible in the photo is not represented in the billed claim \u2014 the finding is nonetheless covered by an accepted condition.",
+      "photo": "redfin_10806500/photo_002.jpg"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_002_g6",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Flush-dome ceiling lights are basic/dated",
+      "gold_id": "g6",
+      "matched_condition_id": null,
+      "note": "Two basic flush dome fixtures are clearly present. The pipeline got all the way to a resolved item: 2c survivor cd47781a6d1735ab -> dated_lighting_fixtures (modernization). It is the one issue absent from p2e.kept_issue_ids and matches the single tier_optional_suppressed count. Per the brief, 2e suppression never costs a condition, so a condition was projected \u2014 but no accepted condition covering lighting appears in conditions_on_photo. Caveat recorded deliberately: the review-excluded oc1_f46cc039d3163f19 (appendix_misnamed, case rc_4cab6e7be02b) is not inspectable here, so if that condition turns out to be the lighting one and is accepted, this row is a matched, not a miss, and the proto case below is a duplicate of rc_4cab6e7be02b. On the evidence I can see, no accepted condition covers it.",
+      "photo": "redfin_10806500/photo_002.jpg"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_002_g8",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Faucet and sink fittings are older/basic",
+      "gold_id": "g8",
+      "matched_condition_id": null,
+      "note": "Basic chrome faucet and side fitting on a stainless drop-in sink, consistent with gold's 'older/basic'. No accepted or rejected condition on this photo touches plumbing fixtures. A dated/basic fixture modernization item is directly analogous to dated_lighting_fixtures, which this catalog carries, so miss_candidate; catalog contents not directly inspected.",
+      "photo": "redfin_10806500/photo_002.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Basement ceiling is covered with fiberboard panels that sag and gap (deteriorating, unfinished)",
+      "gold_id": "g1",
+      "matched_condition_id": "oc1_9293dc42395de018",
+      "note": "Accepted ceiling_cracks_or_sagging (Terra supported) is anchored on exactly these two observations: 'Ceiling panels are sagging and deteriorated.' and 'Ceiling panels have gaps.' The photo confirms both: open joints between the ceiling boards toward the rear/right and one span visibly dropped out of plane. Clean match.",
+      "photo": "redfin_10806500/photo_003.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Exposed ductwork with aged/deteriorating wrap runs across the ceiling",
+      "gold_id": "g2",
+      "matched_condition_id": null,
+      "note": "Exposed ductwork crossing the ceiling of an unfinished utility basement is normal-for-context, and nothing in the v5 catalog appears to carry a duct/duct-wrap item: the sibling modernization observations that DID survive 2c ('Older plumbing is exposed.', 'Older electrical components are exposed.') both resolved to catalog_item_id null at 2d, i.e. this family of exposed-mechanical observations has no catalog target. The one arguably billable slice is the aged/deteriorating wrap (insulation replacement or abatement), and I can see soiled banded wrap on the round runs, but I have no evidence of a catalog item for it. Hedge: if a duct-condition item does exist in v5, this flips to miss_candidate attributed to 2c, since the bullet 'Duct and utility lines are exposed near the ceiling.' reached 2c and was dropped.",
+      "photo": "redfin_10806500/photo_003.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Painted masonry walls show peeling paint and staining",
+      "gold_id": "g3",
+      "matched_condition_id": "oc1_a60baea9299f9b1f",
+      "note": "Accepted wall_scuffs_marks_or_dents (Terra supported: 'The masonry walls show visible patching and discoloration.') is anchored on 'Masonry walls show discoloration and patching.', which is the same wall-surface observation gold records as peeling paint and staining. Coverage is real, so this is a match, not a miss. Caveat for the record: the claim wording ('walls scuffs, marks, or minor dents from use') describes the wrong mechanism for whitewashed masonry with a large stain, mortar patches and thinned/flaking paint - a naming-quality issue, not a coverage gap, and the same family as the appendix_misnamed lane.",
+      "photo": "redfin_10806500/photo_003.jpg"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_003_g4",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Old wood rear door is rough and weathered with gaps",
+      "gold_id": "g4",
+      "matched_condition_id": null,
+      "note": "The old weathered wood door in the rough opening at center-right is clearly visible with gaps around the frame, and no condition on this photo touches a door - the four conditions cover ceiling, walls, floor and unfinished-space only. Doors are a standard component family in a rehab catalog (v5 already carries per-surface items like ceiling, wall and flooring wear), so I judge this billable in principle rather than normal-for-context. Residual uncertainty: retrieval is scene-group scoped and this photo is scene_group 'utility', so a door item may not be reachable here at all; if so this would be out_of_catalog rather than a miss. No rejected condition covers it.",
+      "photo": "redfin_10806500/photo_003.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Electrical panel is surface-mounted with exposed conduit and wiring nearby",
+      "gold_id": "g5",
+      "matched_condition_id": null,
+      "note": "Surface-mounted panel with exposed conduit is genuinely in the photo, but this is the canonical normal-for-context unfinished-basement observation, and the pipeline itself demonstrates there is no catalog target: 'Older electrical components are exposed.' survived 2c as a modernization issue and resolved to catalog_item_id null at 2d. Consistent with the standing electrical product quarantine and the parked finding that wiring observations are true-but-unactionable for photo costing. Not a miss.",
+      "photo": "redfin_10806500/photo_003.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Exposed plumbing/gas piping with old valves along the left wall",
+      "gold_id": "g6",
+      "matched_condition_id": null,
+      "note": "Exposed piping with old valves along the left wall is visible, but again normal-for-context for an unfinished utility basement, and the corresponding survivor 'Older plumbing is exposed.' resolved to catalog_item_id null at 2d - the observation reached the catalog resolver and found nothing to bill. Not a miss.",
+      "photo": "redfin_10806500/photo_003.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Concrete floor is stained and dusty with worn patches",
+      "gold_id": "g7",
+      "matched_condition_id": "oc1_c976b8af8605cf38",
+      "note": "Accepted worn_or_stained_flooring (Terra supported: 'The concrete floor has visible dark stains and discoloration.') is anchored on 'The concrete floor is stained.' The photo shows exactly that plus dust and darker worn patches. Clean match.",
+      "photo": "redfin_10806500/photo_003.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Concrete slab has whitish residue and streaking near the rear and right side",
+      "gold_id": "g8",
+      "matched_condition_id": "oc1_c976b8af8605cf38",
+      "note": "The whitish streaking/residue on the slab toward the rear and right is floor discoloration, and the accepted condition's claim text is explicitly 'flooring wear, staining, or discoloration without structural concern', so the same accepted condition covers this observation - matching it here rather than calling a second miss avoids double-counting one slab surface. Noting for the reviewer only: if g8 is read as efflorescence, i.e. evidence of moisture intrusion rather than surface discoloration, no accepted condition carries that meaning and the flooring claim's 'without structural concern' qualifier would actively contradict it; on the photo-observation reading the record asks for, it is covered.",
+      "photo": "redfin_10806500/photo_003.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Under-cabinet range vent/filter area shows dark grease staining",
+      "gold_id": "g1",
+      "matched_condition_id": null,
+      "note": "Grease staining on the under-cabinet vent/filter is real and visible (dark discolored mesh above the range), but it is cleaning-grade soiling around a cooking appliance -- expected-for-context in a lived-in kitchen and not a renovation condition. No v5 item in evidence bills appliance/vent soiling: the only appliance item present is appliances_dated_or_basic, a modernization claim about style/grade, and it already carries the hood as an object (accepted oc1_ad1d977c6f53a08a). Not counted as a miss.",
+      "photo": "redfin_10806500/photo_004.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Cabinet faces and bulkhead above the range are scuffed with worn edges",
+      "gold_id": "g2",
+      "matched_condition_id": "oc1_7193fd746734f7d6",
+      "note": "cabinets_worn_finish (accepted, degradation, 'cabinet finish worn or faded finish on intact cabinets'). Terra's rationale -- 'The cabinet beside the stove has visibly chipped and worn paint along its edges' -- is the same observation as the gold finding, and the photo shows exactly that on the cabinet faces and the bulkhead above the range. Clean match.",
+      "photo": "redfin_10806500/photo_004.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Makeshift open wood shelves with exposed brackets on the left wall",
+      "gold_id": "g3",
+      "matched_condition_id": null,
+      "note": "Makeshift open wood shelves on exposed brackets are clearly visible on the left wall, and 2a saw them ('open shelving', part of the 'unfinished/remodeled-in-stages appearance'), with a 2b bullet 'Kitchen includes open shelving.' dropped at 2c. But this is a storage/configuration observation, not a modernization, degradation or repair condition under the three-kind v5 ontology, and layout-class items were retired in catalog 3.1. Nothing in v5 could bill it, so the 2c drop is not an error.",
+      "photo": "redfin_10806500/photo_004.jpg"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_004_g4",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Laminate countertop is worn/stained near the range",
+      "gold_id": "g4",
+      "matched_condition_id": null,
+      "note": "Countertop wear/damage is visible (chipped, delaminated front edge on the left foreground counter; dingy discoloration near the sink). No accepted condition asserts counter wear: outdated_kitchen_finishes (oc1_e5cb60caefeab1cc) is a modernization claim that the counters are dated laminate, which is a different observation about the same object -- and the pipeline itself treated them as two separate issues. The degradation issue existed (70f737d3dba9a8ff, 'Laminate countertops show visible wear.') and died before becoming a condition, so there is no covering rejected condition either. Attributed in Part 3.",
+      "photo": "redfin_10806500/photo_004.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Peel-and-stick mosaic backsplash ends mid-wall (incomplete coverage)",
+      "gold_id": "g5",
+      "matched_condition_id": null,
+      "note": "The mosaic backsplash visibly stops mid-wall with bare wall continuing -- a genuine partial-install observation, and 2a captured its character ('mixed, piecemeal finishes', 'small newer-looking mosaic backsplash', 'unfinished/remodeled-in-stages appearance'), with bullets 'Backsplash is a small mosaic tile installation.' and 'Kitchen has mixed, piecemeal finishes.' both dropped at 2c. But incomplete/unfinished installation maps to none of the three v5 kinds: the tile is newer (not modernization), intact (not degradation) and unbroken (not repair). No v5 item in evidence bills partial finish coverage, so this is a catalog scope limit rather than a pipeline miss; recorded here so the 2c drop is not later re-read as an error.",
+      "photo": "redfin_10806500/photo_004.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Sheet vinyl flooring is dated with visible wear and seams",
+      "gold_id": "g6",
+      "matched_condition_id": "oc1_224fbf7969ce359e",
+      "note": "older_flooring_style (accepted, 'flooring clean but visually outdated flooring') covers the primary claim -- the sheet vinyl is dated -- and bills the floor for replacement in kitchen_primary. Partial-coverage note: the wear/seams half of the gold text was carried by vinyl_linoleum_worn_or_stained (oc1_15aed7627f94ab49), which Terra rejected as unsupported. I do not record that as a covering_rejected_condition_id because the decision is matched, and Terra's read is defensible -- at this resolution the floor is unmistakably dated with visible seams but discrete staining/wear is marginal.",
+      "photo": "redfin_10806500/photo_004.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Hallway wall at right has large scuff smears",
+      "gold_id": "g7",
+      "matched_condition_id": "oc1_194e17badf2f1ee8",
+      "note": "wall_scuffs_marks_or_dents (accepted, 'walls scuffs, marks, or minor dents from use'). Terra: 'Scuffs and patchy marks are visible on the right-side wall' -- exactly the large gray smears on the right-hand hallway wall in the photo. Clean match.",
+      "photo": "redfin_10806500/photo_004.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Ceiling light fixtures are basic/dated",
+      "gold_id": "g8",
+      "matched_condition_id": null,
+      "note": "The single basic flush-mount ceiling fixture is visible and 2a flagged lighting explicitly ('Lighting is weak. A single central ceiling fixture leaves work areas underlit'), producing two 2b bullets ('Kitchen lighting consists of a single central ceiling fixture.', 'Work areas are underlit.') that 2c dropped. Fixture replacement is an electrical-trade product, and the electrical trade has been product_quarantined since 2026-07-12 with fail-closed projection, so no v5 condition could bill this regardless of what 2c did. Not a miss.",
+      "photo": "redfin_10806500/photo_004.jpg"
+    },
+    {
+      "condition_id": "oc1_ad1d977c6f53a08a",
+      "decision": "gold_incomplete",
+      "note": "appliances_dated_or_basic, observation 'Range hood appears basic and older.' The photo shows a basic, older under-cabinet metal mesh vent/filter directly above the range (no separate hood body) -- plainly basic grade and dated. Support rests on the vent hood specifically; the freestanding electric range itself looks comparatively newer, so the plural 'appliances' framing is broader than what the photo proves, but the claim as observed is supported. Gold is incomplete here (gold treats this element only through g1's grease staining, not its dated/basic grade). No error case.",
+      "photo": "redfin_10806500/photo_004.jpg",
+      "photo_supports_claim": "yes"
+    },
+    {
+      "condition_id": "oc1_c4db64b324a6215d",
+      "decision": "gold_incomplete",
+      "note": "cabinets_dated_style. White raised/arched-panel cabinet doors of an older builder style are clearly visible throughout the run, matching Terra's 'basic raised-panel cabinets with an older-style appearance'. Distinct from gold g2, which covers the cabinets' worn/scuffed condition rather than their style. Gold is incomplete here. No error case.",
+      "photo": "redfin_10806500/photo_004.jpg",
+      "photo_supports_claim": "yes"
+    },
+    {
+      "condition_id": "oc1_e5cb60caefeab1cc",
+      "decision": "gold_incomplete",
+      "note": "outdated_kitchen_finishes, observation 'Countertops are older laminate.' Beige/tan dated-pattern laminate counters are visible on both counter runs, matching Terra's rationale. This is the dated-style claim about the counters and is genuinely supported; it is deliberately NOT used as the match for g4, which is a degradation claim (wear/staining) about the same object that no accepted condition asserts. Gold is incomplete on the dated-counter observation. No error case.",
+      "photo": "redfin_10806500/photo_004.jpg",
+      "photo_supports_claim": "yes"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_005_g3",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Ceiling has a basic exposed-bulb light holder",
+      "gold_id": "g3",
+      "matched_condition_id": null,
+      "note": "The photo clearly shows a plain, exposed-bulb ceiling fixture. No condition on this photo covers lighting: the three conditions on record are popcorn ceiling texture (accepted), dated overall decor (rejected as generic) and wall scuffs (Terra-unsupported). Treated as miss_candidate rather than out_of_catalog because the v5 catalog carries granular modernization items of exactly this type (popcorn_or_acoustic_ceiling_texture, dated_overall_decor_style) and 2a itself framed the fixture as an upgrade opportunity ('a better light fixture/fan would modernize it quickly'), so a lighting-modernization item is very likely available. That judgement is the main uncertainty here - if the v5 catalog has no light-fixture item, this is out_of_catalog and not a miss. Caveat: excluded_condition_ids contains oc1_f46cc039d3163f19 (lane appendix_misnamed) which is not reproduced in conditions_on_photo, so I cannot rule out that it is a misnamed lighting condition that would make this a match.",
+      "photo": "redfin_10806500/photo_005.jpg"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_005_g4",
+      "covering_rejected_condition_id": "oc1_32bf8869e625ef1f",
+      "decision": "miss_candidate",
+      "finding": "Walls have minor scuffs, small holes, and applied decal stickers",
+      "gold_id": "g4",
+      "matched_condition_id": null,
+      "note": "Gold asserts minor scuffs, small holes and applied decal stickers. The photo supports both halves: decals (butterflies/sunflowers) on the wall beside the windows, and small dark marks / nail-hole-sized specks plus screwed-in mounting hardware on the right-hand wall near the nightstand and the 'Towels' rack. A condition existed for this - oc1_32bf8869e625ef1f (wall_scuffs_marks_or_dents) - but Terra rejected it as unsupported, reasoning that the visible shapes near the windows are decorative decals. Terra is right about that specific area but the rejection is scoped to 'the visible walls near the windows' and misses the marks and fastener holes on the right wall, so the finding ends up unbilled. Recorded as miss_candidate with the rejected condition as coverage.",
+      "photo": "redfin_10806500/photo_005.jpg"
+    },
+    {
+      "condition_id": "oc1_7193bcac29a638ef",
+      "decision": "gold_incomplete",
+      "note": "popcorn_or_acoustic_ceiling_texture, accepted and Terra-supported. The photo shows an unambiguous stippled/popcorn ceiling texture across the entire visible ceiling. Gold does not list it, so gold is incomplete here - not a hallucination and no error case. The other two conditions on this photo (oc1_99f17fef92bebf77 dated decor, oc1_32bf8869e625ef1f wall scuffs) are not accepted, so they fall outside Part 2; oc1_f46cc039d3163f19 is in excluded_condition_ids and was skipped.",
+      "photo": "redfin_10806500/photo_005.jpg",
+      "photo_supports_claim": "yes"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Vanity front and countertop edge have swollen, peeling material with exposed substrate",
+      "gold_id": "g1",
+      "matched_condition_id": "oc1_f4c2c32f1c6dba1d",
+      "note": "Accepted vanity_worn_finish condition (Terra supported) carries the observation 'Vanity cabinet face and side are swollen, peeling, and deteriorated', which is exactly the gold finding. The catalog item name ('worn or faded finish on intact vanity') understates what the photo shows - swollen laminate with exposed substrate is damage, not a worn finish - but that naming mismatch is the appendix_misnamed lane already tracked as excluded condition oc1_f46cc039d3163f19, so I do not raise a duplicate case here.",
+      "photo": "redfin_10806500/photo_006.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Framed sliding shower doors and track are aged/dated",
+      "gold_id": "g2",
+      "matched_condition_id": "oc1_c7bbab44a94df11a",
+      "note": "Accepted outdated_bathroom_finishes condition explicitly names 'frosted sliding shower doors' in both its observation and Terra's rationale; the framed sliding doors and track in the photo are the same object. Clean match.",
+      "photo": "redfin_10806500/photo_006.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Plain fiberglass tub/shower surround shows worn seams and edges",
+      "gold_id": "g3",
+      "matched_condition_id": "oc1_7d70c51ae086a11b",
+      "note": "Accepted bath_fixtures_stained_or_worn condition merges two issues on this photo ('Tub surround appears aged' and 'Caulk or seams around the tub are worn and discolored'), which together cover the gold finding of worn seams and edges on the fiberglass surround. Terra supported it.",
+      "photo": "redfin_10806500/photo_006.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Window is located inside the tub/shower wet area with aging trim",
+      "gold_id": "g4",
+      "matched_condition_id": null,
+      "note": "The substance of this finding is window PLACEMENT relative to the wet area - a layout/configuration observation. Layout items were retired from the catalog (3.1), and no v5 item bills 'window in the shower wet area'; the corresponding 2b bullet ('A window is located in the wet area.') was correctly dropped at 2c alongside the other layout bullet. The residual 'aging trim' sliver is not a distinct defect in the photo (casing is painted and intact, merely tired) and falls inside the scope of the already-accepted outdated_bathroom_finishes condition oc1_c7bbab44a94df11a, which bills dated trim for this bathroom. Not a miss. I also note my photo read places the window past the enclosure post rather than inside it.",
+      "photo": "redfin_10806500/photo_006.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Vanity has a basic white sink and chrome faucet",
+      "gold_id": "g5",
+      "matched_condition_id": "oc1_c7bbab44a94df11a",
+      "note": "A basic white sink and plain chrome faucet is a descriptive inventory observation rather than a defect; as a deficiency it exists only as dated builder-grade fixture stock, which is precisely what the accepted modernization condition outdated_bathroom_finishes ('bathroom finishes dated tile, vanity, or fixtures') bills for this bathroom - its own observation lists the vanity, trim and lighting. Same accepted condition as g2; nothing is unbilled here. If one preferred to treat it as pure description it would be out_of_catalog, but either reading yields no error case.",
+      "photo": "redfin_10806500/photo_006.jpg"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_006_g6",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Floor tile grout is darkened or stained in places",
+      "gold_id": "g6",
+      "matched_condition_id": null,
+      "note": "Darkened/stained grout on the bath floor tile is a degradation the v5 catalog can carry (the catalog demonstrably bills staining as a degradation elsewhere, e.g. bath_fixtures_stained_or_worn, and flooring degradation items exist in v5). No condition on this photo touches the floor at all - the three conditions are vanity, tub fixtures and dated finishes - and there is no rejected condition covering it, so nothing rejected to cite. Unbilled.",
+      "photo": "redfin_10806500/photo_006.jpg"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_006_g7",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Ceiling above the window has broad, uneven discoloration",
+      "gold_id": "g7",
+      "matched_condition_id": null,
+      "note": "Broad uneven ceiling discoloration above the window is a standard billable degradation (ceiling/wall staining or moisture marking) and reads in the photo as more than lighting falloff. No condition on this photo covers the ceiling, and no rejected condition exists to cite. Unbilled.",
+      "photo": "redfin_10806500/photo_006.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Basement ceiling fiberboard panels are broadly stained and sagging, with gaps and exposed joists or beams",
+      "gold_id": "g1",
+      "matched_condition_id": "oc1_b65f959cfa981bfd",
+      "note": "Accepted condition water_stain_ceiling (terra supported, disposition accepted_for_work) covers the billable core of g1 - the broad staining of the ceiling panels. Its observation text 'Ceiling or subfloor areas have broad dark water staining' is the same material fact, and the photo confirms broad brown/dark discoloration across the center-left ceiling boards and beam faces. The sagging/gaps/exposed-joist detail in the gold wording is additional descriptive texture on the same defect, not a separate billable item, so this is a clean match with no error.",
+      "photo": "redfin_10806500/photo_007.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Exposed wrapped ducts and piping run across the ceiling",
+      "gold_id": "g2",
+      "matched_condition_id": null,
+      "note": "Exposed wrapped ducts and piping across the ceiling are visually confirmed but are normal-for-context in an unfinished utility basement - this is one of the redfin_10806500 basement observations the gold notes flag. Nothing in the v5 catalog bills 'ducts and piping are exposed' in a utility scene; it only becomes a cost under a hypothetical basement-finishing scope, which 2a itself framed conditionally ('may be better suited to utility/storage'). The 2c drops of 'Large beams, ductwork, plumbing, and bulkheads are exposed overhead.' and 'Furnace, ductwork, drains, and wiring are exposed.' were therefore correct behaviour, not errors. Not a miss.",
+      "photo": "redfin_10806500/photo_007.jpg"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_007_g3",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Cords/wiring are strung across the ceiling (surface-run)",
+      "gold_id": "g3",
+      "matched_condition_id": null,
+      "note": "Surface-run cords/wiring across the ceiling is confirmed (yellow cord across the right ceiling, black cables along the left ceiling and hanging by the furnace). Unlike the other basement-normal findings this one IS carried by the v5 catalog: the bullet 'Numerous wires are loose and exposed.' survived 2c and resolved to visible_electrical_risks (issue f345ef1e6e5c7b70, present in p2e.kept_issue_ids). Yet conditions_on_photo shows no accepted condition covering it and no rejected one either, so no accepted v5 condition carries this finding -> miss_candidate. No covering rejected condition is recorded in the record, hence null. Caveat for the reviewer: this is the known parked electrical-observations class (electrical trade is product_quarantined), so this miss may be policy-intended rather than a pipeline defect; and it is possible, though unlikely on naming grounds, that the skipped oc1_f46cc039d3163f19 is this condition.",
+      "photo": "redfin_10806500/photo_007.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Plastic utility sink is old and stained with a dated faucet",
+      "gold_id": "g5",
+      "matched_condition_id": null,
+      "note": "The plastic laundry tub is confirmed - worn, discoloured, dated chrome faucet. But a dated plastic utility sink is standard equipment for an unfinished utility basement (normal-for-context), and the v5 catalog's dated-fixture modernization items are scene-scoped to finished rooms rather than the utility scene group, so nothing here could bill it. Consistent with that, the only bullet 2b produced was the neutral 'A wash sink is present.' - it carried no condition at all, so 2c's drop of it removed nothing billable. Recorded as out_of_catalog rather than a miss; flagging the residual uncertainty that I could not read the catalog itself, only reason from the record and scene scoping.",
+      "photo": "redfin_10806500/photo_007.jpg"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_007_g6",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Painted masonry walls show peeling paint and staining",
+      "gold_id": "g6",
+      "matched_condition_id": null,
+      "note": "Painted masonry walls with peeling paint and staining is confirmed in the photo (patchy grey/brown discoloration and flaking near the base of both the left wall behind the sink and the right wall). This is a genuine surface defect rather than basement-normal fabric, and the v5 catalog demonstrably carries analogous surface-staining/deterioration defects for this property (water_stain_ceiling on the same photo). No accepted condition covers it and no rejected condition covering it appears in the record, so covering_rejected_condition_id is null. Attribution is developed in the proto case: 2a never actually observed the defect, it only advised looking for it.",
+      "photo": "redfin_10806500/photo_007.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Bare concrete floor is stained with uneven patches; whitish streaks near the right wall",
+      "gold_id": "g7",
+      "matched_condition_id": null,
+      "note": "Bare concrete floor with uneven staining and whitish streaks near the right wall is confirmed, but an unsealed, stained slab is the normal floor of an unfinished utility basement - exactly the normal-for-context class the gold notes flag for this listing's basement shots. There is no finished-floor catalog item in scope for a utility scene, and the whitish streaking, while suggestive of efflorescence, is descriptive rather than a distinct billable defect on this evidence. 2b never produced a floor bullet at all, and correctly so. Not a miss.",
+      "photo": "redfin_10806500/photo_007.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Bare-bulb light fixtures are dated/exposed",
+      "gold_id": "g8",
+      "matched_condition_id": null,
+      "note": "Three bare-bulb porcelain lampholders are confirmed. Exposed keyless bulb fixtures are the standard lighting of an unfinished utility basement (normal-for-context), and lighting modernization items in v5 are scoped to finished living scenes, not the utility scene group; the electrical trade is additionally product_quarantined so no lighting-fixture line could bill here. Nothing in the catalog could carry this observation - not a miss.",
+      "photo": "redfin_10806500/photo_007.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Open wood basement stairs are worn",
+      "gold_id": "g9",
+      "matched_condition_id": null,
+      "note": "Open wood basement stairs with worn treads are confirmed. The pipeline did carry a related bullet ('Basement stairs and access are basic.', issue 93921bd2c6e97042, survived 2c as modernization and kept at 2e), but 2a framed it explicitly as contingent on a future conversion - 'If converting the basement, stair geometry, handrails, fire separation... could become meaningful costs' - not as a present defect. Plain open wood stairs are normal for an unfinished utility basement, so no v5 item bills them in the scope actually being estimated. Note for the reviewer: the projected condition for that issue is not visible in the record and is a plausible identity for the skipped oc1_f46cc039d3163f19 (appendix_misnamed), which is a further reason not to raise a miss here.",
+      "photo": "redfin_10806500/photo_007.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Front concrete steps are worn and patched with visible cracking",
+      "gold_id": "g1",
+      "matched_condition_id": "oc1_e5469dc550971856",
+      "note": "Direct match. p2a said 'worn concrete steps', 2b emitted 'The concrete front steps are worn.', it survived 2c, resolved at 2d to patio_or_porch_surface_wear (degradation), projected to oc1_e5469dc550971856, Terra SUPPORTED it ('The concrete front steps show visible surface wear and discoloration.') and disposition is accepted_for_work. Gold's 'patched with visible cracking' detail is finer-grained than the catalog claim text but the same element and defect family, so this is full coverage, not a partial. Clean end-to-end lineage; no error.",
+      "photo": "redfin_11000447/photo_001.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Public sidewalk in front has visible cracking",
+      "gold_id": "g2",
+      "matched_condition_id": null,
+      "note": "The cracking is really there in the photo, but the element is the public sidewalk in the city right-of-way, not a component of the subject property, and cracked/heaved public sidewalk is normal-for-context on an urban rowhouse block. No v5 exterior item in evidence anywhere in this record addresses public walk hardscape (the one surface item that fired, patio_or_porch_surface_wear, is scoped to patio/porch surfaces and was already consumed by the steps). Recorded as out_of_catalog rather than a miss. Flagging the residual uncertainty: I could not open the v5 catalog file to confirm the absence of a walkway item (probed data/issue_catalog_v2.json, app/data/, app/services/renovation/, and .env for ISSUE_CATALOG_PATH \u2014 none present), so this rests on scope judgement. If a reviewer establishes that a walkway/hardscape item does exist, this flips to miss_candidate and the attribution would be pass_2a, because p2a_prose never mentions the sidewalk at all and this is the only evidence photo.",
+      "photo": "redfin_11000447/photo_001.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Front entry has a prominent metal security-bar door",
+      "gold_id": "g3",
+      "matched_condition_id": null,
+      "note": "True observation, but it is a presence statement about functional security hardware, not a deficiency, and security-bar doors are near-universal on Baltimore rowhouses (normal-for-context). Strong internal evidence that v5 has no item for this class: the sibling generic exterior-modernization observation on this very photo, 'The front stoop has basic railings.' (issue 6f6be0a6e2672670), DID survive 2c and still resolved to catalog_item_id null at 2d \u2014 v5 has no catalog landing spot for 'utilitarian entry feature' observations. The 2b bullet 'The front entry has a security door.' was dropped at 2c, but even had it survived it would have resolved to nothing. Not a miss.",
+      "photo": "redfin_11000447/photo_001.jpg"
+    },
+    {
+      "already_cased": {
+        "attribute": false,
+        "case_id": "rc_64f996e3a886",
+        "lane": "counted_correct_rejection"
+      },
+      "covering_rejected_condition_id": "oc1_0e1dd7b103a3668e",
+      "decision": "already_cased",
+      "finding": "Windows vary in sash/frame style, and several frames show visible grime or finish wear",
+      "gold_id": "g4",
+      "matched_condition_id": null,
+      "note": "The v5 catalog demonstrably could carry this: 2b emitted 'Some windows appear dated.', it survived 2c, resolved at 2d to dated_or_older_windows (modernization) and projected to condition oc1_0e1dd7b103a3668e \u2014 but Terra returned unsupported ('The visible windows do not show clear aging or a dated condition.'), disposition excluded / verdict_unsupported, so no ACCEPTED condition covers the gold finding. That makes it a miss_candidate by definition with the rejected condition recorded as covering. Substantively I read the photo as closer to Terra than to gold here: the sashes are functional white vinyl replacements and gold's own wording is style VARIATION plus grime/finish wear, i.e. cosmetic, not aging units. See proto_cases for why this is attributed 'excluded' rather than 'terra'.",
+      "photo": "redfin_11000447/photo_001.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Basement window openings are covered with worn metal grates",
+      "gold_id": "g5",
+      "matched_condition_id": null,
+      "note": "The grates are visibly corroded and worn, so the observation holds, but this is security hardware over basement lights on an urban rowhouse \u2014 normal-for-context \u2014 and no v5 item covers grate/grille condition. Same structural evidence as g3: v5 had no landing spot for the analogous generic exterior hardware observation (railings resolved to catalog_item_id null at 2d). p2a did carry the material ('The low basement windows and metal grilles suggest security/moisture considerations'), 2b split it into two bullets ('The basement level has low windows.', 'Metal grilles cover the basement-level windows.'), and 2c dropped both; but with no catalog target the drops cost nothing billable. Not a miss.",
+      "photo": "redfin_11000447/photo_001.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_001_g6",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Cornice and upper trim show weathering and paint wear",
+      "gold_id": "g6",
+      "matched_condition_id": null,
+      "note": "Weathering and worn paint on the cornice/upper trim is a first-class exterior degradation defect, not a normal-for-context artifact, and it is the kind of surface-wear/coating-breakdown condition v5 does carry (the catalog's degradation family includes surface aging and coating breakdown, as the patio_or_porch_surface_wear claim text itself shows). No condition of any kind was produced for the cornice, accepted or rejected, so there is no covering rejected condition. Caveat on catalog coverage: I could not open the v5 catalog to name the exact exterior trim/paint item, so the 'could have carried it' half of this call is inferred from the catalog's demonstrated degradation vocabulary rather than verified against the item list.",
+      "photo": "redfin_11000447/photo_001.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_001_g7",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Entry transom and surrounding trim show dark staining and finish wear",
+      "gold_id": "g7",
+      "matched_condition_id": null,
+      "note": "Same family as g6 \u2014 staining and worn finish on the entry transom and its surrounding trim is a degradation-kind surface condition v5's vocabulary covers, and no condition was produced for it. Weakest of the gold findings on the pixels: part of the darkness above the door is recessed-entry shadow under the lantern, so a reviewer could reasonably downgrade this to cosmetic grime and reclassify it out_of_catalog. Recording it as a miss_candidate because gold is photo-observation truth for this photo and the defect class is billable; the note is here so the call can be flipped without re-reading the image. Catalog-coverage caveat identical to g6 (item list not readable from this record).",
+      "photo": "redfin_11000447/photo_001.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Painted wood plank flooring is heavily worn, stained, and patched with uneven boards and gaps",
+      "gold_id": "g1",
+      "matched_condition_id": "oc1_6a72e2aa7bfac8f1",
+      "note": "Accepted condition hard_flooring_broken_or_warped (living_room_primary, terra supported: 'wide-plank floor has visibly raised, separated, and uneven boards') is a direct, unambiguous cover for the worn/patched/uneven plank floor. Clean lineage: 2a called it 'the biggest red flag', 2b bullet, 2c survivor, 2d resolved, accepted for work.",
+      "photo": "redfin_11000447/photo_002.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Walls have unpainted patch repairs, scuffs, and marks needing full repaint",
+      "gold_id": "g2",
+      "matched_condition_id": "oc1_f896c859830ac4ea",
+      "note": "Accepted condition wall_scuffs_marks_or_dents covers the unpainted patch repairs, scuffs and marks; terra rationale explicitly names 'scuffs, marks, patching, and discoloration'. The 'needing full repaint' half of the gold wording is additionally carried by the accepted paint condition oc1_c01745eea96154f2, which I match to g3 to avoid double-using one condition.",
+      "photo": "redfin_11000447/photo_002.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Header above the kitchen opening shows exposed unpainted joint compound",
+      "gold_id": "g3",
+      "matched_condition_id": "oc1_c01745eea96154f2",
+      "note": "Exposed unpainted joint compound on the kitchen-opening header is incomplete paint work at an opening. Accepted condition peeling_or_discolored_paint claims 'interior paint peeling, bubbling, or visibly aged finish' and its terra rationale explicitly cites damage 'around the ceiling, walls, and openings' - the header above the opening is the openings term. Lineage is clean (2a 'damaged or incomplete paint work' -> 2b bullet -> 2c -> 2d -> accepted).",
+      "photo": "redfin_11000447/photo_002.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_002_g4",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Kitchen beyond has an older basic range and refrigerator",
+      "gold_id": "g4",
+      "matched_condition_id": null,
+      "note": "Older basic range and refrigerator are plainly visible through the opening and are ordinary modernization material for a rehab catalog with a modernization kind. No accepted condition on this photo covers appliances. No REJECTED covering condition can be named: the three listed conditions are all accepted, and any condition projected from the unresolved kitchen issue would sit in excluded_condition_ids, which I am instructed to skip. Caveat recorded in the proto case: the property's own kitchen photos may carry an accepted dated-kitchen condition, which would make this a photo-level miss but not a property-level one.",
+      "photo": "redfin_11000447/photo_002.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_002_g5",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Kitchen cabinetry visible beyond is minimal and dated",
+      "gold_id": "g5",
+      "matched_condition_id": null,
+      "note": "Minimal, dated white cabinetry visible beyond the opening. Same situation as g4: the pipeline did generate a modernization issue naming cabinets, it survived 2c and 2e, but it carries catalog_item_id null, so no billable condition on this photo covers cabinetry. Treated as a separate finding from g4 because gold separates appliances from cabinetry, even though both trace to the single compound 2b bullet.",
+      "photo": "redfin_11000447/photo_002.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Ceiling fan is basic/dated",
+      "gold_id": "g6",
+      "matched_condition_id": null,
+      "note": "Basic three-blade fan with light kit. This is a fixture-level electrical/lighting modernization. The electrical trade is product_quarantined in this catalog with fail-closed projection, so even if a fixture item exists it cannot produce a billable condition - and per the parked 'electrical observations' decision these are treated as true-but-unactionable for photo costing. True observation, not a pipeline miss. Note 2a did carry it ('The ceiling fan, lighting, outlets/switches, and visible floor vent indicate an older system/finish package') and 2b dropped it, so if the quarantine were lifted this would become a 2b miss.",
+      "photo": "redfin_11000447/photo_002.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Floor register grille is visibly darkened and worn",
+      "gold_id": "g7",
+      "matched_condition_id": null,
+      "note": "A darkened, grimy floor register grille is a true observation but sits below billable granularity for this catalog (HVAC register grille, cosmetic, and the floor it sits in is already routed to work under the accepted flooring defect). Nothing in v5 could bill it. 2a mentioned the vent only as an age indicator for the system package, never as a defect.",
+      "photo": "redfin_11000447/photo_002.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_002_g8",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Baseboards and door trim are scuffed with paint wear",
+      "gold_id": "g8",
+      "matched_condition_id": null,
+      "note": "Trim/door-casing paint wear is a distinct degradation the pipeline itself isolated ('Trim appears rough.', issue 9c707542dbbe52ea, kind degradation) and then failed to resolve to any catalog item. I do not treat it as covered by the accepted paint condition, because that condition's observation and terra rationale are anchored on ceiling/walls/openings, and because the pipeline kept trim as its own issue. Lower confidence than g4/g5: I could not verify offline that a trim/baseboard degradation item exists in the v5 catalog at run time (catalog 3.1 era); if none exists this is out_of_catalog rather than a miss.",
+      "photo": "redfin_11000447/photo_002.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Walls are heavily patched with spackle marks, peeling paint, and scuffs needing full repaint",
+      "gold_id": "g1",
+      "matched_condition_id": "oc1_ce8d669a6a3c5123",
+      "note": "Heavy spackle/patch marks and small holes on the wall pier and right of the right window are exactly damaged_drywall_or_cracks (accepted, bedroom_1). The other two aspects of this gold finding are also carried by accepted conditions on the same surface: oc1_65a72db32684dcd1 (peeling_or_discolored_paint) for the peeling/aged paint and oc1_50736abe1595952a (wall_scuffs_marks_or_dents) for the scuffs; both are reported under PART 2 as supported extras rather than as separate matches.",
+      "photo": "redfin_11000447/photo_003.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_003_g2",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Window frames and sills show peeling paint and wear",
+      "gold_id": "g2",
+      "matched_condition_id": null,
+      "note": "Window frames/sills show chipped, peeling paint and a deteriorated left jamb in the photo. The pipeline generated a dedicated issue for this ('Window trim and sills show wear', issue 526c2fe305ccc860, kind degradation) which survived 2c and was kept at 2e, but 2d returned catalog_item_id null, so no condition was ever produced for window trim/sills. No rejected condition covers it. Partial-coverage caveat: the accepted room-level peeling_or_discolored_paint condition (oc1_65a72db32684dcd1) would in practice absorb trim repaint scope, so a reviewer may score this a partial rather than a full miss; the sill/trim wear itself is unbilled either way.",
+      "photo": "redfin_11000447/photo_003.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Venetian blinds are damaged/bent",
+      "gold_id": "g3",
+      "matched_condition_id": "oc1_12e3660bf3923583",
+      "note": "dated_window_treatment_valance (accepted, Terra supported: 'visibly aged and worn blind treatments') covers the damaged/bent blind remnants at both window heads. Wording differs (gold says damaged/bent, the claim says dated) but the billable treatment-replacement scope is the same and the condition is anchored on this photo's blinds. Note its issue ce4016c28b0edf15 was tier_optional_suppressed at 2e yet still projected to an accepted condition \u2014 consistent with 2e never costing a condition.",
+      "photo": "redfin_11000447/photo_003.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Wood-look plank flooring has whitish residue, stains, and scratches",
+      "gold_id": "g4",
+      "matched_condition_id": "oc1_fa37e7520234829c",
+      "note": "hard_flooring_scratched_or_worn (accepted) covers the scratches and worn finish on the hard plank floor. The whitish residue/stain aspect is additionally covered by accepted oc1_09c51c2555f3b64f (worn_or_stained_flooring), reported under PART 2. The rejected oc1_476cd4f80565d162 (vinyl_linoleum_torn_or_lifted) is NOT a covering rejection for this finding \u2014 the photo shows hard plank, not vinyl, so Terra's rejection was correct; that condition is in excluded_condition_ids with its own case anyway.",
+      "photo": "redfin_11000447/photo_003.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_003_g5",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Loose cable wiring is coiled on the floor and surface-run along the wall",
+      "gold_id": "g5",
+      "matched_condition_id": null,
+      "note": "The coiled black cable on the floor and the surface-run cable across the wall are clearly visible. The v5 catalog can carry this \u2014 2d resolved the bullet to visible_electrical_risks (defect) \u2014 but no condition of that item appears anywhere in conditions_on_photo, accepted or rejected, so nothing reached Terra. Worth flagging that this may be intended behavior under the electrical product quarantine rather than a defect in the reader; recorded as a miss because the catalog item exists and the observation is real.",
+      "photo": "redfin_11000447/photo_003.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Abandoned shelf brackets remain mounted on the walls",
+      "gold_id": "g6",
+      "matched_condition_id": null,
+      "note": "Black shelf brackets are plainly mounted on the wall right of the right window and on the far-right wall, and 2a prose never mentions them at all \u2014 a genuine 2a observation gap. But no v5 catalog item bills abandoned mounted hardware; the wall repair left behind by removing them is already carried by accepted damaged_drywall_or_cracks / wall_scuffs conditions. Not scored as a miss, so no proto_case, despite the clean 2a-absence signal.",
+      "photo": "redfin_11000447/photo_003.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Ceiling has long open cracks or failed seams radiating from the fan area, with dark staining along the right-side crack",
+      "gold_id": "g7",
+      "matched_condition_id": "oc1_b629db62f6a9cb88",
+      "note": "ceiling_cracks_or_sagging (accepted, Terra supported) covers the long crack radiating from the fan area. The dark staining along the right-side crack is additionally picked up by accepted peeling_or_discolored_paint (oc1_65a72db32684dcd1), whose observation set includes 'Ceiling and wall areas show discoloration near the window and fan'.",
+      "photo": "redfin_11000447/photo_003.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_003_g8",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Ceiling fan is dated",
+      "gold_id": "g8",
+      "matched_condition_id": null,
+      "note": "The dated 4-blade fan is clearly visible and the pipeline read it correctly end to end: bullet 'The ceiling fan is dated.' survived 2c and 2d resolved older_ceiling_fan_style (modernization). No condition for that item appears in conditions_on_photo in any state, so it was never billed. Its sibling modernization issue (window treatments) was suppressed at 2e in the same way and still produced an accepted condition, so 2e suppression alone does not explain the loss.",
+      "photo": "redfin_11000447/photo_003.jpg"
+    },
+    {
+      "condition_id": "oc1_e9e4403b8dab0fb1",
+      "decision": "gold_incomplete",
+      "note": "baseboard_wear_scuffs. Photo supports it: the thin painted base along the right and left walls is grimy and scuffed with visible gaps at the floor junction and deteriorated sections near the left wall. Gold simply did not enumerate baseboards on this photo \u2014 gold incomplete, not a hallucination.",
+      "photo": "redfin_11000447/photo_003.jpg",
+      "photo_supports_claim": "yes"
+    },
+    {
+      "condition_id": "oc1_50736abe1595952a",
+      "decision": "gold_incomplete",
+      "note": "wall_scuffs_marks_or_dents. Photo supports it: gray scuffs, smudges and stains across the walls, heaviest on the pier between the windows and along the right wall. Overlaps the wall surface described by gold g1 but is a distinct catalog aspect from the drywall patching matched there; no error.",
+      "photo": "redfin_11000447/photo_003.jpg",
+      "photo_supports_claim": "yes"
+    },
+    {
+      "condition_id": "oc1_65a72db32684dcd1",
+      "decision": "gold_incomplete",
+      "note": "peeling_or_discolored_paint. Photo supports it: paint is visibly uneven, patchy and aged, with peeling at the left window jamb and discoloration near the ceiling/window junction. Covers the 'peeling paint' aspect of gold g1 and the staining aspect of g7; no error.",
+      "photo": "redfin_11000447/photo_003.jpg",
+      "photo_supports_claim": "yes"
+    },
+    {
+      "condition_id": "oc1_09c51c2555f3b64f",
+      "decision": "gold_incomplete",
+      "note": "worn_or_stained_flooring. Photo supports it: whitish residue streaks and spatter plus patch-like tonal variation in the foreground plank flooring. Covers the residue/stain aspect of gold g4, which was matched to the scratched/worn hard-flooring condition instead; no error.",
+      "photo": "redfin_11000447/photo_003.jpg",
+      "photo_supports_claim": "yes"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Kitchen cabinetry is minimal, dated, and worn, with open/missing door fronts at the base by the sink",
+      "gold_id": "g1",
+      "matched_condition_id": "oc1_ef87a59f27e725a2",
+      "note": "Accepted cabinets_dated_style ('cabinets dated style or basic grade, functional', Terra supported: 'plainly older white cabinetry with basic, dated hardware') covers the dated/minimal cabinetry; the 'worn' half is separately carried by accepted cabinets_worn_finish (oc1_c70cb49fd983f190). The sub-aspect 'open/missing door fronts at the base by the sink' is NOT billed: 2b produced 'A lower cabinet area is open and awkward.' and 2c dropped it - but that bullet was framed as a layout/awkwardness statement, and layout items were retired from the catalog, so the drop is defensible. Headline finding is covered, so matched rather than a miss.",
+      "photo": "redfin_11000447/photo_004.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Long site-built painted counter/table along the wall is worn and stained (makeshift work surface, not cabinetry)",
+      "gold_id": "g2",
+      "matched_condition_id": "oc1_f5d39c2a065cba24",
+      "note": "Accepted outdated_kitchen_finishes is a room-level claim ('kitchen finishes dated cabinetry, counters, or finishes') scoped to estimate unit kitchen_primary, so the left-wall makeshift work surface falls inside the counter/finish replacement it bills. Coverage is generic rather than specific: the only observation behind the condition is 'Kitchen counters are laminate.' and Terra's rationale cites 'laminate-style countertops', i.e. the right-hand sink counter. 2a never described the left-wall surface as worn or stained - it appears only as 'the left counter area' in the wiring sentence and as 'a small eat-in or prep zone along the left wall' in the layout-potential sentence. Matched, with that caveat.",
+      "photo": "redfin_11000447/photo_004.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_004_g3",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Free-standing electric range is older and worn",
+      "gold_id": "g3",
+      "matched_condition_id": null,
+      "note": "The older worn free-standing electric range is billed by nothing: no condition in conditions_on_photo references an appliance, accepted or rejected. 2a saw it ('older cabinetry, laminate counters, freestanding electric range' listed under 'Very dated kitchen'), 2b flattened it to the neutral inventory bullet 'The kitchen has a freestanding electric range.' with the dated quality stripped, and 2c then dropped that bullet. Caveat on the decision itself: I cannot confirm from this record that the v5 catalog carries an appliance item - every catalog id visible here is a fabric/finish/structure item (cabinets, counters, flooring, drywall, windows, doors, lighting). If v5 has no appliance item this is out_of_catalog instead. Called miss_candidate because appliance replacement is a standard renovation line and the kitchen is already billed as a modernization set.",
+      "photo": "redfin_11000447/photo_004.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Painted plank flooring is worn, marked, and discolored, with visible gaps and uneven joints",
+      "gold_id": "g4",
+      "matched_condition_id": "oc1_36d8fa941a803d52",
+      "note": "Accepted vinyl_linoleum_worn_or_stained bills the wear/staining/discoloration, and Terra supported it ('substantial visible discoloration and surface wear'). The material label is wrong, though: the photo shows wide painted/finished plank flooring with visible plank joints and gaps, not sheet vinyl or linoleum - the misnaming originates in 2a ('worn, stained/discolored sheet flooring or old vinyl/linoleum with visible seams'), is carried by 2b, and is resolved to vinyl_* items at 2d. Not scored as a miss because the substantive condition is billed; this is a misnamed-item candidate for the remap lane, not a lost condition. The gaps/uneven joints aspect is what the sibling vinyl_linoleum_torn_or_lifted condition tried to claim and Terra correctly rejected on a vinyl reading (oc1_cb817305acf2e48c, already case-covered in excluded_condition_ids).",
+      "photo": "redfin_11000447/photo_004.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Walls are scuffed and stained with patch marks, especially around the back door",
+      "gold_id": "g5",
+      "matched_condition_id": "oc1_dd39e8108faafd61",
+      "note": "Accepted damaged_drywall_or_cracks, observation 'Walls have scuffs, holes, patches, and old adhesive or fixture marks.', Terra supported ('numerous visible scuffs, marks, and small holes'). Photo confirms scuffing, staining and patch marks on the left wall and around the back door. Clean straight-through lineage: 2a -> 2b -> 2c survivor -> 2d -> accepted.",
+      "photo": "redfin_11000447/photo_004.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Back door is old and worn with a dated curtain",
+      "gold_id": "g6",
+      "matched_condition_id": "oc1_afa780bda1da724b",
+      "note": "Accepted dated_entry_or_patio_door, Terra supported ('exterior door visible at the back of the kitchen has an older dated appearance'). Photo confirms the dark, worn back door; the dated curtain over its glass is an accessory detail with no separate catalog need. Worth noting for the 2e question: this issue (170e4296b0dd6b87) is one of the three tier_optional_suppressed / not-in-kept_issue_ids issues and it still produced an accepted, billed condition - direct local confirmation that 2e suppression costs nothing here.",
+      "photo": "redfin_11000447/photo_004.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_004_g7",
+      "covering_rejected_condition_id": "oc1_d3e7cd176d2f8dd6",
+      "decision": "miss_candidate",
+      "finding": "Window has bent/damaged blinds and plastic sheeting remnants; valance is dated",
+      "gold_id": "g7",
+      "matched_condition_id": null,
+      "note": "The window area is unbilled. dated_or_older_windows exists as a condition on this photo, Terra SUPPORTED it ('older-style frame and blinds'), yet accepted=false with disposition no_action / reason_code route_no_action. The photo backs it up and then some: bent blinds, plastic sheeting remnants still taped at the jambs (a winterizing tell that supports the 'drafty' reading in 2a), dated valance. The blinds/valance themselves are window treatments and probably have no catalog item of their own, but the covering window item plainly exists in v5 - the pipeline produced it - so this is a miss, not out_of_catalog.",
+      "photo": "redfin_11000447/photo_004.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_004_g8",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Round ceiling light fixture is dated",
+      "gold_id": "g8",
+      "matched_condition_id": null,
+      "note": "The dated round flush-mount ceiling fixture is unbilled, and unlike the window there is no covering condition to point at. Lineage is intact the whole way: 2a ('the ceiling fixture is dated'), 2b bullet 'The ceiling light fixture is dated.', 2c survivor, 2d resolved to dated_lighting_fixtures (issue 370a4b9ea5b7df48). That issue is one of the three tier_optional_suppressed issues absent from p2e.kept_issue_ids - but per the corpus fact all issues still produced a projected_condition_id, and the sibling door issue in the same suppressed set was billed, so 2e is not the explanation. Yet no lighting condition appears anywhere in conditions_on_photo, accepted or rejected. The condition vanished at or after projection/Terra in a way this record cannot resolve.",
+      "photo": "redfin_11000447/photo_004.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Sink counter is worn, and the wall behind it lacks a finished backsplash",
+      "gold_id": "g9",
+      "matched_condition_id": "oc1_f5d39c2a065cba24",
+      "note": "Same room-level outdated_kitchen_finishes condition as g2 - its claim covers 'dated cabinetry, counters, or finishes' at kitchen_primary, and Terra's rationale explicitly cites the laminate-style countertops, which is the sink counter this finding is about. The missing/unfinished backsplash is an absent finish rather than a defect and is subsumed by the same kitchen finishes replacement; I see no sign of a dedicated backsplash item in v5. Matched, with the note that one generic condition is doing the work of two distinct gold observations (g2 and g9).",
+      "photo": "redfin_11000447/photo_004.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Loose exposed cables hang beneath the long wall-mounted work surface",
+      "gold_id": "g10",
+      "matched_condition_id": null,
+      "note": "True observation - loose white cords do hang beneath the left-wall work surface - but not billable. Two independent reasons: (1) the electrical trade is product_quarantined in v5, and the project has explicitly parked wiring observations as true-but-unactionable for photo costing, so no catalog item can carry it; (2) what is visible are loose hanging cords/cables, not damaged fixed wiring or an open junction. 2a did see it ('visible low wall wiring/cords under the left counter area raise questions about outlets, circuits') and 2b carried it as a bullet, which 2c dropped - but with no catalog destination available, that drop costs nothing. Explicitly NOT a miss, so no proto case.",
+      "photo": "redfin_11000447/photo_004.jpg"
+    },
+    {
+      "condition_id": "oc1_c70cb49fd983f190",
+      "decision": "gold_incomplete",
+      "note": "cabinets_worn_finish ('cabinet finish worn or faded finish on intact cabinets') is the only accepted condition not consumed by a match, and only because g1 could take just one matched_condition_id and I gave it to cabinets_dated_style. The photo supports it: the white painted cabinet faces and the sink base are dulled, marked and yellowed while structurally intact, matching Terra's 'visible discoloration and wear while remaining intact'. Gold g1 itself says the cabinetry is 'dated, and worn', so gold covers this too - it is a one-gold-finding-to-two-conditions split, not a gold gap and not a hallucination. No error case.",
+      "photo": "redfin_11000447/photo_004.jpg",
+      "photo_supports_claim": "yes"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_005_g1",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Exposed uninsulated flexible/metal duct runs across the ceiling and down through the room (unfinished HVAC run)",
+      "gold_id": "g1",
+      "matched_condition_id": null,
+      "note": "The exposed galvanized duct run is unmistakable in the photo and 2a called it 'the biggest functional/design issue', yet no condition of any kind (accepted, rejected, or excluded) on this photo concerns ductwork. The 2b bullet 'Room has a large exposed galvanized HVAC duct.' appears verbatim in p2c_dropped, so the observation died at the bullet filter. Caveat: I cannot see the v5 catalog from this record, so 'the catalog could have carried it' is an inference - insulating/boxing/rerouting an exposed duct run is standard rehab scope, but if v5 has no HVAC/exposed-duct item this would be out_of_catalog instead.",
+      "photo": "redfin_11000447/photo_005.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Walls are dingy with scuffs, marks, and patch spots; discolored patches near the windows",
+      "gold_id": "g2",
+      "matched_condition_id": "oc1_f896c859830ac4ea",
+      "note": "Accepted wall_scuffs_marks_or_dents at living_room_primary, observation 'Walls have scuffs, patching, uneven surfaces, and discoloration.', Terra supported. Photo confirms dingy walls with scuffs, patch spots and discolored areas near the windows. The 'discolored patches near the windows' half is additionally carried by the accepted peeling_or_discolored_paint condition (oc1_c01745eea96154f2).",
+      "photo": "redfin_11000447/photo_005.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Three double-hung windows have visibly worn and scuffed frames and sills",
+      "gold_id": "g3",
+      "matched_condition_id": "oc1_c01745eea96154f2",
+      "note": "Worn/scuffed window frames and sills are a degraded painted finish on the window openings. The accepted peeling_or_discolored_paint condition carries observation 'Window wall and baseboard areas have discoloration.' and Terra's rationale explicitly extends it to damage 'around the ceiling, walls, and openings' at the same estimate unit, so the trim repaint scope is billed. Worth noting for context: the separate window-modernization condition oc1_ae87b5f70145990a was Terra-supported but routed no_action, so nothing bills the window units themselves.",
+      "photo": "redfin_11000447/photo_005.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_005_g4",
+      "covering_rejected_condition_id": "oc1_ae87b5f70145990a",
+      "decision": "miss_candidate",
+      "finding": "Venetian blinds are dated and bent/partial",
+      "gold_id": "g4",
+      "matched_condition_id": null,
+      "note": "The pipeline saw the blinds twice: 2b bullet 'Window blinds are worn.' survived 2c but 2d resolved catalog_item_id null, and Terra's rationale on the window condition names them directly ('older-style single-hung windows with aged trim and blinds'). That window condition (dated_or_older_windows) is the only thing in v5 that covers them, and it is unaccepted (accepted=false, disposition no_action) despite terra_verdict 'supported'. Photo confirms dated venetian blinds hung unevenly with one crooked/partial.",
+      "photo": "redfin_11000447/photo_005.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Surface-run cables are strung along the walls",
+      "gold_id": "g5",
+      "matched_condition_id": null,
+      "note": "Surface-run cables are plainly visible (looped on the left wall, coiled on the floor at right) but they read as low-voltage runs, not exposed hazardous conductors, and cable removal is absorbed into demo/patch/paint rather than being its own billable item. The pipeline's nearest handling - 2b 'Loose wiring is exposed.' -> 2d visible_electrical_risks - overstates it as a defect; that condition is not in conditions_on_photo, so it is one of the four excluded_condition_ids and already has a review case (the counted_correct_rejection lane fits a correctly rejected electrical-risk claim). True observation, not a billing miss.",
+      "photo": "redfin_11000447/photo_005.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Painted plank flooring shows worn, faded, and stained areas",
+      "gold_id": "g6",
+      "matched_condition_id": "oc1_be4b77f1d023f9bd",
+      "note": "Coverage with a framing caveat rather than a clean match: the accepted older_flooring_style condition puts this exact floor in scope for work at living_room_primary, so the finding is billed. But its catalog claim text ('flooring clean but visually outdated') and Terra's rationale ('older appearance') describe modernization, while the photo shows wear paths, faded/dull patches and staining - degradation. The kind understates what the photo shows; 2b flattened 2a's 'heavily coated/painted or stained... expect testing and localized repairs' into the neutral bullet 'Floor appears to be old plank or hardwood flooring.' Not scored as a miss because the floor is already accepted_for_work.",
+      "photo": "redfin_11000447/photo_005.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_005_g7",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Ceiling fan is an older dated style",
+      "gold_id": "g7",
+      "matched_condition_id": null,
+      "note": "Photo confirms a dated 5-blade fan with patterned blades and a globe light. The pipeline carried it end to end - 2a 'Ceiling fan/light is outdated', 2b bullet, survived 2c, 2d resolved dated_lighting_fixtures - but issue 20c797704b484507 is absent from p2e.kept_issue_ids and its projected condition does not appear in conditions_on_photo, so it must be one of the four excluded_condition_ids that already carry review cases. No accepted condition in this record covers it, hence miss_candidate, but the attribution belongs to that existing case, not to a new one.",
+      "photo": "redfin_11000447/photo_005.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_005_g8",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Detached louvered door panels lean against the left wall and show worn paint",
+      "gold_id": "g8",
+      "matched_condition_id": null,
+      "note": "Tall pale slatted panels lean against the left wall at the frame edge with worn paint - detached interior door/louver panels. Nothing in the lineage mentions doors or leaning panels at any stage: p2a_prose is silent, no 2b bullet exists, so this never entered the pipeline. Two caveats: the panels are partly cropped by the frame so identification is moderate-confidence, and I cannot confirm from this record that v5 carries an interior-door or debris item to bill rehanging/repainting them.",
+      "photo": "redfin_11000447/photo_005.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Multiple empty shelf brackets remain mounted on the walls",
+      "gold_id": "g9",
+      "matched_condition_id": null,
+      "note": "Empty bracket rails on the left wall and an ornate bracketed shelf on the right are clearly visible, but unmounting them is trivial and the resulting wall damage is already billed by the accepted wall_scuffs_marks_or_dents and peeling_or_discolored_paint conditions. Worth flagging as a reading error even though it is not a miss: 2a described these as 'wall-mounted remnants' inside its electrical bullet, 2b hardened that into 'Wall-mounted electrical remnants are present.', and 2d resolved dated_electrical_outlets_switches - shelf hardware misread as electrical devices. That condition is not in conditions_on_photo, so it sits in excluded_condition_ids with an existing case.",
+      "photo": "redfin_11000447/photo_005.jpg"
+    },
+    {
+      "condition_id": "oc1_a7730e7e5434ac1a",
+      "decision": "gold_incomplete",
+      "note": "baseboard_wear_scuffs, accepted_for_work, Terra 'scuffs, discoloration, and worn paint along the floor perimeter'. The photo supports it: painted base trim along the right wall and the bay is scuffed, dirty and discolored, and the base is rough/broken where the duct run lands at the floor. Gold is incomplete here - it recorded worn windows, walls and floor but did not list the baseboards separately. No error case.",
+      "photo": "redfin_11000447/photo_005.jpg",
+      "photo_supports_claim": "yes"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Painted wood plank flooring is heavily worn and scuffed with inconsistent color and patched areas",
+      "gold_id": "g1",
+      "matched_condition_id": "oc1_5b946bb8176d7a9d",
+      "note": "Accepted hard_flooring_scratched_or_worn on living_room_primary, observation 'The wood or laminate flooring is heavily worn.' Terra supported with 'visible scuffs, staining, and worn finish areas'. Photo confirms: painted plank floor with heavy wear, inconsistent color and patched boards. Clean match, no error.",
+      "photo": "redfin_11000447/photo_006.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Walls show patch marks, small holes, and scuffs needing repaint",
+      "gold_id": "g2",
+      "matched_condition_id": "oc1_f896c859830ac4ea",
+      "note": "Accepted wall_scuffs_marks_or_dents, observations 'The walls are scuffed and marked.' and 'The lower left wall and floor perimeter have dark staining.' Photo confirms patch marks, small dark cut openings, scuffs and a stained wall base. Clean match, no error.",
+      "photo": "redfin_11000447/photo_006.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Black-painted surround/platform at right has a rough, worn finish",
+      "gold_id": "g3",
+      "matched_condition_id": null,
+      "note": "Black-painted built-in surround/platform at right with a rough, worn finish. Real and clearly visible in the photo, but the v5 catalog items seen in this record are surface-typed (walls, hard flooring, vinyl, ceiling fan, electrical) and none covers the paint/finish condition of a built-in platform or millwork box. Judged not billable by any v5 item, so not a miss. Flagging for the parent: if the catalog does contain a generic painted-millwork or built-in finish item, this flips to a miss_candidate attributable to pass_2a, because the 2a prose never mentions the black platform at all - it only describes staining at the base of the LEFT wall, on the opposite side of the room.",
+      "photo": "redfin_11000447/photo_006.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_006_g4",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Stair treads, nosing, and stained-wood balusters show finish wear",
+      "gold_id": "g4",
+      "matched_condition_id": null,
+      "note": "Stair treads, nosing and stained-wood balusters show finish wear. No condition of any kind on this photo touches the staircase as a wear/condition item. 2a prose does discuss the stairs and frames refinishing, but 2b produced no stair-condition bullet at all - its only stair-related bullets were 'The wood header or trim area at the stair opening is exposed.' and 'Circulation around the stair opening is tight.' Treated as miss_candidate on the assumption the catalog carries a stair refinishing/worn-tread item; low confidence on that assumption.",
+      "photo": "redfin_11000447/photo_006.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_006_g5",
+      "covering_rejected_condition_id": "oc1_b2598baee164e79a",
+      "decision": "miss_candidate",
+      "finding": "Baseboards and wall-to-floor edges are incomplete and rough in places",
+      "gold_id": "g5",
+      "matched_condition_id": null,
+      "note": "Baseboards absent and wall-to-floor edges raw/rough - clearly visible along the entire left wall, with a stray loose board at the lower-left floor. The pipeline DID carry this observation: 2a said 'trim is minimal or incomplete', 2b emitted 'The trim is incomplete.', it survived 2c, and 2d resolved it to unfinished_interior_wall_osb_exposed - a different physical claim (exposed OSB/sheathing) that Terra then correctly rejected ('The visible interior walls are finished surfaces, with no exposed OSB or sheathing'). So a rejected condition covers the observation, but with the wrong item. Caveat on catalog coverage: the sibling bullet 'The wood header or trim area at the stair opening is exposed.' resolved to catalog_item_id null, and 'The trim is minimal.' was dropped at 2c, so all three trim bullets failed to land on a trim item - that is weak evidence the v5 catalog may lack a trim/baseboard item, in which case this would be out_of_catalog instead.",
+      "photo": "redfin_11000447/photo_006.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Ceiling fan blades show substantial scuffing and finish loss",
+      "gold_id": "g6",
+      "matched_condition_id": null,
+      "note": "Fan blades show scuffing and finish loss. The only fan-related catalog item in evidence is older_ceiling_fan_style, a modernization/style item, not a surface-wear item - it measures 'dated', not 'scuffed'. The pipeline did fire it (2a 'The fan is dated' -> 2b bullet -> 2c survivor -> 2d older_ceiling_fan_style, issue c1a62f814349f636 kept at 2e), yet no fan condition appears in conditions_on_photo, which means its projected condition is almost certainly one of the four excluded_condition_ids that already have review cases. Recording out_of_catalog rather than a miss so this is not double-counted against an already-cased condition; note the 2e suppressed_reason_counts here is exactly {tier_optional_suppressed: 1}, consistent with the modernization-kind fan.",
+      "photo": "redfin_11000447/photo_006.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_006_g7",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Ceiling shows a broad discolored band toward the stairwell",
+      "gold_id": "g7",
+      "matched_condition_id": null,
+      "note": "Broad grayish discolored/patched band across the upper-right ceiling toward the stairwell - plainly visible. 2a saw it ('discoloration or rough finish near the ceiling edge/header area', plus 'Check for prior water damage'), 2b emitted two bullets for it, both survived 2c, and both then resolved to catalog_item_id null at 2d. A ceiling staining / water-damage item is the kind of thing a rehab catalog should carry, so this is a miss rather than out_of_catalog. Dedup warning for the parent: because these two issues carry null items, their projected conditions are the likely candidates for the excluded 'miss_label'/'appendix_misnamed' lanes, so this proto_case may overlap an existing case.",
+      "photo": "redfin_11000447/photo_006.jpg"
+    },
+    {
+      "condition_id": "oc1_25810bfc8b09158b",
+      "decision": "gold_incomplete",
+      "note": "trip_hazard_or_unlevel_floor, accepted, from bullet 'The flooring is uneven in places.' Terra: 'Several floorboards are visibly raised and uneven relative to adjacent boards.' The photo supports this: the wide plank floor shows cupped/irregular board heights with shadowed seams through the mid-field, and there is a distinctly raised, lighter transition board at the lower left where the floor plane changes. The 'trip hazard' framing is on the strong side for what is visible, but the underlying unlevel-floor observation is genuinely there. Gold is incomplete here - g1 covers wear/color/patching but says nothing about levelness. Not a hallucination, no error case filed.",
+      "photo": "redfin_11000447/photo_006.jpg",
+      "photo_supports_claim": "yes"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Large area of failed/peeling paint with exposed patching on the striped accent wall",
+      "gold_id": "g1",
+      "matched_condition_id": "oc1_58e2c387885dd567",
+      "note": "The large failed-paint area with exposed blue undercoat and tan filler on the striped accent wall is exactly what the accepted peeling_or_discolored_paint condition claims ('The striped wall has peeling paint'), and Terra's rationale cites the same wall. The accepted damaged_drywall_or_cracks condition (oc1_301c2d519b0f1f34) also touches the exposed-patching aspect, so coverage is if anything doubled here.",
+      "photo": "redfin_11000447/photo_007.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Additional paint patch marks on the accent wall stripes",
+      "gold_id": "g2",
+      "matched_condition_id": "oc1_58e2c387885dd567",
+      "note": "The two smaller blue patch marks on the white stripes right of the main failure are the same mechanism (top coat lost, blue undercoat showing) on the same wall, so the accepted item-level peeling_or_discolored_paint condition for bedroom_2 carries them. wall_scuffs_marks_or_dents (oc1_d95c21c765734c27) would be an alternative but poorer fit -- these are paint-layer failures, not use marks.",
+      "photo": "redfin_11000447/photo_007.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Left wall has a damaged/patched brown spot with exposed filler",
+      "gold_id": "g3",
+      "matched_condition_id": "oc1_301c2d519b0f1f34",
+      "note": "The brown patched spot with exposed filler at lower left is visible in the photo and is named almost verbatim in Terra's rationale for this condition ('a large hole at lower left'), plus the underlying observation 'Wall surfaces have visible holes and patching'. Clean match.",
+      "photo": "redfin_11000447/photo_007.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "A rough rectangular wall opening or former fixture location is covered with black tape high on the left wall",
+      "gold_id": "g4",
+      "matched_condition_id": "oc1_301c2d519b0f1f34",
+      "note": "Gold reads the black-taped rectangle high on the left wall as a wall opening / former fixture location, not as a window needing window work; remediation is patch-and-finish, which the item-level damaged_drywall_or_cracks condition for bedroom_2 carries. Worth flagging separately: the pipeline generated its own dedicated bullet for this element ('The small high window treatment looks rough.', issue 67b81c407bd314c4), it survived 2c, and 2d resolved it to catalog_item_id null -- a real 2d resolution failure, but it costs no gold coverage here because the drywall condition already covers the substance, so I did not raise it as a miss.",
+      "photo": "redfin_11000447/photo_007.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_007_g5",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Red cable is surface-run across the left wall",
+      "gold_id": "g5",
+      "matched_condition_id": null,
+      "note": "The red surface-run cable is unmistakable in the photo and the pipeline tracked it cleanly all the way to 2d (issue ca46a87364c53bd2 -> visible_electrical_risks, kept by 2e), so the v5 catalog demonstrably could carry it -- yet no accepted condition does. The covering condition is not exposed in conditions_on_photo; by count reconciliation (11 surviving bullets -> 9 distinct conditions = 5 accepted + 4 excluded) it is almost certainly one of the four excluded_condition_ids, but the ids are opaque hashes so I cannot name which, hence covering_rejected_condition_id left null.",
+      "photo": "redfin_11000447/photo_007.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Wood-look plank floor has paint specks and debris",
+      "gold_id": "g6",
+      "matched_condition_id": "oc1_a22fbdfe0f54df39",
+      "note": "Paint specks and debris on the plank floor fall under the accepted worn_or_stained_flooring condition ('wear, staining, or discoloration'), which is the condition that would fund cleaning/refinishing/replacement. Caveat recorded but not scored: the condition's own wording ('worn and dark', 'stained or heavily aged') overstates what the photo shows -- the floor is dark cherry laminate by design and looks intact; gold's narrower reading (specks and debris) is the more accurate one.",
+      "photo": "redfin_11000447/photo_007.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_007_g7",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Ceiling fan is dated",
+      "gold_id": "g7",
+      "matched_condition_id": null,
+      "note": "The fan is visibly dated (dark blades, multi-globe kit) and dated_lighting_fixtures is a real v5 catalog item -- 2d resolved issue 1dbff99ebba3fda3 to it correctly. But it is the single issue absent from p2e.kept_issue_ids (matching the one tier_optional_suppressed count) and no accepted condition carries it. Per the brief, 2e suppression costs no condition, so a condition exists somewhere; it is not in conditions_on_photo and is presumably among the four excluded_condition_ids, which I cannot map by id.",
+      "photo": "redfin_11000447/photo_007.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_007_g8",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Door and casing show worn finish and hardware",
+      "gold_id": "g8",
+      "matched_condition_id": null,
+      "note": "Worn door edge, worn casing and dated knob are visible at right. The pipeline saw it (2a prose, 2b bullet 'The door and door trim look worn and uneven.', survived 2c, kept by 2e) but 2d resolved issue c6eda5a5811829e0 to catalog_item_id null, so nothing billable attached. Called miss_candidate rather than out_of_catalog because a catalog that carries baseboard_wear_scuffs as its own item very likely carries a door/trim analogue; if it genuinely does not, this reclassifies to out_of_catalog and 2d's null was correct.",
+      "photo": "redfin_11000447/photo_007.jpg"
+    },
+    {
+      "condition_id": "oc1_8bb3e7d3a6b82400",
+      "decision": "gold_incomplete",
+      "note": "baseboard_wear_scuffs, accepted, not used in any match because gold has no baseboard finding. The photo does support it: the white baseboard along the striped accent wall shows scuffing and soiling, and the dark baseboard along the left wall reads worn and unevenly finished, matching Terra's rationale. Gold is incomplete here -- no error case.",
+      "photo": "redfin_11000447/photo_007.jpg",
+      "photo_supports_claim": "yes"
+    },
+    {
+      "condition_id": "oc1_d95c21c765734c27",
+      "decision": "gold_incomplete",
+      "note": "wall_scuffs_marks_or_dents, accepted, not used in any match. The photo supports it independently of the paint-failure and hole findings: the left wall carries scattered small dark specks (nail holes), light streaks/drips and general use marks across its whole face. Gold is incomplete here -- no error case. Note this is distinct evidence from g1/g2 (paint-layer failure) and g3 (patched hole), so it is not double-counting those.",
+      "photo": "redfin_11000447/photo_007.jpg",
+      "photo_supports_claim": "yes"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Walls are scratched and scuffed with marks throughout",
+      "gold_id": "g1",
+      "matched_condition_id": "oc1_045aea265fac9e7b",
+      "note": "Accepted wall_scuffs_marks_or_dents (terra supported) bundles both 'Walls have scuffs and scratches' and 'Walls show patching and rough edges'. The photo plainly shows white scuffs/scratches across the left wall and partition. Direct match.",
+      "photo": "redfin_11000447/photo_008.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_008_g2",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Open unfinished cutout/hole in the wall above (rough-edged opening)",
+      "gold_id": "g2",
+      "matched_condition_id": null,
+      "note": "The rough unfinished cutout high on the partition is real in the photo and the catalog demonstrably CAN carry it: 2d resolved this exact bullet to visible_electrical_risks (issue 90057cbc036c87aa), kept by 2e. But no accepted condition on this photo covers it. No covering rejected condition is identifiable from the record - conditions_on_photo lists only accepted=true entries, so a rejected/unbilled condition would not appear. The two excluded_condition_ids with lane 'miss_label' (oc1_476cd4f80565d162, oc1_cb817305acf2e48c) are plausible carriers but the record gives no catalog_item_id for them, so I am not asserting either.",
+      "photo": "redfin_11000447/photo_008.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Two crudely fitted, screw-fastened access panels are visible behind and beside the vanity",
+      "gold_id": "g3",
+      "matched_condition_id": null,
+      "note": "The two screw-fastened panels are real and visible, but an access panel is a functional wall feature (plumbing/utility access) and is normal-for-context in a bathroom; their crude fit is a cosmetic wall-finish matter that overlaps the already-accepted wall condition's 'patching and rough edges' observation. No v5 catalog item for access panels is evidenced anywhere in the record: 2a described it neutrally ('likely serves plumbing, HVAC, or another utility'), 2c dropped the bullet, and 2d never resolved it to any item. I am not inventing catalog coverage, and the 2c drop of a neutral feature statement looks like a correct drop rather than an error.",
+      "photo": "redfin_11000447/photo_008.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Open gap under the vanity where the toe-kick/panel is missing",
+      "gold_id": "g4",
+      "matched_condition_id": "oc1_7a9ba957963d1492",
+      "note": "Accepted vanity_damaged_or_water_stained (defect), observation 'The vanity toe-kick or base area appears open or misaligned', terra 'The vanity base/toe-kick is visibly open and displaced'. The photo shows the open gap and displaced board under the cabinet. The catalog item name mentions water staining, which is not what is visible, but the claim_text ('water damage or broken components') and the routed work cover the missing/displaced toe-kick. Match.",
+      "photo": "redfin_11000447/photo_008.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Vanity cabinet is basic with worn edges",
+      "gold_id": "g5",
+      "matched_condition_id": "oc1_4f0058d96b06f3a3",
+      "note": "Accepted vanity_worn_finish (degradation), terra 'visible wear and dark deterioration along its exposed side edge' - exactly the dark worn left edge of the cabinet in the photo. This condition is listed in excluded_condition_ids (lane appendix_misnamed, case rc_e9d27cf6e9aa); that exclusion governs PART 2 only, so it is still used here to prevent a false miss.",
+      "photo": "redfin_11000447/photo_008.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "One-piece vanity top with integral sink and basic chrome faucet has dated styling",
+      "gold_id": "g6",
+      "matched_condition_id": "oc1_316e873a48416121",
+      "note": "Accepted outdated_bathroom_finishes (modernization), observation 'The vanity counter, sink, faucet, and cabinet fronts appear dated', terra 'The vanity, laminate counter, sink, and faucet have a visibly dated appearance'. Matches the one-piece top with integral bowl and basic chrome faucet.",
+      "photo": "redfin_11000447/photo_008.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Partition wall edge is chipped/worn near the floor",
+      "gold_id": "g7",
+      "matched_condition_id": "oc1_045aea265fac9e7b",
+      "note": "The chipped/worn partition corner at the floor is minor cosmetic wall damage on the same unit-level wall condition already accepted (wall_scuffs_marks_or_dents, 'scuffs, marks, or minor dents'), whose second observation is 'Walls show patching and rough edges'. Slight scope stretch (edge chip vs scuff), but it is the same catalog item, the same room, and the identical patch-and-paint work; scoring it separately would double-count the same wall prep.",
+      "photo": "redfin_11000447/photo_008.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "out_of_catalog",
+      "finding": "Stone-pattern floor surface has white residue or staining and darkened grout/joint lines",
+      "gold_id": "g8",
+      "matched_condition_id": null,
+      "note": "NOT matched to older_flooring_style: that condition's claim_text is explicitly 'flooring clean but visually outdated', so it does not assert soiling. The whitish residue/chalky mottling and darkened joint lines are surface soiling on a vacant listing - a cleaning observation, not a defect/degradation/modernization line, and no flooring-soiling item is evidenced in the record. The floor is in any case already routed for work under the accepted older_flooring_style condition, so no incremental billable condition is lost. Not treated as a miss.",
+      "photo": "redfin_11000447/photo_008.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Towel ring and over-toilet cabinet have basic, mismatched styling",
+      "gold_id": "g9",
+      "matched_condition_id": "oc1_316e873a48416121",
+      "note": "outdated_bathroom_finishes is a unit-level modernization item covering 'dated tile, vanity, or fixtures' for bathroom_primary, accepted_for_work. The basic chrome towel ring and the stylistically unrelated white over-toilet cabinet fall inside that accepted scope; a separate miss here would be spurious.",
+      "photo": "redfin_11000447/photo_008.jpg"
+    },
+    {
+      "case_id": "ga_redfin_11000447_photo_008_g10",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Baseboard trim is missing along much of the left wall and partition",
+      "gold_id": "g10",
+      "matched_condition_id": null,
+      "note": "The vinyl floor meets bare painted wall with no base or cove trim along the whole left wall and both partition faces - an unfinished condition, not normal-for-context in a finished bathroom, and real supply-and-install work. No accepted condition covers trim; no rejected condition is identifiable in the record. Catalog coverage for a trim/baseboard item is not directly evidenced, but this catalog bills cosmetics as fine-grained as wall scuffs, so I score it as a miss rather than out_of_catalog.",
+      "photo": "redfin_11000447/photo_008.jpg"
+    },
+    {
+      "condition_id": "oc1_961e6edcac992934",
+      "decision": "gold_incomplete",
+      "note": "older_flooring_style, 'flooring clean but visually outdated flooring', accepted, terra supported ('visibly older patterned sheet flooring'). No gold finding asserts the floor is dated - g8 only describes residue/staining on it - so this condition is unused in any match. The photo does support the claim: brown/tan faux-stone patterned sheet vinyl / vinyl tile that reads as dated flooring. Gold is incomplete here; not a hallucination, no error case. (The other four accepted conditions are all consumed by matches: oc1_045aea265fac9e7b -> g1+g7, oc1_7a9ba957963d1492 -> g4, oc1_4f0058d96b06f3a3 -> g5, oc1_316e873a48416121 -> g6+g9. No accepted condition on this photo is unsupported, so there are no hallucination candidates.)",
+      "photo": "redfin_11000447/photo_008.jpg",
+      "photo_supports_claim": "yes"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_001_g1",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Long concrete entry steps are weathered and stained",
+      "gold_id": "g1",
+      "matched_condition_id": null,
+      "note": "Weathered/stained concrete entry steps are clearly visible (dirt-darkened tread faces, stained nosings) but no condition on this photo covers the stairs at all. The only two conditions are the soffit/porch-ceiling degradation and the porch/facade curb-appeal modernization; neither one's observations touch the stair run, so I do not record curb_appeal_upgrade as a covering rejected condition here. The v5 catalog carries exterior degradation/wear items, so a weathered-hardscape surface is in principle billable -- hence miss_candidate rather than out_of_catalog, with the caveat that if the catalog treats generic concrete weathering as support-only wear this would flip to out_of_catalog.",
+      "photo": "redfin_10806500/photo_001.jpg"
+    },
+    {
+      "covering_rejected_condition_id": null,
+      "decision": "matched",
+      "finding": "Porch knee wall, fascia, and ceiling/soffit surfaces show patchy paint, peeling, and dark staining",
+      "gold_id": "g2",
+      "matched_condition_id": "oc1_e0539e5fbe50ad8f",
+      "note": "Accepted condition soffit_or_porch_ceiling_weathered ('finish patchy, peeling, or weathered finish on intact panels', disposition accepted_for_work, Terra supported) covers this directly, and the photo bears it out: patchy discolored porch ceiling and dark-streaked fascia on otherwise intact panels. The gold finding also names the knee wall, which the condition does not literally scope, but the finding as a stated observation is covered by the accepted condition and Terra's own rationale cites the porch ceiling and front fascia. No error.",
+      "photo": "redfin_10806500/photo_001.jpg"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_001_g3",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Front porch and window openings have prominent metal security bars or grilles",
+      "gold_id": "g3",
+      "matched_condition_id": null,
+      "note": "A black security grille over the porch-bay window and iron guard/bars at the porch opening are prominent in the image. No accepted condition covers them. I deliberately do NOT record curb_appeal_upgrade as covering: that condition was built only from 'The front porch looks dated' and 'The porch guard and ironwork feel dated', and the security-bar observation was severed from it when its own 2b bullet was dropped at 2c -- so the bar/grille observation was not in fact carried by any condition. Security-bar removal is a routine rehab scope item, so I treat it as catalog-capable; medium confidence on that point.",
+      "photo": "redfin_10806500/photo_001.jpg"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_001_g4",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Corrugated downspout extension terminates at grade close to the basement window and foundation",
+      "gold_id": "g4",
+      "matched_condition_id": null,
+      "note": "The white corrugated downspout extension discharging at grade against the foundation beside the low basement window is unambiguous in the photo, and 2a flagged it as a real concern ('Ensure water is carried well away from the foundation'). No condition of any kind on this photo touches drainage. Downspout discharge at the foundation is a standard exterior/drainage catalog scope, so this is a genuine billable miss, not an out-of-catalog observation.",
+      "photo": "redfin_10806500/photo_001.jpg"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_001_g6",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Storm/screen door is dated",
+      "gold_id": "g6",
+      "matched_condition_id": null,
+      "note": "The white storm/security door with scrollwork insert is visibly dated, and 2a called the entry door and storm/security treatment 'clear modernization opportunities'. No accepted condition covers it. curb_appeal_upgrade's claim text nominally spans 'entry/porch/facade', but its two constituent observations are both porch-scoped and the door observation never reached it (the door bullet was dropped at 2c), so I do not record it as a covering rejected condition. An entry/storm-door modernization is catalog-capable, so miss_candidate.",
+      "photo": "redfin_10806500/photo_001.jpg"
+    },
+    {
+      "case_id": "ga_redfin_10806500_photo_001_g7",
+      "covering_rejected_condition_id": null,
+      "decision": "miss_candidate",
+      "finding": "Metal step handrail is older with worn paint",
+      "gold_id": "g7",
+      "matched_condition_id": null,
+      "note": "The single narrow black stair handrail is older with dull/worn paint. 2a saw it ('The single narrow metal rail and porch guard/ironwork feel dated; replacing or refinishing them'), but 2b split that one sentence into two bullets and only the porch-guard half kept the 'dated' modifier -- that half survived into curb_appeal_upgrade while the stair-rail half went out at 2c. So the pipeline's surviving condition is about the porch guard, not the step handrail, and I do not record curb_appeal_upgrade as covering. Note the adjacency though: had curb_appeal_upgrade been routed to work rather than no_action, a porch/facade ironwork refinish would plausibly have swept the rail in.",
+      "photo": "redfin_10806500/photo_001.jpg"
+    },
+    {
+      "condition_id": "oc1_9b726afe76b1c2d2",
+      "decision": "gold_incomplete",
+      "note": "Informational, not a Part-2 extra: this condition is accepted=false (Terra verdict 'supported', then disposition no_action / route_no_action), so it is not an accepted condition left over after matching and it is not a hallucination candidate. Recording it because the photo does support the claim -- the porch reads dated and the black iron guardrail plus decorative ironwork are plainly visible, exactly as Terra's rationale describes. Gold has no standalone 'porch/ironwork is dated' finding, so gold is mildly incomplete on the modernization reading, but the underlying objects are all in gold via g3/g7. No error case. The only accepted condition on this photo (oc1_e0539e5fbe50ad8f) was consumed by the g2 match, so there are zero genuine Part-2 extras and zero hallucination candidates here. oc1_f46cc039d3163f19 is in excluded_condition_ids and was skipped entirely (it does not appear in conditions_on_photo).",
+      "photo": "redfin_10806500/photo_001.jpg",
+      "photo_supports_claim": "yes"
+    }
+  ],
+  "schema_version": 1,
+  "source_note": "Materialised from the gold review pass. Gold is photo-observation truth, not billable-condition truth: out_of_catalog findings are not misses."
+}

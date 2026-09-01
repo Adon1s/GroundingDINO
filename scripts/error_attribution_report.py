@@ -13,6 +13,11 @@ Reconciliation is enforced, not reported: a case with no verdict, a downstream
 verdict with no stage, or a lane count that drifted from the queue fails the
 run. `--allow-incomplete` reports partial progress during a review session.
 
+The gold lane is review output, not extraction output, so its cases cannot live
+in the frozen queue: `--gold-cases` merges the review-produced ga_/gx_ cases
+into the same reconciliation and tally. Without the flag a gold verdict in the
+ledger is an orphan and fails the run.
+
 Run:
   .venv\\Scripts\\python.exe scripts\\error_attribution_report.py
 """
@@ -42,6 +47,7 @@ STAGES = ("2b", "2c", "2d", "2e", "condition_projection", "terra")
 MISS_LANES = ("miss_label", "miss_v1only", "miss_gold")
 HALLUC_LANES = ("halluc_label", "halluc_v1only", "halluc_gold_extra")
 APPENDIX_LANES = ("appendix_misnamed", "appendix_trivial", "appendix_inconclusive")
+GOLD_LANES = ("miss_gold", "halluc_gold_extra")
 
 # A v1-only case carries one collapsed label instead of the two v1.1 axes, so its
 # truth is weaker than the adjudicated cohort's; the report refuses to record it
@@ -81,9 +87,9 @@ def latest_verdicts(path: Path) -> Dict[str, Dict[str, Any]]:
 
 
 def reconcile(queue: Dict[str, Any], verdicts: Dict[str, Dict[str, Any]],
-              *, allow_incomplete: bool = False) -> Dict[str, Any]:
+              *, allow_incomplete: bool = False,
+              gold: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
     """Every invariant that must hold before a number in this report means anything."""
-    cases = {c["case_id"]: c for c in queue.get("cases") or []}
     problems: List[str] = []
 
     ids = [c["case_id"] for c in queue.get("cases") or []]
@@ -91,14 +97,39 @@ def reconcile(queue: Dict[str, Any], verdicts: Dict[str, Dict[str, Any]],
     if dupes:
         problems.append(f"duplicate case_id in queue: {sorted(dupes)[:5]}")
 
-    # condition_id is run-scoped, so the same condition twice in one run is a real collision.
+    # Gold cases are review output, so they merge in after the frozen-queue
+    # header checks and must satisfy their own contract first.
+    gold_cases = (gold or {}).get("cases") or []
+    gold_ids = [c.get("case_id") for c in gold_cases]
+    gold_dupes = [cid for cid, n in Counter(gold_ids).items() if n > 1]
+    if gold_dupes:
+        problems.append(f"duplicate case_id in gold cases: {sorted(gold_dupes)[:5]}")
+    collisions = sorted(set(gold_ids) & set(ids))
+    if collisions:
+        problems.append(f"gold case ids collide with the queue: {collisions[:5]}")
+    for case in gold_cases:
+        cid = case.get("case_id") or "<gold case without id>"
+        if not str(cid).startswith(("ga_", "gx_")):
+            problems.append(f"{cid}: gold case ids must start with ga_ or gx_")
+        if case.get("lane") not in GOLD_LANES:
+            problems.append(f"{cid}: gold lane {case.get('lane')!r} outside {GOLD_LANES}")
+        if not case.get("attribute"):
+            problems.append(f"{cid}: gold cases must be attributable")
+        if (case.get("human_truth") or {}).get("basis") != "gold":
+            problems.append(f"{cid}: gold truth basis must be 'gold'")
+
+    all_cases = (queue.get("cases") or []) + gold_cases
+    cases = {c.get("case_id"): c for c in all_cases}
+
+    # condition_id is run-scoped, so the same condition twice in one run is a real
+    # collision -- including a gold case anchored on a condition an rc_ case carries.
     seen: Dict[Tuple[Any, Any, Any], str] = {}
-    for case in queue.get("cases") or []:
+    for case in all_cases:
         claim = case.get("v5_claim") or {}
         if not claim.get("condition_id"):
             continue
-        key = (case["run_ref"].get("source"), case["run_ref"].get("run_id"),
-               claim["condition_id"])
+        run_ref = case.get("run_ref") or {}
+        key = (run_ref.get("source"), run_ref.get("run_id"), claim["condition_id"])
         if key in seen:
             problems.append(f"condition {key[2]} appears in {seen[key]} and {case['case_id']}")
         seen[key] = case["case_id"]
@@ -145,12 +176,17 @@ def reconcile(queue: Dict[str, Any], verdicts: Dict[str, Dict[str, Any]],
     if problems:
         raise ReconciliationError("; ".join(problems))
     return {"ok": True, "cases": len(cases), "verdicts": len(verdicts),
-            "pending": pending, "attributable": sum(1 for c in cases.values() if c["attribute"])}
+            "pending": pending,
+            "attributable": sum(1 for c in cases.values() if c.get("attribute")),
+            "gold_cases": len(gold_cases)}
 
 
-def tally(queue: Dict[str, Any], verdicts: Dict[str, Dict[str, Any]]) -> Dict[str, Any]:
+def tally(queue: Dict[str, Any], verdicts: Dict[str, Dict[str, Any]],
+          *, gold: Optional[Dict[str, Any]] = None,
+          gold_path: Optional[Path] = None) -> Dict[str, Any]:
     """The whole report as one dict; the markdown is a rendering of exactly this."""
-    cases = {c["case_id"]: c for c in queue.get("cases") or []}
+    cases = {c["case_id"]: c
+             for c in (queue.get("cases") or []) + ((gold or {}).get("cases") or [])}
     by_lane: Dict[str, Counter] = defaultdict(Counter)
     stages_by_lane: Dict[str, Counter] = defaultdict(Counter)
     confidence: Counter = Counter()
@@ -174,10 +210,11 @@ def tally(queue: Dict[str, Any], verdicts: Dict[str, Dict[str, Any]]) -> Dict[st
         if rec:
             confidence[rec.get("confidence") or "unspecified"] += 1
         claim = case.get("v5_claim") or {}
+        run_ref = case.get("run_ref") or {}
         rows.append({
             "case_id": case_id, "lane": lane, "basis": basis,
-            "source": case["run_ref"].get("source"),
-            "property_key": case["run_ref"].get("property_key"),
+            "source": run_ref.get("source"),
+            "property_key": run_ref.get("property_key"),
             "condition_id": claim.get("condition_id"),
             "catalog_item_id": claim.get("catalog_item_id"),
             "human_class": (case.get("human_truth") or {}).get("class_v1_1")
@@ -213,6 +250,11 @@ def tally(queue: Dict[str, Any], verdicts: Dict[str, Dict[str, Any]]) -> Dict[st
                              "generated_at": queue.get("generated_at")},
                    "verdicts": {"path": str(VERDICTS.relative_to(ROOT)),
                                 "sha256": sha256_file(VERDICTS) if VERDICTS.is_file() else None},
+                   "gold_cases": None if gold is None else {
+                       "path": str(Path(gold_path)) if gold_path else None,
+                       "sha256": (sha256_file(Path(gold_path))
+                                  if gold_path and Path(gold_path).is_file() else None),
+                       "generated_at": gold.get("generated_at")},
                    "queue_inputs": queue.get("inputs")},
         "misses": headline(MISS_LANES),
         "hallucinations": headline(HALLUC_LANES),
@@ -224,7 +266,12 @@ def tally(queue: Dict[str, Any], verdicts: Dict[str, Dict[str, Any]]) -> Dict[st
         "confidence": dict(confidence),
         "p2b_join_health": queue.get("p2b_join_health"),
         "gold": {"photos": queue.get("gold_photo_count"),
-                 "findings": queue.get("gold_finding_count")},
+                 "findings": queue.get("gold_finding_count"),
+                 # Counted by whatever decisions the review actually recorded, so a
+                 # new decision kind shows up instead of being silently dropped.
+                 "matching": dict(Counter(str(row.get("decision"))
+                                          for row in ((gold or {}).get("matching_table") or []))),
+                 "cases": len((gold or {}).get("cases") or [])},
         "notes": queue.get("notes"),
         "cases": rows,
     }
@@ -283,6 +330,23 @@ def render(report: Dict[str, Any]) -> str:
             + f" | {counts.get('counted_only', 0)} | {counts.get('pending', 0)} |")
     add("")
 
+    gold = report.get("gold") or {}
+    if gold.get("matching") or gold.get("cases"):
+        add("## Gold lane")
+        add("")
+        add(f"{gold.get('photos')} photos, {gold.get('findings')} frozen findings, "
+            f"{gold.get('cases')} case(s) materialised from the review.")
+        add("")
+        add("Gold is photo-observation truth, not billable-condition truth: an unmatched")
+        add("finding is only a miss when the v5 catalog could have carried it.")
+        add("")
+        if gold.get("matching"):
+            add("| decision | n |")
+            add("| --- | ---: |")
+            for decision, n in sorted(gold["matching"].items()):
+                add(f"| {decision} | {n} |")
+            add("")
+
     add("## Truth basis")
     add("")
     add("`v1_1` carries both adjudicated axes; `v1_only` is one collapsed v1 label and")
@@ -321,23 +385,28 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--queue", type=Path, default=QUEUE)
     parser.add_argument("--verdicts", type=Path, default=VERDICTS)
+    parser.add_argument("--gold-cases", type=Path, default=None,
+                        help="review-produced gold lane cases (ga_/gx_) to merge into the tally")
     parser.add_argument("--allow-incomplete", action="store_true",
                         help="report partial progress instead of failing on unreviewed cases")
     args = parser.parse_args(argv)
 
     queue = json.loads(Path(args.queue).read_text(encoding="utf-8"))
     verdicts = latest_verdicts(Path(args.verdicts))
+    gold = (json.loads(Path(args.gold_cases).read_text(encoding="utf-8"))
+            if args.gold_cases else None)
     try:
-        status = reconcile(queue, verdicts, allow_incomplete=args.allow_incomplete)
+        status = reconcile(queue, verdicts, allow_incomplete=args.allow_incomplete, gold=gold)
     except ReconciliationError as exc:
         print(f"RECONCILIATION FAILED: {exc}")
         return 1
-    report = tally(queue, verdicts)
+    report = tally(queue, verdicts, gold=gold, gold_path=args.gold_cases)
     report["reconciliation"] = status
     atomic_json(OUT_JSON, report)
     OUT_MD.write_text(render(report), encoding="utf-8")
 
     print(f"cases {status['cases']} | attributable {status['attributable']} "
+          f"| gold cases {status['gold_cases']} "
           f"| verdicts {status['verdicts']} | pending {len(status['pending'])}")
     print(f"misses: {report['misses']['counts']}")
     print(f"hallucinations: {report['hallucinations']['counts']}")
