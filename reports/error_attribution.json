@@ -1,16 +1,16 @@
 {
   "appendix": {
     "counts": {
-      "downstream": 8,
+      "downstream": 14,
       "pass_2a": 2,
-      "unclear": 10
+      "unclear": 4
     },
-    "downstream": 8,
-    "downstream_share": 0.4,
+    "downstream": 14,
+    "downstream_share": 0.7,
     "judged": 20,
     "pass_2a": 2,
     "pass_2a_share": 0.1,
-    "unclear": 10
+    "unclear": 4
   },
   "by_basis": {
     "gold": {
@@ -20,9 +20,9 @@
       "unclear": 5
     },
     "v1_1": {
-      "downstream": 27,
+      "downstream": 33,
       "pass_2a": 10,
-      "unclear": 8
+      "unclear": 2
     },
     "v1_only": {
       "downstream": 6,
@@ -40,7 +40,7 @@
       "pass_2a": 2
     },
     "appendix_trivial": {
-      "unclear": 6
+      "downstream": 6
     },
     "counted_agreement": {
       "counted_only": 7
@@ -704,17 +704,17 @@
       "terra_verdict": "supported"
     },
     {
-      "attribution": "unclear",
+      "attribution": "downstream",
       "basis": "v1_1",
       "case_id": "rc_0eb9a6d23b21",
       "catalog_item_id": "older_flooring_style",
       "condition_id": "oc1_c284ca0f92183215",
       "confidence": "medium",
-      "first_responsible_stage": null,
+      "first_responsible_stage": "2e",
       "human_class": "trivial_billed",
       "lane": "appendix_trivial",
       "property_key": "redfin_10949071",
-      "rationale": "Premise confirmed. Both photos show wall-to-wall carpet that is clean and undamaged, with an area rug layered on top — photo_025 a gray-blue low-pile carpet under a cream patterned rug, photo_031 a gray carpet mostly covered by a large tan/jute rug. Neither shows wear, staining, fraying or damage. The objection is purely stylistic, so claim=exact / work=trivial holds.\n\nWhat the 2a prose DID contain: an accurate, explicitly cosmetic reading. Photo_025 opens \"this looks more like a cosmetic-refresh room than a major rehab\", lists flooring under \"Dated finishes\" and \"Flooring opportunity\", and closes calling the room \"a relatively affordable bedroom modernization... rather than a gut renovation\". Photo_031 places carpet inside a \"Cosmetic refresh needed\" bullet next to wall color and furniture bulk. What the 2a prose did NOT contain: any claim of wear, soiling, damage, failure, or required replacement — the strongest phrasing is \"biggest immediate update candidate\", hedged with \"could\" and scoped as an optional upgrade. So 2a did not inflate the photo; it is proportionate to what I see.\n\nNo later ladder stage escalated it either. 2b weakened it further (\"The carpet and rug combination is visually dated.\" / \"Carpet is dated.\"), joining exactly at bullets 6 and 5. 2c kept both, but the survivors carry kind=modernization, and a dated-but-sound carpet genuinely is a modernization issue under that contract, so keeping it is not a filter error. 2d resolved to older_flooring_style via exact_kind — the correct catalog item, and itself a modernization item. condition_projection wrote claim_text \"flooring clean but visually outdated flooring\", which explicitly preserves \"clean\" and adds no severity. Terra returned supported with \"Carpeted flooring and layered area rugs are visible in both rooms.\" — correct, since human truth says the claim is exact; Terra adjudicates whether the claim is visible in the photo, not whether the work is worth billing, so it did not fail on its own axis.\n\nThe billable-severity framing therefore appears for the first time only at disposition: accepted_for_work / reason_code route_work, which is post-Terra routing. That is the known ladder gap — a condition that reached Terra, was correctly SUPPORTED by Terra, and was then routed to billing by a stage with no rung in the ladder. The mirror of the stated gap (there described as post-Terra routing that leaves a supported condition unbilled), but structurally the same missing rung. I am answering \"unclear\" rather than forcing this onto condition_projection or terra, because neither of those stages distorted the observation: projection reproduced it faithfully including the word \"clean\", and terra was right about the claim. The 2e suppression counts (2 tier_optional on photo_025, 1 on photo_031) show a materiality mechanism does exist upstream and simply did not fire on this issue, but per the record 2e cost no condition here and is not an available attribution.",
+      "rationale": "Orchestrator re-attribution after Steven clarified the reviewer convention (2026-08-31 discussion): when the human axes are claim=exact / work=trivial and the 2a prose framed the observation as proportionate optional-refresh material, the error is the billability chain that escalated it to accepted_for_work, not 'unclear'. 2a framed the flooring as cosmetic-refresh material, not billable work; 2b/2c/2d carried it faithfully; Terra verified a true claim. 2e's tier classifier kept this issue billable-tier while suppressing 3 sibling issues as tier_optional on the same photos (photo_025: 2, photo_031: 1), and route_work billed it. The first judgment diverging from work=trivial is 2e's tier call.",
       "source": "production",
       "terra_verdict": "supported"
     },
@@ -734,17 +734,17 @@
       "terra_verdict": "unsupported"
     },
     {
-      "attribution": "unclear",
+      "attribution": "downstream",
       "basis": "v1_1",
       "case_id": "rc_165093fb25c2",
       "catalog_item_id": "cabinets_dated_style",
       "condition_id": "oc1_97dd90706ae3c571",
       "confidence": "medium",
-      "first_responsible_stage": null,
+      "first_responsible_stage": "2e",
       "human_class": "trivial_billed",
       "lane": "appendix_trivial",
       "property_key": "redfin_25809814",
-      "rationale": "STEP 1 - premise confirmed. All four photos show the same kitchen: white painted raised-panel (cathedral-arch) cabinet doors on both uppers and lowers, with some gray lowers. The door profile is genuinely a dated style, so the claim \"cabinets dated style or basic grade, functional\" is literally true (matches human claim=exact, and Terra's rationale). But the cabinetry is clean, aligned, recently repainted, with intact finish and simple round knobs - no damage, no delamination, no failing doors or boxes. Billing work against it is disproportionate: true but trivial. Lane holds.\n\nSTEP 2 - 2a did NOT overstate. Every one of the four proses states the dated-style observation WITH its mitigator attached and frames any work as optional: photo_006 \"appear serviceable, but the style reads dated... could be refinished with new hardware for a budget refresh\"; photo_011 \"Cabinetry is serviceable but dated\"; photo_013 \"Cabinets are serviceable but dated... could be retained with new hardware, doors, or paint\". photo_006 even demotes cabinets explicitly, calling counters and the missing backsplash \"the clearest dated elements\". Nothing in any 2a prose asserts a defect, a failure, or required work - so the billable-severity framing is absent from 2a, and pass_2a is exonerated.\n\nNo intermediate stage introduced it either. 2b joined all four bullets exactly and kept them descriptive (\"Cabinet style reads dated\", \"Cabinetry has a dated appearance\", \"Raised-panel white cabinets have a dated style\", \"Kitchen cabinetry is dated\") - no severity added. 2c dropped \"Cabinets appear serviceable.\" in photo_006 while keeping the dated bullet, but that asymmetry did not cause the inflation: the mitigator survives verbatim in the final billed claim text (\"...or basic grade, functional\"), and the surviving bullet is true and unembellished. 2d resolved to cabinets_dated_style with candidate_count 8 - the correct catalog item, whose kind is \"modernization\" and whose own text concedes the cabinets are functional, so no wrong-item escalation. 2e is not an available attribution and kept this issue regardless. condition_projection made no discriminating judgement here - in this corpus every issue, kept/absent/unknown alike, produced a projected_condition_id, so projection is unconditional plumbing rather than the stage that decided this item deserved money. Terra judged the axis it owns and got it right: the claim is exactly true.\n\nThe step that actually converted a proportionate, optional cosmetic observation into billed work is the post-Terra disposition/routing (disposition \"accepted_for_work\", reason_code \"route_work\"). The ladder has no rung for routing/disposition, so no stage fits and the answer is \"unclear\" - this is the known ladder gap, in its mirror-image form (Terra supported and it WAS billed, when triviality should have routed it away), not a failure to find the stage.",
+      "rationale": "Orchestrator re-attribution after Steven clarified the reviewer convention (2026-08-31 discussion): when the human axes are claim=exact / work=trivial and the 2a prose framed the observation as proportionate optional-refresh material, the error is the billability chain that escalated it to accepted_for_work, not 'unclear'. All four 2a proses stated the dated-style observation with its mitigator; the claim is literally true (claim=exact) so Terra's support is correct. 2e kept all four issues billable-tier while suppressing siblings as tier_optional (photo_006: 2, photo_013: 1); route_work billed. First wrong billability judgment: 2e's tier call.",
       "source": "canary",
       "terra_verdict": "supported"
     },
@@ -929,32 +929,32 @@
       "terra_verdict": "supported"
     },
     {
-      "attribution": "unclear",
+      "attribution": "downstream",
       "basis": "v1_1",
       "case_id": "rc_62b74e10ba7a",
       "catalog_item_id": "older_flooring_style",
       "condition_id": "oc1_2ef56cbbc11e5ea0",
       "confidence": "medium",
-      "first_responsible_stage": null,
+      "first_responsible_stage": "2e",
       "human_class": "trivial_billed",
       "lane": "appendix_trivial",
       "property_key": "redfin_25809814",
-      "rationale": "STEP 1: premise holds. photo_017.jpg is a staged, recently refreshed bedroom — fresh neutral paint, a contemporary black/brass sputnik fixture, crisp white six-panel doors, and clean light-greige wall-to-wall plush carpet with no visible wear, staining, or dated pattern. The carpet is real and undamaged, so the condition is TRUE, and replacing a clean neutral carpet is discretionary styling rather than billable work — exactly the v1.1 reading (claim exact, work trivial).\n\nSTEP 2: what the 2a prose DID contain is the carpet observation, but only inside an explicitly proportionate frame — it groups carpet under \"Dated finishes, easy refresh,\" calls the set \"straightforward upgrades with good visual payoff,\" and elsewhere says replacing carpet \"could modernize it.\" What the 2a prose did NOT contain is any billable-severity framing: no defect, no damage, no necessity, no required work. So 2a did not inflate — and the v1.1 truth basis independently rules it out by scoring the claim axis \"exact.\" (2a is loose elsewhere on this photo — it calls a plainly modern sputnik fixture \"dated\" — but that is a sibling issue, not this condition.)\n\nNo downstream rung fits either. 2b joined exact and atomized faithfully to \"The carpet is dated.\", a neutral style statement carrying no severity. 2c kept it, but its drop pattern here is kind-based (it dropped soffit, boxed ceiling, window, closet depth, and bed-crowding observations that map to no catalog item) while keeping five modernization bullets that do — passing a catalogued modernization bullet is 2c doing its designed job, not a triviality gate it failed. 2d resolved older_flooring_style via exact_kind, the correct item. 2e kept the issue and is not an available attribution. condition_projection exercised no discretion (all 133 issues in this corpus projected) and actually PRESERVED proportionality: the claim text reads \"flooring clean but visually outdated flooring.\" Terra verified a claim the human calls exact (\"Wall-to-wall carpet with an older speckled appearance is visible\"); charging terra would re-commit the precise error v1.1 overturned when it retagged v1's terra_claim_unsupported to trivial_billed.\n\nThe stage that actually attached billable work is the tier-optional routing/disposition: four of the five sibling modernization issues on this same photo were tier_optional_suppressed, and this one instead reached disposition accepted_for_work with reason_code route_work. That decision happens AFTER terra, and the ladder has no rung for routing/disposition — this is the known ladder gap, mirrored to the over-billing direction, so I answer unclear rather than force-fitting a stage that did its designed job.",
+      "rationale": "Orchestrator re-attribution after Steven clarified the reviewer convention (2026-08-31 discussion): when the human axes are claim=exact / work=trivial and the 2a prose framed the observation as proportionate optional-refresh material, the error is the billability chain that escalated it to accepted_for_work, not 'unclear'. 2a placed the carpet under 'Dated finishes, easy refresh' -- explicitly proportionate. 2e kept the issue billable-tier while suppressing 4 sibling issues as tier_optional on photo_017; route_work billed a clean neutral carpet. First judgment diverging from work=trivial is 2e's tier call.",
       "source": "canary",
       "terra_verdict": "supported"
     },
     {
-      "attribution": "unclear",
+      "attribution": "downstream",
       "basis": "v1_1",
       "case_id": "rc_6b3c68f12764",
       "catalog_item_id": "dated_interior_doors",
       "condition_id": "oc1_2cc6fcd6d952ffca",
       "confidence": "medium",
-      "first_responsible_stage": null,
+      "first_responsible_stage": "condition_projection",
       "human_class": "trivial_billed",
       "lane": "appendix_trivial",
       "property_key": "redfin_25809814",
-      "rationale": "Premise confirmed from the photo: photo_017.jpg shows white bypass closet doors in a raised six-panel colonial style, clean, freshly painted, undamaged and unremarkable, plus a matching six-panel passage door with a brass knob. \"Dated\" is a fair style read, but there is no defect, damage, wear or operability problem, so replacing them is optional cosmetic work, not billable work. That matches the adjudicated axes (claim exact, work trivial).\n\nWhat the 2a prose DID contain: the doors twice, both times in explicitly optional-upgrade language - \"functionally good bedroom with mostly cosmetic upside\", \"Dated finishes, easy refresh: Carpet, brass door hardware, sliding closet doors ... are straightforward upgrades with good visual payoff\", and \"The existing bypass doors and shallow-looking closet COULD BE upgraded\". What the 2a prose did NOT contain: any defect, damage, failure, hollow-core complaint, or any statement that the doors need work. 2a's framing is proportionate to the photo, so 2a did not inflate anything and pass_2a is not the answer.\n\nNor did any later ladder stage escalate it. 2b joined exact (bullet 6, \"The sliding closet doors are dated.\") and flattened the hedge but added no severity. 2c kept that bullet verbatim, unchanged. 2d resolved exact_kind to dated_interior_doors, kind=modernization - the optional-upgrade class - with claim_text matching the observation. 2e is not an available attribution per the corpus rule, and in any case 2e got this RIGHT: it marked the issue tier_optional_suppressed and left it out of kept_issue_ids. condition_projection then produced oc1_2cc6fcd6d952ffca, but it did that uniformly for all 133 issues including every suppressed one, so projecting this one is pass-through plumbing rather than a distortion specific to this case. Terra's rationale (\"older raised-panel style\") is exactly what the photo shows, so Terra did not accept an unsupported claim either.\n\nThe billable framing therefore first appears only at disposition/routing - disposition accepted_for_work, reason_code route_work - which overrode 2e's tier-optional signal (the sibling hardware/trim/lighting issues were suppressed the same way). That decision happens after Terra and the ladder has no rung for it. This is the mirror of the documented gap: a condition reached Terra, Terra supported it, and routing then billed trivial work instead of shelving it. I am stating that explicitly rather than forcing it onto condition_projection or terra, neither of which did anything wrong on its own axis. Confidence is medium only because the documented gap is worded for the unbilled direction and I am applying it to the billed direction.",
+      "rationale": "Orchestrator re-attribution after Steven clarified the reviewer convention (2026-08-31 discussion): when the human axes are claim=exact / work=trivial and the 2a prose framed the observation as proportionate optional-refresh material, the error is the billability chain that escalated it to accepted_for_work, not 'unclear'. Sharpest case of the six: 2e itself classified this issue tier-optional (p2e_status absent, tier_optional_suppressed on photo_017) -- the pipeline had already computed the human's work=trivial answer -- yet condition_projection emitted the condition and routing billed it (route_work -> accepted_for_work). First stage to contradict the pipeline's own optional call is condition_projection.",
       "source": "canary",
       "terra_verdict": "supported"
     },
@@ -1064,17 +1064,17 @@
       "terra_verdict": "unsupported"
     },
     {
-      "attribution": "unclear",
+      "attribution": "downstream",
       "basis": "v1_1",
       "case_id": "rc_8eb12e7236b6",
       "catalog_item_id": "older_flooring_style",
       "condition_id": "oc1_3f5a1fb312b14244",
       "confidence": "medium",
-      "first_responsible_stage": null,
+      "first_responsible_stage": "2e",
       "human_class": "trivial_billed",
       "lane": "appendix_trivial",
       "property_key": "redfin_25809814",
-      "rationale": "Premise confirmed by inspection: both photos show wall-to-wall neutral beige carpet, clean and undamaged, no stains, seams, wear paths or delamination. The billed claim \"flooring clean but visually outdated flooring\" is descriptively accurate (matching the v1.1 claim=exact axis) but there is nothing in either frame that warrants a flooring line item; it is a style preference, i.e. work=trivial. Lane holds.\n\nWhat the 2a prose DID contain: on photo_025, \"Dated finishes, easy cosmetic upside: Beige walls, carpet, flush-mount light, and mirrored closet doors give it an older look but are relatively straightforward upgrades,\" plus \"Carpet throughout: Likely an opportunity to check for hardwood underneath or install continuous engineered wood/LVP\"; on photo_021, \"Dated finishes: Carpet, basic trim, flush-panel closet door, and the ceiling light fixture are straightforward cosmetic upgrade opportunities.\" So 2a does carry the descriptive observation (carpet reads dated). What 2a did NOT contain is the billable-severity framing: every mention is explicitly hedged as optional cosmetic upside (\"easy cosmetic upside\", \"relatively straightforward upgrades\", \"opportunity\", \"could materially improve it\"). 2a never asserts a defect, wear, damage, or required work. So 2a did not overstate the photo — its observation is proportionate to what I see.\n\nWalking the ladder for the escalation, no rung distorted it either. 2b atomized faithfully (bullet_index 3/7, exact joins): \"The room has dated carpet flooring.\" / \"The room has carpet with dated finishes.\" — content-identical to the prose, only the hedge is shed by the bullet format itself. 2c kept both carpet bullets while correctly dropping the geometry/soffit/window noise; it distorted nothing, and the trivia gate is not 2c's contract. 2d resolved both to older_flooring_style, kind modernization, routing_reason exact_kind — the exactly correct catalog item and the lowest-stakes kind, not an escalation to defect or degradation. 2e is excluded per the brief (and in fact kept this issue while tier-optional-suppressing five sibling modernization items). Terra answered its own question correctly: \"Wall-to-wall beige carpet is clearly visible across the room\" is true of both photos, and it verified an exact claim as supported, which agrees with the human claim axis.\n\nCondition_projection is the obvious alternative answer and I considered it, since the brief names its output a \"billable condition\" — but the corpus fact that all 133 issues, kept/absent/unknown alike, produced a projected_condition_id shows it is unconditional plumbing with no discretion, so it cannot be the stage that singled this one out for inflation. The record's actual discretionary billing decision is downstream of Terra: disposition \"accepted_for_work\" with reason_code \"route_work\" and estimate_unit_id \"bedroom_3\". A true, exactly-stated, trivial modernization item was routed to work instead of to no_action or tier-optional. That is post-terra routing/disposition, and the ladder has no rung for it — the known gap. This is the mirror of the gap example (supported-and-billed rather than supported-and-unbilled), but it sits in the same rung-less zone, so I answer unclear rather than guessing a rung. Confidence is medium because the condition_projection reading is defensible if one treats projection itself as conferring billability.",
+      "rationale": "Orchestrator re-attribution after Steven clarified the reviewer convention (2026-08-31 discussion): when the human axes are claim=exact / work=trivial and the 2a prose framed the observation as proportionate optional-refresh material, the error is the billability chain that escalated it to accepted_for_work, not 'unclear'. 2a called it 'easy cosmetic upside... straightforward upgrades'; claim true, Terra support correct. 2e kept both issues billable-tier while suppressing siblings (photo_021: 1, photo_025: 4 tier_optional + 1 drop_if_generic); route_work billed. First wrong billability judgment: 2e's tier call.",
       "source": "canary",
       "terra_verdict": "supported"
     },
@@ -1364,17 +1364,17 @@
       "terra_verdict": "unsupported"
     },
     {
-      "attribution": "unclear",
+      "attribution": "downstream",
       "basis": "v1_1",
       "case_id": "rc_dcc3dc3c88f9",
       "catalog_item_id": "cabinets_dated_style",
       "condition_id": "oc1_7f852f9ef49908f8",
       "confidence": "medium",
-      "first_responsible_stage": null,
+      "first_responsible_stage": "2e",
       "human_class": "trivial_billed",
       "lane": "appendix_trivial",
       "property_key": "redfin_11077450",
-      "rationale": "Premise confirmed from the photo: photo_016 shows white painted shaker cabinets that are plainly basic/builder grade (mismatched upper banks, no hardware or crown upgrade, an unfinished gap at the toe-kick left of the range) but intact, clean and fully functional. So the billed claim \"cabinets dated style or basic grade, functional\" is exactly true, and no cabinet work is warranted — true but trivial, matching the v1.1 axes (claim=exact, work=trivial). Walking the ladder for the billable-severity framing: the 2a prose DID contain the substance of the condition (\"Older painted cabinets\" under a \"Kitchen is a basic refresh candidate\" heading) but did NOT contain a billable-severity framing — it explicitly hedged \"Cabinets appear usable but show wear, uneven alignment, and some gaps/unfinished areas near the base,\" it named no replacement or failure, and its own closing line subordinates the cosmetics (\"determine the source and extent of the ceiling staining before treating this as a cosmetic renovation\"). That is proportionate to the photo, so pass_2a is not responsible. 2b restated it as \"Kitchen cabinets appear dated.\" (exact join); it drops the \"appear usable\" hedge but adds no severity, and \"dated\" alone is still descriptive. 2c kept the bullet (its 7 drops on this photo are all unrelated). 2d resolved to cabinets_dated_style, kind=modernization — the correct item, whose own claim text still carries the word \"functional,\" so 2d did not distort it either. condition_projection is unconditional in this corpus (all 133 issues projected), so it exercised no judgment. Terra returned supported on the truth axis and was right to, since the claim is exact; rejecting it would have been an error on Terra's own axis, and 2e is not available (the issue is in kept_issue_ids and 2e cost no conditions here). So no ladder stage distorted anything: the escalation is not in the claim's language at all — the final claim self-describes as \"functional\" — it is in the post-Terra decision to give it disposition=accepted_for_work / reason_code=route_work into estimate_unit kitchen_primary. Routing/disposition happens after Terra and the ladder has no rung for it, and no stage in the ladder evaluates materiality/work-warranted at all. That is the known ladder gap (here in its supported-and-trivially-billed form rather than the supported-but-unbilled form), not a failure of inspection, so the honest answer is unclear.",
+      "rationale": "Orchestrator re-attribution after Steven clarified the reviewer convention (2026-08-31 discussion): when the human axes are claim=exact / work=trivial and the 2a prose framed the observation as proportionate optional-refresh material, the error is the billability chain that escalated it to accepted_for_work, not 'unclear'. 2a contained the substance under a 'basic refresh candidate' heading with no billable-severity framing; the claim is exactly true and Terra's support correct. 2e kept the issue billable-tier (1 sibling tier_optional_suppressed on photo_016); route_work billed intact functional cabinets. First wrong billability judgment: 2e's tier call.",
       "source": "canary",
       "terra_verdict": "supported"
     },
@@ -1508,7 +1508,8 @@
     "2b": 4,
     "2c": 5,
     "2d": 20,
-    "condition_projection": 3,
+    "2e": 5,
+    "condition_projection": 4,
     "terra": 21
   },
   "downstream_stages_by_lane": {
@@ -1518,6 +1519,10 @@
     },
     "appendix_misnamed": {
       "2d": 6
+    },
+    "appendix_trivial": {
+      "2e": 5,
+      "condition_projection": 1
     },
     "halluc_label": {
       "2d": 1
@@ -1541,7 +1546,7 @@
       "terra": 1
     }
   },
-  "generated_at": "2026-09-01T01:14:09.394745+00:00",
+  "generated_at": "2026-09-01T02:35:12.542797+00:00",
   "gold": {
     "cases": 40,
     "findings": 112,
@@ -1605,7 +1610,7 @@
     },
     "verdicts": {
       "path": "reports\\error_attribution_verdicts.jsonl",
-      "sha256": "8b05f110168492dfe37e0db211c7c715c5440e28ec5ff20f4fadd398467ee5ac"
+      "sha256": "166e8bec20641c0a8fb0ca5ddbd6c042f31b828447304ccbbbd4d585cd2a894e"
     }
   },
   "misses": {

@@ -1,6 +1,6 @@
 # Pass 2a vs. downstream error attribution
 
-Generated 2026-09-01T01:14:09.394745+00:00 from `reports\error_attribution_queue.json` and `reports\error_attribution_verdicts.jsonl`.
+Generated 2026-09-01T02:35:12.542797+00:00 from `reports\error_attribution_queue.json` and `reports\error_attribution_verdicts.jsonl`.
 
 Descriptive only: this is the reviewed discrepancy cohort, not a system-wide
 miss or hallucination rate. Canary and production are not pooled into a rate.
@@ -29,8 +29,8 @@ miss or hallucination rate. Canary and production are not pooled into a rate.
 | attribution | n | share of judged |
 | --- | ---: | ---: |
 | pass_2a | 2 | 10.0% |
-| downstream | 8 | 40.0% |
-| unclear | 10 | 50.0% |
+| downstream | 14 | 70.0% |
+| unclear | 4 | 20.0% |
 | **judged** | **20** | |
 
 ## Downstream stages
@@ -40,7 +40,8 @@ miss or hallucination rate. Canary and production are not pooled into a rate.
 | 2b | 4 |
 | 2c | 5 |
 | 2d | 20 |
-| condition_projection | 3 |
+| 2e | 5 |
+| condition_projection | 4 |
 | terra | 21 |
 
 ## Cases by lane
@@ -49,7 +50,7 @@ miss or hallucination rate. Canary and production are not pooled into a rate.
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
 | appendix_inconclusive | 0 | 2 | 4 | 0 | 0 | 0 | 0 |
 | appendix_misnamed | 2 | 6 | 0 | 0 | 0 | 0 | 0 |
-| appendix_trivial | 0 | 0 | 6 | 0 | 0 | 0 | 0 |
+| appendix_trivial | 0 | 6 | 0 | 0 | 0 | 0 | 0 |
 | counted_agreement | 0 | 0 | 0 | 0 | 0 | 7 | 0 |
 | counted_correct_rejection | 0 | 0 | 0 | 0 | 0 | 31 | 0 |
 | counted_orphan | 0 | 0 | 0 | 0 | 0 | 11 | 0 |
@@ -80,7 +81,7 @@ finding is only a miss when the v5 catalog could have carried it.
 is capped at medium confidence.
 
 - **gold**: downstream 20, excluded 5, pass_2a 10, unclear 5
-- **v1_1**: downstream 27, pass_2a 10, unclear 8
+- **v1_1**: downstream 33, pass_2a 10, unclear 2
 - **v1_only**: downstream 6, pass_2a 2, unclear 2
 
 ## Confidence
@@ -133,9 +134,9 @@ high 39, low 3, medium 53
 | ga_redfin_11000447_photo_008_g2 | miss_gold | gold | redfin_11000447 | None | None | None | pass_2a |  | medium |
 | rc_022497229bd3 | halluc_label | v1_1 | redfin_25809814 | dated_interior_trim | hard_false_billed | supported | pass_2a |  | high |
 | rc_05e73bb8810c | halluc_label | v1_1 | redfin_80917686 | vanity_dated_style | hard_false_billed | supported | pass_2a |  | high |
-| rc_0eb9a6d23b21 | appendix_trivial | v1_1 | redfin_10949071 | older_flooring_style | trivial_billed | supported | unclear |  | medium |
+| rc_0eb9a6d23b21 | appendix_trivial | v1_1 | redfin_10949071 | older_flooring_style | trivial_billed | supported | downstream | 2e | medium |
 | rc_128caa6212b8 | miss_label | v1_1 | redfin_11000447 | vinyl_linoleum_torn_or_lifted | dirB_recovery | unsupported | downstream | terra | high |
-| rc_165093fb25c2 | appendix_trivial | v1_1 | redfin_25809814 | cabinets_dated_style | trivial_billed | supported | unclear |  | medium |
+| rc_165093fb25c2 | appendix_trivial | v1_1 | redfin_25809814 | cabinets_dated_style | trivial_billed | supported | downstream | 2e | medium |
 | rc_3a19f759f2d9 | appendix_misnamed | v1_1 | redfin_10735912 | patio_or_porch_surface_wear | misnamed_billed | supported | downstream | 2d | medium |
 | rc_3deb5aaef0f0 | appendix_misnamed | v1_1 | redfin_125779232 | patio_or_porch_surface_wear | misnamed_billed | supported | pass_2a |  | high |
 | rc_429ba6851d09 | halluc_v1only | v1_only | redfin_11185681 | dated_window_treatment_valance | terra_claim_unsupported | supported | pass_2a |  | medium |
@@ -148,8 +149,8 @@ high 39, low 3, medium 53
 | rc_5063066c1a57 | miss_label | v1_1 | redfin_80925528 | brick_weathered_or_discolored | dirB_recovery | unsupported | downstream | terra | high |
 | rc_5b3b3cb9e726 | miss_label | v1_1 | redfin_11077450 | brick_weathered_or_discolored | dirB_recovery | unsupported | downstream | terra | high |
 | rc_6285e9a79e45 | appendix_misnamed | v1_1 | redfin_125779232 | bath_fixtures_stained_or_worn | misnamed_billed | supported | downstream | 2d | high |
-| rc_62b74e10ba7a | appendix_trivial | v1_1 | redfin_25809814 | older_flooring_style | trivial_billed | supported | unclear |  | medium |
-| rc_6b3c68f12764 | appendix_trivial | v1_1 | redfin_25809814 | dated_interior_doors | trivial_billed | supported | unclear |  | medium |
+| rc_62b74e10ba7a | appendix_trivial | v1_1 | redfin_25809814 | older_flooring_style | trivial_billed | supported | downstream | 2e | medium |
+| rc_6b3c68f12764 | appendix_trivial | v1_1 | redfin_25809814 | dated_interior_doors | trivial_billed | supported | downstream | condition_projection | medium |
 | rc_6f4590af65a3 | miss_label | v1_1 | redfin_80990371 | baseboard_wear_scuffs | dirB_recovery | unsupported | downstream | terra | high |
 | rc_6f8278034b05 | appendix_misnamed | v1_1 | redfin_80990371 | boarded_up_entry_or_window | misnamed_billed | supported | downstream | 2d | high |
 | rc_790b583fcbf0 | miss_label | v1_1 | redfin_80990371 | peeling_or_discolored_paint | dirB_recovery | unsupported | downstream | terra | high |
@@ -157,7 +158,7 @@ high 39, low 3, medium 53
 | rc_7cceb5c878de | halluc_label | v1_1 | redfin_11216660 | older_flooring_style | hard_false_billed | supported | pass_2a |  | high |
 | rc_8907b19a4a2f | miss_label | v1_1 | redfin_80917686 | peeling_or_discolored_paint | dirB_recovery | unsupported | downstream | terra | high |
 | rc_8df38cb68fc0 | miss_label | v1_1 | redfin_80877597 | paint_refresh_recommended | dirB_recovery | unsupported | downstream | terra | high |
-| rc_8eb12e7236b6 | appendix_trivial | v1_1 | redfin_25809814 | older_flooring_style | trivial_billed | supported | unclear |  | medium |
+| rc_8eb12e7236b6 | appendix_trivial | v1_1 | redfin_25809814 | older_flooring_style | trivial_billed | supported | downstream | 2e | medium |
 | rc_905575ed8a3d | miss_label | v1_1 | redfin_81000709 | soffit_or_porch_ceiling_failed | dirB_recovery | cannot_assess | downstream | terra | high |
 | rc_9c702893a6ce | miss_label | v1_1 | redfin_80916010 | vinyl_linoleum_worn_or_stained | dirB_wording_recovery | unsupported | downstream | 2d | high |
 | rc_a0e75a18620e | halluc_label | v1_1 | redfin_25809814 | dated_interior_trim | hard_false_billed | supported | pass_2a |  | high |
@@ -177,7 +178,7 @@ high 39, low 3, medium 53
 | rc_d0197df43080 | miss_label | v1_1 | redfin_126418713 | hard_flooring_scratched_or_worn | dirB_recovery | unsupported | downstream | terra | high |
 | rc_d60c090abd2c | miss_label | v1_1 | redfin_11000447 | vinyl_linoleum_torn_or_lifted | dirB_recovery | unsupported | downstream | terra | high |
 | rc_d857c0db9013 | miss_label | v1_1 | redfin_10735912 | paint_refresh_recommended | dirB_recovery | unsupported | downstream | terra | high |
-| rc_dcc3dc3c88f9 | appendix_trivial | v1_1 | redfin_11077450 | cabinets_dated_style | trivial_billed | supported | unclear |  | medium |
+| rc_dcc3dc3c88f9 | appendix_trivial | v1_1 | redfin_11077450 | cabinets_dated_style | trivial_billed | supported | downstream | 2e | medium |
 | rc_e2ad788f0845 | miss_v1only | v1_only | redfin_125970550 | damaged_or_rotted_siding_or_trim | terra_claim_supported | unsupported | downstream | terra | medium |
 | rc_e9d27cf6e9aa | appendix_misnamed | v1_1 | redfin_11000447 | vanity_worn_finish | misnamed_billed | supported | downstream | 2d | medium |
 | rc_eace19540d2d | miss_label | v1_1 | redfin_125779232 | cabinets_damaged_or_water_stained | dirB_recovery | unsupported | downstream | terra | high |

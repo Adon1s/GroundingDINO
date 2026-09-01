@@ -6,8 +6,8 @@ pipeline reruns, no prompt or production changes. Numbers cited from
 
 Inputs: `reports/error_attribution_queue.json` (frozen, sha
 `b58dcca7…40df`, unchanged by this run), `reports/error_attribution_verdicts.jsonl`
-(101 lines), `reports/error_attribution_gold_cases.json` (40 materialised gold
-cases). Method: `docs/PLAN_error_attribution_review_20260831.md`; background:
+(107 lines: 95 verdicts + 12 appended revisions), `reports/error_attribution_gold_cases.json`
+(40 materialised gold cases). Method: `docs/PLAN_error_attribution_review_20260831.md`; background:
 `docs/HANDOFF_error_attribution_review.md`.
 
 ---
@@ -20,7 +20,9 @@ cases). Method: `docs/PLAN_error_attribution_review_20260831.md`; background:
 |---|---:|---:|---:|---:|---:|
 | **Misses** (63 cases) | 58 | 10 (**17.2%**) | 43 (**74.1%**) | 5 | 5 |
 | **Hallucinations** (12 cases) | 12 | 10 (**83.3%**) | 2 (16.7%) | – | – |
-| **Appendix** (20 cases) | 20 | 2 (10.0%) | 8 (40.0%) | 10 | – |
+| **Appendix** (20 cases) | 20 | 2 (10.0%) | 14 (**70.0%**) | 4 | – |
+
+*(Appendix row reflects the 2026-08-31 trivial-lane re-attribution — see §4b.)*
 
 Sharper still on the human-adjudicated cohort alone, before the gold lane is
 mixed in: **all 23 rc_ miss cases are downstream, none are Pass 2a** — 20 at
@@ -38,18 +40,31 @@ So the two error classes need different fixes. Prompt work on 2a addresses
 hallucinations and would barely touch misses. Misses are a Terra-and-2d
 problem.
 
+The full synthesis, after Steven ratified the attribution convention in review
+(2026-08-31): **the split follows the human claim axis.** When the claim
+*content* is false (`claim=absent` — "worn" on new carpet, "patching" on a
+clean wall, "dated" on a just-renovated vanity), the error is 2a's, because
+2b/2c/2d never see the photo and Terra demonstrably rubber-stamps style
+descriptors. When the content is **true but should not bill**
+(`claim=exact, work=trivial`), 2a is exonerated — in all six trivial cases its
+prose was explicitly proportionate ("easy refresh", "optional upgrade",
+"cosmetic-refresh room rather than a major rehab") — and the failure is the
+billability chain: 2e's tier classifier kept the issue billable while
+suppressing siblings as `tier_optional` (5 cases), or projection billed an
+issue 2e had itself suppressed (1 case), with `route_work` accepting all six.
+
 ## 2. Where downstream misses actually die
 
-`downstream_stages` over all 51 downstream attributions:
+`downstream_stages` over all 59 downstream attributions:
 
 | stage | n | where |
 |---|---:|---|
 | terra | 21 | 19 miss_label, 1 miss_v1only, 1 gold |
 | 2d | 20 | 6 appendix_misnamed, 8 gold, 3 miss lanes, 3 others |
+| 2e | 5 | appendix_trivial — tier calls, not removals (§4b, §5) |
 | 2c | 5 | gold only |
+| condition_projection | 4 | 2 gold, 1 appendix_inconclusive, 1 appendix_trivial |
 | 2b | 4 | gold only |
-| condition_projection | 3 | 2 gold, 1 appendix |
-| **2e** | **0** | see §5 |
 
 **Terra rejection is the single largest cause of a lost real condition** — 19
 of the 20 adjudicated `miss_label` cases. The recurring pattern is Terra
@@ -146,6 +161,31 @@ three times, so declining was representable" — misreads the record:
 including the two that 2d demonstrably did resolve. The field carries no
 information about 2d's choices.
 
+## 4b. Post-review re-adjudication (2026-08-31, with Steven)
+
+Two convention questions were settled with Steven after the run, in review of
+these results; both are recorded as appended ledger revision lines
+(`convention_note: steven_20260831_…`), never edits.
+
+1. **Hallucination lane: unchanged.** Steven initially challenged the pass_2a
+   attributions ("2a is just describing what it sees; future passes should
+   remove the neutral observations") — the position the skeptics had argued
+   and lost on rubric grounds. On reviewing the specific cases he ratified the
+   recorded convention: "you can't blame the future passes if 2a says basic
+   trim or dated design when it's actually a neutral presence / non-issue."
+   The 10 hallucination pass_2a verdicts stand. Of them, 4 are outright
+   pixel-false ("patching" on a uniform wall, "worn"/"scuffs" on new
+   surfaces) and would stand under any convention.
+2. **Trivial lane: unclear → downstream (6 revisions).** The complement case —
+   `claim=exact, work=trivial`, where 2a's prose was explicitly proportionate
+   in all six — is a billability-chain failure, not an unanswerable. Encoding
+   (Steven-approved): `2e` for the five cases where 2e's tier classifier kept
+   the issue billable while suppressing siblings as `tier_optional` on the
+   same photos; `condition_projection` for `rc_6b3c68f12764`, where 2e itself
+   suppressed the issue as tier-optional and projection emitted and billed the
+   condition anyway. All six carried `reason_code: route_work` into
+   `accepted_for_work`.
+
 ## 5. Corrections to the handoff
 
 **The 2e claim was imprecise; its conclusion survives.** Handoff §3 states 2e
@@ -162,11 +202,19 @@ impossible. Measured:
 
 2e *does* suppress, on 18 attributable cases. It simply never costs a
 condition, because `condition_projection` emits one regardless. So a 2e
-attribution was unavailable — for a stronger reason than the handoff gave, and
-0 of 95 verdicts used it. This matters operationally: a reviewer told "2e
-removed nothing" who then reads `p2e_status: "absent"` has been handed an
-apparent contradiction. The prompt was corrected to state the real mechanics
-before the main run.
+attribution was unavailable **for misses** — for a stronger reason than the
+handoff gave. This matters operationally: a reviewer told "2e removed nothing"
+who then reads `p2e_status: "absent"` has been handed an apparent
+contradiction. The prompt was corrected to state the real mechanics before the
+main run.
+
+The refinement cuts the other way for over-billing: the structural rule is
+about 2e never *losing* a condition. **Failing-to-suppress is the mirror case
+and is live** — 2e's tier classifier is exactly where billability triage
+happens, and the §4b re-adjudication places 5 trivial-lane errors there (kept
+billable while flagging siblings `tier_optional`), plus one where projection
+overrode 2e's own suppression. So the final ledger carries 2e attributions
+after all — as tier-call failures, never as removals.
 
 **The worked example's reference answer is contestable.** The handoff's §5
 example (`rc_128caa6212b8`) is given as `downstream`/`2d`. Two independent
@@ -188,16 +236,16 @@ told to answer `unclear` and say so. Surfaced unprompted by a gold agent.
 
 ## 6. What `unclear` is telling us
 
-10 of 55 case verdicts (18.2%) are `unclear` — below the 25–30% level that
-would make the question itself suspect, and well below the factorized
-verifier's 28.9% (`docs/RESULT_factorized_replay_20260831.md`). But the
-distribution is not random:
+After the §4b re-adjudication, 4 of 55 case verdicts (7.3%) are `unclear` —
+far below the 25–30% level that would make the question itself suspect, and
+far below the factorized verifier's 28.9%
+(`docs/RESULT_factorized_replay_20260831.md`):
 
-- **`appendix_trivial` is 6/6 unclear.** "True but not worth billing" does not
-  decompose into a stage. The condition is real and every stage handled it
-  correctly; what went wrong is a billing-threshold judgement no rung
-  represents. This lane should not be re-run against this ladder — the answer
-  will be `unclear` again.
+- **`appendix_trivial` initially came back 6/6 unclear** — the reviewers had
+  no rung for "true but not worth billing". §4b resolved it: once billability
+  is recognised as a stage judgement (2e tiering / projection / routing), the
+  lane decomposes cleanly to 6/6 downstream. The residual gap is that the
+  ladder still has no rung for post-Terra routing itself (§5).
 - **`appendix_inconclusive` is 4/6 unclear**, which is the honest result when
   the human could not settle the claim either.
 - The adjudicated miss and hallucination lanes carry **zero** unclear verdicts.
@@ -260,8 +308,25 @@ Not decisions — the option calls are Steven's.
    material commitment. §2's 2d column is the candidate list.
 3. **Hallucinations are a 2a prompt problem**, specifically 2a volunteering
    renovation judgements ("upgrade opportunity", "dated") about finishes it has
-   just described as clean and undamaged.
-4. **Retire `appendix_trivial` from stage attribution** (§6) — the ladder
-   cannot answer it.
-5. **The gold lane wants more properties** before its stage distribution is
+   just described as clean and undamaged — and 4 of the 10 are outright
+   misperception (asserting wear, scuffs, or patching on new/clean surfaces).
+   Steven's observation that the qwen→gpt-5.6 Terra swap did not reduce these
+   is consistent with the record: Terra "verifies" style claims by restating
+   2a's descriptor, so no Terra upgrade can catch them.
+4. **Two item families are repeat offenders and are candidates for a
+   corroboration threshold** (Steven's suggestion, quantified from `by_lane` ×
+   `catalog_item_id`): the style/modernization family
+   (`older_flooring_style` ×6 in error lanes, `dated_interior_trim` ×6,
+   `cabinets_dated_style` ×3, `dated_window_treatment_valance` ×4) and the
+   wear-on-intact-surfaces family (`peeling_or_discolored_paint` ×7 — erring
+   in *both* directions, `hard_flooring_scratched_or_worn` ×6,
+   `worn_or_stained_carpet` ×5). Every one of the 12 non-gold pass_2a items is
+   in these families. The `min_photo_evidence` gate (estimate_guard_v2, 4
+   items at 2 photos) is the existing mechanism to extend.
+5. **The billability leak is in 2e tiering + routing** (§4b): five trivial
+   cases were tier-kept while siblings were suppressed, one was billed after
+   2e itself said optional, and all six rode `route_work` into
+   `accepted_for_work`. If `work=trivial` billing matters, that triage — not
+   Terra — is the lever.
+6. **The gold lane wants more properties** before its stage distribution is
    worth acting on.
