@@ -30957,11 +30957,11 @@
       }
     }
   },
-  "fingerprint": "66ecfab3aa670701bfad57b56cee75cf7472f8c8d9d32d0c95c454001dbc7de5",
+  "fingerprint": "e4c0a2b816395782cd84bc4abcdf6207d131a34a0e2d63eaebb39bec4c190c08",
   "git": {
     "branch": "terra_factorized_verifier",
-    "head": "e9a7dc3a54439fb341c1ae8cd665e5e572fcfaf6",
-    "note": "not part of the fingerprint; untracked files are deliberately not counted",
+    "head": "48be33a5d417f260c0eadfd1a055d7e99d196976",
+    "note": "not part of the fingerprint; scoped to consumed inputs; untracked files are not counted",
     "tracked_changes": [],
     "tracked_inputs": {
       "artifacts_canary/factorized_v1_20260831/manifest.json": false,
@@ -30975,7 +30975,7 @@
       "reports/review_analysis.json": true,
       "reports/review_queue.json": true,
       "reports/review_verdicts.jsonl": true,
-      "scripts/build_catalog_audit_evidence.py": false,
+      "scripts/build_catalog_audit_evidence.py": true,
       "scripts/migrate_catalog_kind_v2.py": true,
       "tools/catalog_migrations/2.1_to_3.0.json": true,
       "tools/catalog_migrations/kind_v2_decisions.json": true,
@@ -61289,7 +61289,7 @@
       "match": null,
       "name": "builder",
       "path": "scripts/build_catalog_audit_evidence.py",
-      "sha256": "cdfbc43257b14d90b4b67aff7234083824151db939c0e0e83d1a6fce5e495700",
+      "sha256": "8874bc340b93c48ef0014bbf2529d750951709d70afb2bd6016c10d0e6deaf78",
       "tier": "recorded"
     },
     {

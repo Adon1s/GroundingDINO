@@ -1,12 +1,12 @@
 # Catalog audit evidence bundle (Session 1)
 
-Schema 1 · fingerprint `66ecfab3aa670701bfad57b56cee75cf7472f8c8d9d32d0c95c454001dbc7de5` · starting commit `e9a7dc3a54439fb341c1ae8cd665e5e572fcfaf6` on `terra_factorized_verifier` (git block is not fingerprinted).
+Schema 1 · fingerprint `e4c0a2b816395782cd84bc4abcdf6207d131a34a0e2d63eaebb39bec4c190c08` · starting commit `48be33a5d417f260c0eadfd1a055d7e99d196976` on `terra_factorized_verifier` (git block is not fingerprinted).
 
 ## Provenance
 
 | Source | Tier | SHA-256 | Pinned |
 |---|---|---|---|
-| `scripts/build_catalog_audit_evidence.py` | recorded | `cdfbc43257b14d90b4b67aff7234083824151db939c0e0e83d1a6fce5e495700` | recorded |
+| `scripts/build_catalog_audit_evidence.py` | recorded | `8874bc340b93c48ef0014bbf2529d750951709d70afb2bd6016c10d0e6deaf78` | recorded |
 | `tools/issue_catalog.json` | recorded | `4ba046a1a78337f1c8e47701a011ec16e700c296782ddedbe7bf52cf888314f2` | recorded |
 | `tools/issue_catalog_kind_v2.json` | frozen | `51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54` | match |
 | `tools/catalog_migrations/kind_v2_decisions.json` | frozen | `47614d822bdd6b672d8596050b46839d04a8a6df0a04c18e052f4a63bd1903e8` | match |

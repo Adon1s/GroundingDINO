@@ -19,7 +19,7 @@ Complete. Every exit criterion in the brief is met:
 ## Repository state
 
 - Starting commit: `e9a7dc3a54439fb341c1ae8cd665e5e572fcfaf6`
-- Ending commit: the commit that adds this handoff and the four sibling files (`git log -1 -- docs/catalog_audit_program/HANDOFF_SESSION_1.md`); the bundle's `git.head` records the starting commit by design.
+- Ending commit: three commits on the branch — `a7eed9b` (the five session files), `48be33a` (builder: git dirty-state scoped to consumed inputs; working copies CRLF-normalized, no blob change), and the commit that adds the bundle regenerated from `48be33a` plus this handoff revision (`git log -1 -- reports/catalog_audit_evidence.json`). The bundle's `git.head` is `48be33a`, the builder it was built from.
 - Branch/worktree: `terra_factorized_verifier`, main checkout
 - Dirty state at start: no modified tracked files; untracked user files only (root-level `catalog_audit_*.json` from the legacy `tools/catalog_auditor.py`, `artifacts/`, `artifacts_canary/`, `.claude/`, `.gitattributes`, `reports/labels_v1_1.json`, others).
 - Dirty state at end: the same untracked set plus this session's five files.
@@ -52,10 +52,10 @@ The context's prose lane names ("hallucination-label", "miss-v1-only") map to th
 
 | Path | Status | Purpose |
 |---|---|---|
-| `scripts/build_catalog_audit_evidence.py` | new (sha256 `cdfbc432…4700`) | the one evidence builder: provenance freeze, catalog identity, 3.1↔3.2 comparison, joins, seeds, units, families, worklist, Markdown rendering; `--check` rebuilds in memory and compares fingerprints |
-| `tests/test_catalog_audit_evidence.py` | new (sha256 `b8755938…840b`) | 18 tests on synthetic fixtures plus one guarded parity test against the committed bundle |
-| `reports/catalog_audit_evidence.json` | new (sha256 `e57e21ec…d76d`, fingerprint `66ecfab3…7de5`) | principal machine-readable output, schema version 1 |
-| `reports/catalog_audit_evidence.md` | new (sha256 `dfef38c5…6f57`) | compact rendering of the same dict (provenance, identity, comparison, seed table, worklist, unavailable data, validation) |
+| `scripts/build_catalog_audit_evidence.py` | new (sha256 `8874bc34…af78`) | the one evidence builder: provenance freeze, catalog identity, 3.1↔3.2 comparison, joins, seeds, units, families, worklist, Markdown rendering; `--check` rebuilds in memory and compares fingerprints |
+| `tests/test_catalog_audit_evidence.py` | new (sha256 `f690ce38…5440`) | 18 tests on synthetic fixtures plus one guarded parity test against the committed bundle |
+| `reports/catalog_audit_evidence.json` | new (sha256 `43354104…29b7`, fingerprint `e4c0a2b8…0c08`) | principal machine-readable output, schema version 1 |
+| `reports/catalog_audit_evidence.md` | new (sha256 `f48c713d…70fa`) | compact rendering of the same dict (provenance, identity, comparison, seed table, worklist, unavailable data, validation) |
 | `docs/catalog_audit_program/HANDOFF_SESSION_1.md` | new | this handoff |
 
 No other path was touched. Prohibited paths (decisions, both catalogs, migration outputs, prompts, runtime, frozen queue/ledger) were read only.
@@ -91,6 +91,7 @@ No other path was touched. Prohibited paths (decisions, both catalogs, migration
 | `git` block records tracked changes and per-input tracked flags but not an untracked-file count | an untracked count changes between runs (the builder's own outputs), breaking byte-identity | determinism proven by fingerprint and byte-identical repeat runs |
 | `scripts.build_error_attribution_queue.load_inputs` not reused; files loaded directly | the builder needs the qualitative notes and matching table that loader does not expose; only `latest_verdicts`, `review_cards`, `_claim_text`, `_catalog_text`, and quarantine accessors are reused | none |
 | Compact Markdown summary produced | permitted by the brief; renders from the same dict | second output file |
+| Bundle committed in two steps (session files, then the bundle regenerated from the committed builder) | the git block records the builder's commit and dirty state; building from an uncommitted builder would have recorded a modified builder | three commits instead of one |
 
 ## Commands and verification
 
@@ -99,7 +100,7 @@ No other path was touched. Prohibited paths (decisions, both catalogs, migration
 | `.venv\Scripts\python.exe -m pytest tests/test_catalog_audit_evidence.py -q` | 18 passed | includes the parity test against the committed bundle; `--basetemp` under the session scratchpad |
 | `.venv\Scripts\python.exe -m pytest tests/test_error_attribution.py tests/test_catalog_kind_v2.py tests/test_catalog_validation.py tests/test_catalog_embeddings.py tests/test_review_analysis.py -q` | 244 passed, 1 skipped | pre-existing skip; none of these import the new builder |
 | `.venv\Scripts\python.exe scripts\build_catalog_audit_evidence.py` (twice) | JSON and MD byte-identical (`cmp`) | ~8 s per build |
-| `.venv\Scripts\python.exe scripts\build_catalog_audit_evidence.py --check` | `fingerprint matches: 66ecfab3aa670701bfad57b56cee75cf7472f8c8d9d32d0c95c454001dbc7de5` | |
+| `.venv\Scripts\python.exe scripts\build_catalog_audit_evidence.py --check` | `fingerprint matches: e4c0a2b816395782cd84bc4abcdf6207d131a34a0e2d63eaebb39bec4c190c08` | |
 | `git status --porcelain \| grep -v '^??'` / `git diff --stat` | empty | no tracked file modified |
 | Bundle `validation.ok` | true, 13/13 checks | informational checks (`issue_items_equal_condition_item`, `label_item_matches_card`, `labels_without_card`, `artifact_resolution_agrees_with_queue`) all report empty exception lists |
 
@@ -107,10 +108,10 @@ No other path was touched. Prohibited paths (decisions, both catalogs, migration
 
 | Artifact | Hash/commit | Contract |
 |---|---|---|
-| `reports/catalog_audit_evidence.json` | sha256 `e57e21ecabebb672ff5d444c155834c4b55f64f617f398f59146766d363ed76d`; fingerprint `66ecfab3aa670701bfad57b56cee75cf7472f8c8d9d32d0c95c454001dbc7de5` | schema 1; sections `sources`, `queue_input_pins`, `run_artifacts`, `catalog_identity`, `baseline_comparison`, `migration`, `item_semantics`, `indexes`, `labels`/`positive_uses`/`agreements`/`correct_rejections`, `review_notes`, `factorized_leads`, `gold`, `candidate_enrichment`, `seeds`, `evidence_units`, `unattached`, `worklist`, `families`, `lanes`, `reconciliation`, `validation`, `unavailable`, `notes`, `fingerprint` |
-| `reports/catalog_audit_evidence.md` | sha256 `dfef38c5070785674b0d6c3aa5bcf5b11b964a725e2d985cd34758954e5d6f57` | rendering of the JSON; start here for orientation |
-| `scripts/build_catalog_audit_evidence.py` | sha256 `cdfbc43257b14d90b4b67aff7234083824151db939c0e0e83d1a6fce5e495700` | re-run with `--check` to confirm the committed bundle still matches the inputs |
-| `tests/test_catalog_audit_evidence.py` | sha256 `b8755938793c23ee84f7a78690440e16b86f47d1cf31edd3860ac2ec337d840b` | parity test skips when the production artifact root or frozen inputs are absent |
+| `reports/catalog_audit_evidence.json` | sha256 `43354104cc109c768efbe2d2f8b9a825f33e0882210b81e9f12b847ca67e29b7`; fingerprint `e4c0a2b816395782cd84bc4abcdf6207d131a34a0e2d63eaebb39bec4c190c08` | schema 1; sections `sources`, `queue_input_pins`, `run_artifacts`, `catalog_identity`, `baseline_comparison`, `migration`, `item_semantics`, `indexes`, `labels`/`positive_uses`/`agreements`/`correct_rejections`, `review_notes`, `factorized_leads`, `gold`, `candidate_enrichment`, `seeds`, `evidence_units`, `unattached`, `worklist`, `families`, `lanes`, `reconciliation`, `validation`, `unavailable`, `notes`, `fingerprint` |
+| `reports/catalog_audit_evidence.md` | sha256 `f48c713d94f6afea3b1ba7aa06167d3ed24352ee67547420ca6f8bc68a6e70fa` | rendering of the JSON; start here for orientation |
+| `scripts/build_catalog_audit_evidence.py` | sha256 `8874bc340b93c48ef0014bbf2529d750951709d70afb2bd6016c10d0e6deaf78` | re-run with `--check` to confirm the committed bundle still matches the inputs |
+| `tests/test_catalog_audit_evidence.py` | sha256 `f690ce389c85669a8c63bbce0b55c44bf2ded1833a05210e45a4e67ea5c25440` | parity test skips when the production artifact root or frozen inputs are absent |
 
 ## Unresolved questions and risks
 
@@ -145,4 +146,4 @@ Exit criteria: every cluster has exactly one primary outcome with photo-reviewed
 
 ## Suggested opening prompt for the next task
 
-> Continue the catalog-audit program from this handoff. Read `docs/catalog_audit_program/00_OVERALL_CONTEXT.md`, `docs/catalog_audit_program/02_SESSION_SEMANTIC_AUDIT.md`, `docs/catalog_audit_program/HANDOFF_SESSION_1.md`, and `reports/catalog_audit_evidence.md`, then verify `reports/catalog_audit_evidence.json` (sha256 `e57e21ec…d76d`, fingerprint `66ecfab3…7de5`) with `.venv\Scripts\python.exe scripts\build_catalog_audit_evidence.py --check`. Draft a task-specific implementation/review plan for the semantic audit. Do not repeat completed work or expand beyond Session 2's authority. End by producing `HANDOFF_SESSION_2.md`.
+> Continue the catalog-audit program from this handoff. Read `docs/catalog_audit_program/00_OVERALL_CONTEXT.md`, `docs/catalog_audit_program/02_SESSION_SEMANTIC_AUDIT.md`, `docs/catalog_audit_program/HANDOFF_SESSION_1.md`, and `reports/catalog_audit_evidence.md`, then verify `reports/catalog_audit_evidence.json` (sha256 `43354104…29b7`, fingerprint `e4c0a2b8…0c08`) with `.venv\Scripts\python.exe scripts\build_catalog_audit_evidence.py --check`. Draft a task-specific implementation/review plan for the semantic audit. Do not repeat completed work or expand beyond Session 2's authority. End by producing `HANDOFF_SESSION_2.md`.
