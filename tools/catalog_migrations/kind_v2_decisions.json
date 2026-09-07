@@ -2360,24 +2360,98 @@
     {
       "legacy_id": "dated_window_treatment_valance",
       "legacy_kind": "upgrade",
-      "change_type": "reclassified",
-      "deprecated": false,
+      "change_type": "split",
+      "deprecated": true,
       "requires_re_resolution": true,
-      "atomicity_rationale": "Single dated/discretionary claim; v1 'upgrade' maps to modernization. Id and wording unchanged.",
+      "atomicity_rationale": "Conflated hard window coverings (mini/horizontal/venetian blinds, roller shades) with fabric treatments (valance, cornice, swag, curtains, drapes) - two subjects with different billability. Ruling 5 (HANDOFF_SESSION_2.md:89-90, extended to all blinds in any condition at the 2026-09-05 gate) makes blinds a no_action condition; valances and curtains stay billable. Split by subject: presentation_only blinds successor with route_override no_action, dated_style fabric successor gated by require_any.",
       "expected_effects": {
-        "routing": "retrieval pool moves upgrade -> modernization; under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3",
-        "estimate_scope": "kind token 'modernization' collides with estimate_scope._VALUE_ADD_TERMS text matching and with PACKAGE_CATEGORY_MODERNIZATION vocabulary (Task 3 landmine)",
-        "pricing": "economic fields retained verbatim; Task 3 owns the kind-multiplier decision (costing.KIND_MULT has no 'modernization' entry and silently defaults to 1.0)",
-        "packages": "rehab_packages driver/support predicates key on defect/upgrade and will not partition kind 'modernization' until Task 3 migrates them"
+        "routing": "observations previously resolving to dated_window_treatment_valance now resolve to the subject-matching successor; blinds and shade observations land on window_blinds_basic_or_plain, which carries route_override no_action and never bills, while valance/curtain/drape observations land on dated_window_valance_or_curtains, which keeps the parent's work route. The fabric successor's require_any admits observations naming a fabric object or curtain hardware and its deny_any rejects shower and tub curtain bullets, so subject-generic bullets ('window treatments are dated') can no longer reach a billable item; the blinds successor's deny_any pushes mixed fabric-plus-blinds observations to the fabric successor. Re-resolution required at cutover.",
+        "estimate_scope": "kind token 'modernization' is unchanged on both successors, so estimate_scope._VALUE_ADD_TERMS text matching and PACKAGE_CATEGORY_MODERNIZATION vocabulary behave exactly as they do for the parent",
+        "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge): both carry cost mode heuristic and work_item_code WINDOW_TREATMENT_UPDATE; on the blinds successor those fields are inert because projection applies route_override before the costing route (catalog_projection.py:46-72), and they are what keeps the override from being flagged redundant (catalog_validation.py:487-493)",
+        "packages": "flat package_role 'ignore' is inherited from the parent, so neither successor drives or supports a rehab package; no package metadata is added and dated_window_treatment_valance is not among the ten repair_support_when_driven marker items"
       },
       "successors": [
         {
-          "id": "dated_window_treatment_valance",
+          "id": "window_blinds_basic_or_plain",
           "kind": "modernization",
+          "severity": 1,
+          "name": "Basic or Plain Window Blinds",
+          "description": "Window blinds or shades are a basic or plain style. Recorded as a visible presentation detail; blinds are not billed as renovation work.",
+          "embed_text": "Basic or plain window blinds. Mini blinds, horizontal blinds, venetian blinds, vertical blinds, roller shades, and window shades in a plain builder-grade style. Blind and shade presence is recorded for presentation context only and is not renovation work.",
+          "support_any": [
+            "blind",
+            "mini blind",
+            "horizontal blind",
+            "venetian blind",
+            "vertical blind",
+            "roller shade",
+            "window shade"
+          ],
           "atomic_claim": {
-            "subject": "window treatments",
-            "state": "dated valance or treatments",
+            "subject": "window blinds or shades",
+            "state": "basic or plain window blinds",
+            "ontology_basis": "presentation_only"
+          },
+          "overrides": {
+            "route_override": "no_action",
+            "deny_any": [
+              "valance",
+              "cornice",
+              "swag",
+              "curtain",
+              "drape",
+              "drapery",
+              "sheer",
+              "fabric",
+              "broken window",
+              "fogged window",
+              "failed seal"
+            ]
+          }
+        },
+        {
+          "id": "dated_window_valance_or_curtains",
+          "kind": "modernization",
+          "severity": 1,
+          "name": "Dated Valance or Curtains",
+          "description": "A dated valance, cornice, swag, or curtain and drapery set reduces perceived condition; updating the fabric treatment improves appeal.",
+          "embed_text": "Dated window valance, cornice, or swag. Dated curtains, drapes, draperies, and sheers hung at a window. Update dated fabric window treatments for a modern look.",
+          "support_any": [
+            "valance",
+            "cornice",
+            "swag",
+            "curtain",
+            "drape",
+            "drapery",
+            "sheer",
+            "fabric"
+          ],
+          "atomic_claim": {
+            "subject": "window valance or curtains",
+            "state": "dated valance or curtains",
             "ontology_basis": "dated_style"
+          },
+          "overrides": {
+            "require_any": [
+              "valance",
+              "cornice",
+              "swag",
+              "curtain",
+              "drape",
+              "drapery",
+              "sheer",
+              "fabric"
+            ],
+            "deny_any": [
+              "shower curtain",
+              "improvised",
+              "makeshift",
+              "broken window",
+              "fogged window",
+              "failed seal",
+              "shower",
+              "tub"
+            ]
           }
         }
       ]

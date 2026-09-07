@@ -271,8 +271,13 @@ def test_gate_rejects_v2_kind_against_v1_catalog(v1_catalog):
 
 def test_deprecated_legacy_ids_are_the_split_parents_and_retired_items():
     ids = deprecated_legacy_ids()
-    assert len(ids) == 21  # 19 split parents + 2 retired layout items (catalog 3.1)
+    # 20 split parents + 2 retired layout items (catalog 3.1). The 20th split
+    # parent is dated_window_treatment_valance, deprecated by the approved
+    # CAP-007 window-treatment split; it has no runtime alias, so a stored
+    # artifact still carrying the id must fail hard rather than resolve.
+    assert len(ids) == 22
     assert "damaged_soffit_or_porch_ceiling" in ids
+    assert "dated_window_treatment_valance" in ids
     assert "bathroom_layout_modernization_opportunity" in ids
     assert "layout_modernization_opportunity" in ids
 

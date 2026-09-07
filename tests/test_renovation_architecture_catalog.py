@@ -2,7 +2,7 @@
 precedence, and the shipped-catalog pins.
 
 The builder enforces structural completeness; the exact route distribution
-(12/4/5/9/98 over 128 items) is pinned HERE, not in the builder, so a future
+(12/4/5/10/98 over 129 items) is pinned HERE, not in the builder, so a future
 catalog regeneration updates these expectations instead of breaking
 shadow-mode worker startup (same philosophy as the byte-parity pin in
 tests/test_catalog_kind_v2.py).
@@ -35,7 +35,7 @@ EXPECTED_ROUTE_COUNTS = {
     "excluded_quarantine": 12,
     "excluded_generic": 4,
     "inspection": 5,
-    "no_action": 9,
+    "no_action": 10,
     "work": 98,
 }
 # The user-approved no-economics gaps (inferred no_action).
@@ -46,13 +46,15 @@ EXPECTED_NO_ECONOMICS_GAP_IDS = {
     "door_hardware_dated_style",
 }
 # The Session 8 opportunity/presence triage: otherwise-billable items routed
-# out of billing by an explicit catalog route_override.
+# out of billing by an explicit catalog route_override. The blinds successor
+# joined it with the approved CAP-007 window-treatment split.
 EXPECTED_ROUTE_OVERRIDE_IDS = {
     "unfinished_basement_present",
     "staging_or_decluttering_opportunity",
     "mismatched_or_inconsistent_furniture_staging",
     "curb_appeal_upgrade",
     "landscaping_enhancement_opportunity",
+    "window_blinds_basic_or_plain",
 }
 EXPECTED_NO_ACTION_IDS = EXPECTED_NO_ECONOMICS_GAP_IDS | EXPECTED_ROUTE_OVERRIDE_IDS
 EXPECTED_INSPECTION_IDS = {
@@ -370,11 +372,11 @@ def shipped_projection():
 class TestShippedCatalogPins:
     def test_route_distribution(self, shipped_projection):
         assert shipped_projection["route_counts"] == EXPECTED_ROUTE_COUNTS
-        assert sum(shipped_projection["route_counts"].values()) == 128
+        assert sum(shipped_projection["route_counts"].values()) == 129
 
     def test_every_item_has_exactly_one_terminal_route(self, shipped_projection):
         routes = shipped_projection["terminal_routes"]
-        assert len(routes) == len(shipped_projection["observables"]) == 128
+        assert len(routes) == len(shipped_projection["observables"]) == 129
         assert all(entry["route"] in TERMINAL_ROUTES for entry in routes.values())
 
     def test_no_action_ids_and_reason_codes(self, shipped_projection):
@@ -489,7 +491,9 @@ class TestShippedCatalogPins:
 
     def test_flat_roles(self, shipped_projection):
         flat_roles = shipped_projection["package_policy"]["flat_roles"]
-        assert len(flat_roles) == 47
+        # 47 before CAP-007; the split's two successors both inherit the
+        # parent's flat package_role "ignore", so the count gains one.
+        assert len(flat_roles) == 48
         assert set(flat_roles.values()) <= {"standalone", "ignore"}
 
     def test_catalog_sha256_matches_file(self, shipped_projection):

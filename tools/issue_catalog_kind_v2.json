@@ -5001,30 +5001,30 @@
       }
     },
     {
-      "name": "Dated Window Treatment/Valance",
-      "category": "opportunity",
+      "id": "window_blinds_basic_or_plain",
+      "name": "Basic or Plain Window Blinds",
+      "kind": "modernization",
       "severity": 1,
       "trade_bucket": "trim_doors_windows",
-      "work_item_code": "WINDOW_TREATMENT_UPDATE",
-      "description": "Vintage-style valance or dated window treatments reduce perceived condition; updating improves appeal.",
-      "support_any": [
-        "valance",
-        "window treatment",
-        "dated curtains",
-        "vintage curtains",
-        "drapes",
-        "blinds"
-      ],
+      "scope": "replace",
+      "tier": "optional",
+      "defaultHidden": false,
+      "drop_if_generic": false,
+      "category": "opportunity",
+      "display_class": "marketability",
       "deny_any": [
+        "valance",
+        "cornice",
+        "swag",
+        "curtain",
+        "drape",
+        "drapery",
+        "sheer",
+        "fabric",
         "broken window",
         "fogged window",
         "failed seal"
       ],
-      "embed_text": "Basic or builder-grade mini blinds, horizontal blinds, older blinds, worn window coverings. Dated window treatment or valance. Vintage window valance or curtains. Aged, bent, or damaged mini blinds, outdated horizontal blinds. Update treatments for a modern look.",
-      "kind": "modernization",
-      "id": "dated_window_treatment_valance",
-      "scope": "replace",
-      "defaultHidden": false,
       "scene_groups": [
         "kitchen",
         "bathroom",
@@ -5032,18 +5032,92 @@
         "living_areas",
         "utility"
       ],
-      "tier": "optional",
-      "drop_if_generic": false,
+      "route_override": "no_action",
+      "description": "Window blinds or shades are a basic or plain style. Recorded as a visible presentation detail; blinds are not billed as renovation work.",
+      "embed_text": "Basic or plain window blinds. Mini blinds, horizontal blinds, venetian blinds, vertical blinds, roller shades, and window shades in a plain builder-grade style. Blind and shade presence is recorded for presentation context only and is not renovation work.",
+      "support_any": [
+        "blind",
+        "mini blind",
+        "horizontal blind",
+        "venetian blind",
+        "vertical blind",
+        "roller shade",
+        "window shade"
+      ],
+      "atomic_claim": {
+        "subject": "window blinds or shades",
+        "state": "basic or plain window blinds",
+        "ontology_basis": "presentation_only"
+      },
       "cost": {
         "mode": "heuristic"
       },
-      "display_class": "marketability",
+      "work_item_code": "WINDOW_TREATMENT_UPDATE",
       "package_role": "ignore",
+      "pricing_status": "inherited_from_split_parent"
+    },
+    {
+      "id": "dated_window_valance_or_curtains",
+      "name": "Dated Valance or Curtains",
+      "kind": "modernization",
+      "severity": 1,
+      "trade_bucket": "trim_doors_windows",
+      "scope": "replace",
+      "tier": "optional",
+      "defaultHidden": false,
+      "drop_if_generic": false,
+      "category": "opportunity",
+      "display_class": "marketability",
+      "require_any": [
+        "valance",
+        "cornice",
+        "swag",
+        "curtain",
+        "drape",
+        "drapery",
+        "sheer",
+        "fabric"
+      ],
+      "deny_any": [
+        "shower curtain",
+        "improvised",
+        "makeshift",
+        "broken window",
+        "fogged window",
+        "failed seal",
+        "shower",
+        "tub"
+      ],
+      "scene_groups": [
+        "kitchen",
+        "bathroom",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ],
+      "description": "A dated valance, cornice, swag, or curtain and drapery set reduces perceived condition; updating the fabric treatment improves appeal.",
+      "embed_text": "Dated window valance, cornice, or swag. Dated curtains, drapes, draperies, and sheers hung at a window. Update dated fabric window treatments for a modern look.",
+      "support_any": [
+        "valance",
+        "cornice",
+        "swag",
+        "curtain",
+        "drape",
+        "drapery",
+        "sheer",
+        "fabric"
+      ],
       "atomic_claim": {
-        "subject": "window treatments",
-        "state": "dated valance or treatments",
+        "subject": "window valance or curtains",
+        "state": "dated valance or curtains",
         "ontology_basis": "dated_style"
-      }
+      },
+      "cost": {
+        "mode": "heuristic"
+      },
+      "work_item_code": "WINDOW_TREATMENT_UPDATE",
+      "package_role": "ignore",
+      "pricing_status": "inherited_from_split_parent"
     },
     {
       "name": "Dated Wallpaper",

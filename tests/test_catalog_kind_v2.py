@@ -131,7 +131,7 @@ def test_shipped_v2_split_successors_inherit_parent_economics(
     test_repair_support_marker_parity_exceptions_are_recorded for the pin.
     """
     inherited = [it for it in v2_catalog["items"] if it.get("pricing_status")]
-    assert len(inherited) == 42
+    assert len(inherited) == 44
     v1_by_id = {it["id"]: it for it in v1_catalog["items"]}
     parent_of = {
         s["id"]: e["legacy_id"]
@@ -549,10 +549,11 @@ def test_generator_refuses_unknown_override_key_on_split_successor(v1_catalog):
 
 
 def test_shipped_v2_route_override_pins(v1_catalog, v2_catalog):
-    """The Session 8 triage: exactly these five opportunity/presence items
-    carry route_override — four carried over from v1 and one authored on the
-    landscaping split successor. The degradation sibling must never inherit
-    it, which requires the v1 split parent to stay override-free."""
+    """The Session 8 triage plus CAP-007: exactly these six
+    opportunity/presence items carry route_override — four carried over from
+    v1 and two authored on split successors (landscaping, and the CAP-007
+    blinds successor). The degradation sibling must never inherit it, which
+    requires the v1 split parent to stay override-free."""
     carrying = {
         it["id"]: it["route_override"]
         for it in v2_catalog["items"] if "route_override" in it
@@ -563,6 +564,7 @@ def test_shipped_v2_route_override_pins(v1_catalog, v2_catalog):
         "mismatched_or_inconsistent_furniture_staging": "no_action",
         "curb_appeal_upgrade": "no_action",
         "landscaping_enhancement_opportunity": "no_action",
+        "window_blinds_basic_or_plain": "no_action",
     }
     parent = next(
         it for it in v1_catalog["items"]
