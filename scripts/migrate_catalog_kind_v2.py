@@ -79,8 +79,16 @@ INHERITED_FIELDS = (
     "route_override",
 )
 
-# Fields a non-split entry's `overrides` may rewrite (wording only).
-WORDING_OVERRIDE_FIELDS = frozenset({"name", "description", "embed_text", "support_any", "deny_any"})
+# Fields a non-split entry's `overrides` may rewrite. Wording, plus the two
+# non-economic retrieval/route fields the 2026-09-08 catalog checkpoint needs on
+# a carryover: `route_override` (closed vocabulary, forces an otherwise-billable
+# item out of billing) and `scene_groups` (retrieval pre-filter). `require_any`
+# is deliberately NOT admitted: no approved op needs it, so the gap stays
+# recorded rather than closed speculatively. Economic and unknown keys still fail.
+CARRYOVER_OVERRIDE_FIELDS = frozenset({
+    "name", "description", "embed_text", "support_any", "deny_any",
+    "route_override", "scene_groups",
+})
 
 SUCCESSOR_REQUIRED_FIELDS = ("id", "kind", "severity", "name", "description", "embed_text", "support_any")
 
@@ -131,9 +139,10 @@ def _build_split_successor(parent: dict, succ: dict) -> dict:
 
 def _build_carryover(parent: dict, succ: dict) -> dict:
     overrides = succ.get("overrides") or {}
-    bad = set(overrides) - WORDING_OVERRIDE_FIELDS
+    bad = set(overrides) - CARRYOVER_OVERRIDE_FIELDS
     if bad:
-        _fail(f"non-split entry {parent['id']!r} override touches non-wording fields {sorted(bad)}")
+        _fail(f"non-split entry {parent['id']!r} override touches "
+              f"non-authorable fields {sorted(bad)}")
     item = dict(parent)  # verbatim copy, insertion order preserved
     item["kind"] = succ["kind"]
     item.update(overrides)

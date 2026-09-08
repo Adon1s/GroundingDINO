@@ -1146,7 +1146,9 @@ def load_authoring_surface() -> Dict[str, Any]:
     spec = importlib.util.spec_from_file_location("migrate_catalog_kind_v2", ROOT / REL["generator"])
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)  # type: ignore[union-attr]
-    return {"wording_override_fields": sorted(module.WORDING_OVERRIDE_FIELDS),
+    # Key name is the frozen bundle schema and stays stable; the constant behind
+    # it was renamed when carryover overrides stopped being wording-only.
+    return {"wording_override_fields": sorted(module.CARRYOVER_OVERRIDE_FIELDS),
             "inherited_fields": list(module.INHERITED_FIELDS),
             "successor_required_fields": list(module.SUCCESSOR_REQUIRED_FIELDS),
             "economic_fields": list(ECONOMIC_FIELDS), "target_version": module.TARGET_VERSION}

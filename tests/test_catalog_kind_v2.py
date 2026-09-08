@@ -548,6 +548,93 @@ def test_generator_refuses_unknown_override_key_on_split_successor(v1_catalog):
         gen.generate(v1_catalog, broken)
 
 
+def _carryover_entry(decisions, legacy_id="dated_interior_trim"):
+    """A real reclassified (carryover) entry: successor id == legacy id, so the
+    generator takes the _build_carryover path."""
+    entry = next(e for e in decisions["entries"] if e["legacy_id"] == legacy_id)
+    assert entry["change_type"] != "split"
+    assert entry["successors"][0]["id"] == legacy_id
+    return entry
+
+
+def test_generator_admits_route_override_on_a_carryover(v1_catalog):
+    """The 2026-09-08 checkpoint needs route_override on a carryover, which was
+    a migration-system gap (S6-12). It must land verbatim and drive the v5
+    terminal route, not merely be copied into the item."""
+    from tools.renovation_architecture.catalog_projection import (
+        build_renovation_catalog_projection,
+    )
+    gen = _load_generator()
+    assert "route_override" in gen.CARRYOVER_OVERRIDE_FIELDS
+    decisions = copy.deepcopy(_decisions())
+    entry = _carryover_entry(decisions)
+    entry["successors"][0].setdefault("overrides", {})["route_override"] = "no_action"
+
+    catalog, _ = gen.generate(v1_catalog, decisions)
+    item = next(it for it in catalog["items"] if it["id"] == "dated_interior_trim")
+    assert item["route_override"] == "no_action"
+    # The claim is untouched, so stored Terra verdicts stay claim-compatible.
+    assert item["atomic_claim"]["state"] == "plain, thin, or builder-grade trim package"
+
+    projection = build_renovation_catalog_projection(
+        catalog, catalog_path=ROOT / "tools" / "issue_catalog_kind_v2.json"
+    )
+    route = projection["terminal_routes"]["dated_interior_trim"]
+    assert route["route"] == "no_action"
+    assert route["reason_code"] == "route_override_no_action"
+    # A no_action item has no work policy, which is what stops it billing.
+    assert "dated_interior_trim" not in projection["work_policy"]
+
+
+def test_generator_admits_scene_groups_on_a_carryover(v1_catalog):
+    """The CCF-13 wallpaper exclusion is a carryover scene_groups override."""
+    gen = _load_generator()
+    assert "scene_groups" in gen.CARRYOVER_OVERRIDE_FIELDS
+    decisions = copy.deepcopy(_decisions())
+    entry = _carryover_entry(decisions, "dated_wallpaper_present")
+    narrowed = ["kitchen", "bedroom", "living_areas", "utility"]
+    entry["successors"][0].setdefault("overrides", {})["scene_groups"] = narrowed
+
+    catalog, _ = gen.generate(v1_catalog, decisions)
+    item = next(it for it in catalog["items"] if it["id"] == "dated_wallpaper_present")
+    assert item["scene_groups"] == narrowed
+    assert "bathroom" not in item["scene_groups"]
+
+
+def test_generator_still_refuses_require_any_on_a_carryover(v1_catalog):
+    """require_any was deliberately NOT admitted: CAP-022 was declined, so no
+    approved op needs it and S6-12 stays a recorded gap rather than a
+    speculatively closed one."""
+    gen = _load_generator()
+    assert "require_any" not in gen.CARRYOVER_OVERRIDE_FIELDS
+    decisions = copy.deepcopy(_decisions())
+    entry = _carryover_entry(decisions)
+    entry["successors"][0].setdefault("overrides", {})["require_any"] = ["trim"]
+    with pytest.raises(SystemExit, match="non-authorable fields"):
+        gen.generate(v1_catalog, decisions)
+
+
+@pytest.mark.parametrize(
+    "key,value",
+    [
+        ("cost", {"mode": "heuristic"}),
+        ("package_affinity", {"kitchen": {"package_type": "kitchen_modernization",
+                                         "package_role": "package_support"}}),
+        ("work_item_code", "TRIM_REPLACE"),
+        ("trade_bucket", "paint_drywall"),
+        ("route_overide", "no_action"),  # deliberate typo: must fail, not vanish
+    ],
+)
+def test_generator_refuses_non_authorable_override_on_a_carryover(v1_catalog, key, value):
+    """Widening the carryover set must not open economics or swallow typos."""
+    gen = _load_generator()
+    decisions = copy.deepcopy(_decisions())
+    entry = _carryover_entry(decisions)
+    entry["successors"][0].setdefault("overrides", {})[key] = value
+    with pytest.raises(SystemExit, match="non-authorable fields"):
+        gen.generate(v1_catalog, decisions)
+
+
 def test_shipped_v2_route_override_pins(v1_catalog, v2_catalog):
     """The Session 8 triage plus CAP-007: exactly these six
     opportunity/presence items carry route_override — four carried over from
