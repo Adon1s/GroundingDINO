@@ -150,6 +150,16 @@ def validate_cases(cases: List[Dict[str, Any]]) -> None:
                 raise ValueError(f"{cid}: invalid_kind case must carry a kind outside the ontology")
 
 
+def available_slices() -> List[str]:
+    """Every shipped case slice, discovered from disk.
+
+    Slices are additive: an approved change that owes gold lands a NEW frozen
+    slice rather than editing a fingerprinted one, so the set cannot be a
+    hardcoded pair. Sorted for a stable CLI and stable test ordering.
+    """
+    return sorted(p.stem[len("cases_"):] for p in BENCH_DIR.glob("cases_*.json"))
+
+
 def load_cases(slice_name: str) -> Tuple[List[Dict[str, Any]], str, str]:
     payload = json.loads((BENCH_DIR / f"cases_{slice_name}.json").read_text(encoding="utf-8"))
     cases = payload.get("cases") or []
@@ -648,7 +658,7 @@ def write_report(report: Dict[str, Any], out_dir: Path) -> Path:
 def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--lane", choices=("v2", "legacy"), default="v2")
-    parser.add_argument("--cases", choices=("dev", "holdout"), required=True)
+    parser.add_argument("--cases", choices=tuple(available_slices()), required=True)
     parser.add_argument("--model-config", required=True)
     parser.add_argument("--repeats", type=int, default=3)
     parser.add_argument("--out-dir", default=None)

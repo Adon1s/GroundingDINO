@@ -1,0 +1,84 @@
+{
+  "benchmark": "catalog-resolution-v2",
+  "schema_version": 1,
+  "slice": "checkpoint_20260908",
+  "status": "frozen-2026-09-08",
+  "lineage": {
+    "why": "The approved CAP-007 window-treatment split created two successors that no gold case scored, so test_every_split_successor_is_gold_somewhere has been red since Session 4 (S4-1). The cases were drafted in Session 5 (S5-4) and are landed here.",
+    "drafted_by": "Session 5, recorded in reports/catalog_audit_live_experiment_manifest.json benchmark_gold_drafts",
+    "landed_by": "2026-09-08 catalog policy checkpoint",
+    "parent_slices": [
+      {
+        "slice": "dev",
+        "status": "frozen-2026-08-05",
+        "case_fingerprint": "d355313936b87c34f341c82f6ff249c30c95cf0d91160a7390675bd4f2822667"
+      },
+      {
+        "slice": "holdout",
+        "status": "frozen-2026-08-08",
+        "case_fingerprint": "01e3b157f8b553bbc2492de50097b7198bc9d0327a9c7615afb7ebd4000219ff"
+      }
+    ],
+    "rule": "Additive only. The dev and holdout slices and every committed result under benchmarks/catalog-resolution-v2/results/ are untouched, so their fingerprints still describe exactly the cases they scored.",
+    "not_yet_scored": "No gated run has scored this slice: scoring needs a Pass 2d model call, which the checkpoint was not authorized to make. The slice is frozen so a later authorized run can score it without re-freezing.",
+    "case_provenance": {
+      "res-mod-cap007-blinds": {
+        "artifact_sha256": "576b9d7e14e4985e77afee64b639726ff3713a23db6085eca5a692b1dddff624",
+        "candidate_rank_1": true,
+        "frozen_owner": "dated_window_treatment_valance",
+        "photo_key": "photo_028.jpg",
+        "property_key": "redfin_10952874",
+        "resolves_by": "support_phrase_hit",
+        "row_id": "canary:redfin_10952874:20260818_231243_cb71fce9:photo_028.jpg:1f49839afd9893cb",
+        "run_id": "20260818_231243_cb71fce9"
+      },
+      "res-mod-cap007-fabric": {
+        "artifact_sha256": "ceb51bca99c42e18727d042d438b2a20ab033d3bfdaebc8b7c78629a25c3b12c",
+        "candidate_rank_1": true,
+        "frozen_owner": "dated_window_treatment_valance",
+        "photo_key": "photo_031.jpg",
+        "property_key": "redfin_166147710",
+        "resolves_by": "support_phrase_hit",
+        "row_id": "canary:redfin_166147710:20260817_224909_2f979a60:photo_031.jpg:73e841b52e4610a2",
+        "run_id": "20260817_224909_2f979a60"
+      }
+    }
+  },
+  "cases": [
+    {
+      "case_id": "res-mod-cap007-blinds",
+      "family": "modernization_misc",
+      "paired_group": "cap007-window-treatment-split",
+      "case_type": "resolution",
+      "scene": "bedroom",
+      "scene_group": "bedroom",
+      "input": "The mini blinds have a basic style.",
+      "kind": "modernization",
+      "gold": {
+        "acceptable_candidate_ids": [
+          "window_blinds_basic_or_plain"
+        ],
+        "resolved_id": "window_blinds_basic_or_plain"
+      },
+      "legacy": null
+    },
+    {
+      "case_id": "res-mod-cap007-fabric",
+      "family": "modernization_misc",
+      "paired_group": "cap007-window-treatment-split",
+      "case_type": "resolution",
+      "scene": "living_room",
+      "scene_group": "living_areas",
+      "input": "The curtains and valances are dated.",
+      "kind": "modernization",
+      "gold": {
+        "acceptable_candidate_ids": [
+          "dated_window_valance_or_curtains"
+        ],
+        "resolved_id": "dated_window_valance_or_curtains"
+      },
+      "legacy": null
+    }
+  ],
+  "case_fingerprint": "e6051572882ad0cf1b793824f9f291c67a1d4a07638897b258072769dd4d22e2"
+}

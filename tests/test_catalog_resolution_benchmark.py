@@ -109,12 +109,20 @@ def _case(case_id, kind, gold, text, **kw):
 
 # ── shipped case files ──────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("slice_name", ["dev", "holdout"])
+@pytest.mark.parametrize("slice_name", bench.available_slices())
 def test_shipped_case_slices_validate(slice_name):
     cases, fingerprint, status = bench.load_cases(slice_name)
     assert cases
     assert len(fingerprint) == 64
     assert status
+
+
+def test_every_frozen_slice_is_actually_frozen():
+    """--gates refuses a non-frozen slice, so an unfrozen one is a latent gate
+    failure rather than a scoring difference."""
+    for slice_name in bench.available_slices():
+        _, _, status = bench.load_cases(slice_name)
+        assert status.startswith("frozen"), f"{slice_name} is {status!r}"
 
 
 def test_every_split_successor_is_gold_somewhere():
@@ -126,7 +134,7 @@ def test_every_split_successor_is_gold_somewhere():
         for s in e["successors"]
     }
     covered = set()
-    for slice_name in ("dev", "holdout"):
+    for slice_name in bench.available_slices():
         cases, _, _ = bench.load_cases(slice_name)
         covered |= {c["gold"]["resolved_id"] for c in cases if c["gold"]["resolved_id"]}
     assert successors <= covered, f"never scored: {sorted(successors - covered)}"
@@ -135,7 +143,7 @@ def test_every_split_successor_is_gold_somewhere():
 def test_shipped_cases_reference_real_catalog_items():
     catalog = json.loads((ROOT / "tools" / "issue_catalog_kind_v2.json").read_text(encoding="utf-8"))
     by_id = {i["id"]: i for i in catalog["items"]}
-    for slice_name in ("dev", "holdout"):
+    for slice_name in bench.available_slices():
         cases, _, _ = bench.load_cases(slice_name)
         for case in cases:
             gold = case["gold"]["resolved_id"]
@@ -151,7 +159,7 @@ def test_shipped_cases_reference_real_catalog_items():
 def test_paired_groups_never_span_slices():
     """Paired metrics need the whole group in one run."""
     groups = {}
-    for slice_name in ("dev", "holdout"):
+    for slice_name in bench.available_slices():
         cases, _, _ = bench.load_cases(slice_name)
         for case in cases:
             if case.get("paired_group"):
@@ -161,9 +169,15 @@ def test_paired_groups_never_span_slices():
 
 
 def test_case_slices_are_disjoint():
-    dev, _, _ = bench.load_cases("dev")
-    holdout, _, _ = bench.load_cases("holdout")
-    assert not ({c["case_id"] for c in dev} & {c["case_id"] for c in holdout})
+    """No case id may appear in two slices: a case scored twice would be counted
+    twice, and paired metrics would straddle runs."""
+    seen: dict = {}
+    for slice_name in bench.available_slices():
+        cases, _, _ = bench.load_cases(slice_name)
+        for case in cases:
+            other = seen.get(case["case_id"])
+            assert other is None, f"{case['case_id']} appears in both {other} and {slice_name}"
+            seen[case["case_id"]] = slice_name
 
 
 # ── case validation ─────────────────────────────────────────────────────────
