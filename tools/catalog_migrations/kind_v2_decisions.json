@@ -2477,6 +2477,14 @@
             "subject": "wallpaper",
             "state": "dated or visually busy wallpaper",
             "ontology_basis": "dated_style"
+          },
+          "overrides": {
+            "scene_groups": [
+              "kitchen",
+              "bedroom",
+              "living_areas",
+              "utility"
+            ]
           }
         }
       ]
@@ -3429,6 +3437,9 @@
             "subject": "interior trim",
             "state": "plain, thin, or builder-grade trim package",
             "ontology_basis": "low_grade_material"
+          },
+          "overrides": {
+            "route_override": "no_action"
           }
         }
       ]

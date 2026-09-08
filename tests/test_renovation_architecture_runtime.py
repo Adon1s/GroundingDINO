@@ -195,7 +195,8 @@ class TestInitialize:
         assert runtime.mode == "shadow"
         assert runtime.catalog_sha256 == sha256_file(SHIPPED_V2_PATH)
         assert runtime.projection_fingerprint == runtime.projection["fingerprint"]
-        assert runtime.projection["route_counts"]["work"] == 98
+        # 97 since the 2026-09-08 checkpoint routed dated_interior_trim to no_action.
+        assert runtime.projection["route_counts"]["work"] == 97
         assert runtime.terra_model == "terra-test"
         assert runtime.terra_max_output_tokens == 8192
         assert runtime.sol_model == "sol-test"

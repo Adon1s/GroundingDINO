@@ -652,6 +652,10 @@ def test_shipped_v2_route_override_pins(v1_catalog, v2_catalog):
         "curb_appeal_upgrade": "no_action",
         "landscaping_enhancement_opportunity": "no_action",
         "window_blinds_basic_or_plain": "no_action",
+        # 2026-09-08 policy checkpoint (D1): the first CARRYOVER item to carry
+        # route_override, which is why the generator's carryover override set
+        # had to be widened. Authored on the entry, not inherited from v1.
+        "dated_interior_trim": "no_action",
     }
     parent = next(
         it for it in v1_catalog["items"]

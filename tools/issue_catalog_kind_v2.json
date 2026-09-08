@@ -5145,7 +5145,6 @@
       "defaultHidden": false,
       "scene_groups": [
         "kitchen",
-        "bathroom",
         "bedroom",
         "living_areas",
         "utility"
@@ -6886,6 +6885,7 @@
           "package_role": "package_support"
         }
       },
+      "route_override": "no_action",
       "atomic_claim": {
         "subject": "interior trim",
         "state": "plain, thin, or builder-grade trim package",

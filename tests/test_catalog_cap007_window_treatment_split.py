@@ -322,10 +322,18 @@ def test_fabric_successor_keeps_the_work_route(projection):
 
 def test_the_split_moved_exactly_one_item_into_no_action(projection):
     """Baseline had 9 no_action and 98 work over 128 items. The split adds one
-    no_action item; the parent's work route survives on the fabric successor,
-    so `work` is unchanged."""
-    assert projection["route_counts"]["no_action"] == 10
-    assert projection["route_counts"]["work"] == 98
+    no_action item (the blinds successor); the parent's work route survives on
+    the fabric successor.
+
+    Stated as CAP-007's own delta rather than as absolute route totals. The
+    2026-09-08 policy checkpoint later routed dated_interior_trim to no_action
+    (approved, reports/catalog_audit_approvals_v2.json), which moves the
+    absolute counts without touching anything this split did. The absolute
+    pin now lives with that change, in
+    tests/test_catalog_checkpoint_trim_no_action.py."""
+    assert projection["terminal_routes"][BLINDS_ID]["route"] == "no_action"
+    assert projection["terminal_routes"][BLINDS_ID]["reason_code"] == "route_override_no_action"
+    assert projection["terminal_routes"][FABRIC_ID]["route"] == "work"
     assert sum(projection["route_counts"].values()) == 129
 
 

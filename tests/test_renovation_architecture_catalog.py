@@ -34,9 +34,13 @@ SHIPPED_V2_PATH = ROOT / "tools" / "issue_catalog_kind_v2.json"
 EXPECTED_ROUTE_COUNTS = {
     "excluded_quarantine": 12,
     "excluded_generic": 4,
+    # dated_interior_trim joined the no_action lane in the 2026-09-08 policy
+    # checkpoint (decision D1, reports/catalog_audit_approvals_v2.json): plain,
+    # basic or builder-grade presence does not bill by itself, so the item stays
+    # visible at zero dollars instead of leaving the retrieval pool.
     "inspection": 5,
-    "no_action": 10,
-    "work": 98,
+    "no_action": 11,
+    "work": 97,
 }
 # The user-approved no-economics gaps (inferred no_action).
 EXPECTED_NO_ECONOMICS_GAP_IDS = {
@@ -55,6 +59,9 @@ EXPECTED_ROUTE_OVERRIDE_IDS = {
     "curb_appeal_upgrade",
     "landscaping_enhancement_opportunity",
     "window_blinds_basic_or_plain",
+    # 2026-09-08 policy checkpoint, decision D1. First carryover (non-split)
+    # item to carry a route_override; the generator had to admit the field.
+    "dated_interior_trim",
 }
 EXPECTED_NO_ACTION_IDS = EXPECTED_NO_ECONOMICS_GAP_IDS | EXPECTED_ROUTE_OVERRIDE_IDS
 EXPECTED_INSPECTION_IDS = {
@@ -455,9 +462,12 @@ class TestShippedCatalogPins:
         assert gated == EXPECTED_MIN_PHOTO_EVIDENCE
 
     def test_estimate_scope_distribution(self, shipped_projection):
-        """Projection v2 risk-lane metadata: 98 work-route items classify
-        35/58/5 through the existing estimate-scope policy; the 5
-        inspection-route items are the inspection_risk lane by routing."""
+        """Projection v2 risk-lane metadata: 97 work-route items classify
+        35/58/4 through the existing estimate-scope policy; the 5
+        inspection-route items are the inspection_risk lane by routing.
+
+        optional_value_add fell from 5 to 4 when dated_interior_trim left the
+        work lane in the 2026-09-08 checkpoint (D1)."""
         scopes = {"required_rehab": 0, "marketability_rehab": 0,
                   "optional_value_add": 0, "inspection_risk": 0}
         for item_id, policy in shipped_projection["work_policy"].items():
@@ -465,7 +475,7 @@ class TestShippedCatalogPins:
         assert scopes == {
             "required_rehab": 35,
             "marketability_rehab": 58,
-            "optional_value_add": 5,
+            "optional_value_add": 4,
             "inspection_risk": 5,
         }
 
