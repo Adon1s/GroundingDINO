@@ -149,3 +149,28 @@ benchmark-results/
 
 # Kind-ontology canary working output (reports/ are committed; runs are not).
 artifacts_canary/
+
+# --- Repository tracking policy (2026-09-08) --------------------------------
+# Established by docs/HANDOFF_git_repository_audit.md. Principle, unchanged from
+# the rule above: reports and decisions are versioned, runs are not.
+
+# Local analysis run output. The real ~1,266-run artifact corpus lives in the
+# renointel-prod repository, not here; these are old local test runs.
+# Note the trailing slash: artifacts/*.json at the top level are audit baselines
+# referenced by docs and are deliberately NOT ignored.
+/artifacts/*/
+
+# Scratch comparison output.
+/reports_scratch/
+
+# Root-level experiment output families.
+# catalog_audit_*.json is NOT ignored: scripts/audit_catalog_terms.py globs it
+# from the repo root as its corpus (see that file, --audit-dir default).
+/bias_check_*.json
+/model_comparison_*.json
+/pass_2f_comparison_*.json
+
+
+# Machine-local Claude Code settings. Previously covered only by the user's
+# global ignore file, which does not protect a fresh clone.
+.claude/settings.local.json
