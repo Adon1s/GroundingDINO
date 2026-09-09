@@ -1,0 +1,4437 @@
+{
+ "generated_for": "mechanism-vs-perception re-tag of the frozen manual review",
+ "source_queue": {
+  "path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\reports\\review_queue.json",
+  "sha256": "8512b87c2af18d1104069c15a5eda977d5fe79eb736f9aedd976d174f89d318a"
+ },
+ "source_verdicts": {
+  "path": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\reports\\review_verdicts.jsonl",
+  "sha256": "0c7ca6a8b55d6dac69021a00e81315be1b15cef68ffd59fbe2973cb895a8d70f"
+ },
+ "groups": {
+  "A": {
+   "question": "was a real problem there, just named wrong?",
+   "keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "n": 26
+  },
+  "B": {
+   "question": "why did Terra reject something you could see?",
+   "keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "n": 20
+  }
+ },
+ "cards": [
+  {
+   "card_id": "rc_4cab6e7be02b",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "canary",
+   "property_key": "redfin_10806500",
+   "run_id": "20260817_224354_3633e400",
+   "address": "3010 Frisby St, Baltimore, MD 21218",
+   "legacy_item_id": "C038",
+   "title": "[A] was a real problem there, just named wrong?   |   peeling_or_discolored_paint @ kitchen_primary",
+   "claim": {
+    "catalog_claim": "interior paint peeling, bubbling, or visibly aged finish",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "Wall finishes appear tired."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_004.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10806500\\photo_004.jpg",
+       "wh": [
+        1280,
+        960
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "peeling_or_discolored_paint",
+    "catalog_kind": "degradation",
+    "scene_group": "kitchen",
+    "estimate_unit_id": "kitchen_primary",
+    "condition_id": "oc1_f46cc039d3163f19",
+    "photo_count": 1,
+    "terra_batch_conditions": 8,
+    "terra_batch_images": 2,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The wall finish has visibly aged, uneven areas and patchy discoloration."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in kitchen_modernization__kitchen_primary: The kitchen has predominantly updated-looking white cabinetry, stone-look counters, a mosaic-tile backsplash, and a stainless range, which does not support a full modernization package. Visible support includes worn cabinet edging, dated-looking raised-panel cabinet styling, older vinyl-style flooring, a basic older range hood, and wall scuffs/marks. The counters do not appear to be older laminate, and peeling/discoloration or distinct flooring wear/stains are not clearly visible."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work PAINT_INTERIOR"
+    }
+   ],
+   "hidden": {
+    "low": 139,
+    "high": 1732
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_7057c3c171e5",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "uniform"
+   ],
+   "source": "canary",
+   "property_key": "redfin_10952874",
+   "run_id": "20260818_231243_cb71fce9",
+   "address": "907 Bennett, Baltimore, MD 21223",
+   "legacy_item_id": null,
+   "title": "[A] was a real problem there, just named wrong?   |   baseboard_wear_scuffs @ basement_primary",
+   "claim": {
+    "catalog_claim": "baseboards scuffs, paint loss, dents, or general wear",
+    "observations": [
+     ">> your earlier call: unsupported - \"Trim is missing in some photos, its not visibly scuffed\"",
+     "Base and trim areas are damaged.",
+     "The trim is scuffed."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_018.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10952874\\photo_018.jpg",
+       "wh": [
+        651,
+        869
+       ]
+      },
+      {
+       "key": "photo_027.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10952874\\photo_027.jpg",
+       "wh": [
+        651,
+        869
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "baseboard_wear_scuffs",
+    "catalog_kind": "degradation",
+    "scene_group": "utility",
+    "estimate_unit_id": "basement_primary",
+    "condition_id": "oc1_d16c8ead0d959962",
+    "photo_count": 2,
+    "terra_batch_conditions": 7,
+    "terra_batch_images": 4,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "none",
+    "second_opinion": "none",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": "Trim is missing in some photos, its not visibly scuffed"
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported — Trim is missing in some photos, its not visibly scuffed"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — Baseboards and trim at the stair openings show scuffs, chipped paint, and wear."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "no opinion — this issue never reached a 2f package candidate"
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work TRIM_REPAIR"
+    }
+   ],
+   "hidden": {
+    "low": 29,
+    "high": 146
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_f3d19e171c6d",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "uniform"
+   ],
+   "source": "canary",
+   "property_key": "redfin_10952874",
+   "run_id": "20260818_231243_cb71fce9",
+   "address": "907 Bennett, Baltimore, MD 21223",
+   "legacy_item_id": null,
+   "title": "[A] was a real problem there, just named wrong?   |   floor_dirty_or_heavily_soiled @ bedroom_4",
+   "claim": {
+    "catalog_claim": "floor heavy visible soiling",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "Dark debris is present around the floor vent.",
+     "The hardwood flooring has surface grime.",
+     "The room's finishes are visibly dirty."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_022.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10952874\\photo_022.jpg",
+       "wh": [
+        651,
+        869
+       ]
+      },
+      {
+       "key": "photo_024.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10952874\\photo_024.jpg",
+       "wh": [
+        651,
+        869
+       ]
+      },
+      {
+       "key": "photo_034.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10952874\\photo_034.jpg",
+       "wh": [
+        651,
+        869
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "floor_dirty_or_heavily_soiled",
+    "catalog_kind": "degradation",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_4",
+    "condition_id": "oc1_487e44f60f63341e",
+    "photo_count": 3,
+    "terra_batch_conditions": 17,
+    "terra_batch_images": 12,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "none",
+    "second_opinion": "none",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The hard floor has conspicuous scattered debris and dark soiling."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "no opinion — this issue never reached a 2f package candidate"
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work FLOOR_CLEAN_RESTORE"
+    }
+   ],
+   "hidden": {
+    "low": 23,
+    "high": 113
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_eef1daf73e2a",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "canary",
+   "property_key": "redfin_10952874",
+   "run_id": "20260818_231243_cb71fce9",
+   "address": "907 Bennett, Baltimore, MD 21223",
+   "legacy_item_id": "C040",
+   "title": "[A] was a real problem there, just named wrong?   |   hard_flooring_scratched_or_worn @ bedroom_4",
+   "claim": {
+    "catalog_claim": "hard flooring finish scratches, scuffs, or worn finish on intact flooring",
+    "observations": [
+     ">> your earlier call: overstated - \"I see stains not scuffs\"",
+     "Wood or laminate flooring has heavy scuffs, paint or adhesive marks, and apparent staining.",
+     "Wood-look plank flooring has discoloration, patchy areas, and scuffs."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_025.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10952874\\photo_025.jpg",
+       "wh": [
+        651,
+        869
+       ]
+      },
+      {
+       "key": "photo_029.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10952874\\photo_029.jpg",
+       "wh": [
+        651,
+        869
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "hard_flooring_scratched_or_worn",
+    "catalog_kind": "degradation",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_4",
+    "condition_id": "oc1_8178b1b9c823f719",
+    "photo_count": 2,
+    "terra_batch_conditions": 17,
+    "terra_batch_images": 12,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "mixed",
+    "second_opinion": "2f_mixed",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_overstated",
+    "prior_note": "I see stains not scuffs"
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_overstated — I see stains not scuffs"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The hard flooring has visible paint marks, scuffs, and discolored areas."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed/rejected in bedroom_repair__bedroom_4: One bedroom's hard flooring visibly has extensive dark scuffs and paint-like blue marks. Another bedroom shows visible wall scuffs/marks and a small dark wall hole. The other wood-look floor does not visibly show the claimed patchy discoloration or scuffing."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work FLOORING_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 202,
+    "high": 3375
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_6f59ce859fb7",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "canary",
+   "property_key": "redfin_10952874",
+   "run_id": "20260818_231243_cb71fce9",
+   "address": "907 Bennett, Baltimore, MD 21223",
+   "legacy_item_id": "C042",
+   "title": "[A] was a real problem there, just named wrong?   |   worn_or_stained_flooring @ bedroom_4",
+   "claim": {
+    "catalog_claim": "flooring wear, staining, or discoloration without structural concern",
+    "observations": [
+     ">> your earlier call: overstated (no note)",
+     "Area around the floor vent is darkly stained.",
+     "Flooring has scattered dark marks and discoloration.",
+     "Solid hardwood flooring has visible staining and debris.",
+     "The flooring appears aged in places.",
+     "The hardwood flooring has paint and adhesive marks.",
+     "The light wood-look flooring is worn and dirty."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_021.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10952874\\photo_021.jpg",
+       "wh": [
+        651,
+        869
+       ]
+      },
+      {
+       "key": "photo_022.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10952874\\photo_022.jpg",
+       "wh": [
+        651,
+        869
+       ]
+      },
+      {
+       "key": "photo_024.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10952874\\photo_024.jpg",
+       "wh": [
+        651,
+        869
+       ]
+      },
+      {
+       "key": "photo_025.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10952874\\photo_025.jpg",
+       "wh": [
+        651,
+        869
+       ]
+      },
+      {
+       "key": "photo_028.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10952874\\photo_028.jpg",
+       "wh": [
+        651,
+        869
+       ]
+      },
+      {
+       "key": "photo_034.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10952874\\photo_034.jpg",
+       "wh": [
+        651,
+        869
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "worn_or_stained_flooring",
+    "catalog_kind": "degradation",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_4",
+    "condition_id": "oc1_db5a973af3c2a600",
+    "photo_count": 6,
+    "terra_batch_conditions": 17,
+    "terra_batch_images": 12,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_overstated",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_overstated"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The visible flooring has dark marks, debris, discoloration, and paint-like spots."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in bedroom_modernization__bedroom_4: Multiple bedroom views visibly show heavily soiled, stained, and worn carpet, marked/scuffed walls, basic trim, and baseboard wear. The gray paint color alone does not visibly establish that paint is dated, and the wood-look flooring appears cluttered but does not show clear wear."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work FLOORING_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 119,
+    "high": 593
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_ceeb17f8e242",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "canary",
+   "property_key": "redfin_11185681",
+   "run_id": "20260818_224036_370aadff",
+   "address": "2802 Grindon Ave, Baltimore, MD 21214",
+   "legacy_item_id": "C051",
+   "title": "[A] was a real problem there, just named wrong?   |   dated_interior_trim @ kitchen_primary",
+   "claim": {
+    "catalog_claim": "interior trim plain, thin, or builder-grade trim package",
+    "observations": [
+     ">> your earlier call: overstated - \"Cabinets are a bit dated but not worth replacing. The countertop is the main priority. But I wouldn't fault the LLM for this.\"",
+     "Cabinet trim is mismatched and dated.",
+     "The trim and door appear older."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_024.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_11185681\\photo_024.jpg",
+       "wh": [
+        1280,
+        852
+       ]
+      },
+      {
+       "key": "photo_025.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_11185681\\photo_025.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "dated_interior_trim",
+    "catalog_kind": "modernization",
+    "scene_group": "kitchen",
+    "estimate_unit_id": "kitchen_primary",
+    "condition_id": "oc1_d26583535030db55",
+    "photo_count": 2,
+    "terra_batch_conditions": 10,
+    "terra_batch_images": 5,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_overstated",
+    "prior_note": "Cabinets are a bit dated but not worth replacing. The countertop is the main priority. But I wouldn't fault the LLM for this."
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_overstated — Cabinets are a bit dated but not worth replacing. The countertop is the main priority. But I wouldn't fault the LLM for this."
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — Plain, narrow white trim is visible around the interior door and windows."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in kitchen_modernization__kitchen_primary: The photos show generally updated gray shaker cabinetry, mosaic backsplash, and wood-look flooring, which contradict a kitchen-wide modernization package. Visible issues include wear and scuffing on lower cabinet bases/faces, speckled laminate-look counters with a visibly damaged or unfinished front edge, mixed appliances including a white range, and minor wall marks."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work TRIM_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 92,
+    "high": 460
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_6285e9a79e45",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA",
+    "terra_flip"
+   ],
+   "source": "canary",
+   "property_key": "redfin_125779232",
+   "run_id": "20260817_222351_c069aab3",
+   "address": "3509 Gesman Pl SW, Huntsville, AL 35805",
+   "legacy_item_id": "C052",
+   "title": "[A] was a real problem there, just named wrong?   |   bath_fixtures_stained_or_worn @ bathroom_primary",
+   "claim": {
+    "catalog_claim": "bath fixtures heavy staining or worn finish, undamaged",
+    "observations": [
+     ">> your earlier call: overstated - \"The wear is overstated. It is more just extremely outdated and needing of refresh\"",
+     "The ceiling and wall area near the tub look rough.",
+     "The floor has discoloration and staining around the tub and vanity.",
+     "The toilet seat or toilet appears worn.",
+     "The tub/shower surround appears worn and discolored around the tub base and seams."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_003.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_125779232\\photo_003.jpg",
+       "wh": [
+        960,
+        1280
+       ]
+      },
+      {
+       "key": "photo_007.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_125779232\\photo_007.jpg",
+       "wh": [
+        960,
+        1280
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "bath_fixtures_stained_or_worn",
+    "catalog_kind": "degradation",
+    "scene_group": "bathroom",
+    "estimate_unit_id": "bathroom_primary",
+    "condition_id": "oc1_7369dbd37bee24fd",
+    "photo_count": 2,
+    "terra_batch_conditions": 13,
+    "terra_batch_images": 3,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": "unsupported",
+    "direction": "mixed",
+    "second_opinion": "2f_mixed",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_overstated",
+    "prior_note": "The wear is overstated. It is more just extremely outdated and needing of refresh"
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_overstated — The wear is overstated. It is more just extremely outdated and needing of refresh"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The tub surround and tub base show visible discoloration and worn-looking seams."
+    },
+    {
+     "label": "Terra verdict, replica 2 (same photos)",
+     "text": "unsupported"
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed/rejected in bathroom_repair__bathroom_primary: Two bathrooms are visible. Both show basic, dated-looking vanities; the bathrooms also show aged/discolored flooring, rough or marked wall/ceiling surfaces, and an older tub/shower surround with visible discoloration at the base/seams. The visible toilet does not clearly appear worn."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work FIXTURES_UPDATE"
+    }
+   ],
+   "hidden": {
+    "low": 1092,
+    "high": 10924
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_3da266b97f62",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA",
+    "p6_forced_single"
+   ],
+   "source": "canary",
+   "property_key": "redfin_25809814",
+   "run_id": "20260817_223307_7b336e61",
+   "address": "1624 S Hanover St, Baltimore, MD 21230",
+   "legacy_item_id": "C062",
+   "title": "[A] was a real problem there, just named wrong?   |   appliances_dated_or_basic @ kitchen_primary",
+   "claim": {
+    "catalog_claim": "kitchen appliances dated style or basic grade, functional",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "Appliance presentation appears mixed and dated."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_011.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_25809814\\photo_011.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "appliances_dated_or_basic",
+    "catalog_kind": "modernization",
+    "scene_group": "kitchen",
+    "estimate_unit_id": "kitchen_primary",
+    "condition_id": "oc1_fe2bb8276286e73e",
+    "photo_count": 1,
+    "terra_batch_conditions": 5,
+    "terra_batch_images": 4,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The kitchen shows a mixed set of basic-looking appliances, including an older-style microwave and range."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in kitchen_modernization__kitchen_primary: White raised-panel cabinetry and dark laminate-style counters are visible, along with an unfinished open upper-cabinet area. However, the kitchen otherwise presents predominantly updated finishes, including stainless appliances, painted cabinetry, hardwood flooring, and modern lighting; the appliances do not visibly appear mixed or dated."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work APPLIANCE_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 432,
+    "high": 5179
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_165093fb25c2",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "uniform"
+   ],
+   "source": "canary",
+   "property_key": "redfin_25809814",
+   "run_id": "20260817_223307_7b336e61",
+   "address": "1624 S Hanover St, Baltimore, MD 21230",
+   "legacy_item_id": null,
+   "title": "[A] was a real problem there, just named wrong?   |   cabinets_dated_style @ kitchen_primary",
+   "claim": {
+    "catalog_claim": "cabinets dated style or basic grade, functional",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "Cabinet style reads dated.",
+     "Cabinetry has a dated appearance.",
+     "Kitchen cabinetry is dated.",
+     "Raised-panel white cabinets have a dated style."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_006.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_25809814\\photo_006.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      },
+      {
+       "key": "photo_011.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_25809814\\photo_011.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      },
+      {
+       "key": "photo_012.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_25809814\\photo_012.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      },
+      {
+       "key": "photo_013.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_25809814\\photo_013.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "cabinets_dated_style",
+    "catalog_kind": "modernization",
+    "scene_group": "kitchen",
+    "estimate_unit_id": "kitchen_primary",
+    "condition_id": "oc1_97dd90706ae3c571",
+    "photo_count": 4,
+    "terra_batch_conditions": 5,
+    "terra_batch_images": 4,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "agree",
+    "second_opinion": "2f_agreed",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The white raised-panel cabinet doors have a visibly dated style."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in kitchen_modernization__kitchen_primary: White raised-panel cabinetry and dark laminate-style counters are visible, along with an unfinished open upper-cabinet area. However, the kitchen otherwise presents predominantly updated finishes, including stainless appliances, painted cabinetry, hardwood flooring, and modern lighting; the appliances do not visibly appear mixed or dated."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work CABINET_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 1726,
+    "high": 17264
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_6b3c68f12764",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "canary",
+   "property_key": "redfin_25809814",
+   "run_id": "20260817_223307_7b336e61",
+   "address": "1624 S Hanover St, Baltimore, MD 21230",
+   "legacy_item_id": "C063",
+   "title": "[A] was a real problem there, just named wrong?   |   dated_interior_doors @ bedroom_2",
+   "claim": {
+    "catalog_claim": "interior doors hollow-core or dated door styles",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "The sliding closet doors are dated."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_017.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_25809814\\photo_017.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "dated_interior_doors",
+    "catalog_kind": "modernization",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_2",
+    "condition_id": "oc1_2cc6fcd6d952ffca",
+    "photo_count": 1,
+    "terra_batch_conditions": 4,
+    "terra_batch_images": 2,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The room shows sliding closet doors with an older raised-panel style."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in bedroom_modernization__bedroom_2: The bedroom shows clean neutral paint, smooth ceiling, a modern light fixture, intact white trim and paneled doors, and clean contemporary carpet. No visibly dated or worn flooring, doors, or trim is evident."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work DOOR_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 91,
+    "high": 454
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_022497229bd3",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "canary",
+   "property_key": "redfin_25809814",
+   "run_id": "20260817_223307_7b336e61",
+   "address": "1624 S Hanover St, Baltimore, MD 21230",
+   "legacy_item_id": "C065",
+   "title": "[A] was a real problem there, just named wrong?   |   dated_interior_trim @ bedroom_3",
+   "claim": {
+    "catalog_claim": "interior trim plain, thin, or builder-grade trim package",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "The room has beige walls, carpet, basic trim, and a simple interior door.",
+     "The trim is basic."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_021.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_25809814\\photo_021.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      },
+      {
+       "key": "photo_023.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_25809814\\photo_023.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "dated_interior_trim",
+    "catalog_kind": "modernization",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_3",
+    "condition_id": "oc1_b108ce33e8e5a410",
+    "photo_count": 2,
+    "terra_batch_conditions": 7,
+    "terra_batch_images": 5,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The room has narrow, plain white baseboards and simple door trim."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in bedroom_modernization__bedroom_3: The bedroom shows clean neutral paint, smooth ceilings, intact white trim, and clean carpet without visible wear or staining. Mirrored sliding closet doors are visible, but this isolated dated element does not support a bedroom-wide modernization package."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work TRIM_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 91,
+    "high": 454
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_a0e75a18620e",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "canary",
+   "property_key": "redfin_25809814",
+   "run_id": "20260817_223307_7b336e61",
+   "address": "1624 S Hanover St, Baltimore, MD 21230",
+   "legacy_item_id": "C064",
+   "title": "[A] was a real problem there, just named wrong?   |   dated_interior_trim @ bedroom_2",
+   "claim": {
+    "catalog_claim": "interior trim plain, thin, or builder-grade trim package",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "The baseboards are basic.",
+     "Walls, closet doors, trim, and interior door have basic builder-grade finishes."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_017.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_25809814\\photo_017.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      },
+      {
+       "key": "photo_018.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_25809814\\photo_018.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "dated_interior_trim",
+    "catalog_kind": "modernization",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_2",
+    "condition_id": "oc1_089e41af82ef42e5",
+    "photo_count": 2,
+    "terra_batch_conditions": 4,
+    "terra_batch_images": 2,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — Thin, plain white baseboards and simple door and closet trim are visible."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in bedroom_modernization__bedroom_2: The bedroom shows clean neutral paint, smooth ceiling, a modern light fixture, intact white trim and paneled doors, and clean contemporary carpet. No visibly dated or worn flooring, doors, or trim is evident."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work TRIM_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 91,
+    "high": 454
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_62b74e10ba7a",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "canary",
+   "property_key": "redfin_25809814",
+   "run_id": "20260817_223307_7b336e61",
+   "address": "1624 S Hanover St, Baltimore, MD 21230",
+   "legacy_item_id": "C066",
+   "title": "[A] was a real problem there, just named wrong?   |   older_flooring_style @ bedroom_2",
+   "claim": {
+    "catalog_claim": "flooring clean but visually outdated flooring",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "The carpet is dated."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_017.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_25809814\\photo_017.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "older_flooring_style",
+    "catalog_kind": "modernization",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_2",
+    "condition_id": "oc1_2ef56cbbc11e5ea0",
+    "photo_count": 1,
+    "terra_batch_conditions": 4,
+    "terra_batch_images": 2,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — Wall-to-wall carpet with an older speckled appearance is visible."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in bedroom_modernization__bedroom_2: The bedroom shows clean neutral paint, smooth ceiling, a modern light fixture, intact white trim and paneled doors, and clean contemporary carpet. No visibly dated or worn flooring, doors, or trim is evident."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work FLOORING_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 600,
+    "high": 2697
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_8eb12e7236b6",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA",
+    "terra_flip"
+   ],
+   "source": "canary",
+   "property_key": "redfin_25809814",
+   "run_id": "20260817_223307_7b336e61",
+   "address": "1624 S Hanover St, Baltimore, MD 21230",
+   "legacy_item_id": "C067",
+   "title": "[A] was a real problem there, just named wrong?   |   older_flooring_style @ bedroom_3",
+   "claim": {
+    "catalog_claim": "flooring clean but visually outdated flooring",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "The room has carpet with dated finishes.",
+     "The room has dated carpet flooring."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_021.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_25809814\\photo_021.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      },
+      {
+       "key": "photo_025.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_25809814\\photo_025.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "older_flooring_style",
+    "catalog_kind": "modernization",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_3",
+    "condition_id": "oc1_3f5a1fb312b14244",
+    "photo_count": 2,
+    "terra_batch_conditions": 7,
+    "terra_batch_images": 5,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": "unsupported",
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — Wall-to-wall beige carpet is clearly visible across the room."
+    },
+    {
+     "label": "Terra verdict, replica 2 (same photos)",
+     "text": "unsupported"
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in bedroom_modernization__bedroom_3: The bedroom shows clean neutral paint, smooth ceilings, intact white trim, and clean carpet without visible wear or staining. Mirrored sliding closet doors are visible, but this isolated dated element does not support a bedroom-wide modernization package."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work FLOORING_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 600,
+    "high": 2697
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_ffa9829fd6dd",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "uniform"
+   ],
+   "source": "canary",
+   "property_key": "redfin_80877597",
+   "run_id": "20260817_223826_3cefe883",
+   "address": "513 15th Ave NW, Center Point, AL 35215",
+   "legacy_item_id": null,
+   "title": "[A] was a real problem there, just named wrong?   |   worn_or_stained_carpet @ bedroom_1",
+   "claim": {
+    "catalog_claim": "carpet visible wear, staining, or fraying",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "The carpet appears worn and older."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_002.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80877597\\photo_002.jpg",
+       "wh": [
+        1024,
+        682
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "worn_or_stained_carpet",
+    "catalog_kind": "degradation",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_1",
+    "condition_id": "oc1_874eea526d4e2aab",
+    "photo_count": 1,
+    "terra_batch_conditions": 5,
+    "terra_batch_images": 1,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "agree",
+    "second_opinion": "2f_agreed",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The carpet shows visible mottled wear and darker discolored areas."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in bedroom_modernization__bedroom_1: The bedroom visibly has worn-looking carpet, basic sliding closet doors, thin simple trim, beige/tan wall paint, and an acoustic popcorn-textured ceiling. Together these visible dated finishes support bedroom modernization."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work CARPET_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 208,
+    "high": 1042
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_cf0c3ee00fcb",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "uniform"
+   ],
+   "source": "canary",
+   "property_key": "redfin_80925528",
+   "run_id": "20260818_220543_1af5ac93",
+   "address": "5629 6th Ct, Birmingham, AL 35212",
+   "legacy_item_id": null,
+   "title": "[A] was a real problem there, just named wrong?   |   worn_or_stained_flooring @ kitchen_primary",
+   "claim": {
+    "catalog_claim": "flooring wear, staining, or discoloration without structural concern",
+    "observations": [
+     ">> your earlier call: overstated - \"The green patterned tile flooring appears worn and uneven in places is false. The green tile or vinyl-style floor appears worn and dirty could be true. The main issue is the color of the flooring is just dated and very ugly\"",
+     "The green patterned tile flooring appears worn and uneven in places.",
+     "The green tile or vinyl-style floor appears worn and dirty."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_042.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80925528\\photo_042.jpg",
+       "wh": [
+        1280,
+        851
+       ]
+      },
+      {
+       "key": "photo_044.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80925528\\photo_044.jpg",
+       "wh": [
+        1280,
+        851
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "worn_or_stained_flooring",
+    "catalog_kind": "degradation",
+    "scene_group": "kitchen",
+    "estimate_unit_id": "kitchen_primary",
+    "condition_id": "oc1_26a0d908e449831c",
+    "photo_count": 2,
+    "terra_batch_conditions": 12,
+    "terra_batch_images": 7,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "agree",
+    "second_opinion": "2f_agreed",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_overstated",
+    "prior_note": "The green patterned tile flooring appears worn and uneven in places is false. The green tile or vinyl-style floor appears worn and dirty could be true. The main issue is the color of the flooring is just dated and very ugly"
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_overstated — The green patterned tile flooring appears worn and uneven in places is false. The green tile or vinyl-style floor appears worn and dirty could be true. The main issue is the color of the flooring is just dated and very ugly"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The green flooring shows visible discoloration and scattered dark marks."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in kitchen_modernization__kitchen_primary: The kitchen visibly has dated white appliances, basic white square-tile backsplash, green patterned flooring, dated cabinet/counter arrangement, and deteriorated/patchy wall finish by the sink. Base cabinetry is still present and no exposed subfloor or framing is visible."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work FLOORING_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 176,
+    "high": 878
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_025ca614449b",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "canary",
+   "property_key": "redfin_81000709",
+   "run_id": "20260817_225858_d13bd83c",
+   "address": "5504 SW Jefferson Ave SW, Birmingham, AL 35221",
+   "legacy_item_id": "C068",
+   "title": "[A] was a real problem there, just named wrong?   |   peeling_or_discolored_paint @ bedroom_3",
+   "claim": {
+    "catalog_claim": "interior paint peeling, bubbling, or visibly aged finish",
+    "observations": [
+     ">> your earlier call: overstated - \"Painted doorway casing is chipped and dirty is true. The ceiling appears unevenly discolored in places is false. The ceiling claim is a hallucination based on the reflected colors on the ceiling from the window\"",
+     "Painted doorway casing is chipped and dirty.",
+     "The ceiling appears unevenly discolored in places."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_022.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_81000709\\photo_022.jpg",
+       "wh": [
+        960,
+        1280
+       ]
+      },
+      {
+       "key": "photo_030.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_81000709\\photo_030.jpg",
+       "wh": [
+        960,
+        1280
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "peeling_or_discolored_paint",
+    "catalog_kind": "degradation",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_3",
+    "condition_id": "oc1_8da0e5e6efcd38f7",
+    "photo_count": 2,
+    "terra_batch_conditions": 12,
+    "terra_batch_images": 9,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "mixed",
+    "second_opinion": "2f_mixed",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_overstated",
+    "prior_note": "Painted doorway casing is chipped and dirty is true. The ceiling appears unevenly discolored in places is false. The ceiling claim is a hallucination based on the reflected colors on the ceiling from the window"
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_overstated — Painted doorway casing is chipped and dirty is true. The ceiling appears unevenly discolored in places is false. The ceiling claim is a hallucination based on the reflected colors on the ceiling from the window"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The painted doorway casing has visible chips, grime, and worn paint."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed/rejected in bedroom_modernization__bedroom_3: The bedroom shows heavily soiled/worn dated carpet, visibly chipped and dirty painted doorway trim, and an older ceiling fan. The apparent ceiling discoloration is not clear enough to confirm from the dim image."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work PAINT_INTERIOR"
+    }
+   ],
+   "hidden": {
+    "low": 170,
+    "high": 2124
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_3a19f759f2d9",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "production",
+   "property_key": "redfin_10735912",
+   "run_id": "20260825_045924_209d10ee",
+   "address": "704 S Potomac St, Baltimore, MD 21224",
+   "legacy_item_id": null,
+   "title": "[A] was a real problem there, just named wrong?   |   patio_or_porch_surface_wear @ exterior_primary",
+   "claim": {
+    "catalog_claim": "patio or porch surface aging, surface wear, or coating breakdown",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "Porch and entry details appear aging.",
+     "The porch floorboards are heavily weathered.",
+     "The wood front porch is weathered."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_001.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10735912\\photo_001.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      },
+      {
+       "key": "photo_017.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10735912\\photo_017.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      },
+      {
+       "key": "photo_028.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10735912\\photo_028.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "patio_or_porch_surface_wear",
+    "catalog_kind": "degradation",
+    "scene_group": "exterior",
+    "estimate_unit_id": "exterior_primary",
+    "condition_id": "oc1_9312f2aa56516320",
+    "photo_count": 3,
+    "terra_batch_conditions": 11,
+    "terra_batch_images": 5,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "mixed",
+    "second_opinion": "2f_mixed",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The porch floorboards and stair surfaces show clear weathering and surface wear."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed/rejected in exterior_repair__exterior_primary: The porch roof underside has exposed, heavily stained and weathered plywood, and the porch boards show visible surface weathering. However, no clear rot, broken or deflecting boards, loose railings, failed masonry, or damaged siding/trim is visible; the broader envelope appears intact, so the repair package is not supported."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work SURFACE_RESURFACE"
+    }
+   ],
+   "hidden": {
+    "low": 36,
+    "high": 179
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_48a619175251",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "production",
+   "property_key": "redfin_10735912",
+   "run_id": "20260825_045924_209d10ee",
+   "address": "704 S Potomac St, Baltimore, MD 21224",
+   "legacy_item_id": null,
+   "title": "[A] was a real problem there, just named wrong?   |   peeling_or_discolored_paint @ dining_room_primary",
+   "claim": {
+    "catalog_claim": "interior paint peeling, bubbling, or visibly aged finish",
+    "observations": [
+     ">> your earlier call: unsupported - \"The paint is not \"yellowed\" it is the color yellow intentionally. Although it is dated and needs repainting its not peeling, bubbling, or aged\"",
+     "Wall color is yellowed."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_014.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10735912\\photo_014.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "peeling_or_discolored_paint",
+    "catalog_kind": "degradation",
+    "scene_group": "living_areas",
+    "estimate_unit_id": "dining_room_primary",
+    "condition_id": "oc1_4a9736e40783d13f",
+    "photo_count": 1,
+    "terra_batch_conditions": 5,
+    "terra_batch_images": 2,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": "The paint is not \"yellowed\" it is the color yellow intentionally. Although it is dated and needs repainting its not peeling, bubbling, or aged"
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported — The paint is not \"yellowed\" it is the color yellow intentionally. Although it is dated and needs repainting its not peeling, bubbling, or aged"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The wall paint has visibly uneven, discolored areas and an aged-looking finish."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in living_modernization__dining_room_primary: The room shows visibly worn and uneven baseboards with scuffs and gaps, along with marks and unevenness on the wall surfaces. These aged finishes support modernization. The yellow wall color is visible, but yellowing, peeling, or discoloration cannot be distinguished from the intended paint color."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work PAINT_INTERIOR"
+    }
+   ],
+   "hidden": {
+    "low": 150,
+    "high": 1869
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_c71bf32491e7",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "production",
+   "property_key": "redfin_10866780",
+   "run_id": "20260825_050705_9e0d869e",
+   "address": "2329 Eutaw Pl, Baltimore, MD 21217",
+   "legacy_item_id": null,
+   "title": "[A] was a real problem there, just named wrong?   |   cabinets_dated_style @ kitchen_primary",
+   "claim": {
+    "catalog_claim": "cabinets dated style or basic grade, functional",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "The cabinetry is stylistically dated."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_020.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10866780\\photo_020.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "cabinets_dated_style",
+    "catalog_kind": "modernization",
+    "scene_group": "kitchen",
+    "estimate_unit_id": "kitchen_primary",
+    "condition_id": "oc1_c19461bf5969e068",
+    "photo_count": 1,
+    "terra_batch_conditions": 2,
+    "terra_batch_images": 2,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The kitchen cabinets have a traditional raised-panel style with decorative hardware."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in kitchen_modernization__kitchen_primary: The kitchen has predominantly updated finishes, including white raised-panel cabinetry, stone countertops, subway-tile backsplash, stainless appliances, and finished hardwood flooring. No clear cabinet deterioration, dated cabinet pattern, or visibly worn/stained flooring is shown."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work CABINET_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 469,
+    "high": 9375
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_b2b0e6b89bc5",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "production",
+   "property_key": "redfin_10866780",
+   "run_id": "20260825_050705_9e0d869e",
+   "address": "2329 Eutaw Pl, Baltimore, MD 21217",
+   "legacy_item_id": null,
+   "title": "[A] was a real problem there, just named wrong?   |   hard_flooring_scratched_or_worn @ bedroom_4",
+   "claim": {
+    "catalog_claim": "hard flooring finish scratches, scuffs, or worn finish on intact flooring",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "Hardwood floors have uneven sheen, wear, and color variation."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_040.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10866780\\photo_040.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "hard_flooring_scratched_or_worn",
+    "catalog_kind": "degradation",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_4",
+    "condition_id": "oc1_7f9104e7b14c977b",
+    "photo_count": 1,
+    "terra_batch_conditions": 2,
+    "terra_batch_images": 1,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The intact hardwood flooring shows uneven sheen and visible surface wear/color variation."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in bedroom_repair__bedroom_4: The hardwood flooring is broadly visible and appears intact. Some sheen and color variation is visible, but reflections and natural wood variation make scratches or wear uncertain."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work FLOORING_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 319,
+    "high": 2219
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_470fb7e0624f",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "production",
+   "property_key": "redfin_10949071",
+   "run_id": "20260825_052355_3b380cca",
+   "address": "2319 W Lanvale St, Baltimore, MD 21216",
+   "legacy_item_id": null,
+   "title": "[A] was a real problem there, just named wrong?   |   dated_interior_trim @ bedroom_3",
+   "claim": {
+    "catalog_claim": "interior trim plain, thin, or builder-grade trim package",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "The trim is basic white."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_025.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10949071\\photo_025.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "dated_interior_trim",
+    "catalog_kind": "modernization",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_3",
+    "condition_id": "oc1_20b76b5255575af8",
+    "photo_count": 1,
+    "terra_batch_conditions": 4,
+    "terra_batch_images": 2,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The visible white window and ceiling trim is plain and thin."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in bedroom_modernization__bedroom_3: Minor wall marks and uneven/scuffed paint are visible in both rooms. The visible gray carpet does not clearly appear outdated, much of the second floor is obscured, and the limited visible white trim is not visibly dated. Smooth ceilings and generally contemporary furnishings are present, while fixtures, closets, and other key finishes are not shown, so the modernization package is not conclusively supported."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work TRIM_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 80,
+    "high": 400
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_ab90ab9da2ab",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "uniform"
+   ],
+   "source": "production",
+   "property_key": "redfin_10949071",
+   "run_id": "20260825_052355_3b380cca",
+   "address": "2319 W Lanvale St, Baltimore, MD 21216",
+   "legacy_item_id": null,
+   "title": "[A] was a real problem there, just named wrong?   |   peeling_or_discolored_paint @ bedroom_2",
+   "claim": {
+    "catalog_claim": "interior paint peeling, bubbling, or visibly aged finish",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "Visible patching or texture variations appear near the ceiling line and around the window."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_013.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10949071\\photo_013.jpg",
+       "wh": [
+        1280,
+        851
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "peeling_or_discolored_paint",
+    "catalog_kind": "degradation",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_2",
+    "condition_id": "oc1_b6b506b58164bd14",
+    "photo_count": 1,
+    "terra_batch_conditions": 3,
+    "terra_batch_images": 1,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "none",
+    "second_opinion": "none",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — Uneven paint sheen and patchy texture are visible near the ceiling line and window area."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "no opinion — this issue never reached a 2f package candidate"
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work PAINT_INTERIOR"
+    }
+   ],
+   "hidden": {
+    "low": 152,
+    "high": 1902
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_7cceb5c878de",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "production",
+   "property_key": "redfin_11216660",
+   "run_id": "20260821_233308_46f9d96f",
+   "address": "4118 Kathland Ave, Baltimore, MD 21207",
+   "legacy_item_id": null,
+   "title": "[A] was a real problem there, just named wrong?   |   older_flooring_style @ bedroom_1",
+   "claim": {
+    "catalog_claim": "flooring clean but visually outdated flooring",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "The carpet appears dated and basic."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_005.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_11216660\\photo_005.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "older_flooring_style",
+    "catalog_kind": "modernization",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_1",
+    "condition_id": "oc1_7e47fe0409ee3430",
+    "photo_count": 1,
+    "terra_batch_conditions": 3,
+    "terra_batch_images": 1,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The room has basic beige wall-to-wall carpeting with a visibly older style."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in bedroom_modernization__bedroom_1: The visible carpet appears intact and neutral, without clear stains or significant wear. The room predominantly shows updated finishes, including fresh neutral paint, a smooth ceiling, recessed lighting, a modern ceiling fan, and clean trim."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work FLOORING_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 643,
+    "high": 4181
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_05e73bb8810c",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "production",
+   "property_key": "redfin_80917686",
+   "run_id": "20260821_234153_6c37dfb0",
+   "address": "8033 6th Ave N, Birmingham, AL 35206",
+   "legacy_item_id": null,
+   "title": "[A] was a real problem there, just named wrong?   |   vanity_dated_style @ bathroom_primary",
+   "claim": {
+    "catalog_claim": "bathroom vanity dated style, functional",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "Vanity cabinet has a transitional or dated style.",
+     "Vanity, counter, mirror, and bar light have a builder-grade, traditional appearance.",
+     "White raised-panel vanity has a basic counter."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_025.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80917686\\photo_025.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      },
+      {
+       "key": "photo_031.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80917686\\photo_031.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "vanity_dated_style",
+    "catalog_kind": "modernization",
+    "scene_group": "bathroom",
+    "estimate_unit_id": "bathroom_primary",
+    "condition_id": "oc1_c0372aa08127c1f1",
+    "photo_count": 2,
+    "terra_batch_conditions": 4,
+    "terra_batch_images": 6,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The photos show raised-panel vanity cabinetry with traditional styling."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in bathroom_repair__bathroom_primary: Both visible bathrooms have predominantly updated finishes, including modern vanities, contemporary dark faucets, fresh neutral finishes, and modern flooring; one also has a recently tiled large-format shower. The proposed dated-vanity evidence is not visibly supported."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work VANITY_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 395,
+    "high": 4736
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_b2e9e5a031b4",
+   "kind": "retag",
+   "phase": 1,
+   "strata": [
+    "dirA"
+   ],
+   "source": "production",
+   "property_key": "redfin_80917686",
+   "run_id": "20260821_234153_6c37dfb0",
+   "address": "8033 6th Ave N, Birmingham, AL 35206",
+   "legacy_item_id": null,
+   "title": "[A] was a real problem there, just named wrong?   |   worn_or_stained_carpet @ bedroom_5",
+   "claim": {
+    "catalog_claim": "carpet visible wear, staining, or fraying",
+    "observations": [
+     ">> your earlier call: unsupported (no note)",
+     "The carpet appears worn."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_030.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80917686\\photo_030.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "worn_or_stained_carpet",
+    "catalog_kind": "degradation",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_5",
+    "condition_id": "oc1_5348315cb8e8e7f4",
+    "photo_count": 1,
+    "terra_batch_conditions": 2,
+    "terra_batch_images": 1,
+    "terra_verdict": "supported",
+    "replica_terra_verdict": null,
+    "direction": "A",
+    "second_opinion": "2f_objected",
+    "accepted": true,
+    "disposition": "accepted_for_work",
+    "retag_group": "A",
+    "prior_verdict": "terra_claim_unsupported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_unsupported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "supported — The carpet shows widespread mottled discoloration and visible wear."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "rejected in bedroom_modernization__bedroom_5: The bedroom appears predominantly updated, with clean neutral carpet, fresh white paint, a smooth ceiling, modern flush-mount lighting, and intact trim and doors. No clear carpet wear, staining, or visibly outdated flooring style is present."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "accepted_for_work (route_work); work CARPET_REPLACE"
+    }
+   ],
+   "hidden": {
+    "low": 237,
+    "high": 2763
+   },
+   "verdict_options": [
+    "mechanism_only: a real problem is there, the claim named it wrong",
+    "wholly_false: nothing of this kind is there at all",
+    "too_trivial: something is there but not worth billing",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "mechanism_only: a real problem is there, the claim named it wrong",
+    "2": "wholly_false: nothing of this kind is there at all",
+    "3": "too_trivial: something is there but not worth billing",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_48ea825e33f8",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_10952874",
+   "run_id": "20260818_231243_cb71fce9",
+   "address": "907 Bennett, Baltimore, MD 21223",
+   "legacy_item_id": "C002",
+   "title": "[B] why did Terra reject something you could see?   |   baseboard_wear_scuffs @ bathroom_primary",
+   "claim": {
+    "catalog_claim": "baseboards scuffs, paint loss, dents, or general wear",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "Baseboards, caulking, and paint lines look incomplete or rough."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_032.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10952874\\photo_032.jpg",
+       "wh": [
+        651,
+        869
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "baseboard_wear_scuffs",
+    "catalog_kind": "degradation",
+    "scene_group": "bathroom",
+    "estimate_unit_id": "bathroom_primary",
+    "condition_id": "oc1_b10d0b1346b9e17a",
+    "photo_count": 1,
+    "terra_batch_conditions": 12,
+    "terra_batch_images": 3,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The visible baseboards do not show clear scuffs, paint loss, dents, or general wear."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in bathroom_modernization__bathroom_primary: The visible bathroom has an older square-tile tub surround, rusted exposed shower rod, basic/dates vanity-sink and medicine cabinet, dated vanity-bar light and trim, a visibly worn/soiled vanity top, open/damaged vanity cabinet doors, and visible wall patching, marks, and rough finish areas. These visible conditions support a bathroom modernization pattern."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_bcb50df30b68",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_10952874",
+   "run_id": "20260818_231243_cb71fce9",
+   "address": "907 Bennett, Baltimore, MD 21223",
+   "legacy_item_id": "C007",
+   "title": "[B] why did Terra reject something you could see?   |   paint_refresh_recommended @ kitchen_primary",
+   "claim": {
+    "catalog_claim": "interior paint color dated or highly personalized colors",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "Wall and ceiling paint is dated."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_015.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10952874\\photo_015.jpg",
+       "wh": [
+        651,
+        869
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "paint_refresh_recommended",
+    "catalog_kind": "modernization",
+    "scene_group": "kitchen",
+    "estimate_unit_id": "kitchen_primary",
+    "condition_id": "oc1_8f96473f0a4cb633",
+    "photo_count": 1,
+    "terra_batch_conditions": 5,
+    "terra_batch_images": 2,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The visible gray wall and ceiling paint is neutral and not clearly dated or highly personalized."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in kitchen_modernization__kitchen_primary: Both views visibly show dated wood cabinetry with worn-looking finish, basic laminate-look countertops, minimal backsplash, and older white refrigerator and gas range. The kitchen walls and ceiling also appear plainly finished and dated."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_128caa6212b8",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_11000447",
+   "run_id": "20260817_224602_d422d7ae",
+   "address": "1240 Carroll St, Baltimore, MD 21230",
+   "legacy_item_id": "C010",
+   "title": "[B] why did Terra reject something you could see?   |   vinyl_linoleum_torn_or_lifted @ bedroom_1",
+   "claim": {
+    "catalog_claim": "vinyl or linoleum flooring torn, worn through, or lifting material",
+    "observations": [
+     ">> your earlier call: supported - \"Looks like hardwood not vinyl or linoleum but yes it is very worn as described\"",
+     "Flooring has lifting or open seams near the foreground."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_003.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_11000447\\photo_003.jpg",
+       "wh": [
+        810,
+        1080
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "vinyl_linoleum_torn_or_lifted",
+    "catalog_kind": "defect",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_1",
+    "condition_id": "oc1_476cd4f80565d162",
+    "photo_count": 1,
+    "terra_batch_conditions": 9,
+    "terra_batch_images": 1,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": "Looks like hardwood not vinyl or linoleum but yes it is very worn as described"
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported — Looks like hardwood not vinyl or linoleum but yes it is very worn as described"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The visible flooring is hard plank material, with no vinyl or linoleum tears, lifting, or open seams shown."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in bedroom_modernization__bedroom_1: The bedroom visibly has worn flooring with open/lifted seams and damaged-looking areas, rough dirty baseboards with gaps, and extensively marked, uneven, and discolored walls/ceiling. The dated ceiling fan and generally worn finishes further support modernization."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_d60c090abd2c",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_11000447",
+   "run_id": "20260817_224602_d422d7ae",
+   "address": "1240 Carroll St, Baltimore, MD 21230",
+   "legacy_item_id": "C011",
+   "title": "[B] why did Terra reject something you could see?   |   vinyl_linoleum_torn_or_lifted @ kitchen_primary",
+   "claim": {
+    "catalog_claim": "vinyl or linoleum flooring torn, worn through, or lifting material",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "Sheet flooring has visible seams and damage."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_004.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_11000447\\photo_004.jpg",
+       "wh": [
+        810,
+        1080
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "vinyl_linoleum_torn_or_lifted",
+    "catalog_kind": "defect",
+    "scene_group": "kitchen",
+    "estimate_unit_id": "kitchen_primary",
+    "condition_id": "oc1_cb817305acf2e48c",
+    "photo_count": 1,
+    "terra_batch_conditions": 8,
+    "terra_batch_images": 1,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The flooring is visible, but no clearly torn, worn-through, or lifting material is apparent."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in kitchen_modernization__kitchen_primary: The kitchen visibly has older painted cabinetry and hardware, laminate counters, substantial wall scuffs/marks, and visibly worn sheet flooring with seams and damaged/discolored areas. These combined visible conditions support kitchen modernization."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_5b3b3cb9e726",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_11077450",
+   "run_id": "20260818_223200_a4168368",
+   "address": "3227 E Baltimore St, Baltimore, MD 21224",
+   "legacy_item_id": "C012",
+   "title": "[B] why did Terra reject something you could see?   |   brick_weathered_or_discolored @ exterior_primary",
+   "claim": {
+    "catalog_claim": "brickwork weathering or discoloration with intact mortar",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "Brick masonry shows aging and discoloration.",
+     "The lower masonry base treatment is darker than the brick and appears patched."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_001.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_11077450\\photo_001.jpg",
+       "wh": [
+        1280,
+        960
+       ]
+      },
+      {
+       "key": "photo_008.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_11077450\\photo_008.jpg",
+       "wh": [
+        810,
+        1080
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "brick_weathered_or_discolored",
+    "catalog_kind": "degradation",
+    "scene_group": "exterior",
+    "estimate_unit_id": "exterior_primary",
+    "condition_id": "oc1_261de865e0dd299d",
+    "photo_count": 2,
+    "terra_batch_conditions": 9,
+    "terra_batch_images": 3,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The visible brick facade appears generally uniform, with mortar joints intact and no clear weathering or discoloration."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in exterior_repair__exterior_primary: The entry jamb trim visibly has peeling paint and open/separated joints, and the brick/base areas show discoloration and differing patched-looking base treatment. The stoop and rear concrete surfaces show staining and wear. However, the visible siding, main masonry, railings, and attached exterior elements appear generally intact, without a package-level pattern of material failure; uneven patio surface and worn/uneven rear siding or trim are not clearly visible."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_eace19540d2d",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_125779232",
+   "run_id": "20260817_222351_c069aab3",
+   "address": "3509 Gesman Pl SW, Huntsville, AL 35805",
+   "legacy_item_id": "C017",
+   "title": "[B] why did Terra reject something you could see?   |   cabinets_damaged_or_water_stained @ kitchen_primary",
+   "claim": {
+    "catalog_claim": "cabinets broken components or water staining",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "Some cabinet doors and drawers appear damaged."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_002.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_125779232\\photo_002.jpg",
+       "wh": [
+        1280,
+        960
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "cabinets_damaged_or_water_stained",
+    "catalog_kind": "defect",
+    "scene_group": "kitchen",
+    "estimate_unit_id": "kitchen_primary",
+    "condition_id": "oc1_b7dbbbb05b827f66",
+    "photo_count": 1,
+    "terra_batch_conditions": 9,
+    "terra_batch_images": 2,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The cabinet doors and drawers shown appear intact, with no clear broken components or water staining visible."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in kitchen_modernization__kitchen_primary: The kitchen visibly has aged raised-panel cabinetry with worn/marked areas, soffits, white postform-style counters, square tile backsplash, coil-top range and older built-in oven. The parquet-style floor has conspicuous worn, discolored/finish-loss areas, and the trim and overall finishes appear older."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_ace7463d6837",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_125970550",
+   "run_id": "20260817_235322_005806b2",
+   "address": "3238 Uvalde Ln NW, Huntsville, AL 35810",
+   "legacy_item_id": "C018",
+   "title": "[B] why did Terra reject something you could see?   |   tub_surround_or_shower_pan_damage @ bathroom_primary",
+   "claim": {
+    "catalog_claim": "tub surround or shower pan cracked, chipped, or damaged wet-area enclosure",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "The shower valve and trim appear damaged."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_017.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_125970550\\photo_017.jpg",
+       "wh": [
+        1200,
+        800
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "tub_surround_or_shower_pan_damage",
+    "catalog_kind": "defect",
+    "scene_group": "bathroom",
+    "estimate_unit_id": "bathroom_primary",
+    "condition_id": "oc1_c00cb1e0f1fdb9da",
+    "photo_count": 1,
+    "terra_batch_conditions": 19,
+    "terra_batch_images": 4,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — Photo 017 shows staining in the shower area, but no clear crack, chip, or enclosure damage is visible."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in bathroom_repair__bathroom_primary: Photos visibly show incomplete vanity/sink areas with exposed plumbing, damaged or missing shower-valve trim, compromised tile at shower penetrations, a heavily worn dated vanity, and stained/worn shower and bathroom fixtures."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_d0197df43080",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_126418713",
+   "run_id": "20260818_221718_ebc48de0",
+   "address": "4805 Doyce Ln NW, Huntsville, AL 35810",
+   "legacy_item_id": "C019",
+   "title": "[B] why did Terra reject something you could see?   |   hard_flooring_scratched_or_worn @ bedroom_4",
+   "claim": {
+    "catalog_claim": "hard flooring finish scratches, scuffs, or worn finish on intact flooring",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "Hardwood floors show minor wear and color variation.",
+     "Solid hardwood floors are scuffed and worn."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_044.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_126418713\\photo_044.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      },
+      {
+       "key": "photo_048.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_126418713\\photo_048.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "hard_flooring_scratched_or_worn",
+    "catalog_kind": "degradation",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_4",
+    "condition_id": "oc1_523e4aed4e443052",
+    "photo_count": 2,
+    "terra_batch_conditions": 9,
+    "terra_batch_images": 7,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The visible hardwood flooring appears generally intact without clear scratches, scuffs, or worn finish."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed/rejected in bedroom_repair__bedroom_4: The hardwood floor visibly has scattered scuffs and scratches in the first view. The second view shows wood-grain and color variation, but distinct wear is not clearly visible."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_a35f1b3a231e",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_166147710",
+   "run_id": "20260817_224909_2f979a60",
+   "address": "1022 Joh Ave, Baltimore, MD 21229",
+   "legacy_item_id": "C023",
+   "title": "[B] why did Terra reject something you could see?   |   exterior_siding_discoloration_fading @ exterior_primary",
+   "claim": {
+    "catalog_claim": "exterior siding finish fading, chalking, or uneven discoloration",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "Painted wood siding appears weathered in places.",
+     "Painted wood siding shows visible wear.",
+     "Painted wood trim appears weathered in places."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_006.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_166147710\\photo_006.jpg",
+       "wh": [
+        1280,
+        960
+       ]
+      },
+      {
+       "key": "photo_019.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_166147710\\photo_019.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "exterior_siding_discoloration_fading",
+    "catalog_kind": "degradation",
+    "scene_group": "exterior",
+    "estimate_unit_id": "exterior_primary",
+    "condition_id": "oc1_b2e96c2b1020d48b",
+    "photo_count": 2,
+    "terra_batch_conditions": 12,
+    "terra_batch_images": 13,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The visible white siding does not show clear fading, chalking, or uneven discoloration."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in exterior_repair__exterior_primary: Visible exterior photos show weathered painted wood siding and trim, along with visibly worn and uneven porch decking boards at the covered porch."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_8df38cb68fc0",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_80877597",
+   "run_id": "20260817_223826_3cefe883",
+   "address": "513 15th Ave NW, Center Point, AL 35215",
+   "legacy_item_id": "C026",
+   "title": "[B] why did Terra reject something you could see?   |   paint_refresh_recommended @ bedroom_1",
+   "claim": {
+    "catalog_claim": "interior paint color dated or highly personalized colors",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "The wall paint is beige/tan and dated."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_002.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80877597\\photo_002.jpg",
+       "wh": [
+        1024,
+        682
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "paint_refresh_recommended",
+    "catalog_kind": "modernization",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_1",
+    "condition_id": "oc1_f5459a0921a1c8b3",
+    "photo_count": 1,
+    "terra_batch_conditions": 5,
+    "terra_batch_images": 1,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The visible beige/tan wall color is neutral and not clearly dated or highly personalized."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in bedroom_modernization__bedroom_1: The bedroom visibly has worn-looking carpet, basic sliding closet doors, thin simple trim, beige/tan wall paint, and an acoustic popcorn-textured ceiling. Together these visible dated finishes support bedroom modernization."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_5063066c1a57",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_80925528",
+   "run_id": "20260818_220543_1af5ac93",
+   "address": "5629 6th Ct, Birmingham, AL 35212",
+   "legacy_item_id": "C027",
+   "title": "[B] why did Terra reject something you could see?   |   brick_weathered_or_discolored @ exterior_primary",
+   "claim": {
+    "catalog_claim": "brickwork weathering or discoloration with intact mortar",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "Chimney has heavy staining and weathering.",
+     "Exposed painted or parged masonry below the porch is stained and uneven.",
+     "Masonry surfaces have staining.",
+     "The chimney and some stone wall areas have dark staining and weathering.",
+     "The masonry fireplace/grill is weathered.",
+     "The stone façade has discoloration.",
+     "The tall brick chimney shows weathering."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_002.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80925528\\photo_002.jpg",
+       "wh": [
+        915,
+        1280
+       ]
+      },
+      {
+       "key": "photo_014.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80925528\\photo_014.jpg",
+       "wh": [
+        960,
+        1280
+       ]
+      },
+      {
+       "key": "photo_022.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80925528\\photo_022.jpg",
+       "wh": [
+        960,
+        1280
+       ]
+      },
+      {
+       "key": "photo_023.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80925528\\photo_023.jpg",
+       "wh": [
+        1280,
+        898
+       ]
+      },
+      {
+       "key": "photo_034.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80925528\\photo_034.jpg",
+       "wh": [
+        1280,
+        851
+       ]
+      },
+      {
+       "key": "photo_035.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80925528\\photo_035.jpg",
+       "wh": [
+        1280,
+        851
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "brick_weathered_or_discolored",
+    "catalog_kind": "degradation",
+    "scene_group": "exterior",
+    "estimate_unit_id": "exterior_primary",
+    "condition_id": "oc1_fd62a1d71743be6b",
+    "photo_count": 6,
+    "terra_batch_conditions": 21,
+    "terra_batch_images": 31,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The visible masonry is heavily stained and weathered, but it is stone rather than brick and some joints appear deteriorated."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in exterior_repair__exterior_primary: Visible exterior deterioration supports repair: the door trim/jamb is heavily deteriorated, the stone steps have displaced and crumbling components, the entry soffit/trim finish is weathered and peeling, and the stone façade and porch paving show discoloration and uneven surfaces."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_6f4590af65a3",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_80990371",
+   "run_id": "20260817_221632_3d4a8269",
+   "address": "825 Valley Road Pl, Birmingham, AL 35208",
+   "legacy_item_id": "C029",
+   "title": "[B] why did Terra reject something you could see?   |   baseboard_wear_scuffs @ living_room_primary",
+   "claim": {
+    "catalog_claim": "baseboards scuffs, paint loss, dents, or general wear",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "Baseboards look tired and inconsistent."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_028.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80990371\\photo_028.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "baseboard_wear_scuffs",
+    "catalog_kind": "degradation",
+    "scene_group": "living_areas",
+    "estimate_unit_id": "living_room_primary",
+    "condition_id": "oc1_d7af7b65b4a20624",
+    "photo_count": 1,
+    "terra_batch_conditions": 16,
+    "terra_batch_images": 11,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The visible baseboards appear generally intact without clear scuffs, paint loss, or dents."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in living_modernization__living_room_primary: The living area visibly has heavily worn and discolored hardwood flooring, dated painted brick fireplace treatment, basic older-style door and wide painted trim, tired/scuffed baseboards, and an older beige paint scheme. These conditions collectively support living-room modernization."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_b642fe69b86a",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_80990371",
+   "run_id": "20260817_221632_3d4a8269",
+   "address": "825 Valley Road Pl, Birmingham, AL 35208",
+   "legacy_item_id": "C031",
+   "title": "[B] why did Terra reject something you could see?   |   dated_interior_trim @ living_room_primary",
+   "claim": {
+    "catalog_claim": "interior trim plain, thin, or builder-grade trim package",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "Dark wood trim has a heavy, dated appearance.",
+     "Doors and jambs appear aged.",
+     "Wide painted window trim is dated."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_022.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80990371\\photo_022.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      },
+      {
+       "key": "photo_028.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80990371\\photo_028.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      },
+      {
+       "key": "photo_029.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80990371\\photo_029.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "dated_interior_trim",
+    "catalog_kind": "modernization",
+    "scene_group": "living_areas",
+    "estimate_unit_id": "living_room_primary",
+    "condition_id": "oc1_c6c4c4017b1ed9dd",
+    "photo_count": 3,
+    "terra_batch_conditions": 16,
+    "terra_batch_images": 11,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The visible trim is substantial painted wood trim rather than plain, thin, or builder-grade trim."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in living_modernization__living_room_primary: The living area visibly has heavily worn and discolored hardwood flooring, dated painted brick fireplace treatment, basic older-style door and wide painted trim, tired/scuffed baseboards, and an older beige paint scheme. These conditions collectively support living-room modernization."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_c19a185f9547",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_80990371",
+   "run_id": "20260817_221632_3d4a8269",
+   "address": "825 Valley Road Pl, Birmingham, AL 35208",
+   "legacy_item_id": "C032",
+   "title": "[B] why did Terra reject something you could see?   |   paint_refresh_recommended @ living_room_primary",
+   "claim": {
+    "catalog_claim": "interior paint color dated or highly personalized colors",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "Room has a dated paint palette and finishes.",
+     "The paint palette is dated.",
+     "The paint scheme is dated."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_004.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80990371\\photo_004.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      },
+      {
+       "key": "photo_016.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80990371\\photo_016.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      },
+      {
+       "key": "photo_017.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80990371\\photo_017.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "paint_refresh_recommended",
+    "catalog_kind": "modernization",
+    "scene_group": "living_areas",
+    "estimate_unit_id": "living_room_primary",
+    "condition_id": "oc1_6ea2a14d497dece9",
+    "photo_count": 3,
+    "terra_batch_conditions": 16,
+    "terra_batch_images": 11,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The visible wall colors are neutral and not clearly highly personalized or dated."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in living_modernization__living_room_primary: The living area visibly has heavily worn and discolored hardwood flooring, dated painted brick fireplace treatment, basic older-style door and wide painted trim, tired/scuffed baseboards, and an older beige paint scheme. These conditions collectively support living-room modernization."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_790b583fcbf0",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_80990371",
+   "run_id": "20260817_221632_3d4a8269",
+   "address": "825 Valley Road Pl, Birmingham, AL 35208",
+   "legacy_item_id": "C033",
+   "title": "[B] why did Terra reject something you could see?   |   peeling_or_discolored_paint @ bedroom_1",
+   "claim": {
+    "catalog_claim": "interior paint peeling, bubbling, or visibly aged finish",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "The paint appears tired."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_003.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80990371\\photo_003.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "peeling_or_discolored_paint",
+    "catalog_kind": "degradation",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_1",
+    "condition_id": "oc1_e26ef990552e6d27",
+    "photo_count": 1,
+    "terra_batch_conditions": 4,
+    "terra_batch_images": 1,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The visible wall paint does not show peeling or bubbling."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in bedroom_modernization__bedroom_1: The bedroom visibly has dated trim and doors, tired/discolored wall paint, and dark wood flooring with extensive visible wear, scuffs, discoloration, and paint-like splatter/marks."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_905575ed8a3d",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "canary",
+   "property_key": "redfin_81000709",
+   "run_id": "20260817_225858_d13bd83c",
+   "address": "5504 SW Jefferson Ave SW, Birmingham, AL 35221",
+   "legacy_item_id": "C035",
+   "title": "[B] why did Terra reject something you could see?   |   soffit_or_porch_ceiling_failed @ exterior_primary",
+   "claim": {
+    "catalog_claim": "soffit or porch ceiling panels sagging, loose, or missing panels",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "Waviness and sagging are visible around the porch-roof connection."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_001.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_81000709\\photo_001.jpg",
+       "wh": [
+        1280,
+        800
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "soffit_or_porch_ceiling_failed",
+    "catalog_kind": "defect",
+    "scene_group": "exterior",
+    "estimate_unit_id": "exterior_primary",
+    "condition_id": "oc1_69263601050587ce",
+    "photo_count": 1,
+    "terra_batch_conditions": 4,
+    "terra_batch_images": 1,
+    "terra_verdict": "cannot_assess",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "inspection",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "cannot_assess — The porch ceiling or soffit panels are not clearly visible enough to judge sagging, looseness, or missing panels."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in exterior_repair__exterior_primary: The porch-roof edge/soffit area visibly appears uneven and sagging near the connection to the main structure. The wood siding and trim are visibly heavily weathered and discolored, with widespread worn paint."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "inspection (verdict_cannot_assess)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_d857c0db9013",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "production",
+   "property_key": "redfin_10735912",
+   "run_id": "20260825_045924_209d10ee",
+   "address": "704 S Potomac St, Baltimore, MD 21224",
+   "legacy_item_id": null,
+   "title": "[B] why did Terra reject something you could see?   |   paint_refresh_recommended @ bedroom_primary",
+   "claim": {
+    "catalog_claim": "interior paint color dated or highly personalized colors",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "The beige wall paint is dated."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_003.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10735912\\photo_003.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "paint_refresh_recommended",
+    "catalog_kind": "modernization",
+    "scene_group": "bedroom",
+    "estimate_unit_id": "bedroom_primary",
+    "condition_id": "oc1_29c5c08e89fd1b2f",
+    "photo_count": 1,
+    "terra_batch_conditions": 5,
+    "terra_batch_images": 1,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The walls are painted a neutral beige color without a clearly highly personalized color scheme."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in bedroom_modernization__bedroom_primary: The room has a basic plain entry door and visible wall scuffs/marks supporting a paint refresh. The hard flooring appears intact; dark spots look like natural knots or patterning rather than clear wear or stains. Smooth ceiling, intact trim, paneled closet doors, and generally updated flooring contradict a broader modernization package."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_7b23faa0bd8f",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "production",
+   "property_key": "redfin_10740044",
+   "run_id": "20260821_233648_4cd603bb",
+   "address": "10 S Ellwood Ave, Baltimore, MD 21224",
+   "legacy_item_id": null,
+   "title": "[B] why did Terra reject something you could see?   |   exterior_siding_discoloration_fading @ exterior_primary",
+   "claim": {
+    "catalog_claim": "exterior siding finish fading, chalking, or uneven discoloration",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "White-painted trim appears unfinished in spots."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_001.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_10740044\\photo_001.jpg",
+       "wh": [
+        1280,
+        1035
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "exterior_siding_discoloration_fading",
+    "catalog_kind": "degradation",
+    "scene_group": "exterior",
+    "estimate_unit_id": "exterior_primary",
+    "condition_id": "oc1_30375086ad2fd9f6",
+    "photo_count": 1,
+    "terra_batch_conditions": 12,
+    "terra_batch_images": 5,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — No exterior siding with fading, chalking, or uneven discoloration is visible in the cited view."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in exterior_repair__exterior_primary: Visible exterior conditions include dark staining at the lower masonry, cracked and deteriorated mortar or parging beneath the front window and along the foundation, weathered wood decking and rail components, and uneven or unfinished-looking white trim surfaces."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_9c702893a6ce",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "production",
+   "property_key": "redfin_80916010",
+   "run_id": "20260825_045644_dda08b6b",
+   "address": "1028 Waverly St, Birmingham, AL 35217",
+   "legacy_item_id": null,
+   "title": "[B] why did Terra reject something you could see?   |   vinyl_linoleum_worn_or_stained @ kitchen_primary",
+   "claim": {
+    "catalog_claim": "vinyl or linoleum flooring staining, discoloration, or wear on intact material",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "Vinyl flooring is worn-looking and visually dated."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_005.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80916010\\photo_005.jpg",
+       "wh": [
+        960,
+        1280
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "vinyl_linoleum_worn_or_stained",
+    "catalog_kind": "degradation",
+    "scene_group": "kitchen",
+    "estimate_unit_id": "kitchen_primary",
+    "condition_id": "oc1_2c8aac3461bdb5b6",
+    "photo_count": 1,
+    "terra_batch_conditions": 3,
+    "terra_batch_images": 1,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The visible vinyl flooring appears intact without clear staining, discoloration, or wear."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in kitchen_modernization__kitchen_primary: The kitchen visibly has dark speckled counters, older-style raised-panel cabinetry, a basic under-cabinet hood, and dated-looking sheet vinyl flooring, supporting the modernization pattern. A countertop microwave is visible, but its age cannot be determined visually."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  },
+  {
+   "card_id": "rc_8907b19a4a2f",
+   "kind": "retag",
+   "phase": 2,
+   "strata": [
+    "dirB"
+   ],
+   "source": "production",
+   "property_key": "redfin_80917686",
+   "run_id": "20260821_234153_6c37dfb0",
+   "address": "8033 6th Ave N, Birmingham, AL 35206",
+   "legacy_item_id": null,
+   "title": "[B] why did Terra reject something you could see?   |   peeling_or_discolored_paint @ living_room_primary",
+   "claim": {
+    "catalog_claim": "interior paint peeling, bubbling, or visibly aged finish",
+    "observations": [
+     ">> your earlier call: supported (no note)",
+     "The painted brick around the firebox looks uneven and aged."
+    ]
+   },
+   "strips": [
+    {
+     "label": "evidence photos (as sent to Terra)",
+     "photos": [
+      {
+       "key": "photo_006.jpg",
+       "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\public\\images\\properties\\redfin_80917686\\photo_006.jpg",
+       "wh": [
+        1280,
+        853
+       ]
+      }
+     ]
+    }
+   ],
+   "meta": {
+    "catalog_item_id": "peeling_or_discolored_paint",
+    "catalog_kind": "degradation",
+    "scene_group": "living_areas",
+    "estimate_unit_id": "living_room_primary",
+    "condition_id": "oc1_633bb1ea9952765f",
+    "photo_count": 1,
+    "terra_batch_conditions": 3,
+    "terra_batch_images": 4,
+    "terra_verdict": "unsupported",
+    "replica_terra_verdict": null,
+    "direction": "B",
+    "second_opinion": "2f_confirmed",
+    "accepted": false,
+    "disposition": "excluded",
+    "retag_group": "B",
+    "prior_verdict": "terra_claim_supported",
+    "prior_note": null
+   },
+   "reveal": [
+    {
+     "label": "your earlier verdict",
+     "text": "terra_claim_supported"
+    },
+    {
+     "label": "Terra verdict",
+     "text": "unsupported — The painted brick around the firebox is visible, but no peeling or bubbling paint is apparent."
+    },
+    {
+     "label": "Pass 2f (v4, package-level)",
+     "text": "confirmed in living_modernization__living_room_primary: The fireplace has a visibly dated, minimally finished painted-brick surround with uneven and discolored paint near the firebox. However, the living room overall is predominantly updated with modern plank flooring, fresh neutral paint, smooth ceilings, contemporary lighting, and intact trim, contradicting a room-wide modernization package."
+    },
+    {
+     "label": "v5 disposition",
+     "text": "excluded (verdict_unsupported)"
+    }
+   ],
+   "hidden": null,
+   "verdict_options": [
+    "wording_blocked: the claim's specific wording is what failed",
+    "terra_miss: claim was fair as worded, Terra missed it",
+    "borderline: visible but a close call, rejection defensible",
+    "cannot_tell: evidence too poor to judge"
+   ],
+   "verdict_keys": {
+    "1": "wording_blocked: the claim's specific wording is what failed",
+    "2": "terra_miss: claim was fair as worded, Terra missed it",
+    "3": "borderline: visible but a close call, rejection defensible",
+    "4": "cannot_tell: evidence too poor to judge"
+   },
+   "tags": {}
+  }
+ ]
+}

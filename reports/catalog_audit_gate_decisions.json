@@ -1,0 +1,461 @@
+{
+  "schema_version": "catalog-audit-gate-decisions-v1",
+  "program": "catalog_audit",
+  "record_type": "interim_human_gate_decision_record",
+  "status": "policy rulings and dispositions recorded; no proposal approved; the approvals manifest (reports/catalog_audit_approvals.json, 04_HUMAN_REVIEW_GATE.md schema) is written only after the renewed review of the redrafts and Steven's explicit per-id approval",
+  "gate_date": "2026-09-05",
+  "reviewed_at_utc": "2026-09-06T02:31:04Z",
+  "reviewed_by": "Steven",
+  "review_provenance": "Rulings given by Steven interactively on 2026-09-05 in the human-gate session; record drafted by Claude Fable 5.1 (claude_human_gate_session_20260905) from the pinned artifacts and the photos named in the dispositions (redfin_11185681 006/044/025, redfin_80990371 022/028, redfin_25809814 020, redfin_10949071 007, redfin_81000709 003, redfin_11000447 003/005, redfin_10803207 005, redfin_10740044 001), each of which supported the review's reading.",
+  "pins": {
+    "git_head_at_review": "9afe0fa5a0490a856abed507dccc4a02ed1de24c",
+    "proposal_baseline_commit": "e9a7dc3a54439fb341c1ae8cd665e5e572fcfaf6",
+    "generated_catalog_commit": "a9ed7ad2b8565fe17a5e0a5a6d98a202a3230ff0",
+    "evidence_era_commit": "07ee112b79b0a96d116b38eb5dc03e8c7492a2a9",
+    "proposals_sha256": "1411352c42e9d3a555c3a1561470323da2234447badc2869c9874c3e8fa3ef99",
+    "proposal_markdown_sha256": "771572e7c1d095281756b6baf9f28e65cffedc7f9b04cabfd559117768b17591",
+    "adversarial_review_sha256": "d1149875399a9f30c6cd56e924731c7e207d90b603cb248f402c692c3438b5c4",
+    "adversarial_review_markdown_sha256": "538f28724531018cdbd937e5355fbbdca4273352cbf62aafa6ebfb69abf1a96a",
+    "evidence_sha256": "43354104cc109c768efbe2d2f8b9a825f33e0882210b81e9f12b847ca67e29b7",
+    "photo_review_sha256": "2225db9caae573b52b4270f846c314749d39aff468fab4e1a8e2012c49919150",
+    "photo_review_packet_sha256": "7b4621dfe6c72aa42369c2f5ef7051dfecbec05b6333a80651b1b57a5b37bc80",
+    "decisions_sha256": "47614d822bdd6b672d8596050b46839d04a8a6df0a04c18e052f4a63bd1903e8",
+    "generated_catalog_sha256": "51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54",
+    "v1_catalog_sha256": "4ba046a1a78337f1c8e47701a011ec16e700c296782ddedbe7bf52cf888314f2",
+    "generator_sha256": "b732022fcea8cd22109c7781eb0f93d0688d557230c759ccb6216d667250a053",
+    "validator_sha256": "041637a3684bacd3bc06dd92955b845088b4fedda8bb7e2e31222ac9ec75bee2",
+    "handoff_session_2_sha256": "4b73e0dbc0926b8bb139209d5a89df2d696682ec9cffdfea6cc9576b941dc234",
+    "review_queue_sha256": "8512b87c2af18d1104069c15a5eda977d5fe79eb736f9aedd976d174f89d318a",
+    "evidence_fingerprint": "e4c0a2b816395782cd84bc4abcdf6207d131a34a0e2d63eaebb39bec4c190c08"
+  },
+  "question_count_note": "The review artifact carries nine gate questions (Q-1 to Q-9; array order Q-1..Q-7, Q-9, Q-8). HANDOFF_SESSION_3's suggested prompt says eight; nine is correct and all nine are ruled on here.",
+  "rulings": [
+    {
+      "id": "Q-1",
+      "proposal_ids": [
+        "CAP-007"
+      ],
+      "question": "Does ruling 5 ('blinds stay detectable but must be a no_action catalog condition') cover visibly deteriorated blinds (yellowed, bent, crooked, collapsed, as at redfin_81000709 photo_003 and redfin_11000447 photos 003/005), or only ordinary intact blinds like the case that prompted it? The answer withdraws or keeps at least two human/gold-backed billings and roughly two dozen presence billings across the evidence era.",
+      "answer": "All blinds, any condition",
+      "implication": "Ruling 5 covers visibly deteriorated blinds too. rc_7c5b9f9bb3aa and gold g3 are withdrawn as the ruling applied and roughly 26 of the item's 39 evidence-era accepted conditions move to no_action; the redraft is a presence-only presentation_only blinds successor with route_override no_action plus a require_any-guarded fabric successor."
+    },
+    {
+      "id": "Q-2",
+      "proposal_ids": [
+        "CAP-007"
+      ],
+      "question": "Is an occupant's improvised sheet, cloth or blanket over a window a billable treatment condition or presentation-only (the catalog treats all occupant-belongings items as presentation_only and non-billable), and are heavy or dated fitted curtains and valances billable at all?",
+      "answer": "Presentation-only",
+      "implication": "Improvised sheet/cloth/blanket coverings are presentation-only: drop 'improvised' and the cloth/sheet/blanket terms from the fabric successor; drop 'heavy' unless separately evidenced; fitted valances and curtains stay billable under the existing subject."
+    },
+    {
+      "id": "Q-3",
+      "proposal_ids": [
+        "CAP-008"
+      ],
+      "question": "Are the two clean plain-trim billings rc_9e889631af67 and rc_d0ffde500a92 to be withdrawn under ruling 3, and is rc_ceeb17f8e242 (human note 'I see the missing trim now') a missing-trim condition that should stay billable somewhere rather than a plain-presence billing to withdraw?",
+      "answer": "Withdraw the two; treat the third as missing trim",
+      "implication": "rc_9e889631af67 and rc_d0ffde500a92 are withdrawn under ruling 3; rc_ceeb17f8e242 is a missing-trim (incompleteness) loss, not a supersession, and becomes a candidate second property for CAP-013."
+    },
+    {
+      "id": "Q-4",
+      "proposal_ids": [
+        "CAP-008"
+      ],
+      "question": "Which claim form is acceptable: a house-style positive-only state of at most nine words (recommended), or the drafted 33-word state with a semicolon and a 'does not qualify' exclusion (not recommended, because production Terra has no exclusion semantics and the clause names the kill-condition trim)? Either form requires the live Terra checks in the conditions before implementation.",
+      "answer": "Positive-only house style (form only; no final wording endorsed)",
+      "implication": "The state must be positive-only, at most nine words, no semicolon, no exclusion clause, ontology_basis dated_style, with name and description overrides so no surface advertises plain, thin or builder-grade trim. The drafted 33-word exclusion form is rejected. Candidate wordings to challenge in the renewed review: A 'era-specific dated finish on casing, jambs, or baseboards'; B 'dark-stained wood or dated paint color'; the redraft may propose a third. Steven's concern on B: it makes dark-stained wood sufficient regardless of condition or whether it looks dated, replacing 'plain means billable' with 'dark means billable'; every disjunct must be tied to datedness."
+    },
+    {
+      "id": "Q-5",
+      "proposal_ids": [
+        "CAP-008"
+      ],
+      "question": "Ruling 3 (plain, basic or builder-grade presence is not billable by itself) is being applied to dated_interior_trim alone; six other catalog claims carry a sufficient plain, basic, builder-grade or hollow-core branch (cabinets_dated_style, appliances_dated_or_basic, dated_bathroom_vanity_light, landscaping_enhancement_opportunity, older_ceiling_fan_style, dated_interior_doors). Should the ruling be applied catalog-wide in a later session, or only where evidence implicates an item?",
+      "answer": "Catalog-wide later",
+      "implication": "One policy-sweep backlog item outside this program for the six other plain/basic/builder-grade/hollow-core claims (cabinets_dated_style, appliances_dated_or_basic, dated_bathroom_vanity_light, landscaping_enhancement_opportunity, older_ceiling_fan_style, dated_interior_doors); CAP-008 is the first instance."
+    },
+    {
+      "id": "Q-6",
+      "proposal_ids": [
+        "CAP-013"
+      ],
+      "question": "Should schema or generator work be authorized to make a defect-kind 'missing or incomplete interior base trim' item expressible (the blockers are the catalog 3.2 marker section that names split parents and the unauthorable inherited estimate scope), or should the gap stay documented until a second property is adjudicated?",
+      "answer": "Document and wait",
+      "implication": "No schema or generator work is authorized; CAP-013 stays a recorded gap; rc_ceeb17f8e242, rc_7057c3c171e5 and rc_201ccb0c2313 are the first cards to adjudicate for a second property."
+    },
+    {
+      "id": "Q-7",
+      "proposal_ids": [
+        "CAP-002"
+      ],
+      "question": "Does damage to a detached outbuilding (shed, barn, garage) bill under the dwelling siding item damaged_or_rotted_siding_or_trim, a severity-3 exterior_repair package driver?",
+      "answer": "Yes",
+      "implication": "Outbuilding damage keeps billing under damaged_or_rotted_siding_or_trim for now; CAP-002 stays a Terra miss. The catalog's shed inconsistency (exterior_door_paint_failure denies 'shed'; shed_exterior_paint_failure covers paint only) is recorded as an observation; severity/package mismatch is a dollar effect only."
+    },
+    {
+      "id": "Q-9",
+      "proposal_ids": [
+        "CAP-019"
+      ],
+      "question": "Does exterior_door_paint_failure's subject ('exterior door paint') include the door casing, surround and jambs, or the door leaf only? On redfin_10740044 the surround is rough and paint-smeared while the leaf is sound, and no catalog claim names exterior casing although three items advertise it in retrieval text.",
+      "answer": "Casing included",
+      "implication": "exterior_door_paint_failure's subject includes the casing, surround and jambs; CAP-019 stays non-catalog with the Pass 2d follow-ups primary; a native name/description clarification of the scope is recorded as a one-property future candidate below the evidence bar."
+    },
+    {
+      "id": "Q-8",
+      "proposal_ids": [
+        "CAP-003",
+        "CAP-001"
+      ],
+      "question": "Given that Terra's 'neutral, not clearly dated' rejections match ruling 4 on the bare-neutral units, should a Terra calibration still be commissioned for dated paint, and if so only for ruling-4 tells (era-specific finish, visible deterioration)?",
+      "answer": "Do not commission",
+      "implication": "No Terra calibration is commissioned inside this program. Precondition for any future calibration: the four CAP-003 units are re-adjudicated by a human under ruling 4 (two are bare neutrals Terra rejected correctly, so calibrating against the old labels could make the system worse); CAP-001's peeling/aged-finish disjunction joins that calibration if it ever proceeds."
+    }
+  ],
+  "workflow_rulings": {
+    "W1": "Interim decision record now; the final approvals manifest is written only after the renewed review and Steven's explicit per-id approval.",
+    "W2": "The redraft stage covers both CAP-008 and CAP-007.",
+    "W3": "Steven's six corrections to HANDOFF_SESSION_3.md are recorded once, as an appended errata section in that file, and referenced from here (references.handoff_errata); they are not duplicated in this record.",
+    "W4": "The live Terra check for the CAP-008 wording is attempted in Phase B with a scratchpad harness that needs no runtime edit (live_check).",
+    "W5": "Execution is split by model to save usage: Phase A (Fable 5.1) staged everything on disk; Phase B (Opus 5) runs the drafters, the live check and the reviewers; Phase C (Fable 5.1) reviews the outputs, authors the redraft and renewed-review artifacts, reports eligibility and, after approval, writes the manifest."
+  },
+  "disposition_conventions": {
+    "vocabulary": "04_HUMAN_REVIEW_GATE.md: approved | approved_with_modification | rejected | deferred | reclassified_non_catalog",
+    "reclassified_non_catalog": "used for every cluster whose sustained conclusion is that the catalog is not the owner, covering both Session 2 labels no_change and non_catalog_action as one class (CCF-11); Session 4 treats them identically (untouched)",
+    "deferred": "evidence-insufficient, lead-only and migration-gap clusters, and the two native proposals awaiting redraft; untouched by Session 4",
+    "approved": "none in this record; only the final approvals manifest can carry approved or approved_with_modification records, each with an exact ops diff"
+  },
+  "dispositions": [
+    {
+      "proposal_id": "CAP-001",
+      "session2_outcome": "non_catalog_action",
+      "session3_disposition": "sustained",
+      "disposition": "reclassified_non_catalog",
+      "reason": "Review sustained non_catalog_action (Terra-primary; the aged-finish branch was in the claim Terra saw). Q-8: no calibration commissioned. Recorded: the proposal's follow-up id mismatch (f46cc039 vs rc_4cab6e7be02b) and baseboard_wear_scuffs retrieval text advertising missing trim (see CAP-013)."
+    },
+    {
+      "proposal_id": "CAP-002",
+      "session2_outcome": "no_change",
+      "session3_disposition": "sustained",
+      "disposition": "reclassified_non_catalog",
+      "reason": "Review sustained no_change (the only unit is refuted on mechanism; a Terra miss). Q-7: outbuilding damage keeps billing under the dwelling item for now; reopen only on a flipped ruling plus a second unit."
+    },
+    {
+      "proposal_id": "CAP-003",
+      "session2_outcome": "non_catalog_action",
+      "session3_disposition": "sustained_with_conditions",
+      "disposition": "reclassified_non_catalog",
+      "reason": "Review sustained non_catalog_action with conditions; Q-8: no calibration now. Before any calibration the four units are re-adjudicated under ruling 4 (two are bare neutrals correctly rejected), the action is restated as 'calibrate to ruling-4 tells', and the rc_4abeff09724f truth conflict is resolved."
+    },
+    {
+      "proposal_id": "CAP-004",
+      "session2_outcome": "no_change",
+      "session3_disposition": "sustained",
+      "disposition": "reclassified_non_catalog",
+      "reason": "Review sustained no_change; Steven's 'hard flooring' note is a policy preference on record, not evidence that a material commitment lost a billing."
+    },
+    {
+      "proposal_id": "CAP-005",
+      "session2_outcome": "no_change",
+      "session3_disposition": "sustained",
+      "disposition": "reclassified_non_catalog",
+      "reason": "Review sustained no_change; the support_any bare-token hazard is catalog-wide and belongs to the Pass 2d worklist."
+    },
+    {
+      "proposal_id": "CAP-006",
+      "session2_outcome": "no_change",
+      "session3_disposition": "sustained",
+      "disposition": "reclassified_non_catalog",
+      "reason": "Review sustained no_change; the 'tub$' narrowing is one-property and belongs to the Pass 2d worklist; the rc_e9d27cf6e9aa attribution correction goes to the error-attribution record (CCF-9)."
+    },
+    {
+      "proposal_id": "CAP-007",
+      "session2_outcome": "native_decisions_proposal",
+      "session3_disposition": "insufficient_evidence",
+      "disposition": "deferred",
+      "reason": "Review: insufficient_evidence as drafted; the drafted ops must not be implemented. Q-1 and Q-2 recorded. Redrafted per redraft_brief, then renewed review and Steven's explicit final approval."
+    },
+    {
+      "proposal_id": "CAP-008",
+      "session2_outcome": "native_decisions_proposal",
+      "session3_disposition": "sustained_with_conditions",
+      "disposition": "deferred",
+      "reason": "Review: sustained_with_conditions in direction only. Q-3, Q-4 and Q-5 recorded; the drafted 33-word exclusion state is rejected; the wording is decided by the renewed review and the live check, then Steven's explicit final approval."
+    },
+    {
+      "proposal_id": "CAP-009",
+      "session2_outcome": "no_change",
+      "session3_disposition": "sustained",
+      "disposition": "reclassified_non_catalog",
+      "reason": "Review sustained no_change; the railing and stair-stringer null resolutions are a one-property coverage note (CCF-5)."
+    },
+    {
+      "proposal_id": "CAP-010",
+      "session2_outcome": "deferred_insufficient_evidence",
+      "session3_disposition": "sustained_with_conditions",
+      "disposition": "deferred",
+      "reason": "Review sustained the deferral with a corrected diagnosis: the lean was captured and billed under fence_broken_or_leaning, so 'Pass 2a never reported the lean' is wrong; recipe corrected."
+    },
+    {
+      "proposal_id": "CAP-011",
+      "session2_outcome": "non_catalog_action",
+      "session3_disposition": "sustained",
+      "disposition": "reclassified_non_catalog",
+      "reason": "Review sustained non_catalog_action; the 2d follow-up stands; the structural-framing item's scene exclusion is a note only; the stage-attribution conflict goes to the error-attribution record."
+    },
+    {
+      "proposal_id": "CAP-012",
+      "session2_outcome": "non_catalog_action",
+      "session3_disposition": "sustained",
+      "disposition": "reclassified_non_catalog",
+      "reason": "Review sustained non_catalog_action; a boarded gable opening is a one-property coverage and pricing question, not a field change on the carryover."
+    },
+    {
+      "proposal_id": "CAP-013",
+      "session2_outcome": "migration_system_gap",
+      "session3_disposition": "sustained_with_conditions",
+      "disposition": "deferred",
+      "reason": "Review sustained migration_system_gap on corrected grounds (the repair_support_when_driven marker section names the parent and is unreachable from the ops surface; estimate_scope is inherited and unauthorable). Q-6: document and wait; no schema work; adjudicate the three candidate cards first."
+    },
+    {
+      "proposal_id": "CAP-014",
+      "session2_outcome": "deferred_insufficient_evidence",
+      "session3_disposition": "sustained_with_conditions",
+      "disposition": "deferred",
+      "reason": "Review sustained the lead-only deferral; mechanism corrected to the Pass 2c kind gate; the CCF-14 evidence-precedence ruling is still owed and decides whether the cluster stays lead-only."
+    },
+    {
+      "proposal_id": "CAP-015",
+      "session2_outcome": "no_change",
+      "session3_disposition": "sustained",
+      "disposition": "reclassified_non_catalog",
+      "reason": "Review sustained no_change; both implicated items have zero reviewed positive uses, so this is no positive assurance."
+    },
+    {
+      "proposal_id": "CAP-016",
+      "session2_outcome": "deferred_insufficient_evidence",
+      "session3_disposition": "sustained_with_conditions",
+      "disposition": "deferred",
+      "reason": "Review sustained the deferral; the swirl condition was Terra-supported and billed under CEILING_TEXTURE_UPDATE, so the open question is naming, not a lost condition; guardrail brittleness recorded (CCF-12)."
+    },
+    {
+      "proposal_id": "CAP-017",
+      "session2_outcome": "no_change",
+      "session3_disposition": "sustained_with_conditions",
+      "disposition": "reclassified_non_catalog",
+      "reason": "Review sustained no_change with a correction: dated_bathroom_wallpaper co-fired on the same wall (CCF-13); the overlap is recorded with its promotion recipe."
+    },
+    {
+      "proposal_id": "CAP-018",
+      "session2_outcome": "deferred_insufficient_evidence",
+      "session3_disposition": "sustained",
+      "disposition": "deferred",
+      "reason": "Review sustained the deferral; the promotion recipe is complete (second property, ruling on stained stone near grade, qualifier decision, control for rc_dff4c3209df1)."
+    },
+    {
+      "proposal_id": "CAP-019",
+      "session2_outcome": "non_catalog_action",
+      "session3_disposition": "sustained_with_conditions",
+      "disposition": "reclassified_non_catalog",
+      "reason": "Review sustained non_catalog_action with conditions. Q-9: casing included; the Pass 2d follow-ups stay primary; rc_8afb476fa69f is a positive-use control; the casing coverage twin is a one-property question; a native scope clarification is a future candidate below the bar."
+    },
+    {
+      "proposal_id": "CAP-021",
+      "session2_outcome": "non_catalog_action",
+      "session3_disposition": "sustained",
+      "disposition": "reclassified_non_catalog",
+      "reason": "Review sustained non_catalog_action; the trim homograph belongs to the Pass 2d worklist."
+    }
+  ],
+  "disposition_counts": {
+    "reclassified_non_catalog": 13,
+    "deferred": 7,
+    "approved": 0,
+    "approved_with_modification": 0,
+    "rejected": 0
+  },
+  "redraft_brief": {
+    "scope": [
+      "CAP-008",
+      "CAP-007"
+    ],
+    "executor": "Phase B drafters R-1 (CAP-008) and R-2 (CAP-007) in fresh contexts from the briefs in staging.briefs_dir; Phase C lead authors reports/catalog_audit_redraft.json from their structured outputs after re-verifying every load-bearing fact against the pinned artifacts and photos",
+    "owns": "exact decisions-file ops, in-memory dry runs, completed regression ledgers, corrected statements and citations, evidence-bar re-grounding, open questions (technical detail lives there, not here)",
+    "cap008": {
+      "binding_rulings": [
+        "Q-3",
+        "Q-4",
+        "Q-5"
+      ],
+      "state_requirements": "positive-only; at most nine words; no semicolon; no exclusion clause; ontology_basis dated_style; every disjunct tied to datedness; rendered to Terra as 'interior trim <state>'",
+      "override_requirements": "name and description overrides in the same decisions entry so no surface advertises plain, thin or builder-grade trim as the condition; embed_text unchanged unless the renewed review finds a reason (record the decision either way)",
+      "wording_candidates": {
+        "A": "era-specific dated finish on casing, jambs, or baseboards",
+        "B": "dark-stained wood or dated paint color",
+        "third": "permitted if the drafter argues both A and B fail the datedness tie; state the argument",
+        "concern_on_B": "dark-stained wood becomes sufficient regardless of condition or datedness; do not replace 'plain means billable' with 'dark means billable'",
+        "concern_on_A": "'era-specific' sits one word from 'period millwork', which is the kill condition (redfin_11185681 photos 006/044, clean white period trim)"
+      },
+      "must_correct_during_drafting": [
+        "add rc_470fb7e0624f (currently billed plain trim, redfin_10949071) to the regression ledger (CCF-6)",
+        "ledger: rc_9e889631af67 and rc_d0ffde500a92 withdrawn under ruling 3 (Q-3); rc_ceeb17f8e242 withdrawn from this item as a missing-trim loss handed to CAP-013; rc_73d15ca14405 still_rejected (kill condition); rc_b642fe69b86a expected recovered; rc_022497229bd3 and rc_a0e75a18620e flips_to_rejected",
+        "package_route_effects: support acceptance can create or destroy a package (rehab_packages.py); on this evidence a strength downgrade in two redfin_25809814 bedrooms",
+        "human_inputs citations: rulings are at HANDOFF_SESSION_2.md lines 74-93; PHASE_C_BRIEF.md does not exist; the ruling-4 example parenthetical is not Steven's words",
+        "the proposal's confidence contradiction (structured low, prose medium) and the review's Q-4 text saying 'Session 4 authors the redraft' are stale; the redraft stage authors it",
+        "evidence bar re-grounded as a ruling-3 policy application, not a universal structural fact"
+      ]
+    },
+    "cap007": {
+      "binding_rulings": [
+        "Q-1",
+        "Q-2"
+      ],
+      "recipe": "split dated_window_treatment_valance into (i) a presence-only blinds successor: new id with no wear or damage word (for example window_blinds_basic_or_plain), kind modernization, claim of the shape 'window blinds or shades | basic or plain window blinds | presentation_only', no wear or damage word on any surface, overrides.route_override no_action, overrides.deny_any = the fabric terms; (ii) the fabric successor dated_window_valance_or_curtains: claim 'window valance or curtains | dated valance or curtains | dated_style' with 'improvised' and 'heavy' dropped, overrides.require_any = valance, cornice, swag, curtain(s), drape(s), drapery, sheer(s), fabric, window treatment, covering (no cloth/sheet/blanket), support_any the mirror of (i)'s deny_any, bare token 'window treatment' dropped from support_any, glazing deny terms kept on both",
+      "must_decide_explicitly": "whether 'window treatment' belongs in require_any (the leak the review flagged for blinds-only bullets such as 'Window treatments are dated and basic')",
+      "must_correct_during_drafting": [
+        "ledger: rc_7c5b9f9bb3aa and gold g3 (redfin_11000447 photo_003) added as acknowledged withdrawn billings (ruling 5 applied); rc_429ba6851d09, rc_4f4b93c40ef3 and rc_ffad088fa5fe restated consistently (the register cannot express 'supported but unbilled'; extend the expectation vocabulary with a route-level value or restate)",
+        "withdrawn-billings accounting: roughly 26 of the item's 39 evidence-era accepted conditions move to no_action (state the count from the pinned runs)",
+        "citations corrected as for CAP-008"
+      ],
+      "evidence_grounding": "the blinds successor is a ruling-5 policy application (as CAP-008 is a ruling-3 application); the fabric successor keeps the existing billable subject; the residual losses (gold g7 at Pass 2a, gold g4 at Pass 2c, improvised bullets dropped at 2c) stay upstream of the catalog",
+      "checks": "no live Terra check (route_override no_action is deterministic in projection); the renewed review records the Tier-2 retrieval questions (lexical shortcut on 'blinds', post-split ranks) for Session 5 and the CCF-8 cutover consequences (no runtime alias for the deprecated id; full replay in Session 5/6)",
+      "marker_section": "dated_window_treatment_valance is not among the ten repair_support_when_driven items, so the split is not blocked by CCF-7"
+    },
+    "prohibited": "edits to any Session 1-3 artifact, the decisions file, catalogs, prompts or runtime code; citing agents as evidence"
+  },
+  "renewed_review": {
+    "executor": "Phase B refuters V-1 (CAP-008 wording), V-2 (CAP-008 ledger and missing-trim loss), V-3 (CAP-007 blinds) and mechanical verifier V-4, each in a fresh context with only its listed inputs (the drafters' structured outputs, the live-check results, the pinned artifacts, photos, code); Phase C lead authors reports/catalog_audit_renewed_review.json",
+    "standard": "03_SESSION_ADVERSARIAL_REVIEW.md (challenge, evidence inspected, strongest counterargument, resolution, required modification, residual risk); reviewers default to refute; the artifact cites cases, units, items, photos and file:line, never an agent",
+    "concerns": [
+      "each CAP-008 wording candidate against the kill condition (rc_73d15ca14405, clean white period trim)",
+      "each candidate against the 'dark means billable' over-reach: search the evidence for an intact, non-dated dark-stained trim control; if none exists, say so",
+      "each candidate against the overlap with baseboard_wear_scuffs and peeling_or_discolored_paint at the Terra surface, and the seven positive-use controls",
+      "the missing-trim loss (rc_ceeb17f8e242) and its handoff to CAP-013",
+      "blinds-only bullets reaching the billable fabric successor; the deny_any/support_any mirror; the withdrawn-billings accounting; the ruling-5 policy grounding",
+      "Tier-2 retrieval questions the split raises and the CCF-8 cutover consequences",
+      "mechanical: independent dry runs from the ops JSON, house-style census, validator errors, metadata_problems, Session 1-3 artifacts byte-identical, live-check rule applied to the results file"
+    ],
+    "output": "one disposition per redraft and eligibility per id: eligible | not_eligible | pending_live_check"
+  },
+  "live_check": {
+    "purpose": "test the final CAP-008 wording against the frozen observations and photos of the three decisive cards; exclusion handling is not explicitly specified in Terra's production prompt (tools/renovation_architecture/terra_review.py:33-51) and reliable behaviour under any proposed wording has not been demonstrated, which is why the wording is tested rather than argued",
+    "harness": "staging.live_check_harness: single-condition payload in the exact production shape (terra_review.py:143-165), unchanged system prompt and closed schema, direct call_terra_review (no checkpoint, no ledger), results checkpointed after every call; zero repository edits",
+    "cards": [
+      {
+        "card_id": "rc_73d15ca14405",
+        "role": "kill_condition",
+        "property": "redfin_11185681",
+        "photos": [
+          "photo_006.jpg",
+          "photo_044.jpg"
+        ],
+        "stored_baseline_verdict": "unsupported",
+        "required_candidate_verdict": "unsupported"
+      },
+      {
+        "card_id": "rc_9e889631af67",
+        "role": "withdrawn_plain_trim_billing",
+        "property": "redfin_10949071",
+        "photos": [
+          "photo_007.jpg"
+        ],
+        "stored_baseline_verdict": "supported",
+        "required_candidate_verdict": "unsupported"
+      },
+      {
+        "card_id": "rc_b642fe69b86a",
+        "role": "recovery",
+        "property": "redfin_80990371",
+        "photos": [
+          "photo_022.jpg",
+          "photo_028.jpg",
+          "photo_029.jpg"
+        ],
+        "stored_baseline_verdict": "unsupported",
+        "required_candidate_verdict": "supported"
+      }
+    ],
+    "rule": {
+      "replicas_per_card_per_candidate": 3,
+      "nondecisive": "an errored call or a cannot_assess counts as neither verdict and is re-run once",
+      "inconclusive": "a card with fewer than two decisive replicas after re-runs is inconclusive and blocks",
+      "kill_cards": "any supported on rc_73d15ca14405 or rc_9e889631af67 blocks",
+      "recovery_card": "rc_b642fe69b86a needs a majority supported among decisive replicas",
+      "control_arm": "sanity check only: the current claim text, one replica per card, expected to return the stored baseline verdicts (unsupported / supported / unsupported). One fresh single-condition call cannot prove equivalence to the original batched run, so a mismatch does not block mechanically: it is re-run once, and if still mismatched the card is flagged control_mismatch and the renewed review must state whether that card's candidate result is decisive (a card whose control already gives the candidate's required verdict is uninformative)"
+    },
+    "ceiling": {
+      "calls": 30,
+      "composition": "<= 9 per candidate wording + <= 3 re-runs per wording, at most two wordings by default (a third only if R-1 argues both fail the datedness tie), plus 3 control + <= 3 control re-runs; every call single-condition with <= 3 photos"
+    },
+    "model": "RENOVATION_TERRA_MODEL from .env (equals the stored canary model); RENOVATION_VLM_BUDGET_GUARD must stay off",
+    "results_file": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\reports\\catalog_audit_live_check_results.json"
+  },
+  "final_approval": {
+    "rule": "checks passing makes a redraft eligible, nothing more; Steven approves each id explicitly after reading the renewed review; only then is reports/catalog_audit_approvals.json written to the 04_HUMAN_REVIEW_GATE.md schema, pinning this record, the redraft artifact, the renewed-review artifact and the live-check results; Session 4 starts only from that manifest",
+    "manifest_contents": "approved_with_modification with the ops as approved_diff for each approved id; deferred or rejected for a redraft that is not approved; the other eighteen dispositions copied from this record"
+  },
+  "authorizations": {
+    "live_terra_calls": {
+      "authorized": true,
+      "ceiling_calls": 30,
+      "payload": "single-condition, <= 3 photos each",
+      "who_runs": "Phase B session, B.3, with the harness and spec in staging"
+    },
+    "schema_or_generator_work": false,
+    "terra_calibration": false,
+    "handoff_errata_append": true,
+    "decisions_catalog_prompt_runtime_edits": false,
+    "implementation": false
+  },
+  "staging": {
+    "note": "Absolute paths in the Phase A session scratchpad. Agent outputs stay here and are never cited as evidence.",
+    "root": "C:\\Users\\Steven\\AppData\\Local\\Temp\\claude\\C--Users-Steven-PycharmProjects-realtorvision-backend\\33db7eb1-2348-4147-aa2d-c18fb197bbd1\\scratchpad\\gate_work",
+    "runbook": "C:\\Users\\Steven\\AppData\\Local\\Temp\\claude\\C--Users-Steven-PycharmProjects-realtorvision-backend\\33db7eb1-2348-4147-aa2d-c18fb197bbd1\\scratchpad\\gate_work\\RUNBOOK.md",
+    "inputs_dir": "C:\\Users\\Steven\\AppData\\Local\\Temp\\claude\\C--Users-Steven-PycharmProjects-realtorvision-backend\\33db7eb1-2348-4147-aa2d-c18fb197bbd1\\scratchpad\\gate_work\\inputs",
+    "inputs_manifest": "C:\\Users\\Steven\\AppData\\Local\\Temp\\claude\\C--Users-Steven-PycharmProjects-realtorvision-backend\\33db7eb1-2348-4147-aa2d-c18fb197bbd1\\scratchpad\\gate_work\\inputs\\INPUTS_SHA256.json",
+    "dry_run_tool": "C:\\Users\\Steven\\AppData\\Local\\Temp\\claude\\C--Users-Steven-PycharmProjects-realtorvision-backend\\33db7eb1-2348-4147-aa2d-c18fb197bbd1\\scratchpad\\gate_work\\inputs\\dry_run_tool.py",
+    "briefs_dir": "C:\\Users\\Steven\\AppData\\Local\\Temp\\claude\\C--Users-Steven-PycharmProjects-realtorvision-backend\\33db7eb1-2348-4147-aa2d-c18fb197bbd1\\scratchpad\\gate_work\\briefs",
+    "schemas_dir": "C:\\Users\\Steven\\AppData\\Local\\Temp\\claude\\C--Users-Steven-PycharmProjects-realtorvision-backend\\33db7eb1-2348-4147-aa2d-c18fb197bbd1\\scratchpad\\gate_work\\schemas",
+    "outputs_dir": "C:\\Users\\Steven\\AppData\\Local\\Temp\\claude\\C--Users-Steven-PycharmProjects-realtorvision-backend\\33db7eb1-2348-4147-aa2d-c18fb197bbd1\\scratchpad\\gate_work\\outputs",
+    "workflow_drafters": "C:\\Users\\Steven\\AppData\\Local\\Temp\\claude\\C--Users-Steven-PycharmProjects-realtorvision-backend\\33db7eb1-2348-4147-aa2d-c18fb197bbd1\\scratchpad\\gate_work\\workflows\\wf_drafters.js",
+    "workflow_review": "C:\\Users\\Steven\\AppData\\Local\\Temp\\claude\\C--Users-Steven-PycharmProjects-realtorvision-backend\\33db7eb1-2348-4147-aa2d-c18fb197bbd1\\scratchpad\\gate_work\\workflows\\wf_review.js",
+    "validate_outputs": "C:\\Users\\Steven\\AppData\\Local\\Temp\\claude\\C--Users-Steven-PycharmProjects-realtorvision-backend\\33db7eb1-2348-4147-aa2d-c18fb197bbd1\\scratchpad\\gate_work\\validate_outputs.py",
+    "live_check_harness": "C:\\Users\\Steven\\AppData\\Local\\Temp\\claude\\C--Users-Steven-PycharmProjects-realtorvision-backend\\33db7eb1-2348-4147-aa2d-c18fb197bbd1\\scratchpad\\gate_work\\live_check\\terra_live_check.py",
+    "live_check_spec_template": "C:\\Users\\Steven\\AppData\\Local\\Temp\\claude\\C--Users-Steven-PycharmProjects-realtorvision-backend\\33db7eb1-2348-4147-aa2d-c18fb197bbd1\\scratchpad\\gate_work\\live_check\\spec_template.json",
+    "live_check_spec_filler": "C:\\Users\\Steven\\AppData\\Local\\Temp\\claude\\C--Users-Steven-PycharmProjects-realtorvision-backend\\33db7eb1-2348-4147-aa2d-c18fb197bbd1\\scratchpad\\gate_work\\live_check\\fill_spec.py",
+    "live_check_cards": "C:\\Users\\Steven\\AppData\\Local\\Temp\\claude\\C--Users-Steven-PycharmProjects-realtorvision-backend\\33db7eb1-2348-4147-aa2d-c18fb197bbd1\\scratchpad\\gate_work\\inputs\\live_check_cards.json",
+    "live_check_results": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\reports\\catalog_audit_live_check_results.json",
+    "redraft_artifact": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\reports\\catalog_audit_redraft.json",
+    "renewed_review_artifact": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\reports\\catalog_audit_renewed_review.json",
+    "approvals_manifest": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\reports\\catalog_audit_approvals.json"
+  },
+  "references": {
+    "handoff_errata": "docs/catalog_audit_program/HANDOFF_SESSION_3.md, section 'Errata (human gate, 2026-09-05)': Steven's six corrections, recorded once there",
+    "rulings_source": "docs/catalog_audit_program/HANDOFF_SESSION_2.md:74-93 (rulings 1-5 verbatim); the PHASE_C_BRIEF.md cited by the proposals does not exist (CCF-1)",
+    "cross_cutting_findings_acknowledged": [
+      "CCF-1",
+      "CCF-2",
+      "CCF-3",
+      "CCF-4",
+      "CCF-5",
+      "CCF-6",
+      "CCF-7",
+      "CCF-8",
+      "CCF-10",
+      "CCF-11",
+      "CCF-12",
+      "CCF-13",
+      "CCF-14",
+      "CCF-9"
+    ],
+    "session3_sweep_conclusion": "No additional cluster was promoted under the current evidence rules; several potential defects and one evidence-classification issue (CCF-14) remain unresolved.",
+    "session3_reopened_count": 0,
+    "review_disposition_counts": {
+      "insufficient_evidence": 1,
+      "sustained": 11,
+      "sustained_with_conditions": 8
+    },
+    "policy_sweep_backlog_item": "Q-5: apply ruling 3 to the six other plain/basic/builder-grade/hollow-core claims in a later session outside this program"
+  }
+}

@@ -1,0 +1,479 @@
+{
+ "schema_version": 1,
+ "instructions": {
+  "p2_conditions": "verdict: terra_correct | 2f_correct | both_partly | cannot_tell",
+  "p1_packages": "verdict: package_warranted | not_warranted | unsure",
+  "p3_bathrooms": "distinct_bathrooms: integer you see; bill: per_bathroom | once | unsure"
+ },
+ "p2_conditions": {
+  "C001": {
+   "ref": "redfin_10803207 hard_flooring_scratched_or_worn@living_room_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C002": {
+   "ref": "redfin_10952874 baseboard_wear_scuffs@bathroom_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C003": {
+   "ref": "redfin_10952874 baseboard_wear_scuffs@bedroom_4",
+   "verdict": "",
+   "notes": ""
+  },
+  "C004": {
+   "ref": "redfin_10952874 cabinets_worn_finish@kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C005": {
+   "ref": "redfin_10952874 hard_flooring_broken_or_warped@bedroom_3",
+   "verdict": "",
+   "notes": ""
+  },
+  "C006": {
+   "ref": "redfin_10952874 paint_refresh_recommended@bedroom_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C007": {
+   "ref": "redfin_10952874 paint_refresh_recommended@kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C008": {
+   "ref": "redfin_10952874 vanity_countertop_worn@bathroom_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C009": {
+   "ref": "redfin_10952874 vanity_worn_finish@bathroom_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C010": {
+   "ref": "redfin_11000447 vinyl_linoleum_torn_or_lifted@bedroom_1",
+   "verdict": "",
+   "notes": ""
+  },
+  "C011": {
+   "ref": "redfin_11000447 vinyl_linoleum_torn_or_lifted@kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C012": {
+   "ref": "redfin_11077450 brick_weathered_or_discolored@exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C013": {
+   "ref": "redfin_11077450 damaged_or_rotted_siding_or_trim@exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C014": {
+   "ref": "redfin_11079485 dated_interior_trim@bathroom_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C015": {
+   "ref": "redfin_11185681 dated_interior_trim@living_room_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C016": {
+   "ref": "redfin_11185681 older_flooring_style@bedroom_5",
+   "verdict": "",
+   "notes": ""
+  },
+  "C017": {
+   "ref": "redfin_125779232 cabinets_damaged_or_water_stained@kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C018": {
+   "ref": "redfin_125970550 tub_surround_or_shower_pan_damage@bathroom_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C019": {
+   "ref": "redfin_126418713 hard_flooring_scratched_or_worn@bedroom_4",
+   "verdict": "",
+   "notes": ""
+  },
+  "C020": {
+   "ref": "redfin_126418713 paint_refresh_recommended@bedroom_2",
+   "verdict": "",
+   "notes": ""
+  },
+  "C021": {
+   "ref": "redfin_126418713 paint_refresh_recommended@bedroom_4",
+   "verdict": "",
+   "notes": ""
+  },
+  "C022": {
+   "ref": "redfin_166147710 dated_wood_paneling@kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C023": {
+   "ref": "redfin_166147710 exterior_siding_discoloration_fading@exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C024": {
+   "ref": "redfin_166147710 popcorn_or_acoustic_ceiling_texture@bedroom_3",
+   "verdict": "",
+   "notes": ""
+  },
+  "C025": {
+   "ref": "redfin_25809814 cabinets_worn_finish@kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C026": {
+   "ref": "redfin_80877597 paint_refresh_recommended@bedroom_1",
+   "verdict": "",
+   "notes": ""
+  },
+  "C027": {
+   "ref": "redfin_80925528 brick_weathered_or_discolored@exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C028": {
+   "ref": "redfin_80925528 soffit_or_porch_ceiling_weathered@exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C029": {
+   "ref": "redfin_80990371 baseboard_wear_scuffs@living_room_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C030": {
+   "ref": "redfin_80990371 brick_weathered_or_discolored@exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C031": {
+   "ref": "redfin_80990371 dated_interior_trim@living_room_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C032": {
+   "ref": "redfin_80990371 paint_refresh_recommended@living_room_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C033": {
+   "ref": "redfin_80990371 peeling_or_discolored_paint@bedroom_1",
+   "verdict": "",
+   "notes": ""
+  },
+  "C034": {
+   "ref": "redfin_81000709 older_flooring_style@bedroom_3",
+   "verdict": "",
+   "notes": ""
+  },
+  "C035": {
+   "ref": "redfin_81000709 soffit_or_porch_ceiling_failed@exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C036": {
+   "ref": "redfin_81000709 worn_or_stained_carpet@bedroom_3",
+   "verdict": "",
+   "notes": ""
+  },
+  "C037": {
+   "ref": "redfin_10806500 outdated_kitchen_finishes@kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C038": {
+   "ref": "redfin_10806500 peeling_or_discolored_paint@kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C039": {
+   "ref": "redfin_10806500 soffit_or_porch_ceiling_weathered@exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C040": {
+   "ref": "redfin_10952874 hard_flooring_scratched_or_worn@bedroom_4",
+   "verdict": "",
+   "notes": ""
+  },
+  "C041": {
+   "ref": "redfin_10952874 worn_or_stained_flooring@bedroom_3",
+   "verdict": "",
+   "notes": ""
+  },
+  "C042": {
+   "ref": "redfin_10952874 worn_or_stained_flooring@bedroom_4",
+   "verdict": "",
+   "notes": ""
+  },
+  "C043": {
+   "ref": "redfin_11000447 peeling_or_discolored_paint@living_room_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C044": {
+   "ref": "redfin_11000447 vanity_worn_finish@bathroom_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C045": {
+   "ref": "redfin_11077450 cabinets_dated_style@kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C046": {
+   "ref": "redfin_11077450 outdated_kitchen_finishes@kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C047": {
+   "ref": "redfin_11077450 patio_or_porch_surface_wear@exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C048": {
+   "ref": "redfin_11077450 peeling_or_discolored_paint@kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C049": {
+   "ref": "redfin_11079485 vintage_tile_pattern_style@bathroom_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C050": {
+   "ref": "redfin_11185681 cabinets_dated_style@kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C051": {
+   "ref": "redfin_11185681 dated_interior_trim@kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C052": {
+   "ref": "redfin_125779232 bath_fixtures_stained_or_worn@bathroom_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C053": {
+   "ref": "redfin_125779232 damaged_or_rotted_siding_or_trim@exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C054": {
+   "ref": "redfin_125779232 dated_interior_trim@bathroom_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C055": {
+   "ref": "redfin_125779232 outdated_bathroom_finishes@bathroom_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C056": {
+   "ref": "redfin_125779232 patio_or_porch_surface_wear@exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C057": {
+   "ref": "redfin_126224899 bath_fixtures_stained_or_worn@bathroom_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C058": {
+   "ref": "redfin_126224899 brick_weathered_or_discolored@exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C059": {
+   "ref": "redfin_126418713 outdated_bathroom_finishes@bathroom_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C060": {
+   "ref": "redfin_127468088 exterior_siding_discoloration_fading@exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C061": {
+   "ref": "redfin_127468088 paint_refresh_recommended@bedroom_3",
+   "verdict": "",
+   "notes": ""
+  },
+  "C062": {
+   "ref": "redfin_25809814 appliances_dated_or_basic@kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "C063": {
+   "ref": "redfin_25809814 dated_interior_doors@bedroom_2",
+   "verdict": "",
+   "notes": ""
+  },
+  "C064": {
+   "ref": "redfin_25809814 dated_interior_trim@bedroom_2",
+   "verdict": "",
+   "notes": ""
+  },
+  "C065": {
+   "ref": "redfin_25809814 dated_interior_trim@bedroom_3",
+   "verdict": "",
+   "notes": ""
+  },
+  "C066": {
+   "ref": "redfin_25809814 older_flooring_style@bedroom_2",
+   "verdict": "",
+   "notes": ""
+  },
+  "C067": {
+   "ref": "redfin_25809814 older_flooring_style@bedroom_3",
+   "verdict": "",
+   "notes": ""
+  },
+  "C068": {
+   "ref": "redfin_81000709 peeling_or_discolored_paint@bedroom_3",
+   "verdict": "",
+   "notes": ""
+  }
+ },
+ "p1_packages": {
+  "P01": {
+   "ref": "redfin_10803207 bathroom_modernization|bathroom_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "P02": {
+   "ref": "redfin_10806500 exterior_repair|exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "P03": {
+   "ref": "redfin_10806500 kitchen_modernization|kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "P04": {
+   "ref": "redfin_11077450 kitchen_modernization|kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "P05": {
+   "ref": "redfin_11185681 exterior_repair|exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "P06": {
+   "ref": "redfin_11185681 kitchen_modernization|kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "P07": {
+   "ref": "redfin_125970550 exterior_repair|exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "P08": {
+   "ref": "redfin_126418713 exterior_repair|exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "P09": {
+   "ref": "redfin_127468088 exterior_repair|exterior_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "P10": {
+   "ref": "redfin_25809814 bedroom_modernization|bedroom_2",
+   "verdict": "",
+   "notes": ""
+  },
+  "P11": {
+   "ref": "redfin_25809814 bedroom_modernization|bedroom_3",
+   "verdict": "",
+   "notes": ""
+  },
+  "P12": {
+   "ref": "redfin_25809814 kitchen_modernization|kitchen_primary",
+   "verdict": "",
+   "notes": ""
+  },
+  "P13": {
+   "ref": "redfin_80990371 exterior_repair|exterior_primary",
+   "verdict": "",
+   "notes": ""
+  }
+ },
+ "p3_bathrooms": {
+  "B01": {
+   "ref": "redfin_10803207",
+   "distinct_bathrooms": "",
+   "bill": "",
+   "notes": ""
+  },
+  "B02": {
+   "ref": "redfin_10952874",
+   "distinct_bathrooms": "",
+   "bill": "",
+   "notes": ""
+  },
+  "B03": {
+   "ref": "redfin_11185681",
+   "distinct_bathrooms": "",
+   "bill": "",
+   "notes": ""
+  },
+  "B04": {
+   "ref": "redfin_125779232",
+   "distinct_bathrooms": "",
+   "bill": "",
+   "notes": ""
+  },
+  "B05": {
+   "ref": "redfin_125970550",
+   "distinct_bathrooms": "",
+   "bill": "",
+   "notes": ""
+  },
+  "B06": {
+   "ref": "redfin_126224899",
+   "distinct_bathrooms": "",
+   "bill": "",
+   "notes": ""
+  },
+  "B07": {
+   "ref": "redfin_126418713",
+   "distinct_bathrooms": "",
+   "bill": "",
+   "notes": ""
+  },
+  "B08": {
+   "ref": "redfin_166147710",
+   "distinct_bathrooms": "",
+   "bill": "",
+   "notes": ""
+  },
+  "B09": {
+   "ref": "redfin_25809814",
+   "distinct_bathrooms": "",
+   "bill": "",
+   "notes": ""
+  },
+  "B10": {
+   "ref": "redfin_80877597",
+   "distinct_bathrooms": "",
+   "bill": "",
+   "notes": ""
+  }
+ }
+}

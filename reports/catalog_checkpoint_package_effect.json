@@ -1,0 +1,1177 @@
+{
+  "schema_version": "catalog-checkpoint-package-effect-v1",
+  "what_this_is": "Package effect of the two approved ops, measured with the frozen instrument (main 3.2 catalog patched in memory) so it is attributable to this checkpoint rather than to CAP-007.",
+  "why_not_the_real_candidate_catalog": "The CAP-007 candidate removes dated_window_treatment_valance, which every pinned evidence-era artifact names, so replay_property fails closed on a stale id. That is CCF-8 / S4-2 behaving as approved. The cutover replay from frozen Pass 2c is the vehicle that re-resolves those observations; it is not authorized here.",
+  "dollars": "Shape classes and the standalone ledger only. Replay drops candidates whose stored Sol decision is payload-incompatible, so replayed totals are an undercount, never an economic result.",
+  "properties_replayed": 17,
+  "skipped": [
+    {
+      "property_key": "redfin_10735912",
+      "reason": "KeyError: 'renovation_estimate_v5'"
+    },
+    {
+      "property_key": "redfin_10740044",
+      "reason": "KeyError: 'renovation_estimate_v5'"
+    },
+    {
+      "property_key": "redfin_10866780",
+      "reason": "KeyError: 'renovation_estimate_v5'"
+    },
+    {
+      "property_key": "redfin_10949071",
+      "reason": "KeyError: 'renovation_estimate_v5'"
+    },
+    {
+      "property_key": "redfin_10965375",
+      "reason": "no artifact_path"
+    },
+    {
+      "property_key": "redfin_11216660",
+      "reason": "KeyError: 'renovation_estimate_v5'"
+    },
+    {
+      "property_key": "redfin_11217387",
+      "reason": "KeyError: 'renovation_estimate_v5'"
+    },
+    {
+      "property_key": "redfin_80916010",
+      "reason": "KeyError: 'renovation_estimate_v5'"
+    },
+    {
+      "property_key": "redfin_80917686",
+      "reason": "KeyError: 'renovation_estimate_v5'"
+    }
+  ],
+  "trim_work_items_as_is": {
+    "count": 44,
+    "by_representation": {
+      "standalone": 27,
+      "absorbed_by_package": 17
+    },
+    "standalone_dollars_low_high": [
+      2242,
+      11212
+    ],
+    "items": [
+      {
+        "property_key": "redfin_10952874",
+        "unit": "bedroom_3",
+        "representation": "standalone",
+        "low": 71,
+        "high": 355
+      },
+      {
+        "property_key": "redfin_10952874",
+        "unit": "bedroom_2",
+        "representation": "standalone",
+        "low": 71,
+        "high": 355
+      },
+      {
+        "property_key": "redfin_10952874",
+        "unit": "bedroom_4",
+        "representation": "standalone",
+        "low": 71,
+        "high": 355
+      },
+      {
+        "property_key": "redfin_10952874",
+        "unit": "bedroom_primary",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_10952874",
+        "unit": "bathroom_primary",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_10952874",
+        "unit": "closet",
+        "representation": "standalone",
+        "low": 71,
+        "high": 355
+      },
+      {
+        "property_key": "redfin_11077450",
+        "unit": "bathroom_primary",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_11077450",
+        "unit": "basement_primary",
+        "representation": "standalone",
+        "low": 89,
+        "high": 446
+      },
+      {
+        "property_key": "redfin_11185681",
+        "unit": "bedroom_5",
+        "representation": "standalone",
+        "low": 92,
+        "high": 460
+      },
+      {
+        "property_key": "redfin_11185681",
+        "unit": "kitchen_primary",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_11185681",
+        "unit": "bathroom_primary",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_125779232",
+        "unit": "kitchen_primary",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_125779232",
+        "unit": "living_room_primary",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_125779232",
+        "unit": "bathroom_primary",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_125970550",
+        "unit": "kitchen_primary",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_125970550",
+        "unit": "living_room_primary",
+        "representation": "standalone",
+        "low": 93,
+        "high": 466
+      },
+      {
+        "property_key": "redfin_125970550",
+        "unit": "bedroom_4",
+        "representation": "standalone",
+        "low": 93,
+        "high": 466
+      },
+      {
+        "property_key": "redfin_126418713",
+        "unit": "kitchen_primary",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_126418713",
+        "unit": "living_room_primary",
+        "representation": "standalone",
+        "low": 77,
+        "high": 386
+      },
+      {
+        "property_key": "redfin_126418713",
+        "unit": "bedroom_4",
+        "representation": "standalone",
+        "low": 77,
+        "high": 386
+      },
+      {
+        "property_key": "redfin_126418713",
+        "unit": "bedroom_2",
+        "representation": "standalone",
+        "low": 77,
+        "high": 386
+      },
+      {
+        "property_key": "redfin_127468088",
+        "unit": "bedroom_primary",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_127468088",
+        "unit": "bedroom_2",
+        "representation": "standalone",
+        "low": 79,
+        "high": 394
+      },
+      {
+        "property_key": "redfin_127468088",
+        "unit": "bedroom_3",
+        "representation": "standalone",
+        "low": 79,
+        "high": 394
+      },
+      {
+        "property_key": "redfin_127468088",
+        "unit": "living_room_primary",
+        "representation": "standalone",
+        "low": 79,
+        "high": 394
+      },
+      {
+        "property_key": "redfin_166147710",
+        "unit": "bedroom_1",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_166147710",
+        "unit": "living_room_primary",
+        "representation": "standalone",
+        "low": 80,
+        "high": 402
+      },
+      {
+        "property_key": "redfin_166147710",
+        "unit": "basement_primary",
+        "representation": "standalone",
+        "low": 80,
+        "high": 402
+      },
+      {
+        "property_key": "redfin_25809814",
+        "unit": "bedroom_3",
+        "representation": "standalone",
+        "low": 91,
+        "high": 454
+      },
+      {
+        "property_key": "redfin_25809814",
+        "unit": "bedroom_2",
+        "representation": "standalone",
+        "low": 91,
+        "high": 454
+      },
+      {
+        "property_key": "redfin_25809814",
+        "unit": "living_room_primary",
+        "representation": "standalone",
+        "low": 91,
+        "high": 454
+      },
+      {
+        "property_key": "redfin_25809814",
+        "unit": "bedroom_4",
+        "representation": "standalone",
+        "low": 91,
+        "high": 454
+      },
+      {
+        "property_key": "redfin_25809814",
+        "unit": "bathroom_primary",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_80877597",
+        "unit": "bedroom_2",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_80877597",
+        "unit": "basement_primary",
+        "representation": "standalone",
+        "low": 79,
+        "high": 394
+      },
+      {
+        "property_key": "redfin_80877597",
+        "unit": "bedroom_3",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_80877597",
+        "unit": "living_room_primary",
+        "representation": "standalone",
+        "low": 79,
+        "high": 394
+      },
+      {
+        "property_key": "redfin_80877597",
+        "unit": "bedroom_1",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_80925528",
+        "unit": "living_room_primary",
+        "representation": "standalone",
+        "low": 105,
+        "high": 526
+      },
+      {
+        "property_key": "redfin_80990371",
+        "unit": "bedroom_2",
+        "representation": "standalone",
+        "low": 79,
+        "high": 393
+      },
+      {
+        "property_key": "redfin_80990371",
+        "unit": "basement_primary",
+        "representation": "standalone",
+        "low": 79,
+        "high": 393
+      },
+      {
+        "property_key": "redfin_80990371",
+        "unit": "kitchen_primary",
+        "representation": "absorbed_by_package",
+        "low": 0,
+        "high": 0
+      },
+      {
+        "property_key": "redfin_81000709",
+        "unit": "bedroom_3",
+        "representation": "standalone",
+        "low": 89,
+        "high": 447
+      },
+      {
+        "property_key": "redfin_81000709",
+        "unit": "bedroom_1",
+        "representation": "standalone",
+        "low": 89,
+        "high": 447
+      }
+    ]
+  },
+  "package_candidate_classes": {
+    "trim_only": {
+      "identical": 77,
+      "shape_changes": 9,
+      "support_list_only": 15,
+      "candidate_disappears": 1
+    },
+    "both_ops": {
+      "identical": 77,
+      "shape_changes": 9,
+      "support_list_only": 15,
+      "candidate_disappears": 1
+    }
+  },
+  "non_identical": {
+    "trim_only": [
+      {
+        "property_key": "redfin_10952874",
+        "candidate_id": "pk1_0ffdde3b16b90e4d",
+        "unit": "bedroom_4",
+        "package_type": "bedroom_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 1013,
+          "high": 4050,
+          "supports": 2
+        },
+        "after": {
+          "strength": "moderate",
+          "tier": "refresh",
+          "low": 1013,
+          "high": 4050,
+          "supports": 1
+        }
+      },
+      {
+        "property_key": "redfin_10952874",
+        "candidate_id": "pk1_51516dc7cea6106d",
+        "unit": "bathroom_primary",
+        "package_type": "bathroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 4,
+        "supports_after": 3
+      },
+      {
+        "property_key": "redfin_10952874",
+        "candidate_id": "pk1_672cdc317746f304",
+        "unit": "bedroom_primary",
+        "package_type": "bedroom_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 1013,
+          "high": 4050,
+          "supports": 2
+        },
+        "after": {
+          "strength": "moderate",
+          "tier": "refresh",
+          "low": 1013,
+          "high": 4050,
+          "supports": 1
+        }
+      },
+      {
+        "property_key": "redfin_11077450",
+        "candidate_id": "pk1_e146eb3255f0f82e",
+        "unit": "bathroom_primary",
+        "package_type": "bathroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 3,
+        "supports_after": 2
+      },
+      {
+        "property_key": "redfin_11185681",
+        "candidate_id": "pk1_359825e5c762f1b3",
+        "unit": "bathroom_primary",
+        "package_type": "bathroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 4,
+        "supports_after": 3
+      },
+      {
+        "property_key": "redfin_11185681",
+        "candidate_id": "pk1_7e9a2cf358c32a1c",
+        "unit": "kitchen_primary",
+        "package_type": "kitchen_modernization",
+        "class": "support_list_only",
+        "supports_before": 4,
+        "supports_after": 3
+      },
+      {
+        "property_key": "redfin_125779232",
+        "candidate_id": "pk1_20d8204d03b488e0",
+        "unit": "kitchen_primary",
+        "package_type": "kitchen_modernization",
+        "class": "support_list_only",
+        "supports_before": 4,
+        "supports_after": 3
+      },
+      {
+        "property_key": "redfin_125779232",
+        "candidate_id": "pk1_275201874c652e6c",
+        "unit": "bathroom_primary",
+        "package_type": "bathroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 2,
+        "supports_after": 1
+      },
+      {
+        "property_key": "redfin_125779232",
+        "candidate_id": "pk1_589be2cc7f6d88c6",
+        "unit": "living_room_primary",
+        "package_type": "living_modernization",
+        "class": "support_list_only",
+        "supports_before": 5,
+        "supports_after": 4
+      },
+      {
+        "property_key": "redfin_125970550",
+        "candidate_id": "pk1_3e0b9ed4d2761d5f",
+        "unit": "kitchen_primary",
+        "package_type": "kitchen_modernization",
+        "class": "support_list_only",
+        "supports_before": 5,
+        "supports_after": 4
+      },
+      {
+        "property_key": "redfin_126418713",
+        "candidate_id": "pk1_b39f8bde02a4c21a",
+        "unit": "kitchen_primary",
+        "package_type": "kitchen_modernization",
+        "class": "support_list_only",
+        "supports_before": 4,
+        "supports_after": 3
+      },
+      {
+        "property_key": "redfin_127468088",
+        "candidate_id": "pk1_bad3730316e5a03c",
+        "unit": "bedroom_3",
+        "package_type": "bedroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 4,
+        "supports_after": 3
+      },
+      {
+        "property_key": "redfin_127468088",
+        "candidate_id": "pk1_d2245789cfc5776d",
+        "unit": "bedroom_primary",
+        "package_type": "bedroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 3,
+        "supports_after": 2
+      },
+      {
+        "property_key": "redfin_166147710",
+        "candidate_id": "pk1_36865d2e8c811dda",
+        "unit": "living_room_primary",
+        "package_type": "living_modernization",
+        "class": "support_list_only",
+        "supports_before": 6,
+        "supports_after": 5
+      },
+      {
+        "property_key": "redfin_166147710",
+        "candidate_id": "pk1_58f71c21537b0ab5",
+        "unit": "bedroom_1",
+        "package_type": "bedroom_modernization",
+        "class": "candidate_disappears",
+        "as_is": {
+          "strength": "moderate",
+          "tier": "refresh",
+          "low": 1147,
+          "high": 4588,
+          "supports": 4
+        }
+      },
+      {
+        "property_key": "redfin_25809814",
+        "candidate_id": "pk1_2c9266d33a9f7503",
+        "unit": "bedroom_2",
+        "package_type": "bedroom_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "full_rehab",
+          "low": 4316,
+          "high": 12948,
+          "supports": 2
+        },
+        "after": {
+          "strength": "moderate",
+          "tier": "full_rehab",
+          "low": 4316,
+          "high": 12948,
+          "supports": 1
+        }
+      },
+      {
+        "property_key": "redfin_25809814",
+        "candidate_id": "pk1_2e491e0fb6850b2c",
+        "unit": "bedroom_3",
+        "package_type": "bedroom_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "full_rehab",
+          "low": 4316,
+          "high": 12948,
+          "supports": 2
+        },
+        "after": {
+          "strength": "moderate",
+          "tier": "full_rehab",
+          "low": 4316,
+          "high": 12948,
+          "supports": 1
+        }
+      },
+      {
+        "property_key": "redfin_25809814",
+        "candidate_id": "pk1_bc0827ef9ee55365",
+        "unit": "bathroom_primary",
+        "package_type": "bathroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 4,
+        "supports_after": 3
+      },
+      {
+        "property_key": "redfin_80877597",
+        "candidate_id": "pk1_4333e4e3cc462b37",
+        "unit": "living_room_primary",
+        "package_type": "living_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 1497,
+          "high": 9727,
+          "supports": 3
+        },
+        "after": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 1497,
+          "high": 9333,
+          "supports": 2
+        }
+      },
+      {
+        "property_key": "redfin_80877597",
+        "candidate_id": "pk1_6ca8125f12418188",
+        "unit": "bedroom_1",
+        "package_type": "bedroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 3,
+        "supports_after": 2
+      },
+      {
+        "property_key": "redfin_80877597",
+        "candidate_id": "pk1_c23c8e537c841e4e",
+        "unit": "bedroom_3",
+        "package_type": "bedroom_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 1123,
+          "high": 4490,
+          "supports": 2
+        },
+        "after": {
+          "strength": "moderate",
+          "tier": "refresh",
+          "low": 1123,
+          "high": 4490,
+          "supports": 1
+        }
+      },
+      {
+        "property_key": "redfin_80877597",
+        "candidate_id": "pk1_f5a6c48b34e349e4",
+        "unit": "bedroom_2",
+        "package_type": "bedroom_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 1123,
+          "high": 4490,
+          "supports": 2
+        },
+        "after": {
+          "strength": "moderate",
+          "tier": "refresh",
+          "low": 1123,
+          "high": 4490,
+          "supports": 1
+        }
+      },
+      {
+        "property_key": "redfin_80925528",
+        "candidate_id": "pk1_5e3507204cf495fe",
+        "unit": "living_room_primary",
+        "package_type": "living_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 2000,
+          "high": 12722,
+          "supports": 4
+        },
+        "after": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 2000,
+          "high": 12196,
+          "supports": 3
+        }
+      },
+      {
+        "property_key": "redfin_80990371",
+        "candidate_id": "pk1_c6fb100a28d4e580",
+        "unit": "kitchen_primary",
+        "package_type": "kitchen_modernization",
+        "class": "support_list_only",
+        "supports_before": 6,
+        "supports_after": 5
+      },
+      {
+        "property_key": "redfin_81000709",
+        "candidate_id": "pk1_75738b025bed26ef",
+        "unit": "bedroom_1",
+        "package_type": "bedroom_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "full_rehab",
+          "low": 4249,
+          "high": 12746,
+          "supports": 2
+        },
+        "after": {
+          "strength": "moderate",
+          "tier": "full_rehab",
+          "low": 4249,
+          "high": 12746,
+          "supports": 1
+        }
+      }
+    ],
+    "both_ops": [
+      {
+        "property_key": "redfin_10952874",
+        "candidate_id": "pk1_0ffdde3b16b90e4d",
+        "unit": "bedroom_4",
+        "package_type": "bedroom_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 1013,
+          "high": 4050,
+          "supports": 2
+        },
+        "after": {
+          "strength": "moderate",
+          "tier": "refresh",
+          "low": 1013,
+          "high": 4050,
+          "supports": 1
+        }
+      },
+      {
+        "property_key": "redfin_10952874",
+        "candidate_id": "pk1_51516dc7cea6106d",
+        "unit": "bathroom_primary",
+        "package_type": "bathroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 4,
+        "supports_after": 3
+      },
+      {
+        "property_key": "redfin_10952874",
+        "candidate_id": "pk1_672cdc317746f304",
+        "unit": "bedroom_primary",
+        "package_type": "bedroom_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 1013,
+          "high": 4050,
+          "supports": 2
+        },
+        "after": {
+          "strength": "moderate",
+          "tier": "refresh",
+          "low": 1013,
+          "high": 4050,
+          "supports": 1
+        }
+      },
+      {
+        "property_key": "redfin_11077450",
+        "candidate_id": "pk1_e146eb3255f0f82e",
+        "unit": "bathroom_primary",
+        "package_type": "bathroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 3,
+        "supports_after": 2
+      },
+      {
+        "property_key": "redfin_11185681",
+        "candidate_id": "pk1_359825e5c762f1b3",
+        "unit": "bathroom_primary",
+        "package_type": "bathroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 4,
+        "supports_after": 3
+      },
+      {
+        "property_key": "redfin_11185681",
+        "candidate_id": "pk1_7e9a2cf358c32a1c",
+        "unit": "kitchen_primary",
+        "package_type": "kitchen_modernization",
+        "class": "support_list_only",
+        "supports_before": 4,
+        "supports_after": 3
+      },
+      {
+        "property_key": "redfin_125779232",
+        "candidate_id": "pk1_20d8204d03b488e0",
+        "unit": "kitchen_primary",
+        "package_type": "kitchen_modernization",
+        "class": "support_list_only",
+        "supports_before": 4,
+        "supports_after": 3
+      },
+      {
+        "property_key": "redfin_125779232",
+        "candidate_id": "pk1_275201874c652e6c",
+        "unit": "bathroom_primary",
+        "package_type": "bathroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 2,
+        "supports_after": 1
+      },
+      {
+        "property_key": "redfin_125779232",
+        "candidate_id": "pk1_589be2cc7f6d88c6",
+        "unit": "living_room_primary",
+        "package_type": "living_modernization",
+        "class": "support_list_only",
+        "supports_before": 5,
+        "supports_after": 4
+      },
+      {
+        "property_key": "redfin_125970550",
+        "candidate_id": "pk1_3e0b9ed4d2761d5f",
+        "unit": "kitchen_primary",
+        "package_type": "kitchen_modernization",
+        "class": "support_list_only",
+        "supports_before": 5,
+        "supports_after": 4
+      },
+      {
+        "property_key": "redfin_126418713",
+        "candidate_id": "pk1_b39f8bde02a4c21a",
+        "unit": "kitchen_primary",
+        "package_type": "kitchen_modernization",
+        "class": "support_list_only",
+        "supports_before": 4,
+        "supports_after": 3
+      },
+      {
+        "property_key": "redfin_127468088",
+        "candidate_id": "pk1_bad3730316e5a03c",
+        "unit": "bedroom_3",
+        "package_type": "bedroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 4,
+        "supports_after": 3
+      },
+      {
+        "property_key": "redfin_127468088",
+        "candidate_id": "pk1_d2245789cfc5776d",
+        "unit": "bedroom_primary",
+        "package_type": "bedroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 3,
+        "supports_after": 2
+      },
+      {
+        "property_key": "redfin_166147710",
+        "candidate_id": "pk1_36865d2e8c811dda",
+        "unit": "living_room_primary",
+        "package_type": "living_modernization",
+        "class": "support_list_only",
+        "supports_before": 6,
+        "supports_after": 5
+      },
+      {
+        "property_key": "redfin_166147710",
+        "candidate_id": "pk1_58f71c21537b0ab5",
+        "unit": "bedroom_1",
+        "package_type": "bedroom_modernization",
+        "class": "candidate_disappears",
+        "as_is": {
+          "strength": "moderate",
+          "tier": "refresh",
+          "low": 1147,
+          "high": 4588,
+          "supports": 4
+        }
+      },
+      {
+        "property_key": "redfin_25809814",
+        "candidate_id": "pk1_2c9266d33a9f7503",
+        "unit": "bedroom_2",
+        "package_type": "bedroom_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "full_rehab",
+          "low": 4316,
+          "high": 12948,
+          "supports": 2
+        },
+        "after": {
+          "strength": "moderate",
+          "tier": "full_rehab",
+          "low": 4316,
+          "high": 12948,
+          "supports": 1
+        }
+      },
+      {
+        "property_key": "redfin_25809814",
+        "candidate_id": "pk1_2e491e0fb6850b2c",
+        "unit": "bedroom_3",
+        "package_type": "bedroom_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "full_rehab",
+          "low": 4316,
+          "high": 12948,
+          "supports": 2
+        },
+        "after": {
+          "strength": "moderate",
+          "tier": "full_rehab",
+          "low": 4316,
+          "high": 12948,
+          "supports": 1
+        }
+      },
+      {
+        "property_key": "redfin_25809814",
+        "candidate_id": "pk1_bc0827ef9ee55365",
+        "unit": "bathroom_primary",
+        "package_type": "bathroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 4,
+        "supports_after": 3
+      },
+      {
+        "property_key": "redfin_80877597",
+        "candidate_id": "pk1_4333e4e3cc462b37",
+        "unit": "living_room_primary",
+        "package_type": "living_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 1497,
+          "high": 9727,
+          "supports": 3
+        },
+        "after": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 1497,
+          "high": 9333,
+          "supports": 2
+        }
+      },
+      {
+        "property_key": "redfin_80877597",
+        "candidate_id": "pk1_6ca8125f12418188",
+        "unit": "bedroom_1",
+        "package_type": "bedroom_modernization",
+        "class": "support_list_only",
+        "supports_before": 3,
+        "supports_after": 2
+      },
+      {
+        "property_key": "redfin_80877597",
+        "candidate_id": "pk1_c23c8e537c841e4e",
+        "unit": "bedroom_3",
+        "package_type": "bedroom_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 1123,
+          "high": 4490,
+          "supports": 2
+        },
+        "after": {
+          "strength": "moderate",
+          "tier": "refresh",
+          "low": 1123,
+          "high": 4490,
+          "supports": 1
+        }
+      },
+      {
+        "property_key": "redfin_80877597",
+        "candidate_id": "pk1_f5a6c48b34e349e4",
+        "unit": "bedroom_2",
+        "package_type": "bedroom_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 1123,
+          "high": 4490,
+          "supports": 2
+        },
+        "after": {
+          "strength": "moderate",
+          "tier": "refresh",
+          "low": 1123,
+          "high": 4490,
+          "supports": 1
+        }
+      },
+      {
+        "property_key": "redfin_80925528",
+        "candidate_id": "pk1_5e3507204cf495fe",
+        "unit": "living_room_primary",
+        "package_type": "living_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 2000,
+          "high": 12722,
+          "supports": 4
+        },
+        "after": {
+          "strength": "strong",
+          "tier": "refresh",
+          "low": 2000,
+          "high": 12196,
+          "supports": 3
+        }
+      },
+      {
+        "property_key": "redfin_80990371",
+        "candidate_id": "pk1_c6fb100a28d4e580",
+        "unit": "kitchen_primary",
+        "package_type": "kitchen_modernization",
+        "class": "support_list_only",
+        "supports_before": 6,
+        "supports_after": 5
+      },
+      {
+        "property_key": "redfin_81000709",
+        "candidate_id": "pk1_75738b025bed26ef",
+        "unit": "bedroom_1",
+        "package_type": "bedroom_modernization",
+        "class": "shape_changes",
+        "as_is": {
+          "strength": "strong",
+          "tier": "full_rehab",
+          "low": 4249,
+          "high": 12746,
+          "supports": 2
+        },
+        "after": {
+          "strength": "moderate",
+          "tier": "full_rehab",
+          "low": 4249,
+          "high": 12746,
+          "supports": 1
+        }
+      }
+    ]
+  },
+  "wallpaper_double_charge_units": [
+    {
+      "property_key": "redfin_25809814",
+      "unit": "bathroom_primary",
+      "as_is_work_items": [
+        {
+          "items": [
+            "dated_wallpaper_present"
+          ],
+          "trade_bucket": "interior_finishes",
+          "unit_policy": "per_scope",
+          "low": 140,
+          "high": 699
+        },
+        {
+          "items": [
+            "dated_bathroom_wallpaper"
+          ],
+          "trade_bucket": "paint_drywall",
+          "unit_policy": "per_bathroom",
+          "low": 345,
+          "high": 1726
+        }
+      ],
+      "both_ops_work_items": [
+        {
+          "items": [
+            "dated_wallpaper_present"
+          ],
+          "low": 140,
+          "high": 699
+        },
+        {
+          "items": [
+            "dated_bathroom_wallpaper"
+          ],
+          "low": 345,
+          "high": 1726
+        }
+      ]
+    }
+  ],
+  "wallpaper_finding": "The double charge is still present in the replayed arm, and that is expected rather than a failure of the fix. replay_property reuses the stored observed_conditions verbatim (_REVIEW_KEYS) and never re-runs Pass 2d, so a RETRIEVAL-time fix cannot manifest in a replay of a 3.1-era artifact whose conditions were resolved under the old scene set. The exclusion prevents the generic item from being SELECTED in a bathroom on a fresh run; stored artifacts keep the duplicate until they are re-resolved. Tier 2 is where this fix is demonstrated: the item leaves the candidate list of all 33 bathroom rows. The cutover replay from frozen Pass 2c is what clears the stored duplicates.",
+  "trim_finding": "The trim op's package effect reproduces the frozen 2026-09-08 measurement exactly (77 identical, 15 support-list-only, 9 shape changes, 1 candidate disappears), which is the instrument check for this run. Unlike the wallpaper op, the trim op is a ROUTE change, which the replay does apply: dispositions are recomputed from the stored verdict against the current route.",
+  "wallpaper_package_effect": "None. The both_ops arm produces candidate classes identical to trim_only, so the scene exclusion changes no package candidate on any replayed property.",
+  "per_property": [
+    {
+      "property_key": "redfin_10803207",
+      "candidates": 3
+    },
+    {
+      "property_key": "redfin_10806500",
+      "candidates": 3
+    },
+    {
+      "property_key": "redfin_10952874",
+      "candidates": 9
+    },
+    {
+      "property_key": "redfin_11000447",
+      "candidates": 5
+    },
+    {
+      "property_key": "redfin_11077450",
+      "candidates": 5
+    },
+    {
+      "property_key": "redfin_11079485",
+      "candidates": 3
+    },
+    {
+      "property_key": "redfin_11185681",
+      "candidates": 11
+    },
+    {
+      "property_key": "redfin_125779232",
+      "candidates": 5
+    },
+    {
+      "property_key": "redfin_125970550",
+      "candidates": 7
+    },
+    {
+      "property_key": "redfin_126418713",
+      "candidates": 5
+    },
+    {
+      "property_key": "redfin_127468088",
+      "candidates": 6
+    },
+    {
+      "property_key": "redfin_166147710",
+      "candidates": 8
+    },
+    {
+      "property_key": "redfin_25809814",
+      "candidates": 5
+    },
+    {
+      "property_key": "redfin_80877597",
+      "candidates": 7
+    },
+    {
+      "property_key": "redfin_80925528",
+      "candidates": 6
+    },
+    {
+      "property_key": "redfin_80990371",
+      "candidates": 10
+    },
+    {
+      "property_key": "redfin_81000709",
+      "candidates": 4
+    }
+  ]
+}

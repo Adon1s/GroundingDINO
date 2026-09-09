@@ -1,0 +1,89 @@
+{
+  "schema_version": "catalog-checkpoint-affected-artifacts-v1",
+  "what_this_is": "Stored artifacts naming an item this checkpoint changed, by byte substring match, the same method as the Session 5 stale-id inventory.",
+  "photo_intel_debug_files_scanned": 97,
+  "by_item": {
+    "dated_interior_trim": {
+      "files": 97,
+      "properties": 18
+    },
+    "dated_wallpaper_present": {
+      "files": 96,
+      "properties": 18
+    },
+    "dated_window_treatment_valance": {
+      "files": 97,
+      "properties": 18
+    }
+  },
+  "by_root": {
+    "baseline": {
+      "dated_interior_trim": 18,
+      "dated_wallpaper_present": 18,
+      "dated_window_treatment_valance": 18
+    },
+    "candidate": {
+      "dated_interior_trim": 18,
+      "dated_wallpaper_present": 18,
+      "dated_window_treatment_valance": 18
+    },
+    "candidate_archive_pre_v31": {
+      "dated_interior_trim": 5,
+      "dated_wallpaper_present": 5,
+      "dated_window_treatment_valance": 5
+    },
+    "renovation_session6_20260816_02": {
+      "dated_interior_trim": 18,
+      "dated_wallpaper_present": 18,
+      "dated_window_treatment_valance": 18
+    },
+    "renovation_session9_20260818": {
+      "dated_interior_trim": 36,
+      "dated_wallpaper_present": 35,
+      "dated_window_treatment_valance": 36
+    },
+    "worker_smoke_20260821": {
+      "dated_interior_trim": 2,
+      "dated_wallpaper_present": 2,
+      "dated_window_treatment_valance": 2
+    }
+  },
+  "note": "The route and scene changes do NOT strand these artifacts the way a removed id does: both items keep their ids, so offline recompute still resolves them. What invalidates them is the projection fingerprint, which is listing-global and already moved under CAP-007. dated_window_treatment_valance is listed because the SAME artifacts carry CAP-007's removed parent, which DOES hard-fail offline recompute (S4-2/CCF-8) and is what makes a cutover replay mandatory.",
+  "cutover_plan": {
+    "status": "planned, NOT executed; no production mutation is authorized",
+    "steps": [
+      "1. Replay from frozen Pass 2c under a NEW run namespace so no stored artifact is overwritten and the old run stays readable.",
+      "2. Re-resolve every observation: this is what clears the CAP-007 parent, applies the wallpaper scene exclusion (a retrieval-time fix a replay cannot show) and re-routes trim observations to no_action.",
+      "3. Expect every stored Terra and Sol checkpoint to be invalid: the projection fingerprint is listing-global. Do not attempt partial reuse.",
+      "4. Obtain fresh Sol decisions for every package whose support list changed: 15 support-list-only plus 9 shape changes plus 1 disappearing candidate on the replayable set. This is also the Catalog 3.2 acceptance data still owed.",
+      "5. No runtime alias for the removed parent; a resumed run carrying a stale id must keep failing hard."
+    ],
+    "explicitly_not_done_here": [
+      "no production mutation",
+      "no publication",
+      "no provider call",
+      "no edit to any stored or frozen artifact"
+    ]
+  },
+  "property_count_discrepancy": "This scan finds 97 files across 18 distinct properties under artifacts_canary; the packet reports the same 97 files but 20 properties. The 97 file count reproduces exactly, and the 18 properties are enumerable from the paths. The packet figure most likely counts the 20 properties that OWN trim rows in the replay corpus, which includes production runs that do not live under artifacts_canary. Recorded rather than reconciled by picking one: the file count is the load-bearing number for the cutover, and it agrees.",
+  "properties_enumerated": [
+    "redfin_10803207",
+    "redfin_10806500",
+    "redfin_10952874",
+    "redfin_11000447",
+    "redfin_11077450",
+    "redfin_11079485",
+    "redfin_11185681",
+    "redfin_125779232",
+    "redfin_125970550",
+    "redfin_126224899",
+    "redfin_126418713",
+    "redfin_127468088",
+    "redfin_166147710",
+    "redfin_25809814",
+    "redfin_80877597",
+    "redfin_80925528",
+    "redfin_80990371",
+    "redfin_81000709"
+  ]
+}

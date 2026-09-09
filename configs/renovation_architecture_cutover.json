@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "minimum_canary_properties": 18,
+  "required_replicates": 2,
+  "headline_delta_review_threshold": 0.15,
+  "terra_daily_token_ceiling": 2500000,
+  "terra_condition_token_allocation_policy": "batch_total_evenly_across_reviewed_conditions_v1"
+}

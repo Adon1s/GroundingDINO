@@ -1,0 +1,331 @@
+{
+  "schema_version": "catalog-audit-approvals-v2",
+  "program": "catalog_audit",
+  "record_type": "bounded catalog policy checkpoint, 2026-09-08",
+  "status": "approved by Steven in chat 2026-09-08; implementation authorized",
+  "what_this_is": "The authorization for the 2026-09-08 catalog policy checkpoint. It does not supersede reports/catalog_audit_approvals.json, which remains the CAP-007 authorization and is preserved unedited. Human reasoning and the accepted losses are in docs/DECISION_RECORD_catalog_checkpoint_20260908.md.",
+  "reviewed_by": "Steven",
+  "reviewed_at": "2026-09-08",
+  "review_provenance": "Decisions D1-D8 and the CAP-013 second-card adjudication were given by Steven in chat on 2026-09-08, in answer to explicitly evidenced alternatives with their measured losses. Recorded verbatim in the decision record.",
+  "approved_against": {
+    "implementation_base_commit": "6e67eaa83887cf4d218100dcd060c07d3bd30522",
+    "implementation_base_branch": "catalog_audit_session4",
+    "base_decisions_sha256": "2e49a82f9961c2623342ec84743a0997299fd50f0dfcc7939196029cf19b9c76",
+    "base_catalog_sha256": "43d8147ee8abd4f4df51bcf88a83ba99d834c415b9d5d28295fa0a33f3457acf",
+    "generator_blob_after_support": "d469d4a32d323f79be7dfb8b530c4a0f8a941cde",
+    "generator_sha256_after_support": "6a462249c135c408cefdcb81292b36408cc67ea87adc47c2c8256aaec6976163",
+    "generator_support_commit": "637a7c0834844ef7413a1f7c424c6c14080db64b",
+    "authoring_surface_v2_sha256": "01c9bbd49edae9c307807f6394459fe521215ed2ab4e4ec0b883a2aadd2c20cc",
+    "decision_record_sha256": "916cff09fd15971b40d99bcae2bc18ed1b0b80a0f72699c9e7ad0a50b48ae567",
+    "packet_sha256": "99a40d74af9a9d36f5b4e644f4bba61fb2c055181268a8a491553c7f63791637",
+    "decision_packet_md_sha256": "befb086e8fd200f83a0fb2a5e59bf29fe14771a60345fa5fc792bf9e9201b76e",
+    "source_manifest_sha256": "90d67401c9277b76d0af5d06d6684a18b59fda98f272c36755fcd3566cd28a6c",
+    "source_manifest_note": "The packet pins bd4003f8...; the manifest was regenerated 44 seconds after the packet (the charter's 'regenerated last' step) and now pins the final packet 99a40d74..., which matches disk. The manifest is the later artifact, so its pin is authoritative. See decision record section 0.",
+    "cap022_proposal_sha256": "7e1a625d7c6096cd03700d34176950f14078f9cc99eb64d91cf49fd88b7c1d55",
+    "photo_review_sha256": "399f376fcd59ce0e82df60ae0168e6c7a418aa6d6fac18aaa46f224c45d26c33",
+    "live_validation_bundle_sha256": "ee1bcf62ea6e37bd76e8f4b7f32612324736d34373de811cb340171249be4f5c",
+    "prior_approvals_sha256": "a725c89af131e94b04867f4f5a226bda495278a8ba28fdd7162ed6188d76c871",
+    "prior_approvals_rule": "never edited; CAP-007 remains authorized by that file alone"
+  },
+  "support_authorization": {
+    "generator": "approved",
+    "generator_scope": "admit route_override and scene_groups to the carryover override set (renamed CARRYOVER_OVERRIDE_FIELDS). require_any deliberately NOT admitted: CAP-022 was declined, so S6-12 stays a recorded gap. Economic and unknown keys still fail closed.",
+    "renderer": "approved",
+    "renderer_scope": "a current authoring-surface record for classifying NEW ops; the frozen evidence bundle and its historical classification are untouched and the bundle is not rebuilt.",
+    "harnesses": "approved",
+    "harnesses_scope": "manifest-parameterized pins with the Session 5/6 CAP-007 values as defaults, so the historical path is byte-identical when --manifest is omitted."
+  },
+  "approved_diff": {
+    "target_file": "tools/catalog_migrations/kind_v2_decisions.json",
+    "op_shape": "JSON-pointer set ops relative to the decisions entry, as scripts/render_catalog_audit_proposals.py apply_ops consumes them",
+    "ops": [
+      {
+        "legacy_id": "dated_interior_trim",
+        "op": "set",
+        "path": "/successors/0/overrides/route_override",
+        "after": "no_action",
+        "before": null
+      },
+      {
+        "legacy_id": "dated_wallpaper_present",
+        "op": "set",
+        "path": "/successors/0/overrides/scene_groups",
+        "after": [
+          "kitchen",
+          "bedroom",
+          "living_areas",
+          "utility"
+        ],
+        "before": null
+      }
+    ],
+    "expected_generated_changes": {
+      "added_items": [],
+      "removed_items": [],
+      "item_diff": {
+        "dated_interior_trim": {
+          "route_override": {
+            "before": null,
+            "after": "no_action"
+          }
+        },
+        "dated_wallpaper_present": {
+          "scene_groups": {
+            "before": [
+              "kitchen",
+              "bathroom",
+              "bedroom",
+              "living_areas",
+              "utility"
+            ],
+            "after": [
+              "kitchen",
+              "bedroom",
+              "living_areas",
+              "utility"
+            ]
+          }
+        }
+      },
+      "order_ok": true,
+      "manifest_diff_keys": []
+    },
+    "dry_run_at_approval": {
+      "ok": true,
+      "classification": [
+        [
+          "/successors/0/overrides/route_override",
+          "native"
+        ],
+        [
+          "/successors/0/overrides/scene_groups",
+          "native"
+        ]
+      ],
+      "metadata_problems": [],
+      "catalog_validation_errors": [],
+      "catalog_validation_warning_count": 42,
+      "manifest_validation_errors": [],
+      "surface_carryover_fields": [
+        "deny_any",
+        "description",
+        "embed_text",
+        "name",
+        "route_override",
+        "scene_groups",
+        "support_any"
+      ]
+    }
+  },
+  "dispositions": [
+    {
+      "proposal_id": "CAP-023",
+      "title": "Trim policy: route_override no_action on dated_interior_trim",
+      "disposition": "approved",
+      "decision_ref": "D1",
+      "approved_diff_ops": [
+        {
+          "legacy_id": "dated_interior_trim",
+          "op": "set",
+          "path": "/successors/0/overrides/route_override",
+          "after": "no_action",
+          "before": null
+        }
+      ],
+      "conditions": [
+        "Claim text unchanged, so atomic_claim does not move and the item id survives: no new stale ids and no trim-specific cutover.",
+        "The 27 standalone trim billings stop ($2,242-$11,212 across the 17 replayable artifacts). Disclosed and accepted.",
+        "Plain-trim package context leaves support lists: 7 bedroom packages strong->moderate at unchanged tier and price, 2 living highs down $394 and $526, 1 driverless bedroom package no longer forms. Disclosed and accepted.",
+        "package_affinity on the item becomes dead configuration and is retained deliberately as the landing pad for the D7 gated design.",
+        "Tier 2 must show this op changes no top-8 list, no first candidate and no lexical shortcut: a route is not retrieval metadata."
+      ],
+      "notes": "Chosen over CAP-022 alone, the presence-stem deny lever, retirement and the preservation split. CAP-022 was declined as unnecessary: it would move 4 subject-mismatched rows out of the item, one onto billable dated_wood_paneling, trading a zero-dollar display imprecision for a new false billing."
+    },
+    {
+      "proposal_id": "CCF-13",
+      "title": "Wallpaper double charge: bathroom scene exclusion on dated_wallpaper_present",
+      "disposition": "approved",
+      "decision_ref": "D4",
+      "approved_diff_ops": [
+        {
+          "legacy_id": "dated_wallpaper_present",
+          "op": "set",
+          "path": "/successors/0/overrides/scene_groups",
+          "after": [
+            "kitchen",
+            "bedroom",
+            "living_areas",
+            "utility"
+          ],
+          "before": null
+        }
+      ],
+      "conditions": [
+        "Nothing is stranded: the generic item has no bathroom package_affinity, so removing the bathroom scene loses no routing.",
+        "Measured: the generic item sits in the post-guardrail top-8 of 33 of 267 bathroom-scene rows and is first candidate on 7; removing it changes no lexical shortcut.",
+        "The LLM-path consequence on those 33 rows is not measurable offline and is accepted unmeasured; no Pass 2d replay is authorized.",
+        "Residual: a future bathroom bullet phrased 'wallcovering' without 'wallpaper' has no owner, because it fails the bathroom item's require_any.",
+        "Not fixed through the work-item dedup key, which is code and outside this program."
+      ],
+      "notes": "One wall, two charges, reproduced byte-identically under 3.2 on redfin_25809814 photo_019."
+    },
+    {
+      "proposal_id": "CAP-008",
+      "title": "dated_interior_trim plain-presence billing",
+      "disposition": "resolved_by_approved_change",
+      "decision_ref": "D1",
+      "approved_diff_ops": null,
+      "conditions": [
+        "Resolved when CAP-023 lands and Tier 1/2 pass, with the disclosed losses accepted. Approving a mechanism is not a completed disposition."
+      ],
+      "notes": "The live check disproved wording as the eligibility instrument; the route is the lever."
+    },
+    {
+      "proposal_id": "CAP-022",
+      "title": "require_any subject gate on dated_interior_trim",
+      "disposition": "subsumed_not_implemented",
+      "decision_ref": "D1",
+      "approved_diff_ops": null,
+      "conditions": [
+        "Recorded as an optional display-precision follow-on with its measured cost: 4 trim-owned rows lost, 1 landing first on billable dated_wood_paneling.",
+        "require_any is therefore NOT admitted to carryover overrides; S6-12 stays a recorded gap."
+      ],
+      "notes": "The proposal document is preserved as history, not as a pending change."
+    },
+    {
+      "proposal_id": "S6-2",
+      "title": "Blinds visibility: ten rows undetected rather than displayed at no_action",
+      "disposition": "accepted_limitation",
+      "decision_ref": "D3",
+      "approved_diff_ops": null,
+      "conditions": [
+        "The ten rows are recorded as the accepted-limitations list and added to the Pass 2d worklist as a distinct category.",
+        "A-4's visibility requirement is satisfied by acceptance and is no longer open.",
+        "The support_any 'treatment' lever stays rejected for opening shortcut surface."
+      ],
+      "reopening_trigger": "the frontend requires the v5 blinds no_action envelope specifically"
+    },
+    {
+      "proposal_id": "CCF-14",
+      "title": "Evidence precedence for matched gold annotations",
+      "disposition": "ruled",
+      "decision_ref": "D5",
+      "approved_diff_ops": null,
+      "conditions": [
+        "An explicit matched human gold annotation is evidence of the observation it states; billability is a separate axis; automated gold_incomplete matches are not evidence.",
+        "CAP-014 gains one human unit (g3, redfin_10806500 photo_003) and still fails two-property independence."
+      ]
+    },
+    {
+      "proposal_id": "CAP-013",
+      "title": "Missing or incomplete interior base trim",
+      "disposition": "deferred",
+      "decision_ref": "D8 and the rc_7057c3c171e5 adjudication",
+      "approved_diff_ops": null,
+      "conditions": [
+        "Kitchen rc_ceeb17f8e242 is represented by the kitchen package's CABINET_REPLACE driver and counter scope. Accepted, with the residual that a rejected package leaves the work unowned, unchanged from today.",
+        "Steven adjudicated rc_7057c3c171e5 (redfin_10952874 photos 018/027) as missing base trim and real work, so the two-property evidence bar is MET and the concept is no longer evidence-blocked.",
+        "It remains schema-blocked and unauthorized: Q-6 stands, no authoring or schema work is approved, nothing is implemented here.",
+        "A later proposal must decide the subject breadth the two units span (wall base trim only vs interior trim including cabinet casework) and account for overlap with baseboard_wear_scuffs, whose embed_text advertises missing trim while its atomic_claim states wear only."
+      ]
+    },
+    {
+      "proposal_id": "CAP-010",
+      "title": "fence_weathered, leaning fence",
+      "disposition": "deferred",
+      "decision_ref": "D6",
+      "approved_diff_ops": null,
+      "conditions": [
+        "The lean was captured and billed on the sibling successor; exposure is semantic, not dollars."
+      ],
+      "reopening_trigger": "a human unit on a different property where a leaning fence was lost or double-billed"
+    },
+    {
+      "proposal_id": "CAP-014",
+      "title": "wall_scuffs_marks_or_dents over-reach",
+      "disposition": "deferred",
+      "decision_ref": "D5",
+      "approved_diff_ops": null,
+      "conditions": [
+        "One human unit after the CCF-14 ruling; the eight scuffs-vs-paint rows are Pass 2d selection and two are Pass 2c kind exclusion."
+      ],
+      "reopening_trigger": "a second human-adjudicated property plus a demonstrated catalog mechanism"
+    },
+    {
+      "proposal_id": "CAP-016",
+      "title": "swirled plaster ceiling texture",
+      "disposition": "deferred",
+      "decision_ref": "D6",
+      "approved_diff_ops": null,
+      "conditions": [
+        "The swirl example was Terra-supported and billed, so the open question is naming; the bare 'ceiling texture' shortcut token goes to the Pass 2d worklist."
+      ],
+      "reopening_trigger": "a concrete era/style ruling case or a consequential subject correction"
+    },
+    {
+      "proposal_id": "CAP-018",
+      "title": "stone billed as brick near grade",
+      "disposition": "deferred",
+      "decision_ref": "D6",
+      "approved_diff_ops": null,
+      "conditions": [
+        "The corpus supplies no second property."
+      ],
+      "reopening_trigger": "a second-property human unit, the stone-near-grade billability ruling, and the intact-mortar qualifier decision"
+    },
+    {
+      "proposal_id": "D6-tranche-2",
+      "title": "cabinets, appliances, interior doors, paint",
+      "disposition": "no_change_recorded_with_trigger",
+      "decision_ref": "D6",
+      "approved_diff_ops": null,
+      "conditions": [
+        "No human-adjudicated plain-grade billing exists for any of the four.",
+        "dated_interior_doors is the strongest remaining case but dated doors are plausibly real modernization work, so the trim mechanism is not transferable without a product ruling.",
+        "dated_bathroom_vanity_light and older_ceiling_fan_style are already non-billing through the electrical product quarantine."
+      ],
+      "reopening_trigger": "a human-adjudicated plain-grade billing in the family, or the electrical quarantine being lifted"
+    },
+    {
+      "proposal_id": "D7-supporting-context",
+      "title": "no_action conditions as package context",
+      "disposition": "deferred_design_recorded",
+      "decision_ref": "D7",
+      "approved_diff_ops": null,
+      "conditions": [
+        "No new code in this checkpoint. v5 has no context lane: a no_action condition forms no work item, so it cannot be a package support.",
+        "Recorded design, not authorized: let a no_action condition carrying package_affinity count as a zero-dollar support for strength only, never for dollars and never for package formation.",
+        "dated_interior_trim keeps its package_affinity block as the landing pad."
+      ],
+      "reopening_trigger": "whole-property acceptance shows package-strength regressions that change a decision"
+    },
+    {
+      "proposal_id": "CCF-5",
+      "title": "railing and handrail finish wear",
+      "disposition": "deferred",
+      "decision_ref": "D6",
+      "approved_diff_ops": null,
+      "conditions": [
+        "The 14 unresolved bullets on 8 properties are dated railing style, not finish wear and not a safety defect."
+      ],
+      "reopening_trigger": "a human-adjudicated railing finish-wear or unsafe-railing observation with no home"
+    }
+  ],
+  "validation_required_before_this_is_considered_delivered": [
+    "Tier 1: ops applied with apply_ops reproduce the on-disk decisions byte-for-byte; generated diff equals expected_generated_changes; double generation byte-identical; validator zero errors.",
+    "Tier 2: retrieval snapshot before/after on the 1,969-row corpus; the trim op must change nothing; the wallpaper op's changes must be exactly the bathroom-scene rows that carried the generic item, listed row by row.",
+    "Projection identities recorded; atomic_claim unchanged for every item.",
+    "Provider-free package replay over the 17 replayable artifacts; report candidate shape classes, never headline dollars.",
+    "Affected-artifact inventory and a cutover plan; no production mutation and no runtime alias."
+  ],
+  "not_authorized_by_this_record": [
+    "publication, production mutation, or any cutover execution",
+    "any provider or local-model spend, including the Pass 2d replay that would measure the D4 residual",
+    "Stage B",
+    "frontend, pricing, or dedup-key work",
+    "CAP-013 schema or authoring work",
+    "admitting require_any to carryover overrides",
+    "claim-text edits (A-7) or removing inherited economics from any no_action item",
+    "editing a frozen artifact, reports/catalog_audit_approvals.json, or the evidence bundle"
+  ]
+}

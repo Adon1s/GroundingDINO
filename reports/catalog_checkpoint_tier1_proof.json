@@ -1,0 +1,373 @@
+{
+  "schema_version": "catalog-checkpoint-tier1-proof-v1",
+  "program": "catalog_audit",
+  "what_this_is": "Tier 1 proof for the 2026-09-08 checkpoint ops against the approval.",
+  "base_commit": "6e67eaa83887cf4d218100dcd060c07d3bd30522",
+  "approvals_v2_sha256": "3c939bf5295a9ddbe2108e609c71b4b1dd99af064c092a56827489e0842ec3aa",
+  "ops": [
+    {
+      "legacy_id": "dated_interior_trim",
+      "op": "set",
+      "path": "/successors/0/overrides/route_override",
+      "after": "no_action",
+      "before": null
+    },
+    {
+      "legacy_id": "dated_wallpaper_present",
+      "op": "set",
+      "path": "/successors/0/overrides/scene_groups",
+      "after": [
+        "kitchen",
+        "bedroom",
+        "living_areas",
+        "utility"
+      ],
+      "before": null
+    }
+  ],
+  "artifacts": {
+    "decisions_sha256": "4cd0bc073f6fcdab3bde93993ed05a6199645e756e0df4b816230bd047a3b005",
+    "catalog_sha256": "787964013d083368403524c610df54cc9858a8f6c1a1e5c9535c7204c1e67a2f",
+    "migration_manifest_sha256": "6b944b83fee7b350bdc7183d3def8f5849d3b97ca4d017c7dcc4efcd64936a18",
+    "audit_md_sha256": "cac2750a20799b837293c04b7afd098fb071f8326c1f9edcc41e1dc1ed0e8a81"
+  },
+  "projection": {
+    "base_fingerprint": "7f200b139273e62d31964f169b4f36c87dbf0c908e7b121bbdce28edde4d0819",
+    "candidate_fingerprint": "185a3923ad0acc0e66417f90c4395d24ec00557ff1d2626a7cb5578b3d8be28b",
+    "base_route_counts": {
+      "excluded_generic": 4,
+      "excluded_quarantine": 12,
+      "inspection": 5,
+      "no_action": 10,
+      "work": 98
+    },
+    "candidate_route_counts": {
+      "excluded_generic": 4,
+      "excluded_quarantine": 12,
+      "inspection": 5,
+      "no_action": 11,
+      "work": 97
+    },
+    "catalog_version": "3.2",
+    "items": 129,
+    "base_fingerprint_caveat": "The base-arm projection was built from the 6e67eaa catalog DICT but with catalog_path pointing at the candidate file on disk, so its catalog_sha256 component - and therefore this fingerprint - is not the historical 6e67eaa identity (d09c1226...). Only the relative claim is made from it: the fingerprint moves. The candidate fingerprint IS a true identity: it was recomputed independently from the on-disk candidate catalog and reproduces exactly.",
+    "candidate_fingerprint_independently_verified": true
+  },
+  "generated_diff": {
+    "added_items": [],
+    "removed_items": [],
+    "item_diff": {
+      "dated_interior_trim": {
+        "route_override": {
+          "before": null,
+          "after": "no_action"
+        }
+      },
+      "dated_wallpaper_present": {
+        "scene_groups": {
+          "before": [
+            "kitchen",
+            "bathroom",
+            "bedroom",
+            "living_areas",
+            "utility"
+          ],
+          "after": [
+            "kitchen",
+            "bedroom",
+            "living_areas",
+            "utility"
+          ]
+        }
+      }
+    },
+    "order_ok": true
+  },
+  "validator": {
+    "catalog_errors": [],
+    "catalog_warnings": 42,
+    "manifest_errors": []
+  },
+  "checks": [
+    {
+      "id": "T1.1",
+      "check": "double generation byte-identical",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "id": "T1.2",
+      "check": "generated catalog on disk equals a fresh generation",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "id": "T1.3",
+      "check": "decisions on disk equal apply_ops(base decisions, approved ops)",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "id": "T1.4",
+      "check": "generated diff equals the approval's expected_generated_changes",
+      "ok": true,
+      "detail": {
+        "actual": {
+          "added_items": [],
+          "removed_items": [],
+          "item_diff": {
+            "dated_interior_trim": {
+              "route_override": {
+                "before": null,
+                "after": "no_action"
+              }
+            },
+            "dated_wallpaper_present": {
+              "scene_groups": {
+                "before": [
+                  "kitchen",
+                  "bathroom",
+                  "bedroom",
+                  "living_areas",
+                  "utility"
+                ],
+                "after": [
+                  "kitchen",
+                  "bedroom",
+                  "living_areas",
+                  "utility"
+                ]
+              }
+            }
+          },
+          "order_ok": true
+        },
+        "expected": {
+          "added_items": [],
+          "removed_items": [],
+          "item_diff": {
+            "dated_interior_trim": {
+              "route_override": {
+                "before": null,
+                "after": "no_action"
+              }
+            },
+            "dated_wallpaper_present": {
+              "scene_groups": {
+                "before": [
+                  "kitchen",
+                  "bathroom",
+                  "bedroom",
+                  "living_areas",
+                  "utility"
+                ],
+                "after": [
+                  "kitchen",
+                  "bedroom",
+                  "living_areas",
+                  "utility"
+                ]
+              }
+            }
+          },
+          "order_ok": true
+        }
+      }
+    },
+    {
+      "id": "T1.5",
+      "check": "no item added or removed",
+      "ok": true,
+      "detail": {
+        "added": [],
+        "removed": []
+      }
+    },
+    {
+      "id": "T1.6",
+      "check": "exactly two items changed",
+      "ok": true,
+      "detail": {
+        "changed": [
+          "dated_interior_trim",
+          "dated_wallpaper_present"
+        ]
+      }
+    },
+    {
+      "id": "T1.7",
+      "check": "item order preserved",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "id": "T1.8",
+      "check": "trim changed only route_override",
+      "ok": true,
+      "detail": {
+        "fields": [
+          "route_override"
+        ]
+      }
+    },
+    {
+      "id": "T1.9",
+      "check": "wallpaper changed only scene_groups",
+      "ok": true,
+      "detail": {
+        "fields": [
+          "scene_groups"
+        ]
+      }
+    },
+    {
+      "id": "T1.10",
+      "check": "catalog validator zero errors",
+      "ok": true,
+      "detail": {
+        "errors": []
+      }
+    },
+    {
+      "id": "T1.11",
+      "check": "migration manifest validator zero errors",
+      "ok": true,
+      "detail": {
+        "errors": []
+      }
+    },
+    {
+      "id": "T1.12",
+      "check": "validator warning count unchanged versus base",
+      "ok": true,
+      "detail": {
+        "base": 42,
+        "candidate": 42
+      }
+    },
+    {
+      "id": "T1.13",
+      "check": "atomic_claim unchanged for every item",
+      "ok": true,
+      "detail": {
+        "changed": []
+      }
+    },
+    {
+      "id": "T1.14",
+      "check": "item id set unchanged",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "id": "T1.15",
+      "check": "exactly one terminal route changed",
+      "ok": true,
+      "detail": {
+        "changed": [
+          "dated_interior_trim"
+        ]
+      }
+    },
+    {
+      "id": "T1.16",
+      "check": "trim routes no_action by explicit override",
+      "ok": true,
+      "detail": {
+        "route": "no_action",
+        "reason_code": "route_override_no_action"
+      }
+    },
+    {
+      "id": "T1.17",
+      "check": "trim has no work policy (this is what stops it billing)",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "id": "T1.18",
+      "check": "route counts move by exactly one item",
+      "ok": true,
+      "detail": {
+        "base": {
+          "excluded_generic": 4,
+          "excluded_quarantine": 12,
+          "inspection": 5,
+          "no_action": 10,
+          "work": 98
+        },
+        "candidate": {
+          "excluded_generic": 4,
+          "excluded_quarantine": 12,
+          "inspection": 5,
+          "no_action": 11,
+          "work": 97
+        }
+      }
+    },
+    {
+      "id": "T1.19",
+      "check": "exactly one observable changed (the wallpaper scene set)",
+      "ok": true,
+      "detail": {
+        "changed": [
+          "dated_wallpaper_present"
+        ]
+      }
+    },
+    {
+      "id": "T1.20",
+      "check": "bathroom removed from the generic wallpaper item",
+      "ok": true,
+      "detail": {
+        "scene_groups": [
+          "bedroom",
+          "kitchen",
+          "living_areas",
+          "utility"
+        ]
+      }
+    },
+    {
+      "id": "T1.21",
+      "check": "bathroom-specific wallpaper item untouched and still bathroom-scoped",
+      "ok": true,
+      "detail": {
+        "scene_groups": [
+          "bathroom"
+        ]
+      }
+    },
+    {
+      "id": "T1.22",
+      "check": "trim retains package_affinity as the D7 landing pad",
+      "ok": true,
+      "detail": {
+        "rooms": [
+          "bathroom",
+          "bedroom",
+          "kitchen",
+          "living"
+        ]
+      }
+    },
+    {
+      "id": "T1.23",
+      "check": "trim keeps cost and work_item_code, which keep the override non-redundant",
+      "ok": true,
+      "detail": null
+    },
+    {
+      "id": "T1.24",
+      "check": "projection fingerprint moves (stored checkpoints invalidate, as disclosed)",
+      "ok": true,
+      "detail": {
+        "base": "7f200b139273e62d31964f169b4f36c87dbf0c908e7b121bbdce28edde4d0819",
+        "candidate": "185a3923ad0acc0e66417f90c4395d24ec00557ff1d2626a7cb5578b3d8be28b"
+      }
+    }
+  ],
+  "passed": 24,
+  "total": 24,
+  "result": "pass"
+}

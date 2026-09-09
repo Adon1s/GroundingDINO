@@ -1,0 +1,912 @@
+{
+  "approvals": {
+    "op_count": 7,
+    "path": "reports/catalog_audit_approvals.json",
+    "proposal_id": "CAP-007",
+    "sha256": "a725c89af131e94b04867f4f5a226bda495278a8ba28fdd7162ed6188d76c871"
+  },
+  "arms": {
+    "baseline": {
+      "catalog": {
+        "item_count": 128,
+        "kind_counts": {
+          "defect": 52,
+          "degradation": 36,
+          "modernization": 40
+        },
+        "ontology_version": "observation-kind-v2",
+        "path": "tools/issue_catalog_kind_v2.json",
+        "publication_status": "publishable",
+        "sha256": "51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54",
+        "version": "3.2"
+      },
+      "files": {
+        "scripts/migrate_catalog_kind_v2.py": {
+          "git_blob": "aae7787f6e1b78614d59d4b91ff5d544c3e2ad52",
+          "sha256_on_disk": "b732022fcea8cd22109c7781eb0f93d0688d557230c759ccb6216d667250a053"
+        },
+        "tools/catalog_embeddings.py": {
+          "git_blob": "4c42756b78132b2595146f1b70118074ba104eef",
+          "sha256_on_disk": "6ae8312849e68b032cbbe2b131a6b87a5da8cf7f1b2fb21a5b374286f049df4f"
+        },
+        "tools/catalog_migrations/2.1_to_3.0.json": {
+          "git_blob": "669d601fd3eddbfb90e70729b8318bc2e390f8cb",
+          "sha256_on_disk": "3db144c907ce91b0c26d75b85c4136db38dd81da8505c8405f43cca246893666"
+        },
+        "tools/catalog_migrations/2.1_to_3.0_audit.md": {
+          "git_blob": "69a16d19eceaf00675b08a11e43fbacfbbc95af2",
+          "sha256_on_disk": "ee7c6e0fd4dec4cbd4a2e49ddd08c46681fd34036c7584ed2ab9126df128976b"
+        },
+        "tools/catalog_migrations/kind_v2_decisions.json": {
+          "git_blob": "be0f5f05750dcfde777491a3472872bb99ad0c0c",
+          "sha256_on_disk": "47614d822bdd6b672d8596050b46839d04a8a6df0a04c18e052f4a63bd1903e8"
+        },
+        "tools/catalog_validation.py": {
+          "git_blob": "bea25718f8164f3f11e69d14d410ede7c039785f",
+          "sha256_on_disk": "041637a3684bacd3bc06dd92955b845088b4fedda8bb7e2e31222ac9ec75bee2"
+        },
+        "tools/issue_catalog.json": {
+          "git_blob": "84b65797183571650ef2ff3da0d53b096ccbcca6",
+          "sha256_on_disk": "4ba046a1a78337f1c8e47701a011ec16e700c296782ddedbe7bf52cf888314f2"
+        },
+        "tools/issue_catalog_kind_v2.json": {
+          "git_blob": "46537481b97995f1bcd5b65af7b2c7bb1f7dba10",
+          "sha256_on_disk": "51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54"
+        },
+        "tools/observation_kinds.py": {
+          "git_blob": "d070c4fb28aac006e52d30e112fc4eb6575251f6",
+          "sha256_on_disk": "63ec5c58c41c184949c538dfce3e1403c2c42ab8fdab7163a132796d56409f1e"
+        },
+        "tools/pipeline_common.py": {
+          "git_blob": "d7cbca3da4ecb0b746c210f42ced5aaf50b4eb4a",
+          "sha256_on_disk": "21e49c55cc2067ef6c6c2e17ad6195735e8823e62c33b0c4ef61eec18f0747d4"
+        },
+        "tools/pipeline_config.py": {
+          "git_blob": "cc62dc213a558d696f17f157b3633ae455dd0a1f",
+          "sha256_on_disk": "24e219717cb1f856cf78a16be43f522e61aca7091201df9c6bf20ef4f428ef79"
+        },
+        "tools/renovation_architecture/catalog_projection.py": {
+          "git_blob": "8ea74740daebfdda417afdf18808a942146e9b15",
+          "sha256_on_disk": "d3ae7dcbb1a5f41d28b6088912038f01fd60115660b8235dc97862f7ab956d6b"
+        },
+        "tools/renovation_estimate.py": {
+          "git_blob": "b0a8a160a679926f5f0a30a5bf7aeceeab5fd3c3",
+          "sha256_on_disk": "d899cde6cba39ee91f0cac74bf23a3d79a4863e33ae39cdb6c58b0d3aebcedd3"
+        },
+        "tools/scene_classifier_orchestrator.py": {
+          "git_blob": "039157c093560615ce573a75f015391f3b08dedf",
+          "sha256_on_disk": "41206059e58cc85275e770b951fc9db855d364dce78855c779cd29d4cad58159"
+        },
+        "tools/scene_classifier_passes.py": {
+          "git_blob": "40b8b3568ef665c2de0f7b3421d51d029da271b1",
+          "sha256_on_disk": "63f36d85cdbf963d1807875103dd9e6f8600fba535605bfc27ca4279b42229d5"
+        }
+      },
+      "git": {
+        "branch": "terra_factorized_verifier",
+        "head": "9afe0fa5a0490a856abed507dccc4a02ed1de24c",
+        "porcelain_tracked": ""
+      },
+      "label": "baseline",
+      "prompts": {
+        "PASS_2B_PROMPT_VERSION": "pass_2b_atomic_v2",
+        "PASS_2C_PROMPT_VERSION": "pass_2c_kind_v3",
+        "PASS_2D_PROMPT_VERSION": "pass_2d_exact_kind_v2",
+        "PASS_2F_PROMPT_VERSION": "pass_2f_package_v2",
+        "REQUIRED_CATALOG_ONTOLOGY": "observation-kind-v2",
+        "REQUIRED_CATALOG_VERSION": "3.2",
+        "SOL_REVIEW_PROMPT_VERSION": "sol_package_review_v1",
+        "SOL_REVIEW_REASONING_EFFORT": "medium",
+        "TERRA_REVIEW_PROMPT_VERSION": "terra_condition_review_v1",
+        "TERRA_REVIEW_REASONING_EFFORT": "medium",
+        "sol_review_module_blob": "171d6e261bba12c598a9b24020fa881ef3ad2bcd",
+        "terra_review_module_blob": "c6dc7490d404b76a9a7ceb369714781c7289cbe7"
+      },
+      "root": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend"
+    },
+    "candidate": {
+      "catalog": {
+        "item_count": 129,
+        "kind_counts": {
+          "defect": 52,
+          "degradation": 36,
+          "modernization": 41
+        },
+        "ontology_version": "observation-kind-v2",
+        "path": "tools/issue_catalog_kind_v2.json",
+        "publication_status": "publishable",
+        "sha256": "43d8147ee8abd4f4df51bcf88a83ba99d834c415b9d5d28295fa0a33f3457acf",
+        "version": "3.2"
+      },
+      "files": {
+        "scripts/migrate_catalog_kind_v2.py": {
+          "git_blob": "aae7787f6e1b78614d59d4b91ff5d544c3e2ad52",
+          "sha256_on_disk": "b732022fcea8cd22109c7781eb0f93d0688d557230c759ccb6216d667250a053"
+        },
+        "tools/catalog_embeddings.py": {
+          "git_blob": "4c42756b78132b2595146f1b70118074ba104eef",
+          "sha256_on_disk": "6ae8312849e68b032cbbe2b131a6b87a5da8cf7f1b2fb21a5b374286f049df4f"
+        },
+        "tools/catalog_migrations/2.1_to_3.0.json": {
+          "git_blob": "c8e690ffdf6844fdfb777fc7e7e922143cf13926",
+          "sha256_on_disk": "6b944b83fee7b350bdc7183d3def8f5849d3b97ca4d017c7dcc4efcd64936a18"
+        },
+        "tools/catalog_migrations/2.1_to_3.0_audit.md": {
+          "git_blob": "4aea1912f0bd6a427fb1eb3369de0505921d33b7",
+          "sha256_on_disk": "cac2750a20799b837293c04b7afd098fb071f8326c1f9edcc41e1dc1ed0e8a81"
+        },
+        "tools/catalog_migrations/kind_v2_decisions.json": {
+          "git_blob": "f77c46d68f1baea68318072eff06f1940243c280",
+          "sha256_on_disk": "2e49a82f9961c2623342ec84743a0997299fd50f0dfcc7939196029cf19b9c76"
+        },
+        "tools/catalog_validation.py": {
+          "git_blob": "bea25718f8164f3f11e69d14d410ede7c039785f",
+          "sha256_on_disk": "041637a3684bacd3bc06dd92955b845088b4fedda8bb7e2e31222ac9ec75bee2"
+        },
+        "tools/issue_catalog.json": {
+          "git_blob": "84b65797183571650ef2ff3da0d53b096ccbcca6",
+          "sha256_on_disk": "4ba046a1a78337f1c8e47701a011ec16e700c296782ddedbe7bf52cf888314f2"
+        },
+        "tools/issue_catalog_kind_v2.json": {
+          "git_blob": "4413f5db5da7abf22c888cea3bef8d47b4f28396",
+          "sha256_on_disk": "43d8147ee8abd4f4df51bcf88a83ba99d834c415b9d5d28295fa0a33f3457acf"
+        },
+        "tools/observation_kinds.py": {
+          "git_blob": "d070c4fb28aac006e52d30e112fc4eb6575251f6",
+          "sha256_on_disk": "63ec5c58c41c184949c538dfce3e1403c2c42ab8fdab7163a132796d56409f1e"
+        },
+        "tools/pipeline_common.py": {
+          "git_blob": "d7cbca3da4ecb0b746c210f42ced5aaf50b4eb4a",
+          "sha256_on_disk": "21e49c55cc2067ef6c6c2e17ad6195735e8823e62c33b0c4ef61eec18f0747d4"
+        },
+        "tools/pipeline_config.py": {
+          "git_blob": "cc62dc213a558d696f17f157b3633ae455dd0a1f",
+          "sha256_on_disk": "24e219717cb1f856cf78a16be43f522e61aca7091201df9c6bf20ef4f428ef79"
+        },
+        "tools/renovation_architecture/catalog_projection.py": {
+          "git_blob": "8ea74740daebfdda417afdf18808a942146e9b15",
+          "sha256_on_disk": "d3ae7dcbb1a5f41d28b6088912038f01fd60115660b8235dc97862f7ab956d6b"
+        },
+        "tools/renovation_estimate.py": {
+          "git_blob": "b0a8a160a679926f5f0a30a5bf7aeceeab5fd3c3",
+          "sha256_on_disk": "d899cde6cba39ee91f0cac74bf23a3d79a4863e33ae39cdb6c58b0d3aebcedd3"
+        },
+        "tools/scene_classifier_orchestrator.py": {
+          "git_blob": "039157c093560615ce573a75f015391f3b08dedf",
+          "sha256_on_disk": "41206059e58cc85275e770b951fc9db855d364dce78855c779cd29d4cad58159"
+        },
+        "tools/scene_classifier_passes.py": {
+          "git_blob": "40b8b3568ef665c2de0f7b3421d51d029da271b1",
+          "sha256_on_disk": "63f36d85cdbf963d1807875103dd9e6f8600fba535605bfc27ca4279b42229d5"
+        }
+      },
+      "git": {
+        "branch": "catalog_audit_session4",
+        "head": "6e67eaa83887cf4d218100dcd060c07d3bd30522",
+        "porcelain_tracked": ""
+      },
+      "label": "candidate",
+      "prompts": {
+        "PASS_2B_PROMPT_VERSION": "pass_2b_atomic_v2",
+        "PASS_2C_PROMPT_VERSION": "pass_2c_kind_v3",
+        "PASS_2D_PROMPT_VERSION": "pass_2d_exact_kind_v2",
+        "PASS_2F_PROMPT_VERSION": "pass_2f_package_v2",
+        "REQUIRED_CATALOG_ONTOLOGY": "observation-kind-v2",
+        "REQUIRED_CATALOG_VERSION": "3.2",
+        "SOL_REVIEW_PROMPT_VERSION": "sol_package_review_v1",
+        "SOL_REVIEW_REASONING_EFFORT": "medium",
+        "TERRA_REVIEW_PROMPT_VERSION": "terra_condition_review_v1",
+        "TERRA_REVIEW_REASONING_EFFORT": "medium",
+        "sol_review_module_blob": "171d6e261bba12c598a9b24020fa881ef3ad2bcd",
+        "terra_review_module_blob": "c6dc7490d404b76a9a7ceb369714781c7289cbe7"
+      },
+      "root": "C:\\Users\\Steven\\PycharmProjects\\rv-catalog-audit-s4"
+    }
+  },
+  "checks": [
+    {
+      "detail": {
+        "head": "9afe0fa5a0490a856abed507dccc4a02ed1de24c",
+        "porcelain": ""
+      },
+      "id": "1.1a",
+      "name": "baseline arm at 9afe0fa, tracked-clean",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "head": "6e67eaa83887cf4d218100dcd060c07d3bd30522",
+        "porcelain": ""
+      },
+      "id": "1.1b",
+      "name": "candidate arm at 6e67eaa, tracked-clean",
+      "result": "pass"
+    },
+    {
+      "detail": [],
+      "id": "1.1c",
+      "name": "handoff hash table reproduced on disk (CRLF)",
+      "result": "pass"
+    },
+    {
+      "detail": {},
+      "id": "1.1d",
+      "name": "runtime code and generator identical across arms (git blob)",
+      "result": "pass"
+    },
+    {
+      "detail": {},
+      "id": "1.1d2",
+      "name": "runtime modules also byte-identical on disk (no line-ending split in the replay path)",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "baseline": {
+          "PASS_2B_PROMPT_VERSION": "pass_2b_atomic_v2",
+          "PASS_2C_PROMPT_VERSION": "pass_2c_kind_v3",
+          "PASS_2D_PROMPT_VERSION": "pass_2d_exact_kind_v2",
+          "PASS_2F_PROMPT_VERSION": "pass_2f_package_v2",
+          "REQUIRED_CATALOG_ONTOLOGY": "observation-kind-v2",
+          "REQUIRED_CATALOG_VERSION": "3.2",
+          "SOL_REVIEW_PROMPT_VERSION": "sol_package_review_v1",
+          "SOL_REVIEW_REASONING_EFFORT": "medium",
+          "TERRA_REVIEW_PROMPT_VERSION": "terra_condition_review_v1",
+          "TERRA_REVIEW_REASONING_EFFORT": "medium",
+          "sol_review_module_blob": "171d6e261bba12c598a9b24020fa881ef3ad2bcd",
+          "terra_review_module_blob": "c6dc7490d404b76a9a7ceb369714781c7289cbe7"
+        },
+        "candidate": {
+          "PASS_2B_PROMPT_VERSION": "pass_2b_atomic_v2",
+          "PASS_2C_PROMPT_VERSION": "pass_2c_kind_v3",
+          "PASS_2D_PROMPT_VERSION": "pass_2d_exact_kind_v2",
+          "PASS_2F_PROMPT_VERSION": "pass_2f_package_v2",
+          "REQUIRED_CATALOG_ONTOLOGY": "observation-kind-v2",
+          "REQUIRED_CATALOG_VERSION": "3.2",
+          "SOL_REVIEW_PROMPT_VERSION": "sol_package_review_v1",
+          "SOL_REVIEW_REASONING_EFFORT": "medium",
+          "TERRA_REVIEW_PROMPT_VERSION": "terra_condition_review_v1",
+          "TERRA_REVIEW_REASONING_EFFORT": "medium",
+          "sol_review_module_blob": "171d6e261bba12c598a9b24020fa881ef3ad2bcd",
+          "terra_review_module_blob": "c6dc7490d404b76a9a7ceb369714781c7289cbe7"
+        }
+      },
+      "id": "1.1e",
+      "name": "prompt versions and shas identical across arms",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "actual": [
+          "tests/test_catalog_cap007_window_treatment_split.py",
+          "tests/test_catalog_kind_v2.py",
+          "tests/test_kind_ontology_guards.py",
+          "tests/test_renovation_architecture_catalog.py",
+          "tools/catalog_migrations/2.1_to_3.0.json",
+          "tools/catalog_migrations/2.1_to_3.0_audit.md",
+          "tools/catalog_migrations/kind_v2_decisions.json",
+          "tools/issue_catalog_kind_v2.json"
+        ]
+      },
+      "id": "1.1f",
+      "name": "candidate commit touches exactly the eight expected files",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "content_drift": [],
+        "line_ending_only_count": 92,
+        "line_ending_only_sample": [
+          "benchmarks/pass2a-prompt/config.json",
+          "configs/redecide_variants/example_remove_observations.json",
+          "configs/redecide_variants/example_verification_guidance.json",
+          "docs/DECISION_renovation_architecture_session9_cutover_20260821.md",
+          "docs/DESIGN_renovation_architecture_decision_packets.md"
+        ]
+      },
+      "id": "1.1i",
+      "name": "no tracked file outside the approved diff differs in content between the arms",
+      "result": "pass"
+    },
+    {
+      "detail": {},
+      "id": "1.1g",
+      "name": "every approvals `approved_against` pin verified",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "op_count": 7,
+        "other_records": 19
+      },
+      "id": "1.1h",
+      "name": "only CAP-007 carries an approved diff",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "run1": {
+          "tools/catalog_migrations/2.1_to_3.0.json": "6b944b83fee7b350bdc7183d3def8f5849d3b97ca4d017c7dcc4efcd64936a18",
+          "tools/catalog_migrations/2.1_to_3.0_audit.md": "cac2750a20799b837293c04b7afd098fb071f8326c1f9edcc41e1dc1ed0e8a81",
+          "tools/issue_catalog_kind_v2.json": "43d8147ee8abd4f4df51bcf88a83ba99d834c415b9d5d28295fa0a33f3457acf"
+        },
+        "run2": {
+          "tools/catalog_migrations/2.1_to_3.0.json": "6b944b83fee7b350bdc7183d3def8f5849d3b97ca4d017c7dcc4efcd64936a18",
+          "tools/catalog_migrations/2.1_to_3.0_audit.md": "cac2750a20799b837293c04b7afd098fb071f8326c1f9edcc41e1dc1ed0e8a81",
+          "tools/issue_catalog_kind_v2.json": "43d8147ee8abd4f4df51bcf88a83ba99d834c415b9d5d28295fa0a33f3457acf"
+        }
+      },
+      "id": "1.2a",
+      "name": "double generation is byte-identical",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "after": {
+          "tools/catalog_migrations/2.1_to_3.0.json": "6b944b83fee7b350bdc7183d3def8f5849d3b97ca4d017c7dcc4efcd64936a18",
+          "tools/catalog_migrations/2.1_to_3.0_audit.md": "cac2750a20799b837293c04b7afd098fb071f8326c1f9edcc41e1dc1ed0e8a81",
+          "tools/issue_catalog_kind_v2.json": "43d8147ee8abd4f4df51bcf88a83ba99d834c415b9d5d28295fa0a33f3457acf"
+        },
+        "before": {
+          "tools/catalog_migrations/2.1_to_3.0.json": "6b944b83fee7b350bdc7183d3def8f5849d3b97ca4d017c7dcc4efcd64936a18",
+          "tools/catalog_migrations/2.1_to_3.0_audit.md": "cac2750a20799b837293c04b7afd098fb071f8326c1f9edcc41e1dc1ed0e8a81",
+          "tools/issue_catalog_kind_v2.json": "43d8147ee8abd4f4df51bcf88a83ba99d834c415b9d5d28295fa0a33f3457acf"
+        }
+      },
+      "id": "1.2b",
+      "name": "regeneration reproduces the committed artifacts exactly",
+      "result": "pass"
+    },
+    {
+      "detail": "",
+      "id": "1.2c",
+      "name": "candidate worktree still tracked-clean after regeneration",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "items": 128
+      },
+      "id": "1.3",
+      "name": "baseline regenerates byte-identically in memory (load_baseline)",
+      "result": "pass"
+    },
+    {
+      "detail": null,
+      "id": "1.5a",
+      "name": "apply_ops(baseline, approved ops) == candidate decisions (parsed)",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "on_disk_sha256": "2e49a82f9961c2623342ec84743a0997299fd50f0dfcc7939196029cf19b9c76",
+        "regenerated_sha256": "2e49a82f9961c2623342ec84743a0997299fd50f0dfcc7939196029cf19b9c76"
+      },
+      "id": "1.5b",
+      "name": "and byte-identical under the generator serialisation (CRLF)",
+      "result": "pass"
+    },
+    {
+      "detail": null,
+      "id": "1.5c",
+      "name": "generate(v1, patched) == candidate catalog",
+      "result": "pass"
+    },
+    {
+      "detail": null,
+      "id": "1.5d",
+      "name": "generate(v1, patched) == candidate migration manifest",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "actual": {
+          "added_items": [
+            "dated_window_valance_or_curtains",
+            "window_blinds_basic_or_plain"
+          ],
+          "item_diff": {},
+          "order_ok": true,
+          "removed_items": [
+            "dated_window_treatment_valance"
+          ]
+        },
+        "expected": {
+          "added_items": [
+            "dated_window_valance_or_curtains",
+            "window_blinds_basic_or_plain"
+          ],
+          "item_diff": {},
+          "order_ok": true,
+          "removed_items": [
+            "dated_window_treatment_valance"
+          ]
+        }
+      },
+      "id": "1.5e",
+      "name": "generated diff equals manifest expected_generated_changes",
+      "result": "pass"
+    },
+    {
+      "detail": null,
+      "id": "1.5f",
+      "name": "dry_run reproduces dry_run_at_approval exactly",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "actual": [
+          "dated_window_treatment_valance"
+        ]
+      },
+      "id": "1.5g",
+      "name": "manifest diff keys equal approved manifest_diff_keys",
+      "result": "pass"
+    },
+    {
+      "detail": [],
+      "id": "1.5h",
+      "name": "both successors authored surfaces landed verbatim",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "changed": [],
+        "counts": [
+          107,
+          107
+        ]
+      },
+      "id": "1.5i",
+      "name": "all unrelated decision entries byte-identical, order and count unchanged",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "baseline": [],
+        "candidate": []
+      },
+      "id": "1.4a",
+      "name": "validate_issue_catalog: zero errors in both arms",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "baseline": [],
+        "candidate": []
+      },
+      "id": "1.4b",
+      "name": "validate_migration_manifest: zero errors in both arms",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "only_baseline": [],
+        "only_candidate": []
+      },
+      "id": "1.4c",
+      "name": "validator warning sets identical across arms",
+      "result": "pass"
+    },
+    {
+      "detail": {},
+      "id": "1.6a",
+      "name": "economic fields identical on all 127 shared items",
+      "result": "pass"
+    },
+    {
+      "detail": {},
+      "id": "1.6b",
+      "name": "successors carry the approved inherited economics verbatim",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "actual": {
+          "dated_window_treatment_valance": {
+            "after": null,
+            "before": {
+              "reason_code": "work_default",
+              "route": "work"
+            }
+          },
+          "dated_window_valance_or_curtains": {
+            "after": {
+              "reason_code": "work_default",
+              "route": "work"
+            },
+            "before": null
+          },
+          "window_blinds_basic_or_plain": {
+            "after": {
+              "reason_code": "route_override_no_action",
+              "route": "no_action"
+            },
+            "before": null
+          }
+        }
+      },
+      "id": "1.6c",
+      "name": "terminal routes change only for the parent and its two successors",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "baseline": {
+          "excluded_generic": 4,
+          "excluded_quarantine": 12,
+          "inspection": 5,
+          "no_action": 9,
+          "work": 98
+        },
+        "candidate": {
+          "excluded_generic": 4,
+          "excluded_quarantine": 12,
+          "inspection": 5,
+          "no_action": 10,
+          "work": 98
+        }
+      },
+      "id": "1.6d",
+      "name": "route counts move 128 to 129 with no_action gaining exactly one",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "blinds_in_work_policy": false,
+        "changed": [
+          "dated_window_treatment_valance",
+          "dated_window_valance_or_curtains"
+        ],
+        "terms_match": true
+      },
+      "id": "1.6e",
+      "name": "work policy: parent replaced by the fabric successor on identical terms, blinds absent",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "counts": [
+          47,
+          48
+        ]
+      },
+      "id": "1.6f",
+      "name": "flat package roles gain exactly one; both successors inherit 'ignore'",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "baseline": "6baacaf6254861409e1c6c4495e73d57c573523f581a138cc703a302f87b9308",
+        "candidate": "d09c12264e860310b74e98ae74d481f48a3416755b581ca1e368ce26ea0dbd79"
+      },
+      "id": "1.6g",
+      "name": "projection fingerprint changes (CCF-8: no stored Terra checkpoint survives)",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "baseline": "3.2",
+        "candidate": "3.2"
+      },
+      "id": "1.6h",
+      "name": "catalog version string is unchanged, so live runs must be identified by catalog_sha256",
+      "result": "pass"
+    },
+    {
+      "detail": {
+        "at_index": [
+          "window_blinds_basic_or_plain",
+          "dated_window_valance_or_curtains"
+        ],
+        "parent_index": 86
+      },
+      "id": "1.7a",
+      "name": "128 to 129 items; the successors occupy the parent position",
+      "result": "pass"
+    },
+    {
+      "detail": null,
+      "id": "1.7b",
+      "name": "every other item keeps its relative order",
+      "result": "pass"
+    }
+  ],
+  "environment": {
+    "arm_root": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend",
+    "effective": {
+      "EMBEDDINGS_BACKEND": "openai_compatible",
+      "EMBEDDINGS_BASE_URL": "http://127.0.0.1:8081/v1",
+      "EMBEDDINGS_DIMENSION": 1024,
+      "EMBEDDINGS_MODEL_NAME": "jinaai/jina-embeddings-v5-text-small-text-matching-GGUF:Q8_0",
+      "ISSUE_CATALOG_PATH": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\tools\\issue_catalog.json",
+      "KIND_ONTOLOGY_VERSION": "legacy_v1",
+      "PASS_2D_SHORTCUT_MIN_MARGIN": 0.03,
+      "PASS_2D_SHORTCUT_MIN_SCORE": 0.72,
+      "PIPELINE_MODE": "classification_only"
+    },
+    "env_set": {},
+    "executable": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\.venv\\Scripts\\python.exe",
+    "python": "3.14.3",
+    "requirements_sha256": "bd8309062ff98743ca1c3455f6b7ef18446c55e2710a3225fcb9b9c5d5772be3",
+    "script_sha256": "b0b8740d112cee53be5102dd57658e7d609405f818242cb0129a116a35f8cbbd"
+  },
+  "evidence": {
+    "arm_isolation": {
+      "content_drift_files": [],
+      "line_ending_only_files": [
+        "benchmarks/pass2a-prompt/config.json",
+        "configs/redecide_variants/example_remove_observations.json",
+        "configs/redecide_variants/example_verification_guidance.json",
+        "docs/DECISION_renovation_architecture_session9_cutover_20260821.md",
+        "docs/DESIGN_renovation_architecture_decision_packets.md",
+        "docs/HANDOFF_error_attribution_review.md",
+        "docs/HANDOFF_factorized_verifier_replay.md",
+        "docs/HANDOFF_quality_session_B_harness_tooling.md",
+        "docs/HANDOFF_quality_session_CDE_package_policy_wave1.md",
+        "docs/HANDOFF_quality_session_C_package_policy_1.md",
+        "docs/HANDOFF_renovation_architecture_session_1.md",
+        "docs/HANDOFF_renovation_architecture_session_2.md",
+        "docs/IMPLEMENTATION_PLAN_renovation_scope_estimate_architecture.md",
+        "docs/PLAN_error_attribution_review_20260831.md",
+        "docs/PROPOSALS_output_quality_improvements_20260826.md",
+        "docs/RESULT_error_attribution_20260831.md",
+        "docs/RESULT_factorized_replay_20260831.md",
+        "docs/RUNBOOK_renovation_architecture_session_6.md",
+        "docs/analysis/session_b_control_arm_design.md",
+        "docs/analysis/session_b_notes.md",
+        "docs/analysis/session_b_qp8_inspection_lane.md",
+        "docs/analysis/session_b_scene_identity_count.md",
+        "reports/error_attribution_verdicts.jsonl",
+        "requirements.txt",
+        "scripts/analyze_session8_canary.py",
+        "scripts/build_adjudication_queue.py",
+        "scripts/build_error_attribution_queue.py",
+        "scripts/build_labels_v1_1.py",
+        "scripts/build_retag_queue.py",
+        "scripts/build_review_queue.py",
+        "scripts/build_session9_decision_packets.py",
+        "scripts/cluster_session9_reviews.py",
+        "scripts/count_scene_identity_mismatches.py",
+        "scripts/error_attribution_report.py",
+        "scripts/redecide_renovation_architecture.py",
+        "scripts/retag_tally.py",
+        "scripts/review_analysis.py",
+        "scripts/review_server.py",
+        "scripts/review_tally.py",
+        "scripts/run_renovation_architecture_canary.py",
+        "scripts/run_worker_smoke.py",
+        "scripts/score_redecide_variants.py",
+        "scripts/show_daily_token_spend.py",
+        "scripts/verify_renovation_artifact.py",
+        "tests/test_benchmark_pass2a_legacy.py",
+        "tests/test_benchmark_pass2a_packages.py",
+        "tests/test_benchmark_pass2a_scenes.py",
+        "tests/test_benchmark_pass2a_scoring.py",
+        "tests/test_cluster_session9_reviews.py",
+        "tests/test_error_attribution.py",
+        "tests/test_factorized_review.py",
+        "tests/test_label_v1_1.py",
+        "tests/test_pass2a_comparator.py",
+        "tests/test_redecide_harness.py",
+        "tests/test_rehab_packages.py",
+        "tests/test_renovation_architecture_canary.py",
+        "tests/test_renovation_architecture_conditions.py",
+        "tests/test_renovation_architecture_contracts.py",
+        "tests/test_renovation_architecture_disposition.py",
+        "tests/test_renovation_architecture_reconciliation.py",
+        "tests/test_renovation_architecture_runtime.py",
+        "tests/test_renovation_architecture_sol.py",
+        "tests/test_renovation_architecture_sol_guard.py",
+        "tests/test_renovation_architecture_terra.py",
+        "tests/test_renovation_architecture_usage_guard.py",
+        "tests/test_renovation_architecture_work_items.py",
+        "tests/test_review_analysis.py",
+        "tests/test_review_cards.py",
+        "tests/test_score_factorized_review.py",
+        "tests/test_score_redecide.py",
+        "tests/test_vlm_budget_guard.py",
+        "tools/benchmark_pass2a_legacy.py",
+        "tools/benchmark_pass2a_reachability.py",
+        "tools/benchmark_pass2a_scoring.py",
+        "tools/compare_renovation_architecture_cutover.py",
+        "tools/label_schema.py",
+        "tools/pass2a_comparator/__init__.py",
+        "tools/pass2a_comparator/config.py",
+        "tools/renovation_architecture/candidate_payload.py",
+        "tools/renovation_architecture/checkpoints.py",
+        "tools/renovation_architecture/conditions.py",
+        "tools/renovation_architecture/disposition.py",
+        "tools/renovation_architecture/evidence.py",
+        "tools/renovation_architecture/factorized_review.py",
+        "tools/renovation_architecture/ids.py",
+        "tools/renovation_architecture/reconciliation.py",
+        "tools/renovation_architecture/review_pipeline.py",
+        "tools/renovation_architecture/terra_review.py",
+        "tools/renovation_architecture/usage_guard.py",
+        "tools/renovation_architecture/validators.py",
+        "tools/renovation_architecture/work_items.py",
+        "tools/review_cards.py"
+      ]
+    },
+    "catalog_diff": {
+      "added_items": [
+        "dated_window_valance_or_curtains",
+        "window_blinds_basic_or_plain"
+      ],
+      "item_diff": {},
+      "order_ok": true,
+      "removed_items": [
+        "dated_window_treatment_valance"
+      ]
+    },
+    "dry_run": {
+      "added_detail": {
+        "dated_window_valance_or_curtains": {
+          "economics": {
+            "cost": {
+              "mode": "heuristic"
+            },
+            "cost_model": null,
+            "estimate": null,
+            "estimate_scope": null,
+            "estimate_scope_reason": null,
+            "package_affinity": null,
+            "package_role": "ignore",
+            "work_item_code": "WINDOW_TREATMENT_UPDATE"
+          },
+          "pricing_status": "inherited_from_split_parent",
+          "repair_support_marker_routes": []
+        },
+        "window_blinds_basic_or_plain": {
+          "economics": {
+            "cost": {
+              "mode": "heuristic"
+            },
+            "cost_model": null,
+            "estimate": null,
+            "estimate_scope": null,
+            "estimate_scope_reason": null,
+            "package_affinity": null,
+            "package_role": "ignore",
+            "work_item_code": "WINDOW_TREATMENT_UPDATE"
+          },
+          "pricing_status": "inherited_from_split_parent",
+          "repair_support_marker_routes": []
+        }
+      },
+      "catalog_validation_errors": [],
+      "classification": [
+        [
+          "/change_type",
+          "native"
+        ],
+        [
+          "/deprecated",
+          "native"
+        ],
+        [
+          "/requires_re_resolution",
+          "native"
+        ],
+        [
+          "/atomicity_rationale",
+          "native"
+        ],
+        [
+          "/expected_effects",
+          "native"
+        ],
+        [
+          "/successors/0",
+          "native"
+        ],
+        [
+          "/successors/1",
+          "native"
+        ]
+      ],
+      "manifest_validation_errors": [],
+      "metadata_problems": [],
+      "ok": true
+    },
+    "projection": {
+      "catalog_sha256": {
+        "baseline": "51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54",
+        "candidate": "43d8147ee8abd4f4df51bcf88a83ba99d834c415b9d5d28295fa0a33f3457acf"
+      },
+      "catalog_version": {
+        "baseline": "3.2",
+        "candidate": "3.2"
+      },
+      "fingerprint": {
+        "baseline": "6baacaf6254861409e1c6c4495e73d57c573523f581a138cc703a302f87b9308",
+        "candidate": "d09c12264e860310b74e98ae74d481f48a3416755b581ca1e368ce26ea0dbd79"
+      },
+      "route_counts": {
+        "baseline": {
+          "excluded_generic": 4,
+          "excluded_quarantine": 12,
+          "inspection": 5,
+          "no_action": 9,
+          "work": 98
+        },
+        "candidate": {
+          "excluded_generic": 4,
+          "excluded_quarantine": 12,
+          "inspection": 5,
+          "no_action": 10,
+          "work": 98
+        }
+      }
+    },
+    "regeneration": {
+      "before": {
+        "tools/catalog_migrations/2.1_to_3.0.json": "6b944b83fee7b350bdc7183d3def8f5849d3b97ca4d017c7dcc4efcd64936a18",
+        "tools/catalog_migrations/2.1_to_3.0_audit.md": "cac2750a20799b837293c04b7afd098fb071f8326c1f9edcc41e1dc1ed0e8a81",
+        "tools/issue_catalog_kind_v2.json": "43d8147ee8abd4f4df51bcf88a83ba99d834c415b9d5d28295fa0a33f3457acf"
+      },
+      "runs": [
+        {
+          "hashes": {
+            "tools/catalog_migrations/2.1_to_3.0.json": "6b944b83fee7b350bdc7183d3def8f5849d3b97ca4d017c7dcc4efcd64936a18",
+            "tools/catalog_migrations/2.1_to_3.0_audit.md": "cac2750a20799b837293c04b7afd098fb071f8326c1f9edcc41e1dc1ed0e8a81",
+            "tools/issue_catalog_kind_v2.json": "43d8147ee8abd4f4df51bcf88a83ba99d834c415b9d5d28295fa0a33f3457acf"
+          },
+          "run": 1,
+          "stdout_tail": [
+            "wrote issue_catalog_kind_v2.json: 129 items {'defect': 52, 'degradation': 36, 'modernization': 41}",
+            "wrote 2.1_to_3.0.json: 107 entries",
+            "wrote 2.1_to_3.0_audit.md"
+          ]
+        },
+        {
+          "hashes": {
+            "tools/catalog_migrations/2.1_to_3.0.json": "6b944b83fee7b350bdc7183d3def8f5849d3b97ca4d017c7dcc4efcd64936a18",
+            "tools/catalog_migrations/2.1_to_3.0_audit.md": "cac2750a20799b837293c04b7afd098fb071f8326c1f9edcc41e1dc1ed0e8a81",
+            "tools/issue_catalog_kind_v2.json": "43d8147ee8abd4f4df51bcf88a83ba99d834c415b9d5d28295fa0a33f3457acf"
+          },
+          "run": 2,
+          "stdout_tail": [
+            "wrote issue_catalog_kind_v2.json: 129 items {'defect': 52, 'degradation': 36, 'modernization': 41}",
+            "wrote 2.1_to_3.0.json: 107 entries",
+            "wrote 2.1_to_3.0_audit.md"
+          ]
+        }
+      ]
+    },
+    "successor_economics": {
+      "dated_window_valance_or_curtains": {
+        "cost": {
+          "mode": "heuristic"
+        },
+        "cost_model": null,
+        "estimate": null,
+        "estimate_scope": null,
+        "estimate_scope_reason": null,
+        "package_affinity": null,
+        "package_role": "ignore",
+        "work_item_code": "WINDOW_TREATMENT_UPDATE"
+      },
+      "window_blinds_basic_or_plain": {
+        "cost": {
+          "mode": "heuristic"
+        },
+        "cost_model": null,
+        "estimate": null,
+        "estimate_scope": null,
+        "estimate_scope_reason": null,
+        "package_affinity": null,
+        "package_role": "ignore",
+        "work_item_code": "WINDOW_TREATMENT_UPDATE"
+      }
+    }
+  },
+  "failures": [],
+  "generated_at_utc": "2026-09-07T07:28:56Z",
+  "program": "catalog_audit",
+  "result": "pass",
+  "schema_version": "catalog-audit-tier1-v1",
+  "session": 5,
+  "tier": 1
+}

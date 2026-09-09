@@ -1,0 +1,60 @@
+{
+  "frozen_surface_reference": {
+    "fingerprint": "e4c0a2b816395782cd84bc4abcdf6207d131a34a0e2d63eaebb39bec4c190c08",
+    "path": "reports/catalog_audit_evidence.json",
+    "sha256": "43354104cc109c768efbe2d2f8b9a825f33e0882210b81e9f12b847ca67e29b7"
+  },
+  "generator": {
+    "carryover_constant": "CARRYOVER_OVERRIDE_FIELDS",
+    "git_blob": "d469d4a32d323f79be7dfb8b530c4a0f8a941cde",
+    "path": "scripts/migrate_catalog_kind_v2.py",
+    "sha256": "6a462249c135c408cefdcb81292b36408cc67ea87adc47c2c8256aaec6976163"
+  },
+  "program": "catalog_audit",
+  "schema_version": "catalog-authoring-surface-v2",
+  "surface": {
+    "economic_fields": [
+      "cost",
+      "estimate",
+      "work_item_code",
+      "cost_model",
+      "package_affinity",
+      "package_role",
+      "estimate_scope",
+      "estimate_scope_reason"
+    ],
+    "inherited_fields": [
+      "trade_bucket",
+      "scope",
+      "tier",
+      "defaultHidden",
+      "drop_if_generic",
+      "category",
+      "display_class",
+      "require_any",
+      "deny_any",
+      "scene_groups",
+      "route_override"
+    ],
+    "successor_required_fields": [
+      "id",
+      "kind",
+      "severity",
+      "name",
+      "description",
+      "embed_text",
+      "support_any"
+    ],
+    "target_version": "3.2",
+    "wording_override_fields": [
+      "deny_any",
+      "description",
+      "embed_text",
+      "name",
+      "route_override",
+      "scene_groups",
+      "support_any"
+    ]
+  },
+  "what_this_is": "The authoring surface of the generator at this commit, for classifying NEW ops. The evidence bundle's authoring_surface is the historical surface and is unchanged; it stays correct for every op classified before the generator was widened."
+}

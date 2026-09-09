@@ -1,0 +1,676 @@
+{
+  "schema_version": "catalog-checkpoint-source-manifest-v1",
+  "program": "bounded catalog policy checkpoint (successor to catalog-audit Session 7)",
+  "generated_at_utc": "2026-09-08T16:41:03Z",
+  "phase": "1 complete + same-day review pass (Steven trim photo review, with/without replays); no semantic change, no provider call; embeddings sidecar started locally for the offline lever evaluation",
+  "main_root": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend",
+  "candidate_root": "C:\\Users\\Steven\\PycharmProjects\\rv-catalog-audit-s4",
+  "arms": {
+    "baseline": {
+      "label": "baseline",
+      "root": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend",
+      "head": "9afe0fa5a0490a856abed507dccc4a02ed1de24c",
+      "branch": "terra_factorized_verifier",
+      "porcelain_tracked": "",
+      "files": [
+        {
+          "path": "tools/issue_catalog_kind_v2.json",
+          "exists": true,
+          "sha256": "51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54",
+          "bytes": 229095,
+          "git_blob": "46537481b97995f1bcd5b65af7b2c7bb1f7dba10",
+          "tracked": true
+        },
+        {
+          "path": "tools/catalog_migrations/kind_v2_decisions.json",
+          "exists": true,
+          "sha256": "47614d822bdd6b672d8596050b46839d04a8a6df0a04c18e052f4a63bd1903e8",
+          "bytes": 165180,
+          "git_blob": "be0f5f05750dcfde777491a3472872bb99ad0c0c",
+          "tracked": true
+        },
+        {
+          "path": "tools/issue_catalog.json",
+          "exists": true,
+          "sha256": "4ba046a1a78337f1c8e47701a011ec16e700c296782ddedbe7bf52cf888314f2",
+          "bytes": 171662,
+          "git_blob": "84b65797183571650ef2ff3da0d53b096ccbcca6",
+          "tracked": true
+        },
+        {
+          "path": "tools/catalog_migrations/2.1_to_3.0.json",
+          "exists": true,
+          "sha256": "3db144c907ce91b0c26d75b85c4136db38dd81da8505c8405f43cca246893666",
+          "bytes": 118448,
+          "git_blob": "669d601fd3eddbfb90e70729b8318bc2e390f8cb",
+          "tracked": true
+        },
+        {
+          "path": "tools/catalog_migrations/2.1_to_3.0_audit.md",
+          "exists": true,
+          "sha256": "ee7c6e0fd4dec4cbd4a2e49ddd08c46681fd34036c7584ed2ab9126df128976b",
+          "bytes": 36334,
+          "git_blob": "69a16d19eceaf00675b08a11e43fbacfbbc95af2",
+          "tracked": true
+        }
+      ],
+      "generator_blob": "aae7787f6e1b78614d59d4b91ff5d544c3e2ad52",
+      "projection": {
+        "items": 128,
+        "version": "3.2",
+        "catalog_sha256": "51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54",
+        "fingerprint": "6baacaf6254861409e1c6c4495e73d57c573523f581a138cc703a302f87b9308",
+        "errors": 0
+      }
+    },
+    "candidate": {
+      "label": "candidate",
+      "root": "C:\\Users\\Steven\\PycharmProjects\\rv-catalog-audit-s4",
+      "head": "6e67eaa83887cf4d218100dcd060c07d3bd30522",
+      "branch": "catalog_audit_session4",
+      "porcelain_tracked": "",
+      "files": [
+        {
+          "path": "tools/issue_catalog_kind_v2.json",
+          "exists": true,
+          "sha256": "43d8147ee8abd4f4df51bcf88a83ba99d834c415b9d5d28295fa0a33f3457acf",
+          "bytes": 231244,
+          "git_blob": "4413f5db5da7abf22c888cea3bef8d47b4f28396",
+          "tracked": true
+        },
+        {
+          "path": "tools/catalog_migrations/kind_v2_decisions.json",
+          "exists": true,
+          "sha256": "2e49a82f9961c2623342ec84743a0997299fd50f0dfcc7939196029cf19b9c76",
+          "bytes": 169309,
+          "git_blob": "f77c46d68f1baea68318072eff06f1940243c280",
+          "tracked": true
+        },
+        {
+          "path": "tools/issue_catalog.json",
+          "exists": true,
+          "sha256": "4ba046a1a78337f1c8e47701a011ec16e700c296782ddedbe7bf52cf888314f2",
+          "bytes": 171662,
+          "git_blob": "84b65797183571650ef2ff3da0d53b096ccbcca6",
+          "tracked": true
+        },
+        {
+          "path": "tools/catalog_migrations/2.1_to_3.0.json",
+          "exists": true,
+          "sha256": "6b944b83fee7b350bdc7183d3def8f5849d3b97ca4d017c7dcc4efcd64936a18",
+          "bytes": 119973,
+          "git_blob": "c8e690ffdf6844fdfb777fc7e7e922143cf13926",
+          "tracked": true
+        },
+        {
+          "path": "tools/catalog_migrations/2.1_to_3.0_audit.md",
+          "exists": true,
+          "sha256": "cac2750a20799b837293c04b7afd098fb071f8326c1f9edcc41e1dc1ed0e8a81",
+          "bytes": 37476,
+          "git_blob": "4aea1912f0bd6a427fb1eb3369de0505921d33b7",
+          "tracked": true
+        }
+      ],
+      "generator_blob": "aae7787f6e1b78614d59d4b91ff5d544c3e2ad52",
+      "projection": {
+        "items": 129,
+        "version": "3.2",
+        "catalog_sha256": "43d8147ee8abd4f4df51bcf88a83ba99d834c415b9d5d28295fa0a33f3457acf",
+        "fingerprint": "d09c12264e860310b74e98ae74d481f48a3416755b581ca1e368ce26ea0dbd79",
+        "errors": 0
+      }
+    }
+  },
+  "implementation_base": {
+    "commit": "6e67eaa83887cf4d218100dcd060c07d3bd30522",
+    "branch": "catalog_audit_session4",
+    "rule": "Phase 2 commits on top of this commit in the candidate worktree; never amend, never edit a frozen artifact"
+  },
+  "latest_human_rulings": {
+    "source": "reports/catalog_audit_live_validation.json",
+    "status": "ruled",
+    "final_recommendation": "candidate_rejected",
+    "s6_1": "candidate_rejected",
+    "s5_1": "accept_missed_fabric_condition",
+    "gate_answers": "reports/catalog_audit_approvals.json steven_answers_2026_09_06 (A-1..A-7); reports/catalog_audit_gate_decisions.json (Q-1..Q-9)",
+    "corrections_2026_09_08": [
+      "trim preservation = subject correctness AND warranted-work eligibility; a subject gate alone is not a policy solution",
+      "benchmark gold records resolution identity only; assess resolution and billability separately; gold preservation does not drive the mechanism",
+      "no blanket score tolerance; any shortcut-boundary crossing or consequential outcome change is assessed regardless of magnitude"
+    ]
+  },
+  "documents": [
+    {
+      "path": "docs/REPORT_deferred_work_inventory_20260907.md",
+      "exists": true,
+      "sha256": "a8065927a5b582d188f29458651de02df015ae3c51dd0ad5db41ee7b1b365847",
+      "bytes": 29442
+    },
+    {
+      "path": "docs/RESULT_catalog_audit_live_validation_20260907.md",
+      "exists": true,
+      "sha256": "55f6405d8dab36f370433c4ac8d43a5e5177f1b9c0c3292143c519c261ab89e4",
+      "bytes": 25325
+    },
+    {
+      "path": "docs/RESULT_catalog_audit_validation_tier12_20260907.md",
+      "exists": true,
+      "sha256": "a204d4cb58065578a3911f88a8f1fed6e426173e1d6c48367bc9d9246efee56e",
+      "bytes": 14413
+    },
+    {
+      "path": "docs/PROPOSAL_catalog_audit_20260901.md",
+      "exists": true,
+      "sha256": "771572e7c1d095281756b6baf9f28e65cffedc7f9b04cabfd559117768b17591",
+      "bytes": 803549
+    },
+    {
+      "path": "docs/REVIEW_catalog_audit_adversarial_20260905.md",
+      "exists": true,
+      "sha256": "538f28724531018cdbd937e5355fbbdca4273352cbf62aafa6ebfb69abf1a96a",
+      "bytes": 95643
+    },
+    {
+      "path": "docs/FINDINGS_catalog_3_2_deferred_issues.md",
+      "exists": true,
+      "sha256": "23d336fa55fbd90a7803106ff08506947de289b16fdb720e8f41085f2858f985",
+      "bytes": 10291
+    },
+    {
+      "path": "docs/catalog_audit_program/README.md",
+      "exists": true,
+      "sha256": "33f58f476afc3be0c740223a21b9ba5eee20b18ef47cc36d444acbd4d875d91f",
+      "bytes": 5825
+    },
+    {
+      "path": "docs/catalog_audit_program/00_OVERALL_CONTEXT.md",
+      "exists": true,
+      "sha256": "6a8ba3e0fcd44a8fdb1ca3b04d07c8198bd8d7c26a8b907367f9c0fab376c08f",
+      "bytes": 27075
+    },
+    {
+      "path": "docs/catalog_audit_program/04_HUMAN_REVIEW_GATE.md",
+      "exists": true,
+      "sha256": "70ccc1a18f92e8e0067f8815c71f73967f28947cd3aeda699ddc99af5154c6ae",
+      "bytes": 2928
+    },
+    {
+      "path": "docs/catalog_audit_program/05_SESSION_APPROVED_IMPLEMENTATION.md",
+      "exists": true,
+      "sha256": "cc44b1500f08d250caef71cfae06904044ec7afa1a96b8bd2e01debe261a75f5",
+      "bytes": 5398
+    },
+    {
+      "path": "docs/catalog_audit_program/06_SESSION_DETERMINISTIC_VALIDATION.md",
+      "exists": true,
+      "sha256": "d9d85243a6e532aa613a82f5a65c7e91a422b6a80fba1850eb7c2a4f96d0efec",
+      "bytes": 6517
+    },
+    {
+      "path": "docs/catalog_audit_program/07_SESSION_LIVE_VALIDATION.md",
+      "exists": true,
+      "sha256": "04045b0c7428582758a0729a9442547df6f65deb3adf36b14f000a991233ef66",
+      "bytes": 6640
+    },
+    {
+      "path": "docs/catalog_audit_program/HANDOFF_SESSION_GATE.md",
+      "exists": true,
+      "sha256": "9cf8f815a66d62a66652a47fab47281c3f975d45eb813623611528a3ea6d367b",
+      "bytes": 18605
+    },
+    {
+      "path": "docs/catalog_audit_program/HANDOFF_SESSION_4.md",
+      "exists": true,
+      "sha256": "98c24788a6255938e76073a38b5529af3264345e22d3676ecfd08bb6cc19db6d",
+      "bytes": 30059
+    },
+    {
+      "path": "docs/catalog_audit_program/HANDOFF_SESSION_5.md",
+      "exists": true,
+      "sha256": "3373daeb0caf974bfba8545f6fcca4717cbdf022aa9e8e4e6694928cd449a551",
+      "bytes": 18108
+    },
+    {
+      "path": "docs/catalog_audit_program/HANDOFF_SESSION_6.md",
+      "exists": true,
+      "sha256": "1844dbb0081529a20ca377e20a7498cee93a9de64a67244d40c279137a343e8b",
+      "bytes": 28873
+    },
+    {
+      "path": "docs/catalog_audit_program/FOLLOW_UP_REGISTER.md",
+      "exists": true,
+      "sha256": "999baf3a261218cf7157dc98ab5174ed0694ae900a12f40a8d3bb2f2042d1feb",
+      "bytes": 46940
+    },
+    {
+      "path": "docs/catalog_audit_program/PROPOSAL_CAP-022_trim_subject_gate.md",
+      "exists": true,
+      "sha256": "7e1a625d7c6096cd03700d34176950f14078f9cc99eb64d91cf49fd88b7c1d55",
+      "bytes": 15612
+    },
+    {
+      "path": "docs/catalog_audit_program/08_SESSION_BOUNDED_POLICY_CHECKPOINT.md",
+      "exists": true,
+      "sha256": "343e0e0843823a0e61b3d714b95d0b3530a1ce31eb01758438fdc1d4d48cc551",
+      "bytes": 19142
+    },
+    {
+      "path": "docs/DECISION_PACKET_catalog_policy_checkpoint.md",
+      "exists": true,
+      "sha256": "befb086e8fd200f83a0fb2a5e59bf29fe14771a60345fa5fc792bf9e9201b76e",
+      "bytes": 23898
+    },
+    {
+      "path": "docs/catalog_audit_program/REVIEW_trim_photos_steven_20260908.md",
+      "exists": true,
+      "sha256": "399f376fcd59ce0e82df60ae0168e6c7a418aa6d6fac18aaa46f224c45d26c33",
+      "bytes": 3680
+    }
+  ],
+  "reports": [
+    {
+      "path": "reports/catalog_audit_evidence.json",
+      "exists": true,
+      "sha256": "43354104cc109c768efbe2d2f8b9a825f33e0882210b81e9f12b847ca67e29b7",
+      "bytes": 2370155
+    },
+    {
+      "path": "reports/catalog_audit_proposals.json",
+      "exists": true,
+      "sha256": "1411352c42e9d3a555c3a1561470323da2234447badc2869c9874c3e8fa3ef99",
+      "bytes": 2054945
+    },
+    {
+      "path": "reports/catalog_audit_adversarial_review.json",
+      "exists": true,
+      "sha256": "d1149875399a9f30c6cd56e924731c7e207d90b603cb248f402c692c3438b5c4",
+      "bytes": 101609
+    },
+    {
+      "path": "reports/catalog_audit_gate_decisions.json",
+      "exists": true,
+      "sha256": "d89b2bf1149738d9b3e2d5a9222a5b4e163e2cf97dbb0c9f6396d595b849c980",
+      "bytes": 37086
+    },
+    {
+      "path": "reports/catalog_audit_live_check_results.json",
+      "exists": true,
+      "sha256": "de47d13f1dfa5802e885027520ae318ab6a6166e8b609115eb2bdb60eaec74e1",
+      "bytes": 29318
+    },
+    {
+      "path": "reports/catalog_audit_redraft.json",
+      "exists": true,
+      "sha256": "449f86170dd4b01916988b2000b900e560403bda12fb93cc7e7d7d27bb31811b",
+      "bytes": 132892
+    },
+    {
+      "path": "reports/catalog_audit_renewed_review.json",
+      "exists": true,
+      "sha256": "aa12e42a0205c0ede8c01362e15f3c16e47cffd9b37de8dd468e70400e8b538b",
+      "bytes": 26418
+    },
+    {
+      "path": "reports/catalog_audit_approvals.json",
+      "exists": true,
+      "sha256": "a725c89af131e94b04867f4f5a226bda495278a8ba28fdd7162ed6188d76c871",
+      "bytes": 30645
+    },
+    {
+      "path": "reports/catalog_audit_validation_tier12.json",
+      "exists": true,
+      "sha256": "674a9fccea8a4bb1ddcfcab10b198f3621b47a7553614ce48f817233994aee4a",
+      "bytes": 869875
+    },
+    {
+      "path": "reports/catalog_audit_replay_corpus.json",
+      "exists": true,
+      "sha256": "159053217cf434793642667646cf79d92198d9900e061fbe360cd25149d0c965",
+      "bytes": 4152626
+    },
+    {
+      "path": "reports/catalog_audit_replay_snapshot_baseline.json",
+      "exists": true,
+      "sha256": "07482b02c4d3cd389d281f5dc670ad0639ce12aed6e1bcb427f0ceec3d950181",
+      "bytes": 5556576
+    },
+    {
+      "path": "reports/catalog_audit_replay_snapshot_candidate.json",
+      "exists": true,
+      "sha256": "040cc41b79d569a0b39a5df3dde0837bf8d03aa4517120245c9439596c1bdbfb",
+      "bytes": 5565238
+    },
+    {
+      "path": "reports/catalog_audit_live_experiment_manifest.json",
+      "exists": true,
+      "sha256": "b34f75b308f86882a4f587db98d061143b6725e80ae6f1dcdbf781af024d04d5",
+      "bytes": 227235
+    },
+    {
+      "path": "reports/catalog_audit_live_validation.json",
+      "exists": true,
+      "sha256": "ee1bcf62ea6e37bd76e8f4b7f32612324736d34373de811cb340171249be4f5c",
+      "bytes": 881664
+    },
+    {
+      "path": "reports/catalog_audit_photo_review.json",
+      "exists": true,
+      "sha256": "2225db9caae573b52b4270f846c314749d39aff468fab4e1a8e2012c49919150",
+      "bytes": 345865
+    }
+  ],
+  "evaluation_artifacts": [
+    {
+      "path": "artifacts_canary/catalog_audit_session6_20260907/provenance/cap022_lever_eval/lever_eval.py",
+      "exists": true,
+      "sha256": "cf4c3e81115edc9c755c616b6b80e2f4a559eac1ec2baf682f2a24cb3066dd06",
+      "bytes": 9303
+    },
+    {
+      "path": "artifacts_canary/catalog_audit_session6_20260907/provenance/cap022_lever_eval/lever_eval_report.json",
+      "exists": true,
+      "sha256": "68d0291bf410738762d1a6d7c53473687447eff1aaf3adeddc82ef184c15a1e2",
+      "bytes": 966704
+    },
+    {
+      "path": "artifacts_canary/catalog_audit_session6_20260907/provenance/cap022_lever_eval/lever_selfcheck.json",
+      "exists": true,
+      "sha256": "8aa923ac9e7a9b28a954f753e41847de7b2ef82f9dddcc2e52f2f30b8de03259",
+      "bytes": 2951
+    },
+    {
+      "path": "artifacts_canary/catalog_audit_session6_20260907/provenance/cap022_lever_eval/lever_selfcheck.py",
+      "exists": true,
+      "sha256": "3061c206148e15e1a990574ce08c09e217a00451ca14bccd1f107250c3fcf5ef",
+      "bytes": 3570
+    },
+    {
+      "path": "artifacts_canary/catalog_audit_session6_20260907/compare.json",
+      "exists": true,
+      "sha256": "ff5e376ed020bcc1df813460963eb5796f66144194ea8a834ac56ca543fe1273",
+      "bytes": 243592
+    },
+    {
+      "path": "artifacts_canary/catalog_audit_session6_20260907/compare_replica.json",
+      "exists": true,
+      "sha256": "89288f7982ad78b69fe13dcc2953d136fb9937009709b787f1d088bdb4d394cb",
+      "bytes": 71535
+    },
+    {
+      "path": "benchmarks/catalog-resolution-v2/cases_dev.json",
+      "exists": true,
+      "sha256": "b4614f13ed5e6450dbe7a83c0da6e2fc49d7a138ae0e857129e5e2ddfeead9d6",
+      "bytes": 42631
+    },
+    {
+      "path": "benchmarks/catalog-resolution-v2/cases_holdout.json",
+      "exists": true,
+      "sha256": "3f68fc53b6c8babf9019fcd4ccac64367fd8c0e4c447569dee49bbc026b4d15f",
+      "bytes": 41759
+    },
+    {
+      "path": "reports/catalog_policy_checkpoint_packet.json",
+      "exists": true,
+      "sha256": "99a40d74af9a9d36f5b4e644f4bba61fb2c055181268a8a491553c7f63791637",
+      "bytes": 559770
+    },
+    {
+      "path": "artifacts_canary/catalog_checkpoint_20260908/provenance/trim_eligibility_lever_eval/lever_eval_v2.py",
+      "exists": true,
+      "sha256": "f5d01bd4543e49d18820c7ca303cae51e1f85b4b46af5126b13f20816233a9f2",
+      "bytes": 11522
+    },
+    {
+      "path": "artifacts_canary/catalog_checkpoint_20260908/provenance/trim_eligibility_lever_eval/lever_eval_v2_report.json",
+      "exists": true,
+      "sha256": "1cd8a1def02a0db9fd891f01f4faf91853dce5dc0dae7d9422d8a7205e726912",
+      "bytes": 2374602
+    },
+    {
+      "path": "artifacts_canary/catalog_checkpoint_20260908/provenance/trim_eligibility_lever_eval/selfcheck_v2.py",
+      "exists": true,
+      "sha256": "53a4f9aeb3154a2e4928a9d59ac40dfe0e087367a64de47f501291cb26057bdb",
+      "bytes": 5265
+    },
+    {
+      "path": "artifacts_canary/catalog_checkpoint_20260908/provenance/trim_eligibility_lever_eval/selfcheck_v2.json",
+      "exists": true,
+      "sha256": "542afeb53adace013acdfaf977bacece8578704fa159587b4a1e1fd2c85e9f15",
+      "bytes": 3737
+    },
+    {
+      "path": "artifacts_canary/catalog_checkpoint_20260908/provenance/packet_families.py",
+      "exists": true,
+      "sha256": "7d8941638c9c3cf7adc3cef1f4581c68f9eb51411055567ef83fa649bd528d75",
+      "bytes": 7297
+    },
+    {
+      "path": "artifacts_canary/catalog_checkpoint_20260908/provenance/packet_railing.py",
+      "exists": true,
+      "sha256": "82ffbc76a647f933ce2358bcd212ff0c0b97d7f28e122e99f96fd9f70149e5d1",
+      "bytes": 2996
+    },
+    {
+      "path": "artifacts_canary/catalog_checkpoint_20260908/provenance/packet_blinds_and_trim.py",
+      "exists": true,
+      "sha256": "7d463597b0333c5e94d9f8b03578689ec995efb54db17af97cef73c5c0191cfa",
+      "bytes": 6351
+    },
+    {
+      "path": "artifacts_canary/catalog_checkpoint_20260908/provenance/packet_artifacts.py",
+      "exists": true,
+      "sha256": "22185eda8b5728363ebc9a0f1ae8d85b20b0a7522665840eab4ea0143dd568d6",
+      "bytes": 2024
+    },
+    {
+      "path": "artifacts_canary/catalog_checkpoint_20260908/provenance/trim_with_without_replay/trim_with_without_replay.py",
+      "exists": true,
+      "sha256": "1864aa77c26fcd1693a15e305b529e8071516cf19a60be6795ccce6fd9cf95dc",
+      "bytes": 7826
+    },
+    {
+      "path": "artifacts_canary/catalog_checkpoint_20260908/provenance/trim_with_without_replay/trim_corpus_replay.py",
+      "exists": true,
+      "sha256": "fc4eb75747dbbab6e09ad0f8e5e50ae1130d7763fa595734aaf7f4355d0e5547",
+      "bytes": 8190
+    },
+    {
+      "path": "artifacts_canary/catalog_checkpoint_20260908/provenance/trim_with_without_replay/trim_with_without.json",
+      "exists": true,
+      "sha256": "acf51a48282445a6a976dbad233d60059c882e3848e9859ab68990baddbb153f",
+      "bytes": 56461
+    },
+    {
+      "path": "artifacts_canary/catalog_checkpoint_20260908/provenance/trim_with_without_replay/trim_corpus_replay.json",
+      "exists": true,
+      "sha256": "518bb8b037dd48ac06213dd09878e47b68c1bd01596ab6fe2798d877f6fc7e75",
+      "bytes": 56267
+    }
+  ],
+  "code_main": [
+    {
+      "path": "scripts/migrate_catalog_kind_v2.py",
+      "exists": true,
+      "sha256": "b732022fcea8cd22109c7781eb0f93d0688d557230c759ccb6216d667250a053",
+      "bytes": 21275,
+      "git_blob": "aae7787f6e1b78614d59d4b91ff5d544c3e2ad52",
+      "tracked": true
+    },
+    {
+      "path": "scripts/render_catalog_audit_proposals.py",
+      "exists": true,
+      "sha256": "d0305682810c8a9b5d79d9d9e47c8e6ecf277fa117fe723aa9de65debc2c6cb9",
+      "bytes": 103380,
+      "git_blob": "79e95351961b3d686c8d9beee0cb6bd691c2f3a5",
+      "tracked": false
+    },
+    {
+      "path": "scripts/build_catalog_audit_evidence.py",
+      "exists": true,
+      "sha256": "8874bc340b93c48ef0014bbf2529d750951709d70afb2bd6016c10d0e6deaf78",
+      "bytes": 82565,
+      "git_blob": "c33217deaaa6c78a70e76a2186a6ab481f9e9cb6",
+      "tracked": true
+    },
+    {
+      "path": "scripts/catalog_audit_validation.py",
+      "exists": true,
+      "sha256": "dbacf929b5ddba177e555456ee51d1685ee9b7b79261889c973fc1a1d8127ce6",
+      "bytes": 136862,
+      "git_blob": "9ca99be02b4996e9708735998110826bcaf792ec",
+      "tracked": false
+    },
+    {
+      "path": "scripts/catalog_audit_live_validation.py",
+      "exists": true,
+      "sha256": "439235baee7f9731fbb6d85e0b523abc3bfe28a903c3181d5b0897f243f8abcb",
+      "bytes": 108391,
+      "git_blob": "fb9cf2e893a5d37d89ffe41ecb28e8f09275f09f",
+      "tracked": false
+    },
+    {
+      "path": "tools/catalog_validation.py",
+      "exists": true,
+      "sha256": "041637a3684bacd3bc06dd92955b845088b4fedda8bb7e2e31222ac9ec75bee2",
+      "bytes": 30326,
+      "git_blob": "bea25718f8164f3f11e69d14d410ede7c039785f",
+      "tracked": true
+    },
+    {
+      "path": "tools/catalog_embeddings.py",
+      "exists": true,
+      "sha256": "6ae8312849e68b032cbbe2b131a6b87a5da8cf7f1b2fb21a5b374286f049df4f",
+      "bytes": 25419,
+      "git_blob": "4c42756b78132b2595146f1b70118074ba104eef",
+      "tracked": true
+    },
+    {
+      "path": "tools/renovation_architecture/catalog_projection.py",
+      "exists": true,
+      "sha256": "d3ae7dcbb1a5f41d28b6088912038f01fd60115660b8235dc97862f7ab956d6b",
+      "bytes": 11553,
+      "git_blob": "8ea74740daebfdda417afdf18808a942146e9b15",
+      "tracked": true
+    },
+    {
+      "path": "tools/pipeline_common.py",
+      "exists": true,
+      "sha256": "21e49c55cc2067ef6c6c2e17ad6195735e8823e62c33b0c4ef61eec18f0747d4",
+      "bytes": 12140,
+      "git_blob": "d7cbca3da4ecb0b746c210f42ced5aaf50b4eb4a",
+      "tracked": true
+    },
+    {
+      "path": "tools/scene_classifier_passes.py",
+      "exists": true,
+      "sha256": "63f36d85cdbf963d1807875103dd9e6f8600fba535605bfc27ca4279b42229d5",
+      "bytes": 90110,
+      "git_blob": "40b8b3568ef665c2de0f7b3421d51d029da271b1",
+      "tracked": true
+    },
+    {
+      "path": "tools/scene_classifier_orchestrator.py",
+      "exists": true,
+      "sha256": "41206059e58cc85275e770b951fc9db855d364dce78855c779cd29d4cad58159",
+      "bytes": 56995,
+      "git_blob": "039157c093560615ce573a75f015391f3b08dedf",
+      "tracked": true
+    }
+  ],
+  "code_candidate": [
+    {
+      "path": "scripts/migrate_catalog_kind_v2.py",
+      "exists": true,
+      "sha256": "b732022fcea8cd22109c7781eb0f93d0688d557230c759ccb6216d667250a053",
+      "bytes": 21275,
+      "git_blob": "aae7787f6e1b78614d59d4b91ff5d544c3e2ad52",
+      "tracked": true
+    },
+    {
+      "path": "scripts/render_catalog_audit_proposals.py",
+      "exists": true,
+      "sha256": "d0305682810c8a9b5d79d9d9e47c8e6ecf277fa117fe723aa9de65debc2c6cb9",
+      "bytes": 103380,
+      "git_blob": "79e95351961b3d686c8d9beee0cb6bd691c2f3a5",
+      "tracked": false
+    },
+    {
+      "path": "scripts/build_catalog_audit_evidence.py",
+      "exists": true,
+      "sha256": "8874bc340b93c48ef0014bbf2529d750951709d70afb2bd6016c10d0e6deaf78",
+      "bytes": 82565,
+      "git_blob": "c33217deaaa6c78a70e76a2186a6ab481f9e9cb6",
+      "tracked": true
+    },
+    {
+      "path": "scripts/catalog_audit_validation.py",
+      "exists": true,
+      "sha256": "dbacf929b5ddba177e555456ee51d1685ee9b7b79261889c973fc1a1d8127ce6",
+      "bytes": 136862,
+      "git_blob": "9ca99be02b4996e9708735998110826bcaf792ec",
+      "tracked": false
+    },
+    {
+      "path": "scripts/catalog_audit_live_validation.py",
+      "exists": false
+    },
+    {
+      "path": "tools/catalog_validation.py",
+      "exists": true,
+      "sha256": "041637a3684bacd3bc06dd92955b845088b4fedda8bb7e2e31222ac9ec75bee2",
+      "bytes": 30326,
+      "git_blob": "bea25718f8164f3f11e69d14d410ede7c039785f",
+      "tracked": true
+    },
+    {
+      "path": "tools/catalog_embeddings.py",
+      "exists": true,
+      "sha256": "6ae8312849e68b032cbbe2b131a6b87a5da8cf7f1b2fb21a5b374286f049df4f",
+      "bytes": 25419,
+      "git_blob": "4c42756b78132b2595146f1b70118074ba104eef",
+      "tracked": true
+    },
+    {
+      "path": "tools/renovation_architecture/catalog_projection.py",
+      "exists": true,
+      "sha256": "d3ae7dcbb1a5f41d28b6088912038f01fd60115660b8235dc97862f7ab956d6b",
+      "bytes": 11553,
+      "git_blob": "8ea74740daebfdda417afdf18808a942146e9b15",
+      "tracked": true
+    },
+    {
+      "path": "tools/pipeline_common.py",
+      "exists": true,
+      "sha256": "21e49c55cc2067ef6c6c2e17ad6195735e8823e62c33b0c4ef61eec18f0747d4",
+      "bytes": 12140,
+      "git_blob": "d7cbca3da4ecb0b746c210f42ced5aaf50b4eb4a",
+      "tracked": true
+    },
+    {
+      "path": "tools/scene_classifier_passes.py",
+      "exists": true,
+      "sha256": "63f36d85cdbf963d1807875103dd9e6f8600fba535605bfc27ca4279b42229d5",
+      "bytes": 90110,
+      "git_blob": "40b8b3568ef665c2de0f7b3421d51d029da271b1",
+      "tracked": true
+    },
+    {
+      "path": "tools/scene_classifier_orchestrator.py",
+      "exists": true,
+      "sha256": "41206059e58cc85275e770b951fc9db855d364dce78855c779cd29d4cad58159",
+      "bytes": 56995,
+      "git_blob": "039157c093560615ce573a75f015391f3b08dedf",
+      "tracked": true
+    }
+  ],
+  "evidence_unit_rule": "repeated model outputs and same-property cards are not independent corroboration; count units by property and by human adjudication",
+  "notes": [
+    "Both arms stamp catalog version 3.2; identify them by catalog sha256 and projection fingerprint.",
+    "Candidate worktree has no .venv; run its code with the main venv, cwd=worktree, sys.path[0]=worktree.",
+    "Manifest LM_STUDIO_URL pin 169.254.83.107:1234 is stale; the server is 127.0.0.1:1234 (S6-6).",
+    "The approvals manifest a725c89a... is pinned by the register, the Tier 1/2 harness and tests/test_catalog_audit_validation.py:40; a new approval goes in a new file.",
+    "The untracked live harness scripts/catalog_audit_live_validation.py exists in main only; every tracked code file has identical committed and on-disk blobs in both arms.",
+    "Phase 0 edited three living documents (FOLLOW_UP_REGISTER.md S4-3 re-point, 00_OVERALL_CONTEXT.md S4-4 note, README.md row); their post-edit hashes are the ones recorded here."
+  ],
+  "missing": []
+}

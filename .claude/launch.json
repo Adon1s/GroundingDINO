@@ -1,0 +1,28 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "review-server",
+      "runtimeExecutable": ".venv\\Scripts\\python.exe",
+      "runtimeArgs": [
+        "scripts/review_server.py",
+        "--port",
+        "8765"
+      ],
+      "port": 8765
+    },
+    {
+      "name": "pass2a-comparator",
+      "runtimeExecutable": ".venv\\Scripts\\streamlit.exe",
+      "runtimeArgs": [
+        "run",
+        "tools/pass2a_comparator/app.py",
+        "--server.port",
+        "8766",
+        "--server.headless",
+        "true"
+      ],
+      "port": 8766
+    }
+  ]
+}

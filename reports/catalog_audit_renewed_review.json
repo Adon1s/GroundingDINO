@@ -1,0 +1,284 @@
+{
+  "schema_version": "catalog-audit-renewed-review-v1",
+  "program": "catalog_audit",
+  "stage": "renewed review (decision record stage 3)",
+  "date": "2026-09-06",
+  "reviewer": "Claude Fable 5.1, Phase C lead. Inputs: four fresh-context refuters/verifier run in Phase B (wording; ledger and missing-trim loss; blinds split; mechanical) that read only the drafters' structured outputs, the live-check results and the pinned artifacts. Every finding adopted here was re-verified by the lead against the pinned artifacts, code and photos; the artifact cites that evidence, never an agent.",
+  "standard": "docs/catalog_audit_program/03_SESSION_ADVERSARIAL_REVIEW.md (challenge, evidence inspected, strongest counterargument, resolution, required modification, residual risk); reviewers defaulted to refute",
+  "pins": {
+    "decision_record_sha256": "d89b2bf1149738d9b3e2d5a9222a5b4e163e2cf97dbb0c9f6396d595b849c980",
+    "redraft_sha256": "449f86170dd4b01916988b2000b900e560403bda12fb93cc7e7d7d27bb31811b",
+    "live_check_results_sha256": "de47d13f1dfa5802e885027520ae318ab6a6166e8b609115eb2bdb60eaec74e1",
+    "proposals_sha256": "1411352c42e9d3a555c3a1561470323da2234447badc2869c9874c3e8fa3ef99",
+    "adversarial_review_sha256": "d1149875399a9f30c6cd56e924731c7e207d90b603cb248f402c692c3438b5c4",
+    "evidence_sha256": "43354104cc109c768efbe2d2f8b9a825f33e0882210b81e9f12b847ca67e29b7",
+    "decisions_sha256": "47614d822bdd6b672d8596050b46839d04a8a6df0a04c18e052f4a63bd1903e8",
+    "generated_catalog_sha256": "51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54",
+    "git_head": "9afe0fa5a0490a856abed507dccc4a02ed1de24c"
+  },
+  "live_check": {
+    "instrument": "single-condition Terra requests in the exact production payload shape (terra_review.py:143-165) with the unchanged production system prompt, the frozen Pass 2b observations and the same photos; direct call_terra_review, no checkpoint, no ledger; model gpt-5.6-terra",
+    "calls": 23,
+    "tokens": 72756,
+    "ceiling": 30,
+    "errored_or_cannot_assess": 0,
+    "table": {
+      "control": {
+        "rc_73d15ca14405": {
+          "role": "kill_condition",
+          "result": "supported 2/2",
+          "expected": "unsupported",
+          "status": "control_mismatch"
+        },
+        "rc_9e889631af67": {
+          "role": "withdrawn_plain_trim_billing",
+          "result": "supported 1/1",
+          "expected": "supported",
+          "status": "control_match"
+        },
+        "rc_b642fe69b86a": {
+          "role": "recovery",
+          "result": "supported 2/2",
+          "expected": "unsupported",
+          "status": "control_mismatch"
+        }
+      },
+      "A": {
+        "rc_73d15ca14405": {
+          "role": "kill_condition",
+          "result": "supported 3/3",
+          "expected": "unsupported",
+          "status": "blocks"
+        },
+        "rc_9e889631af67": {
+          "role": "withdrawn_plain_trim_billing",
+          "result": "supported 1/3",
+          "expected": "unsupported",
+          "status": "blocks"
+        },
+        "rc_b642fe69b86a": {
+          "role": "recovery",
+          "result": "supported 3/3",
+          "expected": "supported",
+          "status": "pass"
+        }
+      },
+      "B": {
+        "rc_73d15ca14405": {
+          "role": "kill_condition",
+          "result": "supported 3/3",
+          "expected": "unsupported",
+          "status": "blocks"
+        },
+        "rc_9e889631af67": {
+          "role": "withdrawn_plain_trim_billing",
+          "result": "supported 2/3",
+          "expected": "unsupported",
+          "status": "blocks"
+        },
+        "rc_b642fe69b86a": {
+          "role": "recovery",
+          "result": "supported 3/3",
+          "expected": "supported",
+          "status": "pass"
+        }
+      }
+    },
+    "rule_applied": {
+      "kill_cards_any_supported_blocks": "A: rc_73d15ca14405 3/3 supported, rc_9e889631af67 1/3 supported -> blocks. B: rc_73d15ca14405 3/3, rc_9e889631af67 2/3 -> blocks.",
+      "recovery_card_majority_supported": "A 3/3, B 3/3 -> pass on the cell, but see decisiveness (uninformative).",
+      "inconclusive_clause": "not triggered: every cell has three decisive replicas; no errored call, no cannot_assess.",
+      "overall": "A blocks; B blocks. The harness evaluation and an independent recomputation from calls[] agree on every field."
+    },
+    "decisiveness_as_the_rule_requires": {
+      "rc_9e889631af67": "DECISIVE. The control arm (current claim) returned supported, matching the stored verdict, so the harness reproduces production on this card. Both wordings still bill it: A once in three (rationale echoes the observation's 'utilitarian detailing'), B twice in three, with rationales citing the dark blue-grey WALL colour, one while stating that the trim is white. This card alone blocks both wordings, and it is the card the ruling-3 withdrawal exists to fix.",
+      "rc_73d15ca14405": "NOT ATTRIBUTABLE TO THE WORDING. The control arm returned supported 2/2 against the stored unsupported, so the card's stored rejection is not reproduced in the single-condition harness; on the pixels the two photos disagree (photo_044: a thin chair rail and plain narrow baseboards, which the control rationales describe; photo_006: the heavy panel moulding the adjudication rested on). Both wordings returned supported 3/3 with rationales naming trim presence and profile ('traditional casing details', 'a chair rail and simple painted trim'), never a dated finish, dark stain or paint colour; that shows neither wording rescues the correct rejection, but the block is carried by rc_9e889631af67, not by this card.",
+      "rc_b642fe69b86a": "UNINFORMATIVE under live_check.rule.control_arm. The control arm with the current claim returned supported 2/2 against the stored unsupported, i.e. the current wording already 'recovers' the card in this harness, so a candidate pass proves nothing about the wording. The harness evaluation records 'pass' without the uninformative flag (a rule-versus-output discrepancy the mechanical verification surfaced; it changes no outcome). Consequence: the proposal's single claimed benefit is not demonstrated by this check."
+    },
+    "what_the_rationales_show": "In twelve candidate calls no accept turned on a wording predicate: A's accepts cite 'traditional casing details' and 'utilitarian detailing'; B's accepts cite a chair rail with 'simple painted trim' on the kill card and a dark wall colour on the plain-trim card. Where a predicate is mentioned it is on the reject side ('without a clearly era-specific dated finish'). Two wordings sharing no content word but 'dated' produced the same verdicts on every card, which is the signature of a reader keying on trim presence plus the frozen observations rather than on the state text.",
+    "caveat": "Exclusion handling is not explicitly specified in the production prompt (terra_review.py:33-51) and the single-condition instrument does not reproduce the stored batched verdicts on two of three cards; the check therefore establishes what these wordings do in this harness on these cards, not a general property of Terra."
+  },
+  "dispositions": [
+    {
+      "proposal_id": "CAP-008",
+      "redraft_under_review": "wording candidates A ('era-specific dated finish on casing, jambs, or baseboards') and B ('dark-stained wood or dated paint color'), each with name and description overrides, six decisions-file ops, dry-run clean",
+      "challenge_summary": "Attacked each candidate on the kill condition (clean white period trim), on the 'dark means billable' over-reach (Steven's Q-4 concern), on overlap at the Terra surface, on the seven positive-use and two hallucination controls, on the ledger and the missing-trim loss, and on the op texts; then applied the live check by the rule.",
+      "strongest_counterargument": "The direction is binding policy and readable off the catalog: ruling 3 makes a state that certifies 'plain, thin, or builder-grade' presence non-billable, both candidates remove that state, both dry-run clean, both are positive-only house-style states with name and description overrides, and candidate A is written in ruling 4's own vocabulary with every disjunct tied to datedness by construction.",
+      "resolution": "Not sustained as drafted. (1) The live check blocks both wordings under the rule as written; the decisive card is rc_9e889631af67, where the harness reproduces production and both wordings still bill plain white trim (A 1/3, B 2/3). (2) The datedness tie is a parsing property, not a guard: Terra never engaged either predicate in twelve calls. (3) B's over-reach is measured in a stronger form than Steven's concern: it billed on a dark wall colour in a room with white trim, and B's second disjunct near-duplicates paint_refresh_recommended's claim ('interior paint color | dated or highly personalized colors'), an item with the same rooms and package role, so one colour scheme could be accepted twice into one bucket. (4) The only claimed benefit, recovering rc_b642fe69b86a, is uninformative because the control arm recovers it with the current wording; and photo_028 of that card already carries a baseboard_wear_scuffs condition in the same estimate unit, so the datedness addition is also a double-billing route. (5) The redraft's non-wording content survives challenge and is carried: the withdrawal of the structural-exception claim (bar_met_by 'none'; the change is a ruling-3 application), the package-emit correction verified in code (rehab_packages.py:2221/2225/2233, 1056-1091), the citation corrections, confidence 'low', and the completed ten-card ledger with rc_ceeb17f8e242 resting on Q-3 and the label note (the pinned photo review records a plain baseboard present in photo_025, disclosed) and rc_57c6faf79c7e disclosed as a FOURTH human-approved billing the op would withdraw with no ruling covering it.",
+      "disposition": "not_sustained_as_drafted",
+      "eligibility": "not_eligible",
+      "required_modification": "No wording is proposed for approval. Options for Steven, none of which is in the tested candidate set: (a) close CAP-008 as not eligible and record that a state rewrite alone was not shown to change what Terra bills on these cards, with ruling 3 standing as policy; (b) a removal-only state (drop the plain/thin/builder-grade branch with the name and description overrides, no new billable tell) under a fresh live-check authorization; (c) an instrument outside this program's ops surface (a require_any/deny_any guard, a route-level change, or a Terra prompt rule for literal reading). A third datedness wording is not recommended: two lexically disjoint wordings behaved identically and the remaining ceiling cannot fund a full arm.",
+      "residual_risk": "If nothing changes, dated_interior_trim keeps billing plain presence on the reviewed cards (two hallucinations and four human-approved billings, one unruled), which ruling 3 says is not billable. Any future CAP-008 op must rule on rc_57c6faf79c7e, treat rc_73d15ca14405 as an ambiguous control, and expect every stored Terra checkpoint to be invalidated (CCF-8).",
+      "evidence_inspected": [
+        "reports/catalog_audit_live_check_results.json (23 calls; rationales quoted above)",
+        "reports/catalog_audit_redraft.json cap008",
+        "rc_9e889631af67",
+        "rc_73d15ca14405",
+        "rc_b642fe69b86a",
+        "rc_ceeb17f8e242",
+        "rc_57c6faf79c7e",
+        "rc_470fb7e0624f",
+        "rc_d0ffde500a92",
+        "rc_022497229bd3",
+        "rc_a0e75a18620e",
+        "rc_6f4590af65a3",
+        "item:dated_interior_trim",
+        "item:paint_refresh_recommended",
+        "item:baseboard_wear_scuffs",
+        "photo:redfin_11185681/photo_006.jpg",
+        "photo:redfin_11185681/photo_044.jpg",
+        "photo:redfin_11185681/photo_025.jpg",
+        "photo:redfin_10949071/photo_007.jpg",
+        "photo:redfin_80990371/photo_022.jpg",
+        "photo:redfin_80990371/photo_028.jpg",
+        "reports/catalog_audit_photo_review.json rows CAP-008:control:rc_ceeb17f8e242 and CAP-008:control:rc_57c6faf79c7e",
+        "reports/catalog_audit_evidence.json labels",
+        "tools/renovation_architecture/terra_review.py:33-51, 76-90",
+        "tools/rehab_packages.py:1214-1215, 2221-2233, 1056-1091",
+        "docs/catalog_audit_program/HANDOFF_SESSION_2.md:74-93"
+      ]
+    },
+    {
+      "proposal_id": "CAP-007",
+      "redraft_under_review": "split of dated_window_treatment_valance into window_blinds_basic_or_plain (presentation_only, route_override no_action) and dated_window_valance_or_curtains (dated_style, require_any-gated); seven ops, dry-run clean; the lead added two narrowing deny terms to the fabric successor after the refuters ran",
+      "challenge_summary": "Attacked the leak of blinds-only bullets into the billable fabric successor with the real matcher over corpus bullets, the deny/support mirror, wear or damage words on the presence-only successor, the ruling-5 grounding, the withdrawn-billings accounting (three independent derivations), route_override validity, the cutover facts, and the ledger; the refuters worked from the drafter's structured output only.",
+      "strongest_counterargument": "This is the first same-kind split in the decisions file, the presence-only blinds successor will be Terra-supported on almost every interior photo with blinds and rendered at zero dollars, the fabric successor's bare support stems create lexical-shortcut surface the parent never had, and the drafted bathroom guard ('shower curtain') did not fire on three of four corpus bathroom-curtain bullets.",
+      "resolution": "Sustained with conditions. The blinds successor does what ruling 5 as extended by Q-1 requires and could not be broken: no wear or damage word on any rendered surface, route_override valid on all four validator checks and deterministic ahead of the no-economics check, and no blinds-only bullet in the corpus reaches the billable successor ('Window treatments are dated and basic.', the leak the Session 3 review flagged, now reaches only the no_action item). The withdrawn-billings accounting reproduces exactly across three derivations (48 conditions, 39 accepted, 28 moving to no_action, 10 surviving, 1 reaching neither). The fabric successor is sustained in part: the refuters' finding that 'shower curtain' matches only the contiguous phrase is correct (term_matches is leading word-boundary containment), and the lead applied the narrowing fix ('shower', 'tub' added to its deny_any) and re-tested it against the corpus bullets: the three bathroom hardware bullets are now denied, blinds-only and fabric positive-control bullets are unchanged. That fix post-dates the refuters and was mechanically re-verified, not adversarially re-reviewed; it is disclosed for approval. The drafter's ledger denied a gold unit that exists (gold g3 matched to the accepted billing oc1_12e3660bf3923583 in the bundle's matching rows) and built an open question on that denial; the lead corrected the row and withdrew the question, so Q-1's stakes stand as put. Two mechanism statements were corrected to exact-kind retrieval without changing any outcome.",
+      "disposition": "sustained_with_conditions",
+      "eligibility": "eligible",
+      "eligibility_qualifiers": [
+        "the fabric successor's deny_any carries two lead-added stems ('shower', 'tub') applied after the refuters ran; narrowing; re-tested with the real matcher; approval covers them explicitly or the ops revert to the drafter's list",
+        "checks passing makes the redraft eligible, nothing more; Steven's explicit approval decides"
+      ],
+      "conditions": [
+        "Steven decides the FE display of the no_action blinds successor: leave visible (as drafted) or set overrides.defaultHidden true (verified dry-run clean; display-only; ruling 5's detectability holds at the data level either way).",
+        "Steven rules on curtain hardware: 'The curtain rods are dated.' (oc1_649033275db36ca2, an accepted billing) passes the fabric gate while the claim names valances and curtains only; deny hardware, name it, or accept as is.",
+        "Steven accepts that one currently billed improvised-covering condition (oc1_c839d6e1118a7006, makeshift blinds and curtains) reaches neither successor, or asks for it to land on the no_action blinds successor at the cost of the deny/support mirror.",
+        "Session 5 (Tier 2) measures: the lexical-shortcut fire rate on blinds observations against the new successor (score/margin thresholds at scene_classifier_passes.py:1096-1104); post-split ranks against dated_or_older_windows on 'windows and blinds' bullets; the new shortcut surface on the billable successor's bare stems ('curtain', 'drape', 'fabric'); the embedding neighbourhood of both successors (no offline store exists).",
+        "Session 5/6 plan a full replay and an explicit cutover for stored 3.2 artifacts: no runtime alias exists for the deprecated parent, stale ids fail hard on resumed runs, backfill_kind_v2 is a no-op at the target version, and both new atomic_claims change the projection fingerprint (CCF-8).",
+        "The three predicted verdict flips to supported on the presence-only claim (rc_4f4b93c40ef3, rc_ffad088fa5fe, rc_a22a241b3bf0) stay unmeasured (live calls were authorized for CAP-008 only); they are unbillable on every path regardless."
+      ],
+      "residual_risk": "Fabric-bodied blinds ('fabric vertical blinds', 'sheer shades') would be admitted to the billable successor; no such bullet exists in the pinned runs. 'The room has basic curtains.' keeps its billing although ruling 3 does not bill 'basic' presence (Q-5 sweep question). Genuinely deteriorated blinds (bent, collapsed) never bill after the split, by Q-1's design; their damage-worded bullets are degradation/defect-kinded and had no route before either.",
+      "withdrawn_billings": "28 accepted evidence-era conditions move to no_action and 1 reaches neither successor (29 of 39); among them the two human/gold-backed deteriorated-blinds billings Q-1 named: rc_7c5b9f9bb3aa (redfin_81000709 photo_003, v1.1 claim exact / work warranted) and gold g3 -> oc1_12e3660bf3923583 (redfin_11000447 photo_003). Ten fabric billings survive (seven whole, three split at cutover).",
+      "evidence_inspected": [
+        "reports/catalog_audit_redraft.json cap007 (ops, successors, leak_test, census, ledger)",
+        "reports/catalog_audit_evidence.json gold.matching_rows (gold:redfin_11000447:photo_003.jpg:g3) and run_artifacts (25 readable)",
+        "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_81000709/20260817_225858_d13bd83c/photo_intel_debug.json",
+        "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_11000447/20260817_224602_d422d7ae/photo_intel_debug.json",
+        "rc_7c5b9f9bb3aa",
+        "rc_429ba6851d09",
+        "rc_4f4b93c40ef3",
+        "rc_ffad088fa5fe",
+        "rc_a22a241b3bf0",
+        "oc1_12e3660bf3923583",
+        "oc1_414b89a8d035a952",
+        "oc1_c839d6e1118a7006",
+        "oc1_649033275db36ca2",
+        "item:dated_window_treatment_valance",
+        "item:landscaping_enhancement_opportunity",
+        "tools/pipeline_common.py:265-284",
+        "tools/catalog_embeddings.py:439-450, 485-495",
+        "tools/scene_classifier_passes.py:484-505, 1080-1118",
+        "tools/catalog_validation.py:454-493",
+        "scripts/migrate_catalog_kind_v2.py:68-129",
+        "tools/renovation_architecture/catalog_projection.py:46-72",
+        "tools/publication_gate.py:141-162",
+        "tools/analyzer_server.py:277-329",
+        "tools/backfill_kind_v2.py:258-276",
+        "photo:redfin_81000709/photo_003.jpg",
+        "photo:redfin_11000447/photo_003.jpg",
+        "photo:redfin_11000447/photo_005.jpg",
+        "photo:redfin_10803207/photo_005.jpg",
+        "photo:redfin_80990371/photo_030.jpg",
+        "docs/catalog_audit_program/HANDOFF_SESSION_2.md:89-90"
+      ]
+    }
+  ],
+  "concerns_from_the_decision_record": [
+    {
+      "concern": "each CAP-008 wording candidate against the kill condition (rc_73d15ca14405, clean white period trim)",
+      "status": "resolved: refuted for both candidates by measurement (3/3 supported each on rc_73d15ca14405, with the attribution caveat above; decisive block on rc_9e889631af67)"
+    },
+    {
+      "concern": "each candidate against the 'dark means billable' over-reach: search the evidence for an intact, non-dated dark-stained trim control; if none exists, say so",
+      "status": "resolved: no adjudicated intact, non-dated dark-stained TRIM exists in the evidence (212 review-queue cards and both bundle extracts searched; the only interior-trim dark card is rc_b642fe69b86a, adjudicated dated), and the control is no longer load-bearing: B billed a dark WALL with white trim on rc_9e889631af67, and intact dark millwork appears as furniture in three control frames (redfin_25809814/photo_020 espresso vanity and mirror frame; redfin_125779232/photo_003 dark vanity; redfin_25809814/photo_017-018 dark furniture)"
+    },
+    {
+      "concern": "each candidate against the overlap with baseboard_wear_scuffs and peeling_or_discolored_paint at the Terra surface, and the seven positive-use controls",
+      "status": "resolved: overlap is concrete (rc_6f4590af65a3, baseboard_wear_scuffs, same estimate unit, photo_028; Terra's control rationale mixes 'aged' and 'dated' under a grade-only claim) and B additionally duplicates paint_refresh_recommended; the seven positive-use and two hallucination controls' predicted flips are unsupported by the measured behaviour on the one comparable card (rc_9e889631af67)"
+    },
+    {
+      "concern": "the missing-trim loss (rc_ceeb17f8e242) and its handoff to CAP-013",
+      "status": "resolved with a correction: rc_ceeb17f8e242 is a missing-trim loss on Q-3 and the label note, with the pinned photo review's 'plain baseboard present' disclosed; the handoff to CAP-013 is recorded without claiming its bar is met (Q-6 document and wait); rc_57c6faf79c7e is a further candidate instance on redfin_125779232 (no visible baseboard plus a damaged base board in the pinned row), for Steven"
+    },
+    {
+      "concern": "blinds-only bullets reaching the billable fabric successor; the deny_any/support_any mirror; the withdrawn-billings accounting; the ruling-5 policy grounding",
+      "status": "resolved: no blinds-only bullet in the corpus reaches the billable successor; the mirror is exact; the accounting reproduces (28 of 39 move); the ruling-5 grounding is a policy application like CAP-008's ruling-3 application; the bathroom-hardware leak the drafted guard missed is closed by the lead's two deny stems (disclosed)"
+    },
+    {
+      "concern": "Tier-2 retrieval questions the split raises and the CCF-8 cutover consequences",
+      "status": "open by design, recorded for Session 5: shortcut fire rate on 'blinds', post-split ranks vs dated_or_older_windows, the billable-side shortcut surface on bare stems, successor embeddings; CCF-8 cutover consequences carried as a condition"
+    },
+    {
+      "concern": "mechanical: independent dry runs from the ops JSON, house-style census, validator errors, metadata_problems, Session 1-3 artifacts byte-identical, live-check rule applied to the results file",
+      "status": "resolved: all dry runs reproduce (lead re-runs on the final ops); house style within nine words with no semicolon or exclusion token; all pinned files byte-identical; ops all native; the live-check rule recomputed independently agrees with the harness on every field, with one flag the harness lacks (rc_b642fe69b86a uninformative)"
+    }
+  ],
+  "eligibility": {
+    "CAP-008": "not_eligible",
+    "CAP-007": "eligible"
+  },
+  "questions_for_steven_at_approval": [
+    {
+      "id": "A-1",
+      "proposal_ids": [
+        "CAP-008"
+      ],
+      "question": "Close CAP-008 as not eligible (option a), authorize a removal-only wording under a fresh live-check ceiling (option b), or take the plain-presence problem to a non-wording instrument outside this program (option c)?"
+    },
+    {
+      "id": "A-2",
+      "proposal_ids": [
+        "CAP-008",
+        "CAP-013"
+      ],
+      "question": "rc_57c6faf79c7e: a fourth claim-exact/work-warranted billing that any CAP-008 op withdraws, unruled by Q-3, and a candidate instance of the CAP-013 missing-or-incomplete base-trim concept on redfin_125779232. Rule on it, or leave it with CAP-013's candidate cards?"
+    },
+    {
+      "id": "A-3",
+      "proposal_ids": [
+        "CAP-007"
+      ],
+      "question": "Approve the split with the lead-added deny stems 'shower' and 'tub' on the fabric successor (narrowing, mechanically re-tested, not adversarially re-reviewed), or revert to the drafter's list?"
+    },
+    {
+      "id": "A-4",
+      "proposal_ids": [
+        "CAP-007"
+      ],
+      "question": "FE display of the no_action blinds successor: visible as drafted, or overrides.defaultHidden true (verified)?"
+    },
+    {
+      "id": "A-5",
+      "proposal_ids": [
+        "CAP-007"
+      ],
+      "question": "Curtain hardware: keep 'The curtain rods are dated.' billing on the fabric successor as today, deny 'rod'/'hardware', or name hardware in the claim?"
+    },
+    {
+      "id": "A-6",
+      "proposal_ids": [
+        "CAP-007"
+      ],
+      "question": "Accept that the makeshift-covering condition oc1_c839d6e1118a7006 reaches neither successor (non-billable under Q-2, undetected), or route it to the no_action blinds successor?"
+    },
+    {
+      "id": "A-7",
+      "proposal_ids": [
+        "CAP-007"
+      ],
+      "question": "Keep the recipe's rendered claim texts, which repeat the subject ('window blinds or shades basic or plain window blinds'), or adopt tighter states ('basic or plain style, functional'; 'dated style, functional')? A change here is a wording change to what Terra sees and would need its own check."
+    }
+  ],
+  "next_step": "Steven's explicit per-id approval. On approval of CAP-007, reports/catalog_audit_approvals.json is written to the 04_HUMAN_REVIEW_GATE.md schema with approved_with_modification and the seven ops as approved_diff, CAP-008 deferred or rejected per A-1, the other eighteen dispositions copied from the decision record, pinning this file, the redraft, the live-check results and the decision record. Session 4 starts only from that manifest."
+}

@@ -1,0 +1,37 @@
+{
+  "schema_version": "catalog-audit-validation-pins-v1",
+  "what_this_is": "Pins for the 2026-09-08 catalog policy checkpoint candidate. The CAP-007 tier1 reconciliation is NOT run against these: it encodes split-specific semantics. Tier 1 for this candidate is the 24-check proof recorded in reports/catalog_checkpoint_tier1_proof.json.",
+  "pins": {
+    "baseline_commit": "9afe0fa5a0490a856abed507dccc4a02ed1de24c",
+    "candidate_commit": "7ddd52ab1fb198f3242d857e700cab23527327af",
+    "approvals_relpath": "reports/catalog_audit_approvals_v2.json",
+    "approvals_sha256": "3c939bf5295a9ddbe2108e609c71b4b1dd99af064c092a56827489e0842ec3aa",
+    "approved_proposal_id": "CAP-023",
+    "approved_op_count": 2,
+    "expected_diff_files": [
+      "benchmarks/catalog-resolution-v2/cases_checkpoint_20260908.json",
+      "scripts/benchmark_catalog_resolution.py",
+      "scripts/build_catalog_audit_evidence.py",
+      "scripts/migrate_catalog_kind_v2.py",
+      "tests/test_catalog_cap007_window_treatment_split.py",
+      "tests/test_catalog_checkpoint_trim_no_action.py",
+      "tests/test_catalog_checkpoint_wallpaper_scene.py",
+      "tests/test_catalog_kind_v2.py",
+      "tests/test_catalog_resolution_benchmark.py",
+      "tests/test_renovation_architecture_catalog.py",
+      "tests/test_renovation_architecture_runtime.py",
+      "tools/catalog_migrations/kind_v2_decisions.json",
+      "tools/issue_catalog_kind_v2.json"
+    ],
+    "expected_hashes": {
+      "baseline": {
+        "tools/catalog_migrations/kind_v2_decisions.json": "47614d822bdd6b672d8596050b46839d04a8a6df0a04c18e052f4a63bd1903e8",
+        "tools/issue_catalog_kind_v2.json": "51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54"
+      },
+      "candidate": {
+        "tools/catalog_migrations/kind_v2_decisions.json": "4cd0bc073f6fcdab3bde93993ed05a6199645e756e0df4b816230bd047a3b005",
+        "tools/issue_catalog_kind_v2.json": "787964013d083368403524c610df54cc9858a8f6c1a1e5c9535c7204c1e67a2f"
+      }
+    }
+  }
+}

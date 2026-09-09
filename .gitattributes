@@ -1,0 +1,29 @@
+# Benchmark listing photos are binary and large: store them in Git LFS so the
+# repository stays clonable. `benchmark validate` rejects a pointer file left
+# behind by a clone without `git lfs pull`, so a missing fetch fails loudly
+# rather than silently "analyzing" a 130-byte text stub.
+benchmarks/datasets/**/photos/** filter=lfs diff=lfs merge=lfs -text
+
+# --- Frozen audit evidence: byte-exact preservation -------------------------
+# Evidence records are pinned by sha256 of their exact on-disk bytes (see
+# reports/catalog_audit_live_experiment_manifest.json -> inputs_pinned). Store
+# them verbatim so any checkout reproduces those bytes regardless of the
+# checkout machine's core.autocrlf setting.
+reports/**/*.json -text
+reports/**/*.jsonl -text
+
+# These ten pre-date the preservation commit. They are stored as LF blobs, and
+# their pinned hashes are of the CRLF bytes that core.autocrlf=true produces on
+# checkout. Forcing CRLF keeps those pins valid off-Windows too.
+# Do NOT switch these to -text: that flips the working tree to LF and breaks
+# every one of them.
+reports/catalog_audit_evidence.json text eol=crlf
+reports/error_attribution.json text eol=crlf
+reports/error_attribution_gold_cases.json text eol=crlf
+reports/error_attribution_queue.json text eol=crlf
+reports/factorized_review_scorecard.json text eol=crlf
+reports/kind_cutover_canary_catalog31_20260808.json text eol=crlf
+reports/kind_cutover_canary_final_20260807.json text eol=crlf
+reports/kind_cutover_canary_preliminary_16of18_20260807.json text eol=crlf
+reports/review_analysis.json text eol=crlf
+reports/review_queue.json text eol=crlf

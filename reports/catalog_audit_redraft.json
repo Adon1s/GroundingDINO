@@ -1,0 +1,1808 @@
+{
+  "schema_version": "catalog-audit-redraft-v1",
+  "program": "catalog_audit",
+  "stage": "redraft (decision record stage 2)",
+  "date": "2026-09-06",
+  "authored_by": "Claude Fable 5.1, Phase C lead",
+  "provenance": "Assembled from the Phase B drafter outputs (R1 CAP-008, R2 CAP-007, fresh contexts, staging paths in the decision record) after the lead re-verified every load-bearing fact against the pinned artifacts and photos and re-ran every dry run on the final ops. Every correction the lead applied is listed in lead_corrections with the evidence it rests on. Nothing here is approved; approval is Steven's, per id, after the renewed review.",
+  "pins": {
+    "decision_record_sha256": "d89b2bf1149738d9b3e2d5a9222a5b4e163e2cf97dbb0c9f6396d595b849c980",
+    "live_check_results_sha256": "de47d13f1dfa5802e885027520ae318ab6a6166e8b609115eb2bdb60eaec74e1",
+    "proposals_sha256": "1411352c42e9d3a555c3a1561470323da2234447badc2869c9874c3e8fa3ef99",
+    "adversarial_review_sha256": "d1149875399a9f30c6cd56e924731c7e207d90b603cb248f402c692c3438b5c4",
+    "evidence_sha256": "43354104cc109c768efbe2d2f8b9a825f33e0882210b81e9f12b847ca67e29b7",
+    "photo_review_sha256": "2225db9caae573b52b4270f846c314749d39aff468fab4e1a8e2012c49919150",
+    "review_queue_sha256": "8512b87c2af18d1104069c15a5eda977d5fe79eb736f9aedd976d174f89d318a",
+    "decisions_sha256": "47614d822bdd6b672d8596050b46839d04a8a6df0a04c18e052f4a63bd1903e8",
+    "generated_catalog_sha256": "51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54",
+    "generator_sha256": "b732022fcea8cd22109c7781eb0f93d0688d557230c759ccb6216d667250a053",
+    "validator_sha256": "041637a3684bacd3bc06dd92955b845088b4fedda8bb7e2e31222ac9ec75bee2",
+    "git_head": "9afe0fa5a0490a856abed507dccc4a02ed1de24c"
+  },
+  "rulings_applied": {
+    "Q-1": "All blinds, any condition",
+    "Q-2": "Presentation-only",
+    "Q-3": "Withdraw the two; treat the third as missing trim",
+    "Q-4": "Positive-only house style (form only; no final wording endorsed)",
+    "Q-5": "Catalog-wide later"
+  },
+  "cap008": {
+    "status": "two wording candidates authored, dry-run proven and live-checked; NEITHER passed the live check (see the renewed review); no wording is proposed for approval",
+    "binding_form": {
+      "binding_rulings": [
+        "Q-3",
+        "Q-4",
+        "Q-5"
+      ],
+      "state_requirements": "positive-only; at most nine words; no semicolon; no exclusion clause; ontology_basis dated_style; every disjunct tied to datedness; rendered to Terra as 'interior trim <state>'",
+      "override_requirements": "name and description overrides in the same decisions entry so no surface advertises plain, thin or builder-grade trim as the condition; embed_text unchanged unless the renewed review finds a reason (record the decision either way)",
+      "wording_candidates": {
+        "A": "era-specific dated finish on casing, jambs, or baseboards",
+        "B": "dark-stained wood or dated paint color",
+        "third": "permitted if the drafter argues both A and B fail the datedness tie; state the argument",
+        "concern_on_B": "dark-stained wood becomes sufficient regardless of condition or datedness; do not replace 'plain means billable' with 'dark means billable'",
+        "concern_on_A": "'era-specific' sits one word from 'period millwork', which is the kill condition (redfin_11185681 photos 006/044, clean white period trim)"
+      },
+      "must_correct_during_drafting": [
+        "add rc_470fb7e0624f (currently billed plain trim, redfin_10949071) to the regression ledger (CCF-6)",
+        "ledger: rc_9e889631af67 and rc_d0ffde500a92 withdrawn under ruling 3 (Q-3); rc_ceeb17f8e242 withdrawn from this item as a missing-trim loss handed to CAP-013; rc_73d15ca14405 still_rejected (kill condition); rc_b642fe69b86a expected recovered; rc_022497229bd3 and rc_a0e75a18620e flips_to_rejected",
+        "package_route_effects: support acceptance can create or destroy a package (rehab_packages.py); on this evidence a strength downgrade in two redfin_25809814 bedrooms",
+        "human_inputs citations: rulings are at HANDOFF_SESSION_2.md lines 74-93; PHASE_C_BRIEF.md does not exist; the ruling-4 example parenthetical is not Steven's words",
+        "the proposal's confidence contradiction (structured low, prose medium) and the review's Q-4 text saying 'Session 4 authors the redraft' are stale; the redraft stage authors it",
+        "evidence bar re-grounded as a ruling-3 policy application, not a universal structural fact"
+      ]
+    },
+    "current_claim": {
+      "subject": "interior trim",
+      "state": "plain, thin, or builder-grade trim package",
+      "ontology_basis": "low_grade_material",
+      "name": "Dated or Basic Interior Trim",
+      "rendered_to_terra": "interior trim plain, thin, or builder-grade trim package"
+    },
+    "candidates": [
+      {
+        "label": "A",
+        "state": "era-specific dated finish on casing, jambs, or baseboards",
+        "claim_text": "interior trim era-specific dated finish on casing, jambs, or baseboards",
+        "ontology_basis": "dated_style",
+        "name": "Dated Interior Trim Finish",
+        "description": "Interior trim whose finish reads dated for its era on casing, jambs, or baseboards. Trim modernization opportunity.",
+        "ops": [
+          {
+            "legacy_id": "dated_interior_trim",
+            "op": "set",
+            "path": "/successors/0/atomic_claim",
+            "after": {
+              "subject": "interior trim",
+              "state": "era-specific dated finish on casing, jambs, or baseboards",
+              "ontology_basis": "dated_style"
+            }
+          },
+          {
+            "legacy_id": "dated_interior_trim",
+            "op": "set",
+            "path": "/successors/0/overrides/name",
+            "after": "Dated Interior Trim Finish"
+          },
+          {
+            "legacy_id": "dated_interior_trim",
+            "op": "set",
+            "path": "/successors/0/overrides/description",
+            "after": "Interior trim whose finish reads dated for its era on casing, jambs, or baseboards. Trim modernization opportunity."
+          },
+          {
+            "legacy_id": "dated_interior_trim",
+            "op": "set",
+            "path": "/atomicity_rationale",
+            "after": "Single dated-style claim on one subject (the interior trim package). v1 'upgrade' maps to modernization. Application of Steven's ruling 3 (HANDOFF_SESSION_2.md:74-93, 2026-09-02): plain, basic or builder-grade presence is not billable by itself, so the Terra-facing state moves off material grade ('plain, thin, or builder-grade trim package', ontology_basis low_grade_material) to an era-specific dated finish on casing, jambs, or baseboards, which is a concrete tell under ruling 4, with ontology_basis dated_style. The name and description overrides in this entry remove 'Basic' and the plain/thin/builder-grade wording from those two surfaces; the embedding surface (embed_text) still advertises plain trim. embed_text is deliberately left unchanged (retrieval-neutral by design; a later alignment is a separate Tier-2-measured op), and id, kind, severity, scene_groups, support_any, deny_any, route_override and every economic field are unchanged."
+          },
+          {
+            "legacy_id": "dated_interior_trim",
+            "op": "set",
+            "path": "/expected_effects/routing",
+            "after": "retrieval pool moves upgrade -> modernization; embed_text, support_any, deny_any, require_any, scene_groups and route_override are untouched, so the embedding pool and the 2d candidate ranking are unchanged (a non-empty embed_text is the entire embedding input, catalog_embeddings.py:357-364), and plain-trim bullets keep reaching this item and are now expected to be rejected at Terra. The name and description overrides are not inert downstream of ranking: both are printed in the Pass 2d candidate block (scene_classifier_passes.py:1026-1051) and the name feeds the component/condition overlap branch of the 2d lexical shortcut (scene_classifier_passes.py:1062-1068, 1113-1116), so dropping 'Basic' from the name and the plain/thin/builder-grade wording from the description removes a plain-presence signal there; the support_phrase_hit branch is unchanged because support_any is unchanged. Only the Terra-facing atomic_claim decides billing (terra_review.py:76-90 renders subject + ' ' + state): intact trim in a clean current finish is no longer supportable on material grade alone, and trim whose finish reads dated for its era becomes supportable. package_affinity, package_role and every economic field are untouched, and dated_interior_trim is not in package_routing_decisions.repair_support_when_driven, so no route moves; the package effect is indirect, through fewer or more accepted support occurrences (rehab_packages.py:2219-2233, 1069-1091). Any catalog change, the name and description overrides included (catalog_sha256 is hashed into the projection at tools/renovation_architecture/catalog_projection.py:240-253), changes the projection fingerprint hashed into every Terra request, so no stored Terra checkpoint survives and Sessions 5/6 must replay rather than reuse. Under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3."
+          },
+          {
+            "legacy_id": "dated_interior_trim",
+            "op": "set",
+            "path": "/expected_effects/packages",
+            "after": "kind 'modernization' is partitioned today as an opportunity-driver kind (rehab_packages.py:1214-1215); this item stays package_support in bathroom, bedroom, kitchen and living through package_affinity and is never a driver; a change in how often it is accepted changes package strength (rehab_packages.py:1056-1091) and, through the emit gates at rehab_packages.py:2225 and :2233, can change package existence; on the reviewed evidence the effect is a strength downgrade in two redfin_25809814 bedrooms, derived from the reviewed cards plus the code and not replayed"
+          }
+        ],
+        "house_style": {
+          "state_word_count": 8,
+          "has_semicolon": false,
+          "has_exclusion_clause": false,
+          "positive_only": true
+        },
+        "dry_run": {
+          "ok": true,
+          "error": null,
+          "item_diff_fields": {
+            "dated_interior_trim": [
+              "atomic_claim",
+              "description",
+              "name"
+            ]
+          },
+          "added": [],
+          "removed": [],
+          "order_ok": true,
+          "metadata_problems": [],
+          "catalog_validation_errors": [],
+          "manifest_validation_errors": [],
+          "classification": [
+            [
+              "/successors/0/atomic_claim",
+              "native"
+            ],
+            [
+              "/successors/0/overrides/name",
+              "native"
+            ],
+            [
+              "/successors/0/overrides/description",
+              "native"
+            ],
+            [
+              "/atomicity_rationale",
+              "native"
+            ],
+            [
+              "/expected_effects/routing",
+              "native"
+            ],
+            [
+              "/expected_effects/packages",
+              "native"
+            ]
+          ],
+          "added_detail": {},
+          "tool_exit": 0,
+          "ran_by": "lead, Phase C, on the FINAL ops after every lead correction"
+        },
+        "drafter_arguments": {
+          "datedness_tie": "A has one condition predicate ('era-specific dated finish') governing three location disjuncts (casing, jambs, baseboards), so every disjunct is tied to datedness by construction: nothing bills unless the FINISH reads dated for its era, and the location list only says where the finish must be seen. Visible tells per disjunct, from the photos I opened: on casing, a heavy dark-stained or taupe-painted casing on a cased opening whose colour and profile belong to an earlier scheme (redfin_80990371/photo_022, photo_028); on jambs, aged painted panel doors and their jambs with chipped, uneven paint (redfin_80990371/photo_029); on baseboards, tall or mismatched painted baseboards carrying the same dated colour scheme (redfin_80990371/photo_028). The word 'dated' is doing the work in every branch, which is exactly ruling 4's wording ('an identifiable era-specific finish or visible deterioration qualifies', HANDOFF_SESSION_2.md:74-93). The weakness is not the tie but the tell's discriminating power: 'era-specific' is a property of the MILLWORK PROFILE as much as of the finish, and period millwork has an era-specific profile even when its finish is current (redfin_11185681/photo_006, photo_044).",
+          "kill_condition": "A is the riskier of the two on rc_73d15ca14405 and I will not pretend otherwise. Terra is shown 'interior trim era-specific dated finish on casing, jambs, or baseboards' (terra_review.py:76-90) inside a payload that also carries the frozen 2b observations 'The chair rail and wainscot-style division are dated.' and 'The trim is basic and dated.'. Photos 006 and 044 show a genuine period trim package - crown, chair rail, panel moulding, deep window casings, a radiator cover - whose profile is unmistakably era-specific, uniformly repainted in a clean current white. Three signals in the payload say 'dated' and only the reader's willingness to separate profile from finish says otherwise, and CCF-3 records that on the frozen record Terra echoed bare style-word claims as supported 15 of 18 times, engaged a qualifier in only 10 of 33 rationales and rejected on one in 2. The production prompt (terra_review.py:33-51) has no literal-reading or negation rule to lean on. I therefore expect A to be the candidate most likely to flip the correct rejection into a manufactured hallucination, and the live check on rc_73d15ca14405 is the only thing that can settle it. Steven's recorded concern - 'era-specific' sits one word from 'period millwork' - is, on the pixels, correct.",
+          "would_bill_intact_dark_trim": "Probably not on the wording, but the wording is not what decides it. A requires the finish to read DATED for its era; well-kept, intentionally dark-stained trim in good condition is a current design choice and fails that test on a literal reading. But the reading has to be literal, and CCF-3 says production Terra frequently is not: a payload whose 2b observation says 'dark wood trim' with no datedness word would still put a dark-finish description in front of a claim containing the word 'dated'. There is no adjudicated control in the CAP-008 evidence to test this: the only reviewed dark-trim card in the family is rc_b642fe69b86a (redfin_80990371/photo_022), which was adjudicated supports_claim as genuinely dated, so no intact, non-dated dark-stained trim control exists to catch the over-reach in either direction.",
+          "would_bill_clean_white_period_trim": "My prediction is YES, supported - the failure mode. On photos 006 and 044 the profile is era-specific, the payload's own observations assert datedness twice, and A's state contains no positive predicate that the white multi-coat finish demonstrably violates. The only thing standing between A and a 'supported' verdict is Terra choosing to read 'finish' as distinct from 'profile'. Nothing in the production prompt asks it to. This is the single reason I flag A as the compliant-but-fragile candidate, and the reason the live check on rc_73d15ca14405 is a blocking gate rather than a formality."
+        },
+        "live_check": {
+          "claim_text_sent": "interior trim era-specific dated finish on casing, jambs, or baseboards",
+          "overall": "blocks",
+          "cards": {
+            "rc_73d15ca14405": {
+              "role": "kill_condition",
+              "calls": 3,
+              "decisive": 3,
+              "supported": 3,
+              "unsupported": 0,
+              "nondecisive": 0,
+              "required": "unsupported",
+              "status": "blocks"
+            },
+            "rc_9e889631af67": {
+              "role": "withdrawn_plain_trim_billing",
+              "calls": 3,
+              "decisive": 3,
+              "supported": 1,
+              "unsupported": 2,
+              "nondecisive": 0,
+              "required": "unsupported",
+              "status": "blocks"
+            },
+            "rc_b642fe69b86a": {
+              "role": "recovery",
+              "calls": 3,
+              "decisive": 3,
+              "supported": 3,
+              "unsupported": 0,
+              "nondecisive": 0,
+              "required": "supported",
+              "status": "pass"
+            }
+          },
+          "calls": [
+            {
+              "card_id": "rc_73d15ca14405",
+              "replica": 1,
+              "rerun": false,
+              "verdict": "supported",
+              "rationale": "Chair rail, simple baseboards, and traditional window and door trim are clearly visible.",
+              "error": null
+            },
+            {
+              "card_id": "rc_73d15ca14405",
+              "replica": 2,
+              "rerun": false,
+              "verdict": "supported",
+              "rationale": "Both photos visibly show chair rail, baseboard trim, and traditional casing details.",
+              "error": null
+            },
+            {
+              "card_id": "rc_73d15ca14405",
+              "replica": 3,
+              "rerun": false,
+              "verdict": "supported",
+              "rationale": "Chair rail, baseboards, and simple painted window and door trim are clearly visible.",
+              "error": null
+            },
+            {
+              "card_id": "rc_9e889631af67",
+              "replica": 1,
+              "rerun": false,
+              "verdict": "unsupported",
+              "rationale": "The visible white window and door trim is simple and painted, without a clearly era-specific dated finish.",
+              "error": null
+            },
+            {
+              "card_id": "rc_9e889631af67",
+              "replica": 2,
+              "rerun": false,
+              "verdict": "unsupported",
+              "rationale": "The visible window casings and door jamb have simple white-painted trim without a clearly dated, era-specific finish.",
+              "error": null
+            },
+            {
+              "card_id": "rc_9e889631af67",
+              "replica": 3,
+              "rerun": false,
+              "verdict": "supported",
+              "rationale": "Simple painted wood window casings and jamb trim with utilitarian detailing are visible.",
+              "error": null
+            },
+            {
+              "card_id": "rc_b642fe69b86a",
+              "replica": 1,
+              "rerun": false,
+              "verdict": "supported",
+              "rationale": "Wide painted window trim, baseboards, and door casings with an older-style appearance are clearly visible.",
+              "error": null
+            },
+            {
+              "card_id": "rc_b642fe69b86a",
+              "replica": 2,
+              "rerun": false,
+              "verdict": "supported",
+              "rationale": "Wide painted window trim, baseboards, and door casings with an older-style profile are clearly visible.",
+              "error": null
+            },
+            {
+              "card_id": "rc_b642fe69b86a",
+              "replica": 3,
+              "rerun": false,
+              "verdict": "supported",
+              "rationale": "Wide painted window trim, baseboards, and door casings with an older-style profile are clearly visible.",
+              "error": null
+            }
+          ]
+        },
+        "lead_fixes_to_ops": [
+          "atomicity_rationale: 'no catalog surface still advertises plain presence' corrected; embed_text still does",
+          "routing: projection fingerprint moves on any catalog change, not only on a claim edit",
+          "sixth op added: /expected_effects/packages restated (the entry's Task-3-era text is stale in code)"
+        ]
+      },
+      {
+        "label": "B",
+        "state": "dark-stained wood or dated paint color",
+        "claim_text": "interior trim dark-stained wood or dated paint color",
+        "ontology_basis": "dated_style",
+        "name": "Dated Interior Trim Color or Finish",
+        "description": "Interior trim finished in dark-stained wood or a dated paint color that dates the room. Refinishing or repainting casing, jambs, and baseboards is the modernization opportunity.",
+        "ops": [
+          {
+            "legacy_id": "dated_interior_trim",
+            "op": "set",
+            "path": "/successors/0/atomic_claim",
+            "after": {
+              "subject": "interior trim",
+              "state": "dark-stained wood or dated paint color",
+              "ontology_basis": "dated_style"
+            }
+          },
+          {
+            "legacy_id": "dated_interior_trim",
+            "op": "set",
+            "path": "/successors/0/overrides/name",
+            "after": "Dated Interior Trim Color or Finish"
+          },
+          {
+            "legacy_id": "dated_interior_trim",
+            "op": "set",
+            "path": "/successors/0/overrides/description",
+            "after": "Interior trim finished in dark-stained wood or a dated paint color that dates the room. Refinishing or repainting casing, jambs, and baseboards is the modernization opportunity."
+          },
+          {
+            "legacy_id": "dated_interior_trim",
+            "op": "set",
+            "path": "/atomicity_rationale",
+            "after": "Single dated-style claim on one subject (the interior trim package). v1 'upgrade' maps to modernization. Application of Steven's ruling 3 (HANDOFF_SESSION_2.md:74-93, 2026-09-02): plain, basic or builder-grade presence is not billable by itself, so the Terra-facing state moves off material grade ('plain, thin, or builder-grade trim package', ontology_basis low_grade_material) to a dark-stained wood finish or a dated paint color on the trim, which is a concrete tell under ruling 4, with ontology_basis dated_style. The name and description overrides in this entry remove 'Basic' and the plain/thin/builder-grade wording from those two surfaces; the embedding surface (embed_text) still advertises plain trim. embed_text is deliberately left unchanged (retrieval-neutral by design; a later alignment is a separate Tier-2-measured op), and id, kind, severity, scene_groups, support_any, deny_any, route_override and every economic field are unchanged."
+          },
+          {
+            "legacy_id": "dated_interior_trim",
+            "op": "set",
+            "path": "/expected_effects/routing",
+            "after": "retrieval pool moves upgrade -> modernization; embed_text, support_any, deny_any, require_any, scene_groups and route_override are untouched, so the embedding pool and the 2d candidate ranking are unchanged (a non-empty embed_text is the entire embedding input, catalog_embeddings.py:357-364), and plain-trim bullets keep reaching this item and are now expected to be rejected at Terra. The name and description overrides are not inert downstream of ranking: both are printed in the Pass 2d candidate block (scene_classifier_passes.py:1026-1051) and the name feeds the component/condition overlap branch of the 2d lexical shortcut (scene_classifier_passes.py:1062-1068, 1113-1116), so dropping 'Basic' from the name and the plain/thin/builder-grade wording from the description removes a plain-presence signal there; the support_phrase_hit branch is unchanged because support_any is unchanged. Only the Terra-facing atomic_claim decides billing (terra_review.py:76-90 renders subject + ' ' + state): intact trim in a clean current finish is no longer supportable on material grade alone, and trim carrying a dark-stained wood finish or a dated paint color becomes supportable. package_affinity, package_role and every economic field are untouched, and dated_interior_trim is not in package_routing_decisions.repair_support_when_driven, so no route moves; the package effect is indirect, through fewer or more accepted support occurrences (rehab_packages.py:2219-2233, 1069-1091). Any catalog change, the name and description overrides included (catalog_sha256 is hashed into the projection at tools/renovation_architecture/catalog_projection.py:240-253), changes the projection fingerprint hashed into every Terra request, so no stored Terra checkpoint survives and Sessions 5/6 must replay rather than reuse. Under v1 code this kind matches no index entries, which is why the v2 catalog stays offline until Task 3."
+          },
+          {
+            "legacy_id": "dated_interior_trim",
+            "op": "set",
+            "path": "/expected_effects/packages",
+            "after": "kind 'modernization' is partitioned today as an opportunity-driver kind (rehab_packages.py:1214-1215); this item stays package_support in bathroom, bedroom, kitchen and living through package_affinity and is never a driver; a change in how often it is accepted changes package strength (rehab_packages.py:1056-1091) and, through the emit gates at rehab_packages.py:2225 and :2233, can change package existence; on the reviewed evidence the effect is a strength downgrade in two redfin_25809814 bedrooms, derived from the reviewed cards plus the code and not replayed"
+          }
+        ],
+        "house_style": {
+          "state_word_count": 6,
+          "has_semicolon": false,
+          "has_exclusion_clause": false,
+          "positive_only": true
+        },
+        "dry_run": {
+          "ok": true,
+          "error": null,
+          "item_diff_fields": {
+            "dated_interior_trim": [
+              "atomic_claim",
+              "description",
+              "name"
+            ]
+          },
+          "added": [],
+          "removed": [],
+          "order_ok": true,
+          "metadata_problems": [],
+          "catalog_validation_errors": [],
+          "manifest_validation_errors": [],
+          "classification": [
+            [
+              "/successors/0/atomic_claim",
+              "native"
+            ],
+            [
+              "/successors/0/overrides/name",
+              "native"
+            ],
+            [
+              "/successors/0/overrides/description",
+              "native"
+            ],
+            [
+              "/atomicity_rationale",
+              "native"
+            ],
+            [
+              "/expected_effects/routing",
+              "native"
+            ],
+            [
+              "/expected_effects/packages",
+              "native"
+            ]
+          ],
+          "added_detail": {},
+          "tool_exit": 0,
+          "ran_by": "lead, Phase C, on the FINAL ops after every lead correction"
+        },
+        "drafter_arguments": {
+          "datedness_tie": "B FAILS the Q-4 tie on its first disjunct, and I record that as a defect rather than arguing around it. Parsed as '[dark-stained wood] or [dated paint color]', only the second disjunct carries a datedness word; the first makes a colour fact sufficient. The visible tell for disjunct 1 is simply 'the trim is dark-stained wood' - true of the heavy dark casings at redfin_80990371/photo_022 (which IS dated) and equally true of a deliberately dark-stained modern trim package in perfect condition, which is not. That is precisely Steven's recorded concern: it replaces 'plain means billable' with 'dark means billable'. The visible tell for disjunct 2 is a trim colour belonging to an earlier scheme - the wide taupe-painted window casings and tall baseboards at redfin_80990371/photo_028 and the aged taupe doors and jambs at photo_029 - and that disjunct is properly tied. The minimal repair is to let 'dated' govern both branches (for example 'dated dark-stained or painted finish on casing and baseboards'), which I am NOT licensed to author here: the brief permits a third candidate only if BOTH A and B fail the tie, and A does not fail it.",
+          "kill_condition": "B is the safer of the two on rc_73d15ca14405. Photos 006 and 044 show a uniform, clean, multi-coat WHITE finish over the period millwork: 'dark-stained wood' is concretely and visibly false, and 'dated paint color' is false of a current neutral white unless Terra treats the observation's word 'dated' as the answer to a colour question. CCF-3's census cuts the other way here - concrete positive predicates were rejected 13 of 17 times when absent - so B has the profile of a claim Terra rejects on these photos. The residual risk is that the payload's observations ('The chair rail and wainscot-style division are dated.', 'The trim is basic and dated.') supply the word 'dated' and Terra matches word to word rather than colour to pixels; that is not settleable offline either, which is why B needs the same live check. B's real danger is the opposite error: over-acceptance on dark objects, including dark objects that are not trim (redfin_25809814/photo_020 carries an espresso vanity and a dark-stained mirror frame in the same frame as the plain white baseboard the claim is supposed to reject), and CCF-3 records Terra affirming 'entry or window opening' while its rationale described a gable opening. The live-check card set does not test that failure mode at all.",
+          "would_bill_intact_dark_trim": "Yes - by construction, and that is the defect. 'dark-stained wood' is satisfied by any dark-stained trim regardless of condition, era or whether a buyer would touch it, so intact, deliberately dark-stained trim in good condition bills under B as Terra reads it. The evidence cannot bound the cost: I searched the CAP-008 family and the bundle extracts for an adjudicated intact, non-dated dark-stained trim control and there is none - the only dark-trim card is the recovery rc_b642fe69b86a, adjudicated dated. So the over-reach is real, untested, and invisible to the three live-check cards, which is the strongest argument against adopting B as drafted.",
+          "would_bill_clean_white_period_trim": "My prediction is NO, unsupported - B's intended strength. Neither disjunct describes what photos 006 and 044 show: the finish is white, uniform and clean, and the millwork's era-specific PROFILE is not something B asks about at all, because B asks only about colour and stain. The frozen observations still assert datedness twice, so a word-matching verdict remains possible and the live check still decides; but B removes the collision Steven named on A ('era-specific' next to 'period millwork') instead of relying on Terra to resolve it."
+        },
+        "live_check": {
+          "claim_text_sent": "interior trim dark-stained wood or dated paint color",
+          "overall": "blocks",
+          "cards": {
+            "rc_73d15ca14405": {
+              "role": "kill_condition",
+              "calls": 3,
+              "decisive": 3,
+              "supported": 3,
+              "unsupported": 0,
+              "nondecisive": 0,
+              "required": "unsupported",
+              "status": "blocks"
+            },
+            "rc_9e889631af67": {
+              "role": "withdrawn_plain_trim_billing",
+              "calls": 3,
+              "decisive": 3,
+              "supported": 2,
+              "unsupported": 1,
+              "nondecisive": 0,
+              "required": "unsupported",
+              "status": "blocks"
+            },
+            "rc_b642fe69b86a": {
+              "role": "recovery",
+              "calls": 3,
+              "decisive": 3,
+              "supported": 3,
+              "unsupported": 0,
+              "nondecisive": 0,
+              "required": "supported",
+              "status": "pass"
+            }
+          },
+          "calls": [
+            {
+              "card_id": "rc_73d15ca14405",
+              "replica": 1,
+              "rerun": false,
+              "verdict": "supported",
+              "rationale": "Both photos visibly show a chair rail and simple painted trim with a wainscot-style wall division.",
+              "error": null
+            },
+            {
+              "card_id": "rc_73d15ca14405",
+              "replica": 2,
+              "rerun": false,
+              "verdict": "supported",
+              "rationale": "Both photos show a chair rail and simple painted trim dividing the walls.",
+              "error": null
+            },
+            {
+              "card_id": "rc_73d15ca14405",
+              "replica": 3,
+              "rerun": false,
+              "verdict": "supported",
+              "rationale": "Both photos clearly show a chair rail and wainscot-style wall division with basic painted trim.",
+              "error": null
+            },
+            {
+              "card_id": "rc_9e889631af67",
+              "replica": 1,
+              "rerun": false,
+              "verdict": "supported",
+              "rationale": "The visible interior walls are painted a dark gray-blue color.",
+              "error": null
+            },
+            {
+              "card_id": "rc_9e889631af67",
+              "replica": 2,
+              "rerun": false,
+              "verdict": "supported",
+              "rationale": "The interior has dark blue-gray painted walls with white-painted trim.",
+              "error": null
+            },
+            {
+              "card_id": "rc_9e889631af67",
+              "replica": 3,
+              "rerun": false,
+              "verdict": "unsupported",
+              "rationale": "The visible trim is painted white and the walls are gray, with no dark-stained wood or clearly dated paint color shown.",
+              "error": null
+            },
+            {
+              "card_id": "rc_b642fe69b86a",
+              "replica": 1,
+              "rerun": false,
+              "verdict": "supported",
+              "rationale": "Dark-stained doorway trim and wide painted window and door trim are clearly visible.",
+              "error": null
+            },
+            {
+              "card_id": "rc_b642fe69b86a",
+              "replica": 2,
+              "rerun": false,
+              "verdict": "supported",
+              "rationale": "The photos show dark-stained wood doorway trim and wide painted window and door trim with an aged appearance.",
+              "error": null
+            },
+            {
+              "card_id": "rc_b642fe69b86a",
+              "replica": 3,
+              "rerun": false,
+              "verdict": "supported",
+              "rationale": "The photos show dark-stained doorway trim and wide muted painted window and door trim.",
+              "error": null
+            }
+          ]
+        },
+        "lead_fixes_to_ops": [
+          "atomicity_rationale: 'no catalog surface still advertises plain presence' corrected; embed_text still does",
+          "routing: projection fingerprint moves on any catalog change, not only on a claim edit",
+          "sixth op added: /expected_effects/packages restated (the entry's Task-3-era text is stale in code)"
+        ]
+      }
+    ],
+    "third_wording": "none authored: the brief licensed a third candidate only if both A and B failed the datedness tie, and A does not; after the live check, two wordings sharing no content word but 'dated' produced the same verdicts on the same cards, so a third wording assembled from the same vocabulary has no evidential reason to behave differently and the remaining ceiling (7 of 30 calls) cannot fund a full arm",
+    "regression_ledger": [
+      {
+        "card_id": "rc_022497229bd3",
+        "role": "hallucination control (required)",
+        "adjudicated": "supports_claim (the reviewer confirmed the literal 'plain, thin, or builder-grade' wording matches the pixels); human truth claim absent / work none, class_v1_1 hard_false_billed; Terra supported, accepted_for_work",
+        "expected_after": "flips_to_rejected",
+        "reason_class": "hallucination_control",
+        "note": "redfin_25809814 bedroom_3, unit runtime:canary:redfin_25809814:20260817_223307_7b336e61:oc1_b108ce33e8e5a410. On photo_021 and photo_023 I see clean beige walls, a plain white six-panel door, narrow plain white casing and baseboard, nothing dark, nothing era-specific, no deterioration. Both candidates should reject; this is the proposal's intended benefit. Frozen observations are 'The trim is basic.' and 'The room has beige walls, carpet, basic trim, and a simple interior door.', which supply no datedness word, so the flip does not depend on Terra reading a qualifier.",
+        "photos": [
+          "redfin_25809814/photo_021.jpg",
+          "redfin_25809814/photo_023.jpg"
+        ],
+        "measured_live": null
+      },
+      {
+        "card_id": "rc_a0e75a18620e",
+        "role": "hallucination control (required)",
+        "adjudicated": "supports_claim; human truth claim absent / work none, class_v1_1 hard_false_billed; Terra supported, accepted_for_work",
+        "expected_after": "flips_to_rejected",
+        "reason_class": "hallucination_control",
+        "note": "redfin_25809814 bedroom_2, unit ...:oc1_089e41af82ef42e5. photo_017 is a staged bedroom with narrow plain white baseboards, plain casing and white six-panel doors, clean and current. Both candidates should reject. Note the routing detail that survives this op: issue c050f8ee09c40084 ('Walls, closet doors, trim, and interior door have basic builder-grade finishes.') reached the item by lexical_shortcut / support_phrase_hit, not by the 2d LLM (scene_classifier_passes.py:1105-1110), because support_any still contains the bare token 'trim'. The claim edit stops the billing at Terra but not the routing.",
+        "photos": [
+          "redfin_25809814/photo_017.jpg",
+          "redfin_25809814/photo_018.jpg"
+        ],
+        "measured_live": null
+      },
+      {
+        "card_id": "rc_73d15ca14405",
+        "role": "correct-rejection control (required) - THE KILL CONDITION",
+        "adjudicated": "refuted (reviewer: heavy period trim package, the opposite of plain, thin or builder-grade); human truth basis v1_only, v1_verdict terra_claim_unsupported; Terra unsupported, excluded",
+        "expected_after": "still_rejected",
+        "reason_class": "kill_condition_control",
+        "note": "redfin_11185681 living_room_primary, unit runtime:canary:redfin_11185681:20260818_224036_370aadff:oc1_af3522a306be1d02. REQUIRED, NOT PREDICTED. On photos 006 and 044 I see crown moulding, a chair rail with a wainscot-style division, deep window casings, panel moulding and a radiator cover, all in a clean uniform white. Under B I expect still_rejected; under A I think supported is at least as likely as unsupported (see kill_condition_argument). 'still_rejected' is recorded here as the REQUIREMENT that the live check must confirm, not as a prediction I can defend offline. A supported verdict blocks the op (live_check.rule.kill_cards). Note also that issue 3b469f98afc348a5 ('The trim is basic and dated.') reached the item by support_phrase_hit, so this condition is routed here regardless of the claim wording.",
+        "photos": [
+          "redfin_11185681/photo_006.jpg",
+          "redfin_11185681/photo_044.jpg"
+        ],
+        "measured_live": "kill card: A supported 3/3, B supported 3/3 (blocks under both); control arm with the current claim returned supported 2/2 against the stored unsupported, so the card's stored rejection is not reproduced in the single-condition harness and its result is not attributable to the wording"
+      },
+      {
+        "card_id": "rc_9e889631af67",
+        "role": "positive-use control (required) - human-approved billing withdrawn under ruling 3",
+        "adjudicated": "supports_claim (reviewer: plain flat painted boards with no profile, a plain builder-grade trim package, though not thin); human truth claim exact / work warranted, class_v1_1 supported_billed; Terra supported, accepted_for_work (production run 20260825_052355_3b380cca)",
+        "expected_after": "flips_to_rejected",
+        "reason_class": "ruling_3_withdrawal",
+        "note": "redfin_10949071 basement_primary, unit runtime:production:redfin_10949071:20260825_052355_3b380cca:oc1_ac7c204d731588ed. Withdrawn under Q-3 as ruling 3 applied to a label that predates the ruling; this is a deliberate, disclosed loss of a human-approved billing, not a defect repair. photo_007 shows an enclosed porch with flat white casings carrying heavy multi-coat paint build-up over old wood, blue-grey painted brick walls. Under B the flip is clean (no dark stain, no dated colour). Under A it is less safe: thick old paint build-up can read as an aged, era-specific finish, which is why the review called the predicted flip unreliable and why this card is a live-check kill card (a supported verdict blocks). The frozen observation is 'Trim, paint edges, door hardware, and detailing appear utilitarian.' - no datedness word, which helps both candidates reject.",
+        "photos": [
+          "redfin_10949071/photo_007.jpg"
+        ],
+        "measured_live": "control_match card (control supported = stored supported): A supported 1/3, B supported 2/3; any supported blocks; B's two accepts cite the dark blue-grey WALL colour, one while stating the trim is white"
+      },
+      {
+        "card_id": "rc_d0ffde500a92",
+        "role": "positive-use control - human-approved billing withdrawn under ruling 3",
+        "adjudicated": "supports_claim (reviewer: a narrow plain white board with no profile, a thin builder-grade trim, though clean and undamaged); human truth claim exact / work warranted, class_v1_1 supported_billed; Terra supported, accepted_for_work",
+        "expected_after": "flips_to_rejected",
+        "reason_class": "ruling_3_withdrawal",
+        "note": "redfin_25809814 bathroom_primary, unit ...:oc1_ad910ac3abfa8ca6. Second withdrawal confirmed under Q-3. photo_020 shows a clean narrow white baseboard and a current bathroom; both candidates should reject on the trim. WARNING specific to candidate B: the same frame contains an espresso-stained vanity and a dark-stained mirror frame. Under 'interior trim dark-stained wood or dated paint color', a Terra reader that binds the claim loosely to the room rather than to the trim can answer supported on those objects (CCF-3 records exactly that failure mode). This card is not in the live-check set, so that risk goes untested.",
+        "photos": [
+          "redfin_25809814/photo_020.jpg"
+        ],
+        "measured_live": null
+      },
+      {
+        "card_id": "rc_ceeb17f8e242",
+        "role": "positive-use control (required) - real condition lost from this item, handed to CAP-013",
+        "adjudicated": "supports_claim; human truth claim exact / work warranted, class_v1_1 supported_billed, label note 'I see the missing trim now. Technically this is true then'; a separate review note records verdict terra_claim_overstated with the comment 'Cabinets are a bit dated but not worth replacing...'; Terra supported, accepted_for_work, second_opinion 2f_objected",
+        "expected_after": "flips_to_rejected",
+        "reason_class": "missing_trim_loss_to_cap013",
+        "note": "Withdrawn from this item as a missing-trim (incompleteness) loss handed to CAP-013 under Q-3. No catalog atomic_claim owned missing or incomplete base trim before this op either (dated_interior_trim asserts a present but plain package; baseboard_wear_scuffs asserts wear on existing baseboards), so the op ends an accidental billing rather than opening a gap; CAP-013 stays documented under Q-6.",
+        "photos": [
+          "redfin_11185681/photo_024.jpg",
+          "redfin_11185681/photo_025.jpg"
+        ],
+        "measured_live": null,
+        "basis": "Q-3 (binding) plus the v1.1 label note 'I see the missing trim now. Technically this is true then'. Disclosed conflict: the pinned photo review (CAP-008:control:rc_ceeb17f8e242 and CAP-006:control:rc_ceeb17f8e242, reports/catalog_audit_photo_review.json) records photo_025 as 'a six-panel door in a plain flat casing with a plain baseboard' and adjudicates supports_claim on the plain profile; the lead's own read of photo_025 cannot confirm an absent baseboard (the base behind the radiator is obscured, a light base run is visible near the doorway) and photo_024's raw edges are cabinet and countertop substrate, not trim. The missing-trim classification therefore rests on the ruling and the label note, not on a photo assertion. Adjudications are never rewritten.",
+        "prediction_confidence": "low: the frozen observations are 'Cabinet trim is mismatched and dated.' and 'The trim and door appear older.', two datedness words of the kind CCF-3 records Terra echoing as supported 15 of 18 times; the flip is required by the ruling, not predicted offline, and was not live-checked"
+      },
+      {
+        "card_id": "rc_57c6faf79c7e",
+        "role": "positive-use control; human truth claim exact / work warranted (bundle labels: class_v1_1 supported_billed, arm blind_canary): a FOURTH human-approved billing this op withdraws, not covered by Q-3, which named only rc_9e889631af67, rc_d0ffde500a92 and rc_ceeb17f8e242",
+        "adjudicated": "unclear (reviewer: the frame shows essentially no interior trim - walls meet the floor without a visible baseboard and no casing run is in view, so the trim package cannot be judged); human truth claim exact / work warranted, class_v1_1 supported_billed; Terra supported, accepted_for_work, second_opinion 2f_objected",
+        "expected_after": "flips_to_rejected",
+        "reason_class": "positive_use_control",
+        "note": "redfin_125779232 bathroom_primary, unit runtime:canary:redfin_125779232:20260817_222351_c069aab3:oc1_ce5d7bc646d18404. Recorded as flips_to_rejected because a claim requiring a visible dated finish cannot be met by a frame with no visible trim, but the honest answer is that this card is unpredictable: the likeliest real outcome is cannot_assess, a third verdict the register vocabulary cannot express (the same expressibility gap CCF-8 names). The frozen observation is 'The baseboards are dated.', which is a datedness word with no pixels behind it - the exact combination CCF-3 says Terra tends to echo, so a supported verdict is possible under either candidate.",
+        "photos": [
+          "redfin_125779232/photo_003.jpg"
+        ],
+        "measured_live": null,
+        "cap013_candidate": "the pinned photo review (CAP-008:control:rc_57c6faf79c7e, CAP-006:control:rc_57c6faf79c7e) records 'the walls meet the floor without a visible baseboard' and 'a damaged white board at the wall base behind the toilet' on redfin_125779232 photo_003, the same property as CAP-013 candidate rc_201ccb0c2313; recorded as a candidate instance of the missing-or-incomplete base-trim concept for Steven to rule on, not adjudicated here",
+        "prediction_confidence": "low: frozen observation 'The baseboards are dated.' with no baseboard in frame; the likeliest true verdict is cannot_assess, which the register vocabulary cannot express"
+      },
+      {
+        "card_id": "rc_470fb7e0624f",
+        "role": "currently billed record omitted by the Session 2 proposal (CCF-6)",
+        "adjudicated": "not adjudicated as a control in the CAP-008 packet; bundle record: human truth claim inconclusive / work inconclusive, class_v1_1 excluded, lane appendix_inconclusive, attribution unclear; Terra supported ('The visible white window and ceiling trim is plain and thin.'), accepted_for_work, second_opinion 2f_objected; bundle label v1_verdict terra_claim_unsupported (the one recorded human signal, pointing to a gain)",
+        "expected_after": "flips_to_rejected",
+        "reason_class": "currently_billed_omitted_from_proposal",
+        "note": "redfin_10949071 bedroom_3, unit condition oc1_20b76b5255575af8, production run 20260825_052355_3b380cca. Added here as the review's condition 5 and CCF-6 require. photo_025 is an occupied bedroom in which almost no trim is visible - a strip of white window casing behind a curtain, cream walls, no baseboard in frame. Both candidates should reject. Because human truth is inconclusive, the withdrawal is not a proven loss and not a proven gain; it is a seventh currently accepted billing that stops. That brings the honest accounting on this item's ten reviewed cards to: seven accepted billings withdrawn (two known hallucinations, three human-approved, one human-inconclusive, one unjudgeable), one rejection recovered, two rejections unchanged.",
+        "photos": [
+          "redfin_10949071/photo_025.jpg"
+        ],
+        "measured_live": null
+      },
+      {
+        "card_id": "rc_b642fe69b86a",
+        "role": "the cluster's single support unit - the lost real condition to be recovered",
+        "adjudicated": "supports_claim (photo review: heavy dark-stained casing on the cased openings, wide taupe-painted window casings with chipped paint, aged taupe-painted panel doors and jambs); human truth claim exact / work warranted, class_v1_1 dirB_recovery; Terra unsupported ('The visible trim is substantial painted wood trim rather than plain, thin, or builder-grade trim.'), excluded",
+        "expected_after": "flips_to_supported",
+        "reason_class": "recovery",
+        "note": "redfin_80990371 living_room_primary, unit runtime:canary:redfin_80990371:20260817_221632_3d4a8269:oc1_c6c4c4017b1ed9dd. The whole positive case rests on this one unit on one property (three 2a observations, one projected condition - one evidence unit, not three). Photos confirm it: photo_022 heavy dark-stained casings against cream walls; photo_028 wide taupe casings and tall baseboards with chipped uneven paint; photo_029 aged taupe panel doors, jambs and casing. Candidate A recovers it through all three observations; candidate B recovers it through photo_022 on disjunct 1 and photo_028 on disjunct 2, while photo_029's 'Doors and jambs appear aged.' is carried only weakly. Terra needs the claim visible in at least one photo, so both should return supported. A live 'unsupported' here blocks the op (live_check.rule.recovery_card).",
+        "photos": [
+          "redfin_80990371/photo_022.jpg",
+          "redfin_80990371/photo_028.jpg",
+          "redfin_80990371/photo_029.jpg"
+        ],
+        "measured_live": "A supported 3/3, B supported 3/3, but the control arm with the current claim also returned supported 2/2 against the stored unsupported, so the card is uninformative under live_check.rule.control_arm: the recovery is not shown to be caused by either wording"
+      },
+      {
+        "card_id": "rc_eccd12ababc5",
+        "role": "second reviewed rejection on the item (bundle record, appendix_inconclusive)",
+        "adjudicated": "not adjudicated as a control; human truth basis v1_only, v1_verdict terra_evidence_inconclusive; Terra unsupported ('The visible shower hardware does not clearly show a dated or builder-grade interior trim package.'), excluded, second_opinion 2f_confirmed",
+        "expected_after": "still_rejected",
+        "reason_class": "correct_rejection_control",
+        "note": "redfin_11079485 bathroom_primary, unit runtime:canary:redfin_11079485:20260817_224118_67317092:oc1_81d91b622cb7287d, observation 'The shower trim is old.' on photo_005. A wrong-object routing case (shower hardware is not the interior trim package), so the rejection stands under any wording that keeps the subject 'interior trim'. Included because it is the only other reviewed rejection on the item and because it shows the wrong-object drift both candidates have to survive - the same drift that makes candidate B's 'dark-stained wood' risky in rooms containing dark furniture.",
+        "photos": [
+          "redfin_11079485/photo_005.jpg"
+        ],
+        "measured_live": null
+      }
+    ],
+    "withdrawn_billings_accounting": "On this item's ten reviewed cards the op withdraws seven currently accepted billings: two known hallucinations (rc_022497229bd3, rc_a0e75a18620e), FOUR with human truth claim exact / work warranted (rc_9e889631af67 and rc_d0ffde500a92 ruled withdrawn under Q-3; rc_ceeb17f8e242 ruled a missing-trim loss under Q-3; rc_57c6faf79c7e unruled) and one human-inconclusive (rc_470fb7e0624f); it expects one rejection recovered (rc_b642fe69b86a, uninformative under the control rule) and leaves two rejections unchanged. The six untested flips_to_rejected rows are predictions of the kind the live check falsified on the one comparable card it tested (rc_9e889631af67), so the seven is an upper bound on the benefit.",
+    "corrections": {
+      "package_route_effects": "The Session 2 statement ('Support-only membership means a change in how often the item is accepted can strengthen or weaken an existing modernization package but can never create or destroy one') is FALSE in code. In tools/rehab_packages.py the emit gate is a chain: rehab_packages.py:2221 emits when a defect driver is present; rehab_packages.py:2225 ('elif opportunity_drivers and (supports or len(distinct_opportunity_ids) >= 2)') lets a LONE opportunity driver emit only BECAUSE a support is present, so losing this item's support can destroy that package and gaining it can create one; rehab_packages.py:2233 ('elif len(_distinct_billable_items(non_ambient_supports)) >= 2') mints a package with NO driver at all from two distinct non-ambient supports. Strength is a second, separate effect: compute_package_strength (rehab_packages.py:1069-1091) returns strong for one driver plus two or more distinct supports and moderate for a driver alone, and a strength below the emit threshold suppresses the bucket entirely. What IS true: dated_interior_trim resolves to package_support in bathroom/bedroom/kitchen/living through package_affinity (applied at rehab_packages.py:2139 via _catalog_item_with_package_affinity) and is never a driver; route_override and drop_if_generic are untouched and are not authorable on a carryover; and the item is NOT on the Catalog 3.2 package_routing_decisions.repair_support_when_driven list, so no occurrence changes family. On THIS evidence: on redfin_25809814 the item is accepted in three distinct estimate units in one run (bedroom_2 rc_a0e75a18620e, bedroom_3 rc_022497229bd3, bathroom_primary rc_d0ffde500a92), which meets _AMBIENT_SUPPORT_MIN_UNITS = 3 (rehab_packages.py:1013), so it is an AMBIENT support on that property and is excluded from the driverless-mint gate there; the two bedroom effects are therefore strength and dollar effects rather than existence effects, consistent with the review's 'strength downgrade in two redfin_25809814 bedrooms'. Two candid limits: (1) the ambient demotion does not protect the rehab_packages.py:2225 branch, which counts ALL supports, so a lone opportunity driver in one of those bedrooms could still lose its package; (2) I could not replay the emitted packages - the run artifacts are not among my inputs - so the two-bedroom effect is derived from the reviewed cards plus the code, not observed. In the other direction, recovering rc_b642fe69b86a adds a living_modernization support on redfin_80990371 (one unit only, so not ambient there), which can flip a blocked lone-opportunity-driver bucket into an emitted package. Costing is unaffected as a field: economics are untouched and cost stays mode 'heuristic' (costing.heuristic_cost_range, costing.py:210-249), so the dollar movement is entirely a consequence of occurrences appearing or disappearing, not of a price change.",
+      "human_inputs_citations": "Three citation errors in judgment.human_inputs must not be carried into the redraft. (1) Steven's rulings are recorded at docs/catalog_audit_program/HANDOFF_SESSION_2.md:74-93 ('Steven's Phase C adjudication and convention decisions (2026-09-02)'), NOT at lines 55-63, which are the handoff's hash table; the cluster cites 55-63 for the rc_b642fe69b86a reconciled case (recorded at :89-93 as 'heavy dated trim is catalog-owned wording'). (2) Four human_inputs entries cite 'Phase C brief section 2' or 'section 3'; PHASE_C_BRIEF.md does not exist in the repository (CCF-1), and the scope direction they mean is at HANDOFF_SESSION_2.md:95 onward. (3) The ruling-4 example parenthetical the cluster quotes - '(builder beige with taupe trim and worn paint, parquet, popcorn ceiling)' - is NOT in the recorded ruling. Ruling 4 reads in full: 'Dated style bills on concrete tells only (2026-09-02): an identifiable era-specific finish or visible deterioration qualifies; a bare \"neutral a buyer would repaint\" does not.' The cluster's claim that redfin_80990371/photo_028 'is literally the convention's own example' therefore rests on words Steven did not write and must be dropped from the redraft. What survives verbatim and IS load-bearing: ruling 3 ('Plain/basic/builder-grade presence is not billable by itself. A condition needs visible datedness, deterioration, incompleteness, or another concrete modernization need.'), ruling 4 as quoted, ruling 1 (strictest claim-bearing wording governs), and the reconciled case 'heavy dated trim is catalog-owned wording'. Count and line precision (lead): five human_inputs entries cite 'Phase C brief section 2' or 'section 3' and a sixth cites the brief as 'restated as convention 6', so all six entries reference the non-existent file; the reconciled case 'heavy dated trim is catalog-owned wording' is at HANDOFF_SESSION_2.md:91-93 (:89-90 is ruling 5); the structural-exception shape check is at scripts/render_catalog_audit_proposals.py:736-738; _build_carryover is at scripts/migrate_catalog_kind_v2.py:132-141.",
+      "confidence_contradiction": "The Session 2 cluster carries judgment.confidence = 'low' while its own prose asserts medium: judgment.evidence_bar_claim.justification ends '...which is why confidence is medium and why the live kill-condition check on rc_73d15ca14405 is named as a gate.' The two cannot both stand. The defensible value is LOW and the redraft should state low in both places: the positive side of the claim rests on one adjudicated human unit on one property (rc_b642fe69b86a), the kill condition is unresolved offline, the drafted guard was rejected at the gate, and the change withdraws seven currently accepted billings including three human-approved ones. Nothing in the gate rulings raises the confidence; ruling 3 makes the DIRECTION binding policy, which is a different thing from evidential confidence in the new wording.",
+      "stale_redraft_owner_text": "The review's Q-4 answer text says 'Session 4 authors the short state plus name and description overrides and returns the redraft for check'. That is stale: the human gate of 2026-09-05 routed the redraft to the redraft stage (gate decision record, redraft_brief.executor - Phase B drafters in fresh contexts, Phase C lead authoring reports/catalog_audit_redraft.json), which is what produced this document. Session 4 is not the owner and no Session 4 dependency should be recorded against this work; the renewed review (V-1..V-4) and the live check, not Session 4, gate implementation.",
+      "expected_effects_packages": "The entry's /expected_effects/packages text ('rehab_packages driver/support predicates key on defect/upgrade and will not partition kind modernization until Task 3 migrates them') is stale: _OPPORTUNITY_DRIVER_KINDS contains 'modernization' (rehab_packages.py:1214-1215). A sixth op restates it so the entry is internally consistent.",
+      "overlap_at_terra_surface": "Two overlaps the proposal and the review did not name. (1) paint_refresh_recommended's claim is 'interior paint color | dated or highly personalized colors' (tools/issue_catalog_kind_v2.json), same kind, same scene groups and the same package_support role in bedroom, kitchen and living; candidate B's second disjunct is a near-duplicate differing only in the subject noun, and the live check shows Terra did not hold the subject (rc_9e889631af67, B replicas 1-2 accepted on wall colour). (2) baseboard_wear_scuffs: the recovery card's photo_028 is already the evidence photo for a baseboard_wear_scuffs condition in the same estimate unit (rc_6f4590af65a3, 'Baseboards look tired and inconsistent.', Terra unsupported), and Terra's control-arm rationale on that card mixes 'aged' and 'dated' under a grade-only claim."
+    },
+    "evidence_bar_regrounding": "The Session 2 proposal claimed bar_met_by = 'structural_exception', justified by a surface divergence on ONE item (name, description and embed_text commit to datedness while atomic_claim commits to material grade). The program reserves that route for 'a single case plus a mechanically demonstrable UNIVERSAL catalog fact' (policy block, evidence_bar), and an item-specific divergence is not universal; the renderer only checks the demonstration's SHAPE (render_catalog_audit_proposals.py:735 - fact non-empty, item_ids non-empty, fields non-empty), so passing that check proves nothing about legality. Re-grounded, the change is an APPLICATION OF RULING 3, a policy input, not an evidence claim: Steven ruled on 2026-09-02 (HANDOFF_SESSION_2.md:74-93) that plain, basic or builder-grade presence is not billable by itself, and dated_interior_trim's Terra-facing state - 'plain, thin, or builder-grade trim package', ontology_basis low_grade_material - certifies exactly that presence. That is readable straight off the catalog (current_entries.catalog_items_v2.dated_interior_trim) with no evidence unit at all, and the human gate has now made it binding for this item (Q-3, Q-4) and scheduled the same sweep for the other six plain/basic/builder-grade/hollow-core claims (Q-5). The evidence's role under this grounding is bounded and should be stated as such. SUPPORTING units: one - runtime:canary:redfin_80990371:20260817_221632_3d4a8269:oc1_c6c4c4017b1ed9dd (rc_b642fe69b86a), evidence_class human_review, independent, adjudicated supports_claim, human truth claim exact / work warranted; it shows the claim's other failure direction (a real dated-trim condition destroyed by the material-grade wording). The two hard_false_billed cards rc_022497229bd3 (unit ...:oc1_b108ce33e8e5a410) and rc_a0e75a18620e (unit ...:oc1_089e41af82ef42e5) show plain presence being certified, but under the scope direction Pass-2a-owned hallucination cards serve only as regression controls and never as bar-satisfying support. REFUTING or cost-side units: rc_73d15ca14405 (adjudicated refuted; the kill condition), rc_9e889631af67, rc_d0ffde500a92 and rc_ceeb17f8e242 (adjudicated supports_claim positive uses whose billings the change withdraws - the third being a real missing-trim condition, not a supersession), rc_57c6faf79c7e (unclear), rc_470fb7e0624f (human-inconclusive, currently billed). On the formal ladder the count is one human unit on one property, corroboration 'none', so bar_met_by is 'none' and NEITHER two_independent_human NOR one_human_plus_independent_corroboration is met. The redraft should therefore say plainly: the REMOVAL of the plain-presence branch is grounded in ruling 3 and needs no evidence bar; the ADDITION of a datedness branch is grounded in ruling 4 plus a single property, and that is the weakest part of the proposal. Nothing here restores the structural_exception claim, which should be withdrawn.",
+    "embed_text_decision": {
+      "unchanged": true,
+      "rationale": "embed_text stays exactly as it is ('Dated or builder-grade interior trim. Plain or basic baseboards, thin baseboards, older painted baseboards, dated window casing, basic window trim, plain door casing, minimal millwork, builder-grade trim, older painted window surround, basic wood trim. Trim modernization opportunity.'). Reasons, with the cost stated. (1) Retrieval neutrality: a non-empty embed_text is the ENTIRE embedding input for an item (catalog_embeddings.py:357-364), so touching it moves ranks in every pool this item appears in, on a surface no offline artifact in this program can measure; the frozen candidate lists (ranks 3/1/7 on the three recovery issues) stay valid only while embed_text is untouched. A change belongs in a separate Tier-2-measured op, not in a claim-correctness op. (2) The consequence is accepted deliberately: plain-trim bullets keep being routed to this item and are now expected to be terminated at Terra instead of billed - one wasted Terra call per bullet, no billing. (3) Q-4 scoped the 'no surface advertises plain, thin or builder-grade' requirement to the name and description overrides, which these ops make; the embedding surface still advertises plain trim, and the redraft should say so rather than claim the surface divergence is fully repaired. It is not: after this op the item is retrieved on plain-trim language and judged on datedness. That is the intended suppression path, but it is a half-repair. (4) Recorded finding that the review's 'zero retrieval effect' phrasing misses: the name and description overrides are embedding-neutral but NOT selection-neutral. Both fields are printed into the Pass 2d candidate block (scene_classifier_passes.py:1026-1051) and the name feeds the component/condition overlap branch of the 2d lexical shortcut (scene_classifier_passes.py:1062-1068 and 1113-1116), so dropping 'Basic' from the name genuinely changes 2d's inputs. The op texts I wrote say this rather than repeating 'retrieval unchanged'."
+    },
+    "open_questions": [
+      "Both candidates block. Should a further wording be live-checked at all, given that A and B returned identical verdicts on every card, and if so under what fresh ceiling and with what reason to expect the state text to be read?",
+      "Should the ruling-3 REMOVAL (drop the plain/thin/builder-grade branch, with the name and description overrides) be separated from the datedness ADDITION, which no measurement supports? A removal-only state is not in the candidate set and was not live-checked.",
+      "Is rc_73d15ca14405 still a valid kill control? Its two photos disagree (photo_044 shows a thin chair rail and plain narrow baseboards; photo_006 the heavy panel moulding), the current claim returned supported 2/2 on it in the control arm, and its stored 'unsupported' may be photo_006-driven.",
+      "The single-condition harness does not reproduce the stored batched verdicts on two of three cards. Is a batched replay reproducing the stored payload shape wanted before any wording is credited with recovering a unit, or is the single-condition instrument accepted as the only feasible one?",
+      "Is a residual plain-presence billing rate tolerable (A 1 in 3, B 2 in 3 on rc_9e889631af67, the decisive card), or is any residual a failure of the ruling-3 application?",
+      "rc_57c6faf79c7e is a fourth human-approved billing the op withdraws with no ruling covering it; its pinned row records no visible baseboard plus a damaged base board on redfin_125779232, the property of CAP-013 candidate rc_201ccb0c2313. Does Steven rule on it, and is it a candidate instance of the CAP-013 concept?",
+      "Should paint_refresh_recommended join the Q-5 sweep list, since any trim-colour wording duplicates its claim at the Terra surface?",
+      "If no wording changes Terra's behaviour on these cards, is the right instrument outside this program's ops surface (a require_any/deny_any guard, a route-level change, or a Terra prompt rule for literal reading)?",
+      "support_any still carries the bare tokens 'trim', 'baseboard', 'baseboards', 'casing', 'millwork'; two of the ten reviewed cards reached the item by the lexical shortcut on them. A support_any tightening is native on a carryover but changes routing, not billing, and is not part of these ops.",
+      "The name override is user-visible copy (display_class marketability); confirm any adopted name as product copy, not only as catalog semantics.",
+      "Every catalog change invalidates every stored Terra checkpoint (CCF-8); confirm the Session 5/6 replay budget before any CAP-008 approval, not after."
+    ]
+  },
+  "cap007": {
+    "status": "split redrafted per Q-1 and Q-2; blinds successor sustained by the renewed review; fabric successor amended by the lead after the renewed review (two narrowing deny terms, mechanically re-tested, not adversarially re-reviewed); dry run clean",
+    "binding_rulings": {
+      "binding_rulings": [
+        "Q-1",
+        "Q-2"
+      ],
+      "recipe": "split dated_window_treatment_valance into (i) a presence-only blinds successor: new id with no wear or damage word (for example window_blinds_basic_or_plain), kind modernization, claim of the shape 'window blinds or shades | basic or plain window blinds | presentation_only', no wear or damage word on any surface, overrides.route_override no_action, overrides.deny_any = the fabric terms; (ii) the fabric successor dated_window_valance_or_curtains: claim 'window valance or curtains | dated valance or curtains | dated_style' with 'improvised' and 'heavy' dropped, overrides.require_any = valance, cornice, swag, curtain(s), drape(s), drapery, sheer(s), fabric, window treatment, covering (no cloth/sheet/blanket), support_any the mirror of (i)'s deny_any, bare token 'window treatment' dropped from support_any, glazing deny terms kept on both",
+      "must_decide_explicitly": "whether 'window treatment' belongs in require_any (the leak the review flagged for blinds-only bullets such as 'Window treatments are dated and basic')",
+      "must_correct_during_drafting": [
+        "ledger: rc_7c5b9f9bb3aa and gold g3 (redfin_11000447 photo_003) added as acknowledged withdrawn billings (ruling 5 applied); rc_429ba6851d09, rc_4f4b93c40ef3 and rc_ffad088fa5fe restated consistently (the register cannot express 'supported but unbilled'; extend the expectation vocabulary with a route-level value or restate)",
+        "withdrawn-billings accounting: roughly 26 of the item's 39 evidence-era accepted conditions move to no_action (state the count from the pinned runs)",
+        "citations corrected as for CAP-008"
+      ],
+      "evidence_grounding": "the blinds successor is a ruling-5 policy application (as CAP-008 is a ruling-3 application); the fabric successor keeps the existing billable subject; the residual losses (gold g7 at Pass 2a, gold g4 at Pass 2c, improvised bullets dropped at 2c) stay upstream of the catalog",
+      "checks": "no live Terra check (route_override no_action is deterministic in projection); the renewed review records the Tier-2 retrieval questions (lexical shortcut on 'blinds', post-split ranks) for Session 5 and the CCF-8 cutover consequences (no runtime alias for the deprecated id; full replay in Session 5/6)",
+      "marker_section": "dated_window_treatment_valance is not among the ten repair_support_when_driven items, so the split is not blocked by CCF-7"
+    },
+    "ops": [
+      {
+        "legacy_id": "dated_window_treatment_valance",
+        "op": "set",
+        "path": "/change_type",
+        "after": "split"
+      },
+      {
+        "legacy_id": "dated_window_treatment_valance",
+        "op": "set",
+        "path": "/deprecated",
+        "after": true
+      },
+      {
+        "legacy_id": "dated_window_treatment_valance",
+        "op": "set",
+        "path": "/requires_re_resolution",
+        "after": true
+      },
+      {
+        "legacy_id": "dated_window_treatment_valance",
+        "op": "set",
+        "path": "/atomicity_rationale",
+        "after": "Conflated hard window coverings (mini/horizontal/venetian blinds, roller shades) with fabric treatments (valance, cornice, swag, curtains, drapes) - two subjects with different billability. Ruling 5 (HANDOFF_SESSION_2.md:89-90, extended to all blinds in any condition at the 2026-09-05 gate) makes blinds a no_action condition; valances and curtains stay billable. Split by subject: presentation_only blinds successor with route_override no_action, dated_style fabric successor gated by require_any."
+      },
+      {
+        "legacy_id": "dated_window_treatment_valance",
+        "op": "set",
+        "path": "/expected_effects",
+        "after": {
+          "routing": "observations previously resolving to dated_window_treatment_valance now resolve to the subject-matching successor; blinds and shade observations land on window_blinds_basic_or_plain, which carries route_override no_action and never bills, while valance/curtain/drape observations land on dated_window_valance_or_curtains, which keeps the parent's work route. The fabric successor's require_any admits observations naming a fabric object or curtain hardware and its deny_any rejects shower and tub curtain bullets, so subject-generic bullets ('window treatments are dated') can no longer reach a billable item; the blinds successor's deny_any pushes mixed fabric-plus-blinds observations to the fabric successor. Re-resolution required at cutover.",
+          "estimate_scope": "kind token 'modernization' is unchanged on both successors, so estimate_scope._VALUE_ADD_TERMS text matching and PACKAGE_CATEGORY_MODERNIZATION vocabulary behave exactly as they do for the parent",
+          "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge): both carry cost mode heuristic and work_item_code WINDOW_TREATMENT_UPDATE; on the blinds successor those fields are inert because projection applies route_override before the costing route (catalog_projection.py:46-72), and they are what keeps the override from being flagged redundant (catalog_validation.py:487-493)",
+          "packages": "flat package_role 'ignore' is inherited from the parent, so neither successor drives or supports a rehab package; no package metadata is added and dated_window_treatment_valance is not among the ten repair_support_when_driven marker items"
+        }
+      },
+      {
+        "legacy_id": "dated_window_treatment_valance",
+        "op": "set",
+        "path": "/successors/0",
+        "after": {
+          "id": "window_blinds_basic_or_plain",
+          "kind": "modernization",
+          "severity": 1,
+          "name": "Basic or Plain Window Blinds",
+          "description": "Window blinds or shades are a basic or plain style. Recorded as a visible presentation detail; blinds are not billed as renovation work.",
+          "embed_text": "Basic or plain window blinds. Mini blinds, horizontal blinds, venetian blinds, vertical blinds, roller shades, and window shades in a plain builder-grade style. Blind and shade presence is recorded for presentation context only and is not renovation work.",
+          "support_any": [
+            "blind",
+            "mini blind",
+            "horizontal blind",
+            "venetian blind",
+            "vertical blind",
+            "roller shade",
+            "window shade"
+          ],
+          "atomic_claim": {
+            "subject": "window blinds or shades",
+            "state": "basic or plain window blinds",
+            "ontology_basis": "presentation_only"
+          },
+          "overrides": {
+            "route_override": "no_action",
+            "deny_any": [
+              "valance",
+              "cornice",
+              "swag",
+              "curtain",
+              "drape",
+              "drapery",
+              "sheer",
+              "fabric",
+              "broken window",
+              "fogged window",
+              "failed seal"
+            ]
+          }
+        }
+      },
+      {
+        "legacy_id": "dated_window_treatment_valance",
+        "op": "set",
+        "path": "/successors/1",
+        "after": {
+          "id": "dated_window_valance_or_curtains",
+          "kind": "modernization",
+          "severity": 1,
+          "name": "Dated Valance or Curtains",
+          "description": "A dated valance, cornice, swag, or curtain and drapery set reduces perceived condition; updating the fabric treatment improves appeal.",
+          "embed_text": "Dated window valance, cornice, or swag. Dated curtains, drapes, draperies, and sheers hung at a window. Update dated fabric window treatments for a modern look.",
+          "support_any": [
+            "valance",
+            "cornice",
+            "swag",
+            "curtain",
+            "drape",
+            "drapery",
+            "sheer",
+            "fabric"
+          ],
+          "atomic_claim": {
+            "subject": "window valance or curtains",
+            "state": "dated valance or curtains",
+            "ontology_basis": "dated_style"
+          },
+          "overrides": {
+            "require_any": [
+              "valance",
+              "cornice",
+              "swag",
+              "curtain",
+              "drape",
+              "drapery",
+              "sheer",
+              "fabric"
+            ],
+            "deny_any": [
+              "shower curtain",
+              "improvised",
+              "makeshift",
+              "broken window",
+              "fogged window",
+              "failed seal",
+              "shower",
+              "tub"
+            ]
+          }
+        }
+      }
+    ],
+    "successors": [
+      {
+        "id": "window_blinds_basic_or_plain",
+        "role": "blinds_presence",
+        "kind": "modernization",
+        "severity": 1,
+        "name": "Basic or Plain Window Blinds",
+        "description": "Window blinds or shades are a basic or plain style. Recorded as a visible presentation detail; blinds are not billed as renovation work.",
+        "embed_text": "Basic or plain window blinds. Mini blinds, horizontal blinds, venetian blinds, vertical blinds, roller shades, and window shades in a plain builder-grade style. Blind and shade presence is recorded for presentation context only and is not renovation work.",
+        "support_any": [
+          "blind",
+          "mini blind",
+          "horizontal blind",
+          "venetian blind",
+          "vertical blind",
+          "roller shade",
+          "window shade"
+        ],
+        "atomic_claim": {
+          "subject": "window blinds or shades",
+          "state": "basic or plain window blinds",
+          "ontology_basis": "presentation_only"
+        },
+        "overrides": {
+          "route_override": "no_action",
+          "deny_any": [
+            "valance",
+            "cornice",
+            "swag",
+            "curtain",
+            "drape",
+            "drapery",
+            "sheer",
+            "fabric",
+            "broken window",
+            "fogged window",
+            "failed seal"
+          ]
+        },
+        "wear_or_damage_words_found": []
+      },
+      {
+        "id": "dated_window_valance_or_curtains",
+        "role": "fabric_billable",
+        "kind": "modernization",
+        "severity": 1,
+        "name": "Dated Valance or Curtains",
+        "description": "A dated valance, cornice, swag, or curtain and drapery set reduces perceived condition; updating the fabric treatment improves appeal.",
+        "embed_text": "Dated window valance, cornice, or swag. Dated curtains, drapes, draperies, and sheers hung at a window. Update dated fabric window treatments for a modern look.",
+        "support_any": [
+          "valance",
+          "cornice",
+          "swag",
+          "curtain",
+          "drape",
+          "drapery",
+          "sheer",
+          "fabric"
+        ],
+        "atomic_claim": {
+          "subject": "window valance or curtains",
+          "state": "dated valance or curtains",
+          "ontology_basis": "dated_style"
+        },
+        "overrides": {
+          "require_any": [
+            "valance",
+            "cornice",
+            "swag",
+            "curtain",
+            "drape",
+            "drapery",
+            "sheer",
+            "fabric"
+          ],
+          "deny_any": [
+            "shower curtain",
+            "improvised",
+            "makeshift",
+            "broken window",
+            "fogged window",
+            "failed seal",
+            "shower",
+            "tub"
+          ]
+        },
+        "wear_or_damage_words_found": []
+      }
+    ],
+    "dry_run": {
+      "ok": true,
+      "error": null,
+      "item_diff_fields": {},
+      "added": [
+        "dated_window_valance_or_curtains",
+        "window_blinds_basic_or_plain"
+      ],
+      "removed": [
+        "dated_window_treatment_valance"
+      ],
+      "order_ok": true,
+      "metadata_problems": [],
+      "catalog_validation_errors": [],
+      "manifest_validation_errors": [],
+      "classification": [
+        [
+          "/change_type",
+          "native"
+        ],
+        [
+          "/deprecated",
+          "native"
+        ],
+        [
+          "/requires_re_resolution",
+          "native"
+        ],
+        [
+          "/atomicity_rationale",
+          "native"
+        ],
+        [
+          "/expected_effects",
+          "native"
+        ],
+        [
+          "/successors/0",
+          "native"
+        ],
+        [
+          "/successors/1",
+          "native"
+        ]
+      ],
+      "added_detail": {
+        "dated_window_valance_or_curtains": {
+          "pricing_status": "inherited_from_split_parent",
+          "economics": {
+            "cost": {
+              "mode": "heuristic"
+            },
+            "estimate": null,
+            "work_item_code": "WINDOW_TREATMENT_UPDATE",
+            "cost_model": null,
+            "package_affinity": null,
+            "package_role": "ignore",
+            "estimate_scope": null,
+            "estimate_scope_reason": null
+          },
+          "repair_support_marker_routes": []
+        },
+        "window_blinds_basic_or_plain": {
+          "pricing_status": "inherited_from_split_parent",
+          "economics": {
+            "cost": {
+              "mode": "heuristic"
+            },
+            "estimate": null,
+            "work_item_code": "WINDOW_TREATMENT_UPDATE",
+            "cost_model": null,
+            "package_affinity": null,
+            "package_role": "ignore",
+            "estimate_scope": null,
+            "estimate_scope_reason": null
+          },
+          "repair_support_marker_routes": []
+        }
+      },
+      "tool_exit": 0,
+      "ran_by": "lead, Phase C, on the FINAL ops after every lead correction"
+    },
+    "options_verified": {
+      "blinds_successor_defaultHidden_true": {
+        "what": "overrides.defaultHidden true on window_blinds_basic_or_plain (authorable on a split successor: INHERITED_FIELDS, scripts/migrate_catalog_kind_v2.py:68-80); display-only, no billing effect",
+        "why_offered": "the presence-only blinds successor can be Terra-supported on nearly every interior photo with blinds and, with the inherited display_class 'marketability' and defaultHidden false, would render in the FE envelope at zero dollars; ruling 5 says blinds stay detectable, which a hidden-by-default condition still satisfies at the data level",
+        "dry_run": {
+          "ok": true,
+          "error": null,
+          "item_diff_fields": {},
+          "added": [
+            "dated_window_valance_or_curtains",
+            "window_blinds_basic_or_plain"
+          ],
+          "removed": [
+            "dated_window_treatment_valance"
+          ],
+          "order_ok": true,
+          "metadata_problems": [],
+          "catalog_validation_errors": [],
+          "manifest_validation_errors": [],
+          "classification": [
+            [
+              "/change_type",
+              "native"
+            ],
+            [
+              "/deprecated",
+              "native"
+            ],
+            [
+              "/requires_re_resolution",
+              "native"
+            ],
+            [
+              "/atomicity_rationale",
+              "native"
+            ],
+            [
+              "/expected_effects",
+              "native"
+            ],
+            [
+              "/successors/0",
+              "native"
+            ],
+            [
+              "/successors/1",
+              "native"
+            ]
+          ],
+          "added_detail": {
+            "dated_window_valance_or_curtains": {
+              "pricing_status": "inherited_from_split_parent",
+              "economics": {
+                "cost": {
+                  "mode": "heuristic"
+                },
+                "estimate": null,
+                "work_item_code": "WINDOW_TREATMENT_UPDATE",
+                "cost_model": null,
+                "package_affinity": null,
+                "package_role": "ignore",
+                "estimate_scope": null,
+                "estimate_scope_reason": null
+              },
+              "repair_support_marker_routes": []
+            },
+            "window_blinds_basic_or_plain": {
+              "pricing_status": "inherited_from_split_parent",
+              "economics": {
+                "cost": {
+                  "mode": "heuristic"
+                },
+                "estimate": null,
+                "work_item_code": "WINDOW_TREATMENT_UPDATE",
+                "cost_model": null,
+                "package_affinity": null,
+                "package_role": "ignore",
+                "estimate_scope": null,
+                "estimate_scope_reason": null
+              },
+              "repair_support_marker_routes": []
+            }
+          },
+          "tool_exit": 0,
+          "ran_by": "lead, Phase C, on the FINAL ops after every lead correction"
+        },
+        "generated_blinds_successor_defaultHidden": true,
+        "decision": "Steven's, at approval; not applied in ops"
+      }
+    },
+    "require_any_decision": {
+      "window_treatment_in_require_any": false,
+      "rationale": "Excluded, against the recipe's illustrative list, and this is the draft's one substantive deviation. Reason 1, measured: across the 25 pinned evidence-era runs the bare token names blinds at least as often as fabric. Of the six accepted conditions whose only tell is 'window treatment(s)', I opened redfin_10803207/photo_017.jpg (oc1_414b89a8d035a952, 'Window treatments are dated and basic.', billed) and it is three bay windows with plain white mini-blinds and no fabric anywhere; oc1_33f6d2552f0370ae, oc1_45914abae218006a, oc1_0b36cb33de83323c and oc1_529257481791cda8 sit beside blinds-only bullets in the same conditions. Reason 2, mechanical: with 'window treatment' in require_any, 'Window treatments are dated and basic.' passes the fabric gate at catalog_embeddings.py:439-450 and the billable successor is back in the candidate pool for a blinds-only observation - the exact leak the split exists to close - and only the 2d LLM would stand between it and a billing. Reason 3, policy: ruling 3 makes 'basic' unbillable by itself, so the commonest form of this bullet is not billable even when it is about fabric. Cost, stated honestly: a genuine fabric treatment named only generically loses its billing. I opened redfin_125779232/photo_005.jpg (oc1_45914abae218006a, 'Window treatment is basic.') and it is a real grommet-top curtain panel - a lost billing, though its own bullet says 'basic', which ruling 3 does not bill. Two consequences worth the reviewer's attention: (a) I excluded 'covering' from require_any for the identical reason ('Window coverings appear aged.', redfin_81000709/photo_027.jpg, and 'The window covering is dated.', photo_019.jpg, are both blinds/improvised-cloth cases, and Q-2 makes improvised coverings presentation-only); (b) require_any is therefore exactly the mirror of the blinds successor's fabric deny terms, which is a stronger reading of the brief's mirror requirement than the recipe's longer list, and it means a generic-treatment bullet is not denied at the blinds successor either, so it stays detectable at no_action rather than becoming invisible."
+    },
+    "covering_exclusion_note": "'covering' is excluded from require_any (a narrowing deviation from the recipe's illustrative list). Its stated corpus evidence does not hold as a mechanism: 'Window coverings appear aged.' is degradation-kinded and 'The window covering is dated.' has scene_group 'other', so neither could reach a modernization successor under any term list. The exclusion is kept because 'covering' names blinds and improvised cloths in the corpus and its inclusion would admit a future modernization-kinded 'window coverings are dated' bullet to the billable successor.",
+    "leak_test": [
+      {
+        "bullet": "The blinds are old.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bedroom",
+          "living_areas"
+        ],
+        "passes_blinds_gate": true,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": true,
+        "shortcut_surface_fabric": false,
+        "note": ""
+      },
+      {
+        "bullet": "Windows and blinds look dated.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bedroom",
+          "living_areas"
+        ],
+        "passes_blinds_gate": true,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": true,
+        "shortcut_surface_fabric": false,
+        "note": ""
+      },
+      {
+        "bullet": "Window treatments are dated and basic.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bedroom"
+        ],
+        "passes_blinds_gate": true,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": false,
+        "note": ""
+      },
+      {
+        "bullet": "The window and blinds are dated.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bedroom"
+        ],
+        "passes_blinds_gate": true,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": true,
+        "shortcut_surface_fabric": false,
+        "note": ""
+      },
+      {
+        "bullet": "The blinds appear dated and mismatched.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bedroom"
+        ],
+        "passes_blinds_gate": true,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": true,
+        "shortcut_surface_fabric": false,
+        "note": ""
+      },
+      {
+        "bullet": "The blinds are older.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bedroom"
+        ],
+        "passes_blinds_gate": true,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": true,
+        "shortcut_surface_fabric": false,
+        "note": ""
+      },
+      {
+        "bullet": "Window blind and trim appear dated.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bathroom"
+        ],
+        "passes_blinds_gate": true,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": true,
+        "shortcut_surface_fabric": false,
+        "note": ""
+      },
+      {
+        "bullet": "The blinds and valances are dated.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "kitchen"
+        ],
+        "passes_blinds_gate": false,
+        "passes_fabric_gate": true,
+        "reaches_fabric_successor": true,
+        "shortcut_surface_blinds": true,
+        "shortcut_surface_fabric": true,
+        "note": ""
+      },
+      {
+        "bullet": "The pleated drapes and fabric valances are dated.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "living_areas"
+        ],
+        "passes_blinds_gate": false,
+        "passes_fabric_gate": true,
+        "reaches_fabric_successor": true,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": true,
+        "note": ""
+      },
+      {
+        "bullet": "Heavy floral curtains obscure daylight and appear dated.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "kitchen"
+        ],
+        "passes_blinds_gate": false,
+        "passes_fabric_gate": true,
+        "reaches_fabric_successor": true,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": true,
+        "note": ""
+      },
+      {
+        "bullet": "The curtains and valances are dated.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "living_areas"
+        ],
+        "passes_blinds_gate": false,
+        "passes_fabric_gate": true,
+        "reaches_fabric_successor": true,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": true,
+        "note": ""
+      },
+      {
+        "bullet": "The window is covered with makeshift blinds and curtains.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bedroom"
+        ],
+        "passes_blinds_gate": false,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": true,
+        "shortcut_surface_fabric": true,
+        "note": ""
+      },
+      {
+        "bullet": "Window coverings appear aged.",
+        "pinned_kind": [
+          "degradation"
+        ],
+        "pinned_scene_groups": [
+          "bedroom"
+        ],
+        "passes_blinds_gate": true,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": false,
+        "note": "exact-kind retrieval (tools/scene_classifier_passes.py:484-505; tools/catalog_embeddings.py:485-495) keeps a degradation- or defect-kinded bullet out of both modernization successors regardless of the gates"
+      },
+      {
+        "bullet": "The window covering is dated.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "other"
+        ],
+        "passes_blinds_gate": true,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": false,
+        "note": "scene_group 'other' is outside both successors' inherited scene groups"
+      },
+      {
+        "bullet": "Window treatment is basic.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "living_areas"
+        ],
+        "passes_blinds_gate": true,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": false,
+        "note": ""
+      },
+      {
+        "bullet": "The room has basic curtains.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "living_areas"
+        ],
+        "passes_blinds_gate": false,
+        "passes_fabric_gate": true,
+        "reaches_fabric_successor": true,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": true,
+        "note": ""
+      },
+      {
+        "bullet": "Tub/shower fixtures and curtain hardware are dated.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bathroom"
+        ],
+        "passes_blinds_gate": false,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": true,
+        "note": ""
+      },
+      {
+        "bullet": "The shower rod and curtain setup are dated.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bathroom"
+        ],
+        "passes_blinds_gate": false,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": true,
+        "note": ""
+      },
+      {
+        "bullet": "Tub/shower has a one-piece acrylic-style surround, basic trim, curtain rod, and dated fixtures.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bathroom"
+        ],
+        "passes_blinds_gate": false,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": true,
+        "note": ""
+      },
+      {
+        "bullet": "The shower curtain setup is dated.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bathroom"
+        ],
+        "passes_blinds_gate": false,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": true,
+        "note": ""
+      },
+      {
+        "bullet": "Shower-curtain rod appears improvised.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bathroom"
+        ],
+        "passes_blinds_gate": false,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": true,
+        "note": ""
+      },
+      {
+        "bullet": "The curtain rods are dated.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bedroom"
+        ],
+        "passes_blinds_gate": false,
+        "passes_fabric_gate": true,
+        "reaches_fabric_successor": true,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": true,
+        "note": ""
+      },
+      {
+        "bullet": "The curtain hardware and trim treatment are dated.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bedroom"
+        ],
+        "passes_blinds_gate": false,
+        "passes_fabric_gate": true,
+        "reaches_fabric_successor": true,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": true,
+        "note": ""
+      },
+      {
+        "bullet": "The room has patterned curtains, beige carpet, gray paint, and an older interior door.",
+        "pinned_kind": [
+          "modernization"
+        ],
+        "pinned_scene_groups": [
+          "bedroom"
+        ],
+        "passes_blinds_gate": false,
+        "passes_fabric_gate": true,
+        "reaches_fabric_successor": true,
+        "shortcut_surface_blinds": false,
+        "shortcut_surface_fabric": true,
+        "note": ""
+      },
+      {
+        "bullet": "The window blind and curtain treatment looks tired.",
+        "pinned_kind": [
+          "degradation"
+        ],
+        "pinned_scene_groups": [
+          "bedroom"
+        ],
+        "passes_blinds_gate": false,
+        "passes_fabric_gate": true,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": true,
+        "shortcut_surface_fabric": true,
+        "note": "exact-kind retrieval (tools/scene_classifier_passes.py:484-505; tools/catalog_embeddings.py:485-495) keeps a degradation- or defect-kinded bullet out of both modernization successors regardless of the gates"
+      },
+      {
+        "bullet": "Window blinds are worn.",
+        "pinned_kind": [
+          "degradation"
+        ],
+        "pinned_scene_groups": [
+          "living_areas"
+        ],
+        "passes_blinds_gate": true,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": true,
+        "shortcut_surface_fabric": false,
+        "note": "exact-kind retrieval (tools/scene_classifier_passes.py:484-505; tools/catalog_embeddings.py:485-495) keeps a degradation- or defect-kinded bullet out of both modernization successors regardless of the gates"
+      },
+      {
+        "bullet": "Blinds appear bent and damaged.",
+        "pinned_kind": [
+          "defect"
+        ],
+        "pinned_scene_groups": [
+          "bedroom"
+        ],
+        "passes_blinds_gate": true,
+        "passes_fabric_gate": false,
+        "reaches_fabric_successor": false,
+        "shortcut_surface_blinds": true,
+        "shortcut_surface_fabric": false,
+        "note": "exact-kind retrieval (tools/scene_classifier_passes.py:484-505; tools/catalog_embeddings.py:485-495) keeps a degradation- or defect-kinded bullet out of both modernization successors regardless of the gates"
+      }
+    ],
+    "regression_ledger": [
+      {
+        "card_id": "rc_429ba6851d09",
+        "role": "hallucination",
+        "adjudicated": "refuted (photo review: ordinary white mini-blinds, half raised and intact, no valance or other treatment; nothing visibly dated is present)",
+        "expected_after": "still_supported",
+        "reason_class": "hallucination_control",
+        "note": "Terra verdict unchanged is the honest prediction: the bullet 'The window and blinds are dated.' resolves to window_blinds_basic_or_plain (leak-test row 3: reaches blinds only, and the lexical shortcut still fires on support term 'blind'), and ordinary white mini-blinds do satisfy the presence-only claim 'basic or plain window blinds'. The register cannot express the route-level outcome, which is the whole point of the op: route_override no_action means the condition stays in observed_conditions and the FE envelope, is counted in dispositions_no_action and carries zero dollars (CCF-8), so this billing (accepted=true, accepted_for_work, route_work) is withdrawn without any verdict flip. I am NOT claiming this flips to rejected.",
+        "photos": [
+          "redfin_11185681/photo_007.jpg"
+        ]
+      },
+      {
+        "card_id": "rc_4f4b93c40ef3",
+        "role": "correct_rejection",
+        "adjudicated": "refuted (photo review: plain white roller shade and mini-blind with no valance; treatments are standard and not dated)",
+        "expected_after": "flips_to_supported",
+        "reason_class": "correct_rejection_control",
+        "note": "Restated against the Session 2 draft, which said still_rejected. Terra was shown 'window treatments dated valance or treatments' and correctly said unsupported. After the split the same observation ('The blinds appear dated and mismatched.') reaches only window_blinds_basic_or_plain (leak-test row 4) and the claim it is judged against becomes 'window blinds or shades basic or plain window blinds', which a plain white roller shade and mini-blind plainly satisfy. So I expect the Terra verdict to flip to supported - and that is correct rather than a new hallucination, because the new claim is true of the photo and is exactly ruling 5's 'blinds stay detectable' half. Route-level outcome: no_action, zero dollars, no path on which this card bills. Unverified prediction: the gate authorised live Terra calls only for the CAP-008 wording.",
+        "photos": [
+          "redfin_25809814/photo_023.jpg"
+        ]
+      },
+      {
+        "card_id": "rc_ffad088fa5fe",
+        "role": "correct_rejection",
+        "adjudicated": "refuted (photo review: both windows carry plain white mini-blinds, straight and intact, no valance or other treatment)",
+        "expected_after": "flips_to_supported",
+        "reason_class": "correct_rejection_control",
+        "note": "Same restatement as rc_4f4b93c40ef3 and for the same reason. This is also the clearest demonstration that the mechanism moves rather than disappears: the resolution came from the parent's own support_any 'blinds' via lexical_shortcut, and the leak test confirms the identical shortcut precondition now holds on window_blinds_basic_or_plain (support term 'blind' matches 'The blinds are older.') and nowhere else. Route-level outcome: no_action, unbillable on every path.",
+        "photos": [
+          "redfin_80925528/photo_005.jpg"
+        ]
+      },
+      {
+        "card_id": "rc_64f996e3a886",
+        "role": "correct_rejection",
+        "adjudicated": "refuted (photo review: white vinyl replacement units with clean frames and intact glazing; nothing shows a dated style or aging window units)",
+        "expected_after": "still_rejected",
+        "reason_class": "correct_rejection_control",
+        "note": "Unchanged by construction: no op touches dated_or_older_windows. Its wording, gates, scene groups and its ('no_action','no_economics_approved_gap') route are untouched. Listed because the item is implicated in the cluster (it is the item that covers the two gold blinds units), not because the redraft puts it at risk.",
+        "photos": [
+          "redfin_11000447/photo_001.jpg"
+        ]
+      },
+      {
+        "card_id": "rc_7c5b9f9bb3aa",
+        "role": "positive_use",
+        "adjudicated": "supports_claim (human v1.1 claim=exact, work=warranted, class supported_billed; photo review: yellowed, bent mini-blinds with a red holiday-print cloth hung across as a makeshift curtain)",
+        "expected_after": "still_supported",
+        "reason_class": "withdrawn_by_ruling_5",
+        "note": "ACKNOWLEDGED WITHDRAWN BILLING. This is the item's only human-approved billing and the redraft removes it, as Q-1 directs. The bullet is 'The blinds are old.' (issue 08a7361d0918543a, condition oc1_3e3158279888272c, accepted_for_work/route_work); it reaches only window_blinds_basic_or_plain and the shortcut still fires there, so Terra should keep saying supported on a presence-only blinds claim - and the route is no_action, so the dollars go. I opened redfin_81000709/photo_003.jpg: the blinds are yellow-orange, crooked and partly collapsed, and the covering is an occupant's Christmas-print cloth tacked over the window, i.e. exactly the two things Q-1 and Q-2 rule non-billable. The withdrawal is the ruling being applied, not a defect in the split.",
+        "photos": [
+          "redfin_81000709/photo_003.jpg"
+        ]
+      },
+      {
+        "card_id": "gold:redfin_11000447:photo_003.jpg:g3 -> oc1_12e3660bf3923583",
+        "role": "acknowledged withdrawn billing (ruling 5 as extended by Q-1)",
+        "adjudicated": "gold finding 'Venetian blinds are damaged/bent', decision 'matched' to condition oc1_12e3660bf3923583 (dated_window_treatment_valance, redfin_11000447 photo_003, Terra supported 'visibly aged and worn blind treatments', accepted_for_work / route_work) in reports/catalog_audit_evidence.json gold.matching_rows; verified by the lead. The Session 2 cluster never listed it (CCF-6).",
+        "expected_after": "still_supported",
+        "reason_class": "withdrawn_by_ruling_5",
+        "note": "The second human/gold-backed deteriorated-blinds billing the Q-1 stakes named; its observation 'Windows and blinds look dated.' (modernization, bedroom) reaches only window_blinds_basic_or_plain, so the billing is withdrawn by the route, not by a verdict change. Q-1's stakes as put to Steven were accurate and the ruling stands. Corrects the drafter's ledger, which searched gold.cases (the miss lane) only and reported the unit as not found.",
+        "photos": [
+          "redfin_11000447/photo_003.jpg"
+        ]
+      },
+      {
+        "card_id": "gold:redfin_11000447:photo_005.jpg:g4",
+        "role": "support (evidence-bar unit 2 of 2 for the cluster)",
+        "adjudicated": "supports_claim (pinned photo review row CAP-007:gold:redfin_11000447:photo_005.jpg:g4)",
+        "expected_after": "still_rejected",
+        "reason_class": "withdrawn_by_ruling_5",
+        "note": "Unrepairable by the ops and unchanged by them: its surviving bullet 'Window blinds are worn.' is degradation-kinded in the pinned artifact (redfin_11000447 photo_005), so exact-kind retrieval keeps it out of both modernization successors exactly as it was kept out of the parent; catalog_item_id null before and after. Recorded so the ledger states plainly that one of the cluster's two evidence-bar units is a Pass 2c/2d loss.",
+        "photos": [
+          "redfin_11000447/photo_005.jpg"
+        ]
+      },
+      {
+        "card_id": "gold:redfin_11000447:photo_004.jpg:g7",
+        "role": "support (evidence-bar unit 1 of 2 for the cluster)",
+        "adjudicated": "supports_claim (pinned photo review row CAP-007:gold:redfin_11000447:photo_004.jpg:g7)",
+        "expected_after": "still_rejected",
+        "reason_class": "positive_use_control",
+        "note": "The unit that keeps the fabric successor honest: the photo carries a dated valance, which dated_window_valance_or_curtains is built to bill. It stays a miss after the redraft for a reason upstream of the catalog - 2a/2b never emitted a bullet naming the valance or the sheeting, so no observation exists for require_any to admit. Cited to show the fabric successor's billable subject is evidenced, and to show the redraft does not claim to recover this loss.",
+        "photos": [
+          "redfin_11000447/photo_004.jpg"
+        ]
+      },
+      {
+        "card_id": "rc_a22a241b3bf0",
+        "role": "prompting_case for ruling 5",
+        "adjudicated": "refuted (Terra unsupported, replica supported; Steven's reconciliation: ordinary mini-blinds = not billed)",
+        "expected_after": "flips_to_supported",
+        "reason_class": "prompting_case",
+        "note": "The card that produced ruling 5. Its bullet 'Window blind and trim appear dated.' reaches only window_blinds_basic_or_plain (leak-test row 6; shortcut precondition holds on 'blind'). On the presence-only claim Terra should say supported, which is the ruling's 'detectable' half; the 'not billed' half is enforced by route_override no_action rather than by hoping Terra refuses. The replica split (unsupported/supported on identical facts) is exactly the instability the deterministic route removes.",
+        "photos": [
+          "redfin_10803207/photo_005.jpg"
+        ]
+      },
+      {
+        "card_id": "runtime:canary:redfin_10803207:20260817_222851_c0551630:oc1_414b89a8d035a952",
+        "role": "leak exemplar (accepted_for_work billing, no review card)",
+        "adjudicated": "not in the review queue; adjudicated here from the pinned artifact and the photo, which I opened",
+        "expected_after": "still_supported",
+        "reason_class": "withdrawn_by_ruling_5",
+        "note": "The single best justification for keeping 'window treatment' out of require_any. The bullet is 'Window treatments are dated and basic.' and it billed. redfin_10803207/photo_017.jpg is an empty room with three bay windows carrying ordinary white mini-blinds and no fabric treatment of any kind. Under the redraft the bullet fails the fabric require_any and reaches only the no_action blinds successor, and the shortcut cannot fire there either (no support term matches), so it is retrievable but unbillable.",
+        "photos": [
+          "redfin_10803207/photo_017.jpg"
+        ]
+      },
+      {
+        "card_id": "oc1_649033275db36ca2 (redfin_10866780 photo_030, no review card)",
+        "role": "surviving fabric billing whose subject is hardware",
+        "adjudicated": "not adjudicated; accepted_for_work in the pinned production run on the observation 'The curtain rods are dated.'",
+        "expected_after": "still_supported",
+        "reason_class": "positive_use_control",
+        "note": "Passes the fabric require_any on 'curtain' and keeps its billing under the split, but the successor's claim renders to Terra as 'window valance or curtains dated valance or curtains', which does not name hardware; the Terra verdict under the new claim is unmeasured. Recorded as the curtain-hardware question for Steven (deny 'rod'/'hardware', name hardware in the claim, or accept as is).",
+        "photos": [
+          "redfin_10866780/photo_030.jpg"
+        ]
+      }
+    ],
+    "withdrawn_billings_census": {
+      "method": "lead recount over the 25 readable pinned run artifacts in reports/catalog_audit_evidence.json run_artifacts (17 canary run_1 + 8 production; redfin_10965375 has no artifact path): every observed_condition with catalog_item_id dated_window_treatment_valance, disposition from condition_dispositions, observations from evidence_facts.evidence_refs; each observation gated with tools.pipeline_common.term_matches under the FINAL require_any/deny_any (deny first, then require, as tools/catalog_embeddings.py:439-450); a condition moves to no_action when no observation reaches the fabric successor and at least one reaches the blinds successor",
+      "artifacts_read": 25,
+      "conditions_total": 48,
+      "accepted_for_work": 39,
+      "moving_to_no_action": 28,
+      "surviving_on_fabric_successor": 10,
+      "reaching_neither": 1,
+      "conditions_without_recovered_observations": [],
+      "condition_ids_moving": [
+        "oc1_0b36cb33de83323c",
+        "oc1_12e3660bf3923583",
+        "oc1_1f8e994823072540",
+        "oc1_243287fc65a4cf76",
+        "oc1_33f6d2552f0370ae",
+        "oc1_3c7b1c15f9675046",
+        "oc1_3e3158279888272c",
+        "oc1_414b89a8d035a952",
+        "oc1_42de41a42b22eda8",
+        "oc1_45914abae218006a",
+        "oc1_4ab927cfe461b5d5",
+        "oc1_529257481791cda8",
+        "oc1_55e798e0b7f9aeb6",
+        "oc1_56acd6d97f56ad60",
+        "oc1_69e95fd5c6649845",
+        "oc1_6dad98e53e7d7e6d",
+        "oc1_7078d0f51bb23420",
+        "oc1_76eac37499792a17",
+        "oc1_8019053fa8fc83ad",
+        "oc1_8423be4896c4204e",
+        "oc1_9071de96f1db0067",
+        "oc1_a7ff95878b88990c",
+        "oc1_b5863a1e2e1486dd",
+        "oc1_c6b0636fadfa52bb",
+        "oc1_c735c59e77f24597",
+        "oc1_d1626c72ce7743bd",
+        "oc1_df451075a61923b7",
+        "oc1_eea5adca987db448"
+      ],
+      "condition_ids_surviving": [
+        "oc1_47e8a65c45647375",
+        "oc1_59824ad41540c6f6",
+        "oc1_649033275db36ca2",
+        "oc1_72e5dcfe1ef8d6b0",
+        "oc1_93a2e3f3d299a7a1",
+        "oc1_af9f0d3783467a7c",
+        "oc1_b88ebf7dfe3d0b98",
+        "oc1_bbd382ec06507990",
+        "oc1_fc9b523f51d315cd",
+        "oc1_fd7d72e5ce67dd26"
+      ],
+      "condition_ids_neither": [
+        "oc1_c839d6e1118a7006"
+      ],
+      "drafter_and_refuter_derivations": "the Phase B drafter and the blinds refuter each derived 48 / 39 / 28 moving / 10 surviving / 1 neither independently; the lead's recount above is the figure carried"
+    },
+    "tier2_questions": [
+      "Lexical shortcut on 'blinds': every blinds-only bullet in the leak test still satisfies the support-phrase precondition, but on window_blinds_basic_or_plain instead of the parent. What is unverifiable offline is whether that successor is still the TOP candidate at score >= PASS_2D_SHORTCUT_MIN_SCORE (0.72) with margin >= PASS_2D_SHORTCUT_MIN_MARGIN (0.03) (scene_classifier_passes.py:1096-1104). Its embed_text no longer contains 'dated', 'older' or 'worn', so its cosine against 'The blinds are dated.' will move - possibly down, possibly under the threshold, in which case resolution falls to the 2d LLM. Session 5 should measure the shortcut fire rate on the 46 blinds observations before and after.",
+      "Post-split ranks: does window_blinds_basic_or_plain outrank dated_or_older_windows on bullets like 'Windows and blinds look dated.' and 'The windows and blinds appear older.'? Today those resolve either way depending on the property (oc1_12e3660bf3923583 went to the treatment item on redfin_11000447; redfin_126418713 photo_043 went to dated_or_older_windows). If the presence-only wording pushes them toward dated_or_older_windows, they land on that item's ('no_action','no_economics_approved_gap') route - the same economic result by a different path, but a different item id in the FE envelope.",
+      "Embedding of the new successors: embed_text is the entire embedding input and there is no offline embedding store, so neither successor's neighbourhood can be checked before a live retrieval run. Two specific risks to measure: (a) the blinds successor's text is now purely a presence description and may drift toward staging_or_decluttering_opportunity or mismatched_or_inconsistent_furniture_staging, the two other presentation_only no_action items; (b) the fabric successor lost the 'improvised/makeshift' sentence, which was ~20% of its embed_text, so its similarity to occupant-belongings observations should drop - a wanted effect that should still be confirmed rather than assumed.",
+      "Does the fabric successor's require_any interact badly with multi-sentence observations? The gate runs on the whole observation string, so a two-clause bullet naming a curtain in the second clause is admitted on the strength of that clause alone. No such bullet exists in the evidence era, but the 2b bullet style is not stable across prompt versions.",
+      "Billable-side shortcut surface (lead, from the blinds refuter's corpus scan, verified by the matcher): the bare stems 'curtain', 'drape', 'fabric' in the fabric successor's support_any create lexical-shortcut triggers the parent never had (its curtain terms were the two-word phrases 'dated curtains' / 'vintage curtains'); about a dozen evidence-era observations satisfy the support-phrase precondition on the billable successor, several currently owned by outdated_bathroom_finishes, outdated_kitchen_finishes, dated_overall_decor_style or dated_interior_doors. Whether the shortcut fires depends on score and margin (scene_classifier_passes.py:1096-1104), unmeasurable offline; measure alongside the blinds-side question."
+    ],
+    "cutover_notes": "CCF-8 applies in full and is not proposal-specific. (1) No runtime alias table exists. requires_re_resolution and deprecated are manifest-only; the single runtime consumer is the publication gate, which rejects any row resolving to a deprecated split parent and names its successors in the error (publication_gate.py:141-162). (2) Stale ids fail hard: server per-image checkpoints are not keyed on the catalog, so a run resumed across the regeneration carries dated_window_treatment_valance and raises StaleCatalogItemId (analyzer_server.py:277-329). Drain or discard in-flight runs at cutover; do not resume across it. (3) backfill_kind_v2 is not a migration path here: it returns skip_current for any artifact already at the target ontology and catalog version (backfill_kind_v2.py:266-275) and otherwise re-resolves by support_any hits only, which cannot decide between the two successors for a bullet that names neither a fabric object nor a blind. (4) Both successors carry a new atomic_claim, so the projection fingerprint hashed into every Terra request changes and no stored Terra checkpoint survives; Sessions 5 and 6 must replay rather than reuse, and the offline-recompute hazard applies (a v4/v5 recompute without replaying stored verifications zeroes the affected conditions). (5) 'Detectable but unbilled' is a real runtime state, not a bookkeeping fiction: a Terra-supported condition on a route_override no_action item stays in observed_conditions and the FE envelope, is counted in dispositions_no_action and carries zero dollars (catalog_projection.py:46-72 resolve_terminal_route returns ('no_action','route_override_no_action') ahead of the no-economics check). The regression-register vocabulary cannot express it, which is why three ledger rows put the route outcome in note. (6) The split is not blocked by CCF-7: dated_window_treatment_valance is not among the ten repair_support_when_driven marker items, and the dry run confirms repair_support_marker_routes is empty for both successors. (7) The v1 catalog is untouched; this is a v2/3.2 decisions-file change regenerated through migrate_catalog_kind_v2, so nothing ships until the publication gate and the FE adapter see the new ids.",
+    "evidence_grounding": "The blinds successor is a POLICY APPLICATION, not an evidence-backed defect repair - the same footing as CAP-008 under ruling 3. Ruling 5 (HANDOFF_SESSION_2.md:89-90) says blinds stay detectable but must be a no_action condition, and Q-1 extends it to blinds in any condition. route_override is authorable only on a split successor (INHERITED_FIELDS, migrate_catalog_kind_v2.py:68-80), and narrowing the parent in place would suppress valances and curtains, so a split is the only native shape that satisfies both halves of the ruling. landscaping_enhancement_opportunity is the precedent for a modernization-kind, route_override no_action split successor (it is a cross-kind split with basis discretionary_improvement; the presentation_only basis is separately precedented by staging_or_decluttering_opportunity and mismatched_or_inconsistent_furniture_staging); this would be the first same-kind split in the decisions file, which nothing in the generator or validator forbids because the split is by subject, not by state, and every existing no_action item in the catalog is modernization with basis presentation_only or discretionary_improvement (5 of 5 in the census), which is why the blinds claim is presentation_only rather than the dated_style the Session 2 draft used. The fabric successor is NOT a policy application: it keeps the parent's existing billable subject, evidenced by gold:redfin_11000447:photo_004.jpg:g7 (a dated valance the pipeline never billed) and by ten accepted evidence-era billings that name a fabric object. Residual losses stay upstream of the catalog and the redraft does not claim them: gold g7 is a Pass 2a loss (no bullet naming the valance or the sheeting ever existed); gold:redfin_11000447:photo_005.jpg:g4 is a Pass 2c/2d loss whose surviving bullet resolved to catalog_item_id null and which Q-1 now makes unbillable anyway; and the improvised-covering bullets that Pass 2c dropped are 2c losses that Q-2 makes non-billable regardless. Two withdrawn billings are the ruling being applied and are recorded as such: rc_7c5b9f9bb3aa (human v1.1 exact/warranted) and 28 more accepted conditions. The one hallucination the split removes economically (rc_429ba6851d09) is a single Terra verdict, inside the 6.4% replica-disagreement noise floor - the case for the redraft rests on the ruling, not on that card.",
+    "open_questions": [
+      "One currently billed condition (oc1_c839d6e1118a7006, redfin_81000709 photo_029, 'The window is covered with makeshift blinds and curtains.') reaches neither successor: 'curtain' denies it at the blinds successor and 'makeshift' at the fabric successor. Is 'reaches neither' acceptable for an improvised covering (Q-2 makes it non-billable; ruling 5's detectability half is about blinds), or should it land on the no_action blinds successor, which requires breaking the deny/support mirror?",
+      "Curtain hardware: 'The curtain rods are dated.' (oc1_649033275db36ca2, an accepted billing) and 'The curtain hardware and trim treatment are dated.' pass the fabric require_any on 'curtain' while the claim renders as 'window valance or curtains dated valance or curtains'. Deny hardware ('rod', 'hardware'), name it in the claim, or accept as is?",
+      "FE display: the no_action blinds successor inherits five scene groups and display_class 'marketability' with defaultHidden false, so blinds conditions will render at zero dollars on most interior photos. The defaultHidden true option is verified above (display-only). Decide at approval.",
+      "Fabric-bodied blinds ('fabric vertical blinds', 'sheer shades', 'fabric roller shade') would be denied at the no_action successor and admitted at the billable one; no such bullet exists in the 25 pinned runs. Construction risk, not an observed leak.",
+      "Three predicted Terra verdict flips to supported on the presence-only claim (rc_4f4b93c40ef3, rc_ffad088fa5fe, rc_a22a241b3bf0) are reasoning, not measurement; live calls were authorized for the CAP-008 wording only. They are unbillable on every path regardless (route_override no_action).",
+      "'The room has basic curtains.' (oc1_72e5dcfe1ef8d6b0) keeps its billing on the fabric successor although ruling 3 does not bill 'basic' presence; does dated_window_valance_or_curtains join the Q-5 sweep list or count as already ruled on?",
+      "Rendered claim text repeats the subject on both successors ('window blinds or shades basic or plain window blinds'; 'window valance or curtains dated valance or curtains'); kept verbatim because the recipe's shapes are binding inputs, but tighter states are possible if Steven prefers ('basic or plain style, functional'; 'dated style, functional')."
+    ],
+    "lead_fixes_to_ops": [
+      "expected_effects.routing: 'admits only observations naming a fabric object' corrected (curtain hardware bullets pass require_any; shower/tub bullets are denied)",
+      "fabric successor overrides.deny_any + 'shower', 'tub': the drafted 'shower curtain' term matches only the contiguous phrase, so 'Tub/shower fixtures and curtain hardware are dated.', 'The shower rod and curtain setup are dated.' and 'Tub/shower has ... curtain rod ...' passed the fabric gate; with the two stems they are denied (lead re-test with tools.pipeline_common.term_matches and the gate logic at tools/catalog_embeddings.py:439-450)"
+    ]
+  },
+  "lead_corrections": [
+    {
+      "target": "CAP-007 regression ledger, gold g3 row",
+      "change": "replaced the drafter's 'NOT FOUND' row with an acknowledged-withdrawn-billing row for oc1_12e3660bf3923583 and withdrew the open question inviting a re-confirmation of Q-1",
+      "evidence": [
+        "reports/catalog_audit_evidence.json gold.matching_rows: gold:redfin_11000447:photo_003.jpg:g3, decision matched, matched_condition_id oc1_12e3660bf3923583",
+        "artifacts_canary/.../redfin_11000447/20260817_224602_d422d7ae/photo_intel_debug.json: 'Windows and blinds look dated.' modernization/bedroom, catalog_item_id dated_window_treatment_valance",
+        "photo:redfin_11000447/photo_003.jpg"
+      ]
+    },
+    {
+      "target": "CAP-007 fabric successor overrides.deny_any",
+      "change": "added the stems 'shower' and 'tub' (narrowing); the drafted 'shower curtain' phrase term denied one of four corpus bathroom-curtain bullets",
+      "evidence": [
+        "tools/pipeline_common.py:265-284 (term_matches: leading word-boundary containment on the literal term)",
+        "tools/catalog_embeddings.py:439-450 (deny first, then require)",
+        "lead re-test: 'Tub/shower fixtures and curtain hardware are dated.', 'The shower rod and curtain setup are dated.', 'Tub/shower has ... curtain rod ...' pass the fabric gate under the drafted list and fail it with the two stems; blinds-only and fabric positive-control bullets unchanged",
+        "photo:redfin_80990371/photo_030.jpg (a patterned fabric shower curtain, no window treatment in frame)"
+      ]
+    },
+    {
+      "target": "CAP-007 /expected_effects.routing op text",
+      "change": "corrected 'admits only observations naming a fabric object' (curtain hardware bullets pass require_any; shower/tub bullets are now denied)",
+      "evidence": [
+        "lead re-test as above; 'The curtain rods are dated.' and 'The curtain hardware and trim treatment are dated.' pass require_any on 'curtain'"
+      ]
+    },
+    {
+      "target": "CAP-007 leak table and gold g4 row",
+      "change": "mechanism corrected to exact-kind retrieval for degradation/defect-kinded bullets and to scene scope for 'The window covering is dated.'; outcomes unchanged; the 'covering' exclusion re-grounded",
+      "evidence": [
+        "pinned artifacts: 'Window coverings appear aged.' kind degradation (redfin_81000709 photo_027); 'Window blinds are worn.' kind degradation (redfin_11000447 photo_005); 'The window covering is dated.' scene_group other (redfin_81000709 photo_019); 'Blinds appear bent and damaged.' kind defect (redfin_10952874)",
+        "docs/catalog_audit_program/00_OVERALL_CONTEXT.md section 4 (kind filtering strict and fail-closed)"
+      ]
+    },
+    {
+      "target": "CAP-007 evidence_grounding precedent wording",
+      "change": "'exact precedent' narrowed to what the precedent supports; first same-kind split stated",
+      "evidence": [
+        "tools/catalog_migrations/kind_v2_decisions.json entries landscape_improvement_needed, ceiling_fan_mismatched_blades, empty_or_deteriorated_inground_pool (all cross-kind splits)",
+        "gate_work/inputs/house_style_census.json route_override_items (five, all modernization; bases discretionary_improvement x3, presentation_only x2)"
+      ]
+    },
+    {
+      "target": "CAP-007 regression ledger",
+      "change": "added a row for the surviving hardware billing oc1_649033275db36ca2 (curtain rods)",
+      "evidence": [
+        "pinned production run redfin_10866780/20260825_050705_9e0d869e, observation 'The curtain rods are dated.', accepted_for_work"
+      ]
+    },
+    {
+      "target": "CAP-008 /atomicity_rationale op text (both candidates)",
+      "change": "'so no catalog surface still advertises plain presence' corrected: embed_text still advertises plain trim and is left unchanged",
+      "evidence": [
+        "tools/issue_catalog_kind_v2.json dated_interior_trim.embed_text (unchanged by the ops)",
+        "tools/catalog_embeddings.py:357-364 (a non-empty embed_text is the entire embedding input)"
+      ]
+    },
+    {
+      "target": "CAP-008 /expected_effects/routing op text (both candidates)",
+      "change": "projection fingerprint moves on any catalog change, not only on a claim edit",
+      "evidence": [
+        "tools/renovation_architecture/catalog_projection.py:240-253 (catalog_sha256 hashed into the projection fingerprint)"
+      ]
+    },
+    {
+      "target": "CAP-008 ops (both candidates)",
+      "change": "sixth op added restating /expected_effects/packages; the entry's Task-3-era text is stale",
+      "evidence": [
+        "tools/rehab_packages.py:1214-1215 (_OPPORTUNITY_DRIVER_KINDS contains modernization)",
+        "tools/rehab_packages.py:2221-2233, 1056-1091"
+      ]
+    },
+    {
+      "target": "CAP-008 regression ledger",
+      "change": "rc_ceeb17f8e242 rests on Q-3 and the label note with the pinned photo-review conflict disclosed; rc_57c6faf79c7e recorded as a fourth human-approved withdrawal not covered by Q-3 and as a candidate CAP-013 instance; rc_470fb7e0624f v1_verdict added; live results added to three rows; the accounting line corrected to four human-approved withdrawals",
+      "evidence": [
+        "reports/catalog_audit_photo_review.json rows CAP-008:control:rc_ceeb17f8e242, CAP-006:control:rc_ceeb17f8e242, CAP-008:control:rc_57c6faf79c7e, CAP-006:control:rc_57c6faf79c7e",
+        "reports/catalog_audit_evidence.json labels: rc_57c6faf79c7e claim exact / work warranted / supported_billed; rc_470fb7e0624f v1_verdict terra_claim_unsupported",
+        "photo:redfin_11185681/photo_025.jpg, photo_024.jpg (lead re-read)",
+        "reports/catalog_audit_live_check_results.json"
+      ]
+    },
+    {
+      "target": "CAP-008 corrections block",
+      "change": "citation counts and line ranges made exact; two unnamed Terra-surface overlaps recorded (paint_refresh_recommended; baseboard_wear_scuffs on photo_028)",
+      "evidence": [
+        "gate_work/inputs/cap008_cluster.json judgment.human_inputs (six entries reference the non-existent brief)",
+        "docs/catalog_audit_program/HANDOFF_SESSION_2.md:89-93",
+        "scripts/render_catalog_audit_proposals.py:736-738",
+        "scripts/migrate_catalog_kind_v2.py:132-141",
+        "tools/issue_catalog_kind_v2.json paint_refresh_recommended",
+        "reports/review_queue.json rc_6f4590af65a3"
+      ]
+    },
+    {
+      "target": "both clusters, open questions",
+      "change": "deduplicated; the drafter questions re-asking Q-6 (interim gap) and inviting a Q-1 re-confirmation dropped as already ruled or resting on a false premise",
+      "evidence": [
+        "reports/catalog_audit_gate_decisions.json rulings Q-1, Q-6"
+      ]
+    }
+  ],
+  "lead_verification": [
+    "dry runs re-run by the lead on the FINAL ops for CAP-008 A, CAP-008 B, the CAP-007 split and the defaultHidden variant (results embedded above)",
+    "gold g3 located in gold.matching_rows; labels for the six CAP-008 human-truth cards read from the bundle; pinned photo-review rows for rc_ceeb17f8e242 and rc_57c6faf79c7e read verbatim",
+    "term_matches signature and semantics read from tools/pipeline_common.py; the gate logic from tools/catalog_embeddings.py:439-450; every leak row above computed live in this build",
+    "pinned artifacts walked in this build: 25 readable; kinds and scene groups for the leak-table bullets indexed from the artifacts; census counts computed, not copied",
+    "paint_refresh_recommended and baseboard_wear_scuffs claims read from tools/issue_catalog_kind_v2.json; rc_6f4590af65a3 read from reports/review_queue.json",
+    "photos re-read by the lead: redfin_11185681 photo_025 (baseboard presence ambiguous; pinned row records one present), photo_044 (thin chair rail, plain narrow baseboards), photo_006 (heavy panel moulding); redfin_10949071 photo_007; redfin_80990371 022/028; redfin_81000709 003; redfin_11000447 003/005",
+    "all decision-record pins re-hashed in this build and equal"
+  ]
+}

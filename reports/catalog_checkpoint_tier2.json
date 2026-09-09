@@ -1,0 +1,775 @@
+{
+  "schema_version": "catalog-checkpoint-tier2-v1",
+  "program": "catalog_audit",
+  "what_this_is": "Tier 2 retrieval comparison for the 2026-09-08 checkpoint ops.",
+  "method": {
+    "corpus_rows": 1969,
+    "shared_vector_cache": true,
+    "cache_misses_on_the_after_run": 0,
+    "note": "Neither op touches embedded text, so the after-run needed no new embeddings; every delta below is exact, not embedding noise."
+  },
+  "snapshots": {
+    "before": {
+      "path": "reports/catalog_audit_replay_snapshot_checkpoint_base.json",
+      "git_head": "6e67eaa83887cf4d218100dcd060c07d3bd30522",
+      "catalog_sha256": "43d8147ee8abd4f4df51bcf88a83ba99d834c415b9d5d28295fa0a33f3457acf"
+    },
+    "after": {
+      "path": "reports/catalog_audit_replay_snapshot_checkpoint_after.json",
+      "git_head": "7ddd52ab1fb198f3242d857e700cab23527327af",
+      "catalog_sha256": "787964013d083368403524c610df54cc9858a8f6c1a1e5c9535c7204c1e67a2f"
+    }
+  },
+  "totals": {
+    "rows_changed": 33,
+    "first_candidate_changes": 7,
+    "shortcut_changes": 0,
+    "max_score_delta": 1.7881393432617188e-07,
+    "trim_owned_rows": 108,
+    "bathroom_rows_total": 267,
+    "bathroom_rows_carrying_the_generic_item": 33
+  },
+  "rules": [
+    {
+      "id": "T2-SCORE",
+      "rule": "no surviving candidate score moved (shared vector cache)",
+      "ok": true,
+      "detail": {
+        "max_abs_delta": 1.7881393432617188e-07,
+        "worst": [
+          "canary:redfin_11185681:20260818_224036_370aadff:photo_047.jpg:854ae307f4bdc918",
+          "dated_interior_doors"
+        ]
+      }
+    },
+    {
+      "id": "T2-SC",
+      "rule": "no lexical shortcut changed",
+      "ok": true,
+      "detail": {
+        "changes": []
+      }
+    },
+    {
+      "id": "T2-TRIM-A",
+      "rule": "the trim op changes NOTHING in retrieval, measured in isolation",
+      "ok": true,
+      "detail": {
+        "rows_changed_by_the_trim_op_alone": 0,
+        "note": "a terminal route is not retrieval metadata"
+      }
+    },
+    {
+      "id": "T2-TRIM-B",
+      "rule": "the rows where trim is first candidate are unchanged",
+      "ok": true,
+      "detail": {
+        "count": 92,
+        "symmetric_difference": []
+      }
+    },
+    {
+      "id": "T2-TRIM-C",
+      "rule": "every trim-owned corpus row can still reach trim (it stays visible at $0)",
+      "ok": true,
+      "detail": {
+        "owned": 108,
+        "reachable_after": 108
+      }
+    },
+    {
+      "id": "T2-WALL-A",
+      "rule": "every changed row is a bathroom-scene row that carried the generic wallpaper item",
+      "ok": true,
+      "detail": {
+        "changed": 33,
+        "expected": 33,
+        "unexpected": [],
+        "expected_but_unchanged": []
+      }
+    },
+    {
+      "id": "T2-TRIM-A2",
+      "rule": "trim's candidate-list movement is confined to rows the wallpaper op changed",
+      "ok": true,
+      "detail": {
+        "rows": [
+          "canary:redfin_11185681:20260818_224036_370aadff:photo_047.jpg:8611c2b010506060",
+          "canary:redfin_11185681:20260818_224036_370aadff:photo_048.jpg:407df4b15d8b515d",
+          "canary:redfin_125970550:20260817_235322_005806b2:photo_014.jpg:e5f1eb6edd0dee24",
+          "canary:redfin_25809814:20260817_223307_7b336e61:photo_019.jpg:fe4392d2f287d083",
+          "canary:redfin_80990371:20260817_221632_3d4a8269:photo_031.jpg:c9b60a98ceaeff8b"
+        ],
+        "all_inside_the_wallpaper_rows": true,
+        "reading": "trim was promoted into a slot the wallpaper item vacated; it is no_action, so a promotion cannot create a billing"
+      }
+    },
+    {
+      "id": "T2-WALL-B",
+      "rule": "the generic wallpaper item is unreachable in every bathroom row",
+      "ok": true,
+      "detail": {
+        "still_present": []
+      }
+    },
+    {
+      "id": "T2-WALL-C",
+      "rule": "the generic wallpaper item is untouched outside bathrooms",
+      "ok": true,
+      "detail": {
+        "non_bathroom_rows_carrying_it": 222,
+        "changed": []
+      }
+    },
+    {
+      "id": "T2-NEIGH-A",
+      "rule": "first-candidate changes are confined to the changed rows and enumerated",
+      "ok": true,
+      "detail": {
+        "first_candidate_changes": 7
+      }
+    },
+    {
+      "id": "T2-NEIGH-B",
+      "rule": "no unexpected row acquired a billable first candidate",
+      "ok": true,
+      "detail": {
+        "rows_with_billable_first_after_change": [
+          {
+            "row_id": "canary:redfin_11185681:20260818_224036_370aadff:photo_047.jpg:8611c2b010506060",
+            "observation": "The pastel green walls date the space.",
+            "first_before": "dated_wallpaper_present",
+            "first_after": "dated_wood_paneling"
+          },
+          {
+            "row_id": "canary:redfin_126418713:20260818_221718_ebc48de0:photo_041.jpg:abe2e38826cdda18",
+            "observation": "Gray square wall tile has an older period style.",
+            "first_before": "dated_wallpaper_present",
+            "first_after": "vintage_tile_pattern_style"
+          },
+          {
+            "row_id": "canary:redfin_80877597:20260817_223826_3cefe883:photo_003.jpg:1a4f8661a8456bcd",
+            "observation": "Walls have a textured painted finish.",
+            "first_before": "dated_wallpaper_present",
+            "first_after": "dated_wood_paneling"
+          },
+          {
+            "row_id": "canary:redfin_80877597:20260817_223826_3cefe883:photo_003.jpg:316ddd2b0181ddd0",
+            "observation": "White 4x4 wall tile has a dated appearance.",
+            "first_before": "dated_wallpaper_present",
+            "first_after": "vintage_tile_pattern_style"
+          },
+          {
+            "row_id": "canary:redfin_80990371:20260817_221632_3d4a8269:photo_030.jpg:8cd17e50d9d1a67d",
+            "observation": "Small white wall tile is heavily dated.",
+            "first_before": "dated_wallpaper_present",
+            "first_after": "dated_wood_paneling"
+          },
+          {
+            "row_id": "canary:redfin_80990371:20260817_221632_3d4a8269:photo_031.jpg:c9b60a98ceaeff8b",
+            "observation": "Small white wall tiles are dated.",
+            "first_before": "dated_wallpaper_present",
+            "first_after": "vintage_tile_pattern_style"
+          },
+          {
+            "row_id": "canary:redfin_80990371:20260817_221632_3d4a8269:photo_032.jpg:06480608ddb2707d",
+            "observation": "Original square wall tile appears dated.",
+            "first_before": "dated_wallpaper_present",
+            "first_after": "dated_wood_paneling"
+          }
+        ]
+      }
+    },
+    {
+      "id": "T2-WALL-D",
+      "rule": "reported: how many changed bathroom rows can still reach the bathroom-specific owner",
+      "ok": true,
+      "detail": {
+        "reachable": 1,
+        "of": 33
+      }
+    }
+  ],
+  "changed_rows_in_full": [
+    {
+      "row_id": "canary:redfin_10803207:20260817_222851_c0551630:photo_005.jpg:9f6d0da771a8af62",
+      "property_key": "redfin_10803207",
+      "observation": "Floor tile has a dated appearance.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "vintage_tile_pattern_style",
+      "first_after": "vintage_tile_pattern_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "dated_overall_decor_style",
+          "billable": false
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_10952874:20260818_231243_cb71fce9:photo_031.jpg:6a9d4d7ed448777b",
+      "property_key": "redfin_10952874",
+      "observation": "Tub surround has original-looking square wall tile.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "vintage_tile_pattern_style",
+      "first_after": "vintage_tile_pattern_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_11077450:20260818_223200_a4168368:photo_002.jpg:d6a6819737964b90",
+      "property_key": "redfin_11077450",
+      "observation": "High wall or ceiling grille looks dated.",
+      "frozen_owner": null,
+      "first_before": "dated_wood_paneling",
+      "first_after": "dated_wood_paneling",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "popcorn_or_acoustic_ceiling_texture",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_11079485:20260817_224118_67317092:photo_005.jpg:5decb016f7ae3bdc",
+      "property_key": "redfin_11079485",
+      "observation": "The shower tile is dated.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "vintage_tile_pattern_style",
+      "first_after": "vintage_tile_pattern_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "vanity_dated_style",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_11185681:20260818_224036_370aadff:photo_004.jpg:4c1f82be66d93b91",
+      "property_key": "redfin_11185681",
+      "observation": "The natural-stone/slate wall tile has a dated appearance.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "vintage_tile_pattern_style",
+      "first_after": "vintage_tile_pattern_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "paint_refresh_recommended",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_11185681:20260818_224036_370aadff:photo_005.jpg:cb66e27ed1838936",
+      "property_key": "redfin_11185681",
+      "observation": "The floor tile appears dated.",
+      "frozen_owner": "older_flooring_style",
+      "first_before": "older_flooring_style",
+      "first_after": "older_flooring_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "dated_overall_decor_style",
+          "billable": false
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_11185681:20260818_224036_370aadff:photo_031.jpg:7cd45dfa7a7e5808",
+      "property_key": "redfin_11185681",
+      "observation": "The wall tile is visually dark, busy, and dated.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "dated_wood_paneling",
+      "first_after": "dated_wood_paneling",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "dated_overall_decor_style",
+          "billable": false
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_11185681:20260818_224036_370aadff:photo_032.jpg:8bf2cb912b72be75",
+      "property_key": "redfin_11185681",
+      "observation": "Wall tile has a dated appearance.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "vintage_tile_pattern_style",
+      "first_after": "vintage_tile_pattern_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "paint_refresh_recommended",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_11185681:20260818_224036_370aadff:photo_047.jpg:8611c2b010506060",
+      "property_key": "redfin_11185681",
+      "observation": "The pastel green walls date the space.",
+      "frozen_owner": "paint_refresh_recommended",
+      "first_before": "dated_wallpaper_present",
+      "first_after": "dated_wood_paneling",
+      "first_changed": true,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "dated_interior_trim",
+          "billable": false
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_11185681:20260818_224036_370aadff:photo_048.jpg:407df4b15d8b515d",
+      "property_key": "redfin_11185681",
+      "observation": "The room is visually dated.",
+      "frozen_owner": "dated_overall_decor_style",
+      "first_before": "dated_wood_paneling",
+      "first_after": "dated_wood_paneling",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "dated_interior_trim",
+          "billable": false
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_125779232:20260817_222351_c069aab3:photo_008.jpg:8ca5ec09711903e5",
+      "property_key": "redfin_125779232",
+      "observation": "The floor tile is dated.",
+      "frozen_owner": "older_flooring_style",
+      "first_before": "older_flooring_style",
+      "first_after": "older_flooring_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "vanity_countertop_dated",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_125970550:20260817_235322_005806b2:photo_014.jpg:e5f1eb6edd0dee24",
+      "property_key": "redfin_125970550",
+      "observation": "The tile is dated.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "vintage_tile_pattern_style",
+      "first_after": "vintage_tile_pattern_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "dated_interior_trim",
+          "billable": false
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_125970550:20260817_235322_005806b2:photo_017.jpg:813a6f471c455b96",
+      "property_key": "redfin_125970550",
+      "observation": "Wall tile in the shower is old.",
+      "frozen_owner": "outdated_bathroom_finishes",
+      "first_before": "outdated_bathroom_finishes",
+      "first_after": "outdated_bathroom_finishes",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "dated_overall_decor_style",
+          "billable": false
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_126418713:20260818_221718_ebc48de0:photo_003.jpg:cfa4dab45b40ed60",
+      "property_key": "redfin_126418713",
+      "observation": "Lavender-gray square wall tile is dated.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "vintage_tile_pattern_style",
+      "first_after": "vintage_tile_pattern_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "vanity_countertop_dated",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_126418713:20260818_221718_ebc48de0:photo_041.jpg:abe2e38826cdda18",
+      "property_key": "redfin_126418713",
+      "observation": "Gray square wall tile has an older period style.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "dated_wallpaper_present",
+      "first_after": "vintage_tile_pattern_style",
+      "first_changed": true,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "paint_refresh_recommended",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_166147710:20260817_224909_2f979a60:photo_038.jpg:386c7a7823498597",
+      "property_key": "redfin_166147710",
+      "observation": "Ceiling tiles are old.",
+      "frozen_owner": null,
+      "first_before": "dated_bathroom_flooring_style",
+      "first_after": "dated_bathroom_flooring_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "vintage_tile_pattern_style",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_166147710:20260817_224909_2f979a60:photo_042.jpg:a37367afa32be42a",
+      "property_key": "redfin_166147710",
+      "observation": "Wall covering and paint are old.",
+      "frozen_owner": "paint_refresh_recommended",
+      "first_before": "paint_refresh_recommended",
+      "first_after": "paint_refresh_recommended",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "dated_bathroom_flooring_style",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_25809814:20260817_223307_7b336e61:photo_019.jpg:325a0a38baf3b043",
+      "property_key": "redfin_25809814",
+      "observation": "Wallpaper behind the vanity has an older style.",
+      "frozen_owner": "dated_bathroom_wallpaper",
+      "first_before": "dated_bathroom_wallpaper",
+      "first_after": "dated_bathroom_wallpaper",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "paint_refresh_recommended",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_25809814:20260817_223307_7b336e61:photo_019.jpg:550d60e0fcd6ff85",
+      "property_key": "redfin_25809814",
+      "observation": "Mirror is dated.",
+      "frozen_owner": null,
+      "first_before": "dated_wood_paneling",
+      "first_after": "dated_wood_paneling",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "exhaust_fan_dated",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_25809814:20260817_223307_7b336e61:photo_019.jpg:fe4392d2f287d083",
+      "property_key": "redfin_25809814",
+      "observation": "Wallcovering is dated.",
+      "frozen_owner": "dated_wallpaper_present",
+      "first_before": "dated_electrical_outlets_switches",
+      "first_after": "dated_electrical_outlets_switches",
+      "first_changed": false,
+      "first_after_billable": false,
+      "entered_list": [
+        {
+          "item_id": "dated_interior_trim",
+          "billable": false
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_25809814:20260817_223307_7b336e61:photo_020.jpg:de3ddf2a4c585e4a",
+      "property_key": "redfin_25809814",
+      "observation": "The tan basketweave mosaic tile has a dated appearance.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "vintage_tile_pattern_style",
+      "first_after": "vintage_tile_pattern_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "paint_refresh_recommended",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_25809814:20260817_223307_7b336e61:photo_027.jpg:84aab0a54d231c3e",
+      "property_key": "redfin_25809814",
+      "observation": "The shower wall tile has a dated style.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "vintage_tile_pattern_style",
+      "first_after": "vintage_tile_pattern_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "dated_overall_decor_style",
+          "billable": false
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_80877597:20260817_223826_3cefe883:photo_003.jpg:1a4f8661a8456bcd",
+      "property_key": "redfin_80877597",
+      "observation": "Walls have a textured painted finish.",
+      "frozen_owner": null,
+      "first_before": "dated_wallpaper_present",
+      "first_after": "dated_wood_paneling",
+      "first_changed": true,
+      "first_after_billable": true,
+      "entered_list": [],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_80877597:20260817_223826_3cefe883:photo_003.jpg:316ddd2b0181ddd0",
+      "property_key": "redfin_80877597",
+      "observation": "White 4x4 wall tile has a dated appearance.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "dated_wallpaper_present",
+      "first_after": "vintage_tile_pattern_style",
+      "first_changed": true,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "paint_refresh_recommended",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_80877597:20260817_223826_3cefe883:photo_005.jpg:f222c2adef0a4a08",
+      "property_key": "redfin_80877597",
+      "observation": "Shower tile has a dated appearance.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "vintage_tile_pattern_style",
+      "first_after": "vintage_tile_pattern_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "paint_refresh_recommended",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_80877597:20260817_223826_3cefe883:photo_010.jpg:91f61300fe1ec7e6",
+      "property_key": "redfin_80877597",
+      "observation": "Beige wall color is dated.",
+      "frozen_owner": "paint_refresh_recommended",
+      "first_before": "bathroom_paint_refresh_recommended",
+      "first_after": "bathroom_paint_refresh_recommended",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_80990371:20260817_221632_3d4a8269:photo_030.jpg:8cd17e50d9d1a67d",
+      "property_key": "redfin_80990371",
+      "observation": "Small white wall tile is heavily dated.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "dated_wallpaper_present",
+      "first_after": "dated_wood_paneling",
+      "first_changed": true,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "dated_overall_decor_style",
+          "billable": false
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_80990371:20260817_221632_3d4a8269:photo_031.jpg:c9b60a98ceaeff8b",
+      "property_key": "redfin_80990371",
+      "observation": "Small white wall tiles are dated.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "dated_wallpaper_present",
+      "first_after": "vintage_tile_pattern_style",
+      "first_changed": true,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "dated_interior_trim",
+          "billable": false
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "canary:redfin_80990371:20260817_221632_3d4a8269:photo_032.jpg:06480608ddb2707d",
+      "property_key": "redfin_80990371",
+      "observation": "Original square wall tile appears dated.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "dated_wallpaper_present",
+      "first_after": "dated_wood_paneling",
+      "first_changed": true,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "paint_refresh_recommended",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "production:redfin_10740044:20260821_233648_4cd603bb:photo_018.jpg:9df5e316062d9b90",
+      "property_key": "redfin_10740044",
+      "observation": "Painted walls, small-format floor tile, a basic toilet, and exposed older trim are present.",
+      "frozen_owner": "outdated_bathroom_finishes",
+      "first_before": "dated_bathroom_flooring_style",
+      "first_after": "dated_bathroom_flooring_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "paint_refresh_recommended",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "production:redfin_10949071:20260825_052355_3b380cca:photo_015.jpg:789949ec0838e061",
+      "property_key": "redfin_10949071",
+      "observation": "Beige ceramic wall tile has a dated appearance.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "bathroom_paint_refresh_recommended",
+      "first_after": "bathroom_paint_refresh_recommended",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "paint_refresh_recommended",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "production:redfin_11216660:20260821_233308_46f9d96f:photo_018.jpg:4b69e3819559eb36",
+      "property_key": "redfin_11216660",
+      "observation": "Shower wall tile is straightforward and lacks a niche, bench, and upgraded trim details.",
+      "frozen_owner": "outdated_bathroom_finishes",
+      "first_before": "vintage_tile_pattern_style",
+      "first_after": "vintage_tile_pattern_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "dated_wood_paneling",
+          "billable": true
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    },
+    {
+      "row_id": "production:redfin_80917686:20260821_234153_6c37dfb0:photo_029.jpg:04e49c6635b32979",
+      "property_key": "redfin_80917686",
+      "observation": "The pale blue accent tile has a dated appearance.",
+      "frozen_owner": "vintage_tile_pattern_style",
+      "first_before": "vintage_tile_pattern_style",
+      "first_after": "vintage_tile_pattern_style",
+      "first_changed": false,
+      "first_after_billable": true,
+      "entered_list": [
+        {
+          "item_id": "dated_overall_decor_style",
+          "billable": false
+        }
+      ],
+      "shortcut_before": null,
+      "shortcut_after": null
+    }
+  ],
+  "result": "pass"
+}

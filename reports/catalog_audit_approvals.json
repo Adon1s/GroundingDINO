@@ -1,0 +1,511 @@
+{
+  "schema_version": "catalog-audit-approvals-v1",
+  "program": "catalog_audit",
+  "approved_against": {
+    "git_commit": "e9a7dc3a54439fb341c1ae8cd665e5e572fcfaf6",
+    "git_head_at_review": "9afe0fa5a0490a856abed507dccc4a02ed1de24c",
+    "evidence_sha256": "43354104cc109c768efbe2d2f8b9a825f33e0882210b81e9f12b847ca67e29b7",
+    "evidence_fingerprint": "e4c0a2b816395782cd84bc4abcdf6207d131a34a0e2d63eaebb39bec4c190c08",
+    "proposals_sha256": "1411352c42e9d3a555c3a1561470323da2234447badc2869c9874c3e8fa3ef99",
+    "adversarial_review_sha256": "d1149875399a9f30c6cd56e924731c7e207d90b603cb248f402c692c3438b5c4",
+    "decisions_sha256": "47614d822bdd6b672d8596050b46839d04a8a6df0a04c18e052f4a63bd1903e8",
+    "generated_catalog_sha256": "51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54",
+    "generator_sha256": "b732022fcea8cd22109c7781eb0f93d0688d557230c759ccb6216d667250a053",
+    "validator_sha256": "041637a3684bacd3bc06dd92955b845088b4fedda8bb7e2e31222ac9ec75bee2",
+    "gate_decision_record_sha256": "d89b2bf1149738d9b3e2d5a9222a5b4e163e2cf97dbb0c9f6396d595b849c980",
+    "redraft_sha256": "449f86170dd4b01916988b2000b900e560403bda12fb93cc7e7d7d27bb31811b",
+    "renewed_review_sha256": "aa12e42a0205c0ede8c01362e15f3c16e47cffd9b37de8dd468e70400e8b538b",
+    "live_check_results_sha256": "de47d13f1dfa5802e885027520ae318ab6a6166e8b609115eb2bdb60eaec74e1"
+  },
+  "reviewed_by": "Steven",
+  "reviewed_at": "2026-09-06T07:40:47Z",
+  "review_provenance": "Gate rulings Q-1..Q-9 given by Steven on 2026-09-05 (reports/catalog_audit_gate_decisions.json); approval answers A-1..A-7 given by Steven on 2026-09-06 after reading the renewed review, with A-2, A-6 and A-7 delegated to the lead and decided as recorded; manifest drafted by Claude Fable 5.1 (Phase C lead).",
+  "gate_chain": {
+    "stage_1_decision_record": "reports/catalog_audit_gate_decisions.json",
+    "stage_2_redraft": "reports/catalog_audit_redraft.json",
+    "stage_3_renewed_review_and_live_check": [
+      "reports/catalog_audit_renewed_review.json",
+      "reports/catalog_audit_live_check_results.json"
+    ],
+    "stage_4_this_manifest": "reports/catalog_audit_approvals.json"
+  },
+  "steven_answers_2026_09_06": {
+    "A-1": "CAP-008 deferred into the catalog-wide ruling-3 sweep outside this program (Q-5)",
+    "A-2": "delegated to the lead: rc_57c6faf79c7e recorded with CAP-013's candidate cards, not adjudicated",
+    "A-3": "approve the split with the lead-added deny stems 'shower' and 'tub'",
+    "A-4": "the no_action route is the mechanism; blinds successor stays visible as drafted, no defaultHidden override",
+    "A-5": "curtain hardware keeps billing on the fabric successor for now",
+    "A-6": "delegated to the lead: the makeshift-covering condition reaching neither successor is accepted",
+    "A-7": "delegated to the lead: claim texts kept as drafted"
+  },
+  "disposition_conventions": {
+    "vocabulary": "04_HUMAN_REVIEW_GATE.md: approved | approved_with_modification | rejected | deferred | reclassified_non_catalog",
+    "reclassified_non_catalog": "used for every cluster whose sustained conclusion is that the catalog is not the owner, covering both Session 2 labels no_change and non_catalog_action as one class (CCF-11); Session 4 treats them identically (untouched)",
+    "deferred": "evidence-insufficient, lead-only and migration-gap clusters, and the two native proposals awaiting redraft; untouched by Session 4",
+    "approved": "none in this record; only the final approvals manifest can carry approved or approved_with_modification records, each with an exact ops diff"
+  },
+  "dispositions": [
+    {
+      "proposal_id": "CAP-001",
+      "disposition": "reclassified_non_catalog",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained non_catalog_action (Terra-primary; the aged-finish branch was in the claim Terra saw). Q-8: no calibration commissioned. Recorded: the proposal's follow-up id mismatch (f46cc039 vs rc_4cab6e7be02b) and baseboard_wear_scuffs retrieval text advertising missing trim (see CAP-013).",
+      "session2_outcome": "non_catalog_action",
+      "session3_disposition": "sustained"
+    },
+    {
+      "proposal_id": "CAP-002",
+      "disposition": "reclassified_non_catalog",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained no_change (the only unit is refuted on mechanism; a Terra miss). Q-7: outbuilding damage keeps billing under the dwelling item for now; reopen only on a flipped ruling plus a second unit.",
+      "session2_outcome": "no_change",
+      "session3_disposition": "sustained"
+    },
+    {
+      "proposal_id": "CAP-003",
+      "disposition": "reclassified_non_catalog",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained non_catalog_action with conditions; Q-8: no calibration now. Before any calibration the four units are re-adjudicated under ruling 4 (two are bare neutrals correctly rejected), the action is restated as 'calibrate to ruling-4 tells', and the rc_4abeff09724f truth conflict is resolved.",
+      "session2_outcome": "non_catalog_action",
+      "session3_disposition": "sustained_with_conditions"
+    },
+    {
+      "proposal_id": "CAP-004",
+      "disposition": "reclassified_non_catalog",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained no_change; Steven's 'hard flooring' note is a policy preference on record, not evidence that a material commitment lost a billing.",
+      "session2_outcome": "no_change",
+      "session3_disposition": "sustained"
+    },
+    {
+      "proposal_id": "CAP-005",
+      "disposition": "reclassified_non_catalog",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained no_change; the support_any bare-token hazard is catalog-wide and belongs to the Pass 2d worklist.",
+      "session2_outcome": "no_change",
+      "session3_disposition": "sustained"
+    },
+    {
+      "proposal_id": "CAP-006",
+      "disposition": "reclassified_non_catalog",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained no_change; the 'tub$' narrowing is one-property and belongs to the Pass 2d worklist; the rc_e9d27cf6e9aa attribution correction goes to the error-attribution record (CCF-9).",
+      "session2_outcome": "no_change",
+      "session3_disposition": "sustained"
+    },
+    {
+      "proposal_id": "CAP-007",
+      "disposition": "approved_with_modification",
+      "approved_diff": {
+        "target_file": "tools/catalog_migrations/kind_v2_decisions.json",
+        "legacy_id": "dated_window_treatment_valance",
+        "ops": [
+          {
+            "legacy_id": "dated_window_treatment_valance",
+            "op": "set",
+            "path": "/change_type",
+            "after": "split"
+          },
+          {
+            "legacy_id": "dated_window_treatment_valance",
+            "op": "set",
+            "path": "/deprecated",
+            "after": true
+          },
+          {
+            "legacy_id": "dated_window_treatment_valance",
+            "op": "set",
+            "path": "/requires_re_resolution",
+            "after": true
+          },
+          {
+            "legacy_id": "dated_window_treatment_valance",
+            "op": "set",
+            "path": "/atomicity_rationale",
+            "after": "Conflated hard window coverings (mini/horizontal/venetian blinds, roller shades) with fabric treatments (valance, cornice, swag, curtains, drapes) - two subjects with different billability. Ruling 5 (HANDOFF_SESSION_2.md:89-90, extended to all blinds in any condition at the 2026-09-05 gate) makes blinds a no_action condition; valances and curtains stay billable. Split by subject: presentation_only blinds successor with route_override no_action, dated_style fabric successor gated by require_any."
+          },
+          {
+            "legacy_id": "dated_window_treatment_valance",
+            "op": "set",
+            "path": "/expected_effects",
+            "after": {
+              "routing": "observations previously resolving to dated_window_treatment_valance now resolve to the subject-matching successor; blinds and shade observations land on window_blinds_basic_or_plain, which carries route_override no_action and never bills, while valance/curtain/drape observations land on dated_window_valance_or_curtains, which keeps the parent's work route. The fabric successor's require_any admits observations naming a fabric object or curtain hardware and its deny_any rejects shower and tub curtain bullets, so subject-generic bullets ('window treatments are dated') can no longer reach a billable item; the blinds successor's deny_any pushes mixed fabric-plus-blinds observations to the fabric successor. Re-resolution required at cutover.",
+              "estimate_scope": "kind token 'modernization' is unchanged on both successors, so estimate_scope._VALUE_ADD_TERMS text matching and PACKAGE_CATEGORY_MODERNIZATION vocabulary behave exactly as they do for the parent",
+              "pricing": "successors temporarily inherit the parent's economic fields verbatim (inherited_from_split_parent, Task 4A bridge): both carry cost mode heuristic and work_item_code WINDOW_TREATMENT_UPDATE; on the blinds successor those fields are inert because projection applies route_override before the costing route (catalog_projection.py:46-72), and they are what keeps the override from being flagged redundant (catalog_validation.py:487-493)",
+              "packages": "flat package_role 'ignore' is inherited from the parent, so neither successor drives or supports a rehab package; no package metadata is added and dated_window_treatment_valance is not among the ten repair_support_when_driven marker items"
+            }
+          },
+          {
+            "legacy_id": "dated_window_treatment_valance",
+            "op": "set",
+            "path": "/successors/0",
+            "after": {
+              "id": "window_blinds_basic_or_plain",
+              "kind": "modernization",
+              "severity": 1,
+              "name": "Basic or Plain Window Blinds",
+              "description": "Window blinds or shades are a basic or plain style. Recorded as a visible presentation detail; blinds are not billed as renovation work.",
+              "embed_text": "Basic or plain window blinds. Mini blinds, horizontal blinds, venetian blinds, vertical blinds, roller shades, and window shades in a plain builder-grade style. Blind and shade presence is recorded for presentation context only and is not renovation work.",
+              "support_any": [
+                "blind",
+                "mini blind",
+                "horizontal blind",
+                "venetian blind",
+                "vertical blind",
+                "roller shade",
+                "window shade"
+              ],
+              "atomic_claim": {
+                "subject": "window blinds or shades",
+                "state": "basic or plain window blinds",
+                "ontology_basis": "presentation_only"
+              },
+              "overrides": {
+                "route_override": "no_action",
+                "deny_any": [
+                  "valance",
+                  "cornice",
+                  "swag",
+                  "curtain",
+                  "drape",
+                  "drapery",
+                  "sheer",
+                  "fabric",
+                  "broken window",
+                  "fogged window",
+                  "failed seal"
+                ]
+              }
+            }
+          },
+          {
+            "legacy_id": "dated_window_treatment_valance",
+            "op": "set",
+            "path": "/successors/1",
+            "after": {
+              "id": "dated_window_valance_or_curtains",
+              "kind": "modernization",
+              "severity": 1,
+              "name": "Dated Valance or Curtains",
+              "description": "A dated valance, cornice, swag, or curtain and drapery set reduces perceived condition; updating the fabric treatment improves appeal.",
+              "embed_text": "Dated window valance, cornice, or swag. Dated curtains, drapes, draperies, and sheers hung at a window. Update dated fabric window treatments for a modern look.",
+              "support_any": [
+                "valance",
+                "cornice",
+                "swag",
+                "curtain",
+                "drape",
+                "drapery",
+                "sheer",
+                "fabric"
+              ],
+              "atomic_claim": {
+                "subject": "window valance or curtains",
+                "state": "dated valance or curtains",
+                "ontology_basis": "dated_style"
+              },
+              "overrides": {
+                "require_any": [
+                  "valance",
+                  "cornice",
+                  "swag",
+                  "curtain",
+                  "drape",
+                  "drapery",
+                  "sheer",
+                  "fabric"
+                ],
+                "deny_any": [
+                  "shower curtain",
+                  "improvised",
+                  "makeshift",
+                  "broken window",
+                  "fogged window",
+                  "failed seal",
+                  "shower",
+                  "tub"
+                ]
+              }
+            }
+          }
+        ],
+        "op_shape": "JSON-pointer set ops relative to the decisions entry, as scripts/render_catalog_audit_proposals.py apply_ops consumes them",
+        "expected_generated_changes": {
+          "added_items": [
+            "dated_window_valance_or_curtains",
+            "window_blinds_basic_or_plain"
+          ],
+          "removed_items": [
+            "dated_window_treatment_valance"
+          ],
+          "item_diff": {},
+          "order_ok": true,
+          "manifest_diff_keys": [
+            "dated_window_treatment_valance"
+          ]
+        },
+        "dry_run_at_approval": {
+          "ok": true,
+          "classification": [
+            [
+              "/change_type",
+              "native"
+            ],
+            [
+              "/deprecated",
+              "native"
+            ],
+            [
+              "/requires_re_resolution",
+              "native"
+            ],
+            [
+              "/atomicity_rationale",
+              "native"
+            ],
+            [
+              "/expected_effects",
+              "native"
+            ],
+            [
+              "/successors/0",
+              "native"
+            ],
+            [
+              "/successors/1",
+              "native"
+            ]
+          ],
+          "metadata_problems": [],
+          "catalog_validation_errors": [],
+          "manifest_validation_errors": [],
+          "added_detail": {
+            "dated_window_valance_or_curtains": {
+              "pricing_status": "inherited_from_split_parent",
+              "economics": {
+                "cost": {
+                  "mode": "heuristic"
+                },
+                "estimate": null,
+                "work_item_code": "WINDOW_TREATMENT_UPDATE",
+                "cost_model": null,
+                "package_affinity": null,
+                "package_role": "ignore",
+                "estimate_scope": null,
+                "estimate_scope_reason": null
+              },
+              "repair_support_marker_routes": []
+            },
+            "window_blinds_basic_or_plain": {
+              "pricing_status": "inherited_from_split_parent",
+              "economics": {
+                "cost": {
+                  "mode": "heuristic"
+                },
+                "estimate": null,
+                "work_item_code": "WINDOW_TREATMENT_UPDATE",
+                "cost_model": null,
+                "package_affinity": null,
+                "package_role": "ignore",
+                "estimate_scope": null,
+                "estimate_scope_reason": null
+              },
+              "repair_support_marker_routes": []
+            }
+          }
+        },
+        "modifications_relative_to_the_session_2_proposal": [
+          "blinds successor re-authored as presence-only under Q-1: new id window_blinds_basic_or_plain, claim 'window blinds or shades | basic or plain window blinds | presentation_only', no wear or damage word on any surface, route_override no_action, deny_any = the fabric terms plus the glazing terms",
+          "fabric successor dated_window_valance_or_curtains: claim 'window valance or curtains | dated valance or curtains | dated_style' with 'improvised' and 'heavy' dropped (Q-2); require_any = valance, cornice, swag, curtain, drape, drapery, sheer, fabric ('window treatment' and 'covering' excluded); support_any the mirror of the blinds deny list with the bare 'window treatment' token dropped; deny_any = shower curtain, improvised, makeshift, the glazing terms, and the lead-added stems 'shower' and 'tub' (A-3)",
+          "atomicity_rationale and expected_effects restated for the new shape"
+        ]
+      },
+      "conditions": [
+        "Session 4 implements exactly these seven ops and nothing else on this entry; Tier 1 must show the generated diff as added [dated_window_valance_or_curtains, window_blinds_basic_or_plain], removed [dated_window_treatment_valance], no other item changed, zero validator errors, byte-identical double generation.",
+        "Display (A-4): the no_action blinds successor stays visible as drafted (inherited defaultHidden false, display_class marketability); no defaultHidden override. Session 6's baseline arm should report how many no_action blinds conditions render at zero dollars (about 28 evidence-era conditions move).",
+        "Curtain hardware (A-5): 'The curtain rods are dated.' (oc1_649033275db36ca2) keeps billing on the fabric successor for now; its Terra verdict under the new claim is a Session 6 observation and the hardware-subject question is recorded for the catalog-wide sweep.",
+        "Improvised coverings (A-6): the one currently billed makeshift-covering condition (oc1_c839d6e1118a7006, redfin_81000709 photo_029) reaches neither successor by design under Q-2; accepted, undetected rather than no_action.",
+        "Claim texts (A-7): kept as drafted; tighter states ('basic or plain style, functional'; 'dated style, functional') are an optional future wording change that would need its own check.",
+        "Session 5 Tier 2 measures: the lexical-shortcut fire rate on blinds observations against the new successor (scene_classifier_passes.py:1096-1104 thresholds); post-split ranks against dated_or_older_windows on 'windows and blinds' bullets; the new shortcut surface on the fabric successor's bare stems ('curtain', 'drape', 'fabric'), several of whose corpus hits are currently owned by other items; the embedding neighbourhood of both successors (no offline store exists).",
+        "Session 5/6 plan a full replay and an explicit cutover for stored 3.2 artifacts: no runtime alias for the deprecated parent; resumed runs carrying the stale id fail hard; backfill_kind_v2 is a no-op at the target version; both new atomic_claims change the projection fingerprint, so no stored Terra checkpoint survives (CCF-8).",
+        "The three predicted Terra verdict flips to supported on the presence-only claim (rc_4f4b93c40ef3, rc_ffad088fa5fe, rc_a22a241b3bf0) stay unmeasured; they are unbillable on every path.",
+        "Withdrawn billings accepted by Q-1 and recorded: rc_7c5b9f9bb3aa (v1.1 claim exact / work warranted) and gold g3 -> oc1_12e3660bf3923583, plus 26 further evidence-era accepted conditions moving to no_action and one reaching neither successor."
+      ],
+      "notes": "Approved by Steven on 2026-09-06 with modifications A-3 (deny stems), A-4 (visible), A-5 (hardware kept), A-6 (neither accepted), A-7 (texts as drafted). Renewed review: sustained_with_conditions; blinds successor sustained, fabric successor sustained after the lead's narrowing fix; accounting 48 conditions / 39 accepted / 28 to no_action / 10 surviving / 1 neither, reproduced by three derivations. First same-kind split in the decisions file; nothing in the generator or validator forbids it. See reports/catalog_audit_redraft.json cap007 and reports/catalog_audit_renewed_review.json.",
+      "session2_outcome": "native_decisions_proposal",
+      "session3_disposition": "insufficient_evidence"
+    },
+    {
+      "proposal_id": "CAP-008",
+      "disposition": "deferred",
+      "approved_diff": null,
+      "conditions": [
+        "Inputs the sweep must take: reports/catalog_audit_live_check_results.json and the renewed review's decisiveness reading (rc_9e889631af67 decisive; rc_73d15ca14405 not attributable, its two photos disagree; rc_b642fe69b86a uninformative); the single-condition harness does not reproduce stored batched verdicts on two of three cards.",
+        "Any future CAP-008 op withdraws four claim-exact/work-warranted billings (rc_9e889631af67, rc_d0ffde500a92 and rc_ceeb17f8e242 ruled under Q-3; rc_57c6faf79c7e unruled, see A-2) and two hallucinations, and invalidates every stored Terra checkpoint.",
+        "Instrument options recorded, none tested: a removal-only state (drop the plain/thin/builder-grade branch with name and description overrides, no new tell); a require_any/deny_any guard; a route-level change; a Terra prompt rule for literal reading. A third datedness wording is not recommended: two lexically disjoint wordings behaved identically.",
+        "paint_refresh_recommended ('interior paint color | dated or highly personalized colors') joins the sweep's overlap analysis; any trim-colour wording duplicates its claim at the Terra surface."
+      ],
+      "notes": "Not eligible as a wording-only op: both live-checked wordings (A 'era-specific dated finish on casing, jambs, or baseboards'; B 'dark-stained wood or dated paint color') blocked under the recorded rule, decisively on rc_9e889631af67 where the single-condition harness reproduced production (A supported 1/3, B 2/3, B twice on a dark wall colour with white trim); Terra never engaged either predicate; the recovery card was uninformative because the current claim also recovers it in the harness. Steven's A-1 (2026-09-06): CAP-008 is deferred into the catalog-wide ruling-3 sweep outside this program (Q-5), where dated_interior_trim joins the six other plain/basic/builder-grade/hollow-core claims and the instrument is decided there with these findings as input. The ruling-3 direction stands as policy; nothing is implemented in Session 4. See backlog.catalog_wide_ruling_3_sweep.",
+      "session2_outcome": "native_decisions_proposal",
+      "session3_disposition": "sustained_with_conditions"
+    },
+    {
+      "proposal_id": "CAP-009",
+      "disposition": "reclassified_non_catalog",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained no_change; the railing and stair-stringer null resolutions are a one-property coverage note (CCF-5).",
+      "session2_outcome": "no_change",
+      "session3_disposition": "sustained"
+    },
+    {
+      "proposal_id": "CAP-010",
+      "disposition": "deferred",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained the deferral with a corrected diagnosis: the lean was captured and billed under fence_broken_or_leaning, so 'Pass 2a never reported the lean' is wrong; recipe corrected.",
+      "session2_outcome": "deferred_insufficient_evidence",
+      "session3_disposition": "sustained_with_conditions"
+    },
+    {
+      "proposal_id": "CAP-011",
+      "disposition": "reclassified_non_catalog",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained non_catalog_action; the 2d follow-up stands; the structural-framing item's scene exclusion is a note only; the stage-attribution conflict goes to the error-attribution record.",
+      "session2_outcome": "non_catalog_action",
+      "session3_disposition": "sustained"
+    },
+    {
+      "proposal_id": "CAP-012",
+      "disposition": "reclassified_non_catalog",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained non_catalog_action; a boarded gable opening is a one-property coverage and pricing question, not a field change on the carryover.",
+      "session2_outcome": "non_catalog_action",
+      "session3_disposition": "sustained"
+    },
+    {
+      "proposal_id": "CAP-013",
+      "disposition": "deferred",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained migration_system_gap on corrected grounds (the repair_support_when_driven marker section names the parent and is unreachable from the ops surface; estimate_scope is inherited and unauthorable). Q-6: document and wait; no schema work; adjudicate the three candidate cards first. A-2 (2026-09-06, lead decision delegated by Steven): rc_57c6faf79c7e (redfin_125779232 photo_003) is recorded as a further candidate instance of the missing-or-incomplete base-trim concept, alongside rc_201ccb0c2313 on the same property: its pinned photo-review rows record no visible baseboard plus a damaged base board; not adjudicated here.",
+      "session2_outcome": "migration_system_gap",
+      "session3_disposition": "sustained_with_conditions"
+    },
+    {
+      "proposal_id": "CAP-014",
+      "disposition": "deferred",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained the lead-only deferral; mechanism corrected to the Pass 2c kind gate; the CCF-14 evidence-precedence ruling is still owed and decides whether the cluster stays lead-only.",
+      "session2_outcome": "deferred_insufficient_evidence",
+      "session3_disposition": "sustained_with_conditions"
+    },
+    {
+      "proposal_id": "CAP-015",
+      "disposition": "reclassified_non_catalog",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained no_change; both implicated items have zero reviewed positive uses, so this is no positive assurance.",
+      "session2_outcome": "no_change",
+      "session3_disposition": "sustained"
+    },
+    {
+      "proposal_id": "CAP-016",
+      "disposition": "deferred",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained the deferral; the swirl condition was Terra-supported and billed under CEILING_TEXTURE_UPDATE, so the open question is naming, not a lost condition; guardrail brittleness recorded (CCF-12).",
+      "session2_outcome": "deferred_insufficient_evidence",
+      "session3_disposition": "sustained_with_conditions"
+    },
+    {
+      "proposal_id": "CAP-017",
+      "disposition": "reclassified_non_catalog",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained no_change with a correction: dated_bathroom_wallpaper co-fired on the same wall (CCF-13); the overlap is recorded with its promotion recipe.",
+      "session2_outcome": "no_change",
+      "session3_disposition": "sustained_with_conditions"
+    },
+    {
+      "proposal_id": "CAP-018",
+      "disposition": "deferred",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained the deferral; the promotion recipe is complete (second property, ruling on stained stone near grade, qualifier decision, control for rc_dff4c3209df1).",
+      "session2_outcome": "deferred_insufficient_evidence",
+      "session3_disposition": "sustained"
+    },
+    {
+      "proposal_id": "CAP-019",
+      "disposition": "reclassified_non_catalog",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained non_catalog_action with conditions. Q-9: casing included; the Pass 2d follow-ups stay primary; rc_8afb476fa69f is a positive-use control; the casing coverage twin is a one-property question; a native scope clarification is a future candidate below the bar.",
+      "session2_outcome": "non_catalog_action",
+      "session3_disposition": "sustained_with_conditions"
+    },
+    {
+      "proposal_id": "CAP-021",
+      "disposition": "reclassified_non_catalog",
+      "approved_diff": null,
+      "conditions": [],
+      "notes": "Review sustained non_catalog_action; the trim homograph belongs to the Pass 2d worklist.",
+      "session2_outcome": "non_catalog_action",
+      "session3_disposition": "sustained"
+    }
+  ],
+  "disposition_counts": {
+    "reclassified_non_catalog": 13,
+    "approved_with_modification": 1,
+    "deferred": 6
+  },
+  "gate_outcome_checks": {
+    "every_proposal_id_exactly_once": true,
+    "every_approved_native_change_has_exact_diff": true,
+    "proposal_and_review_hashes_match": true,
+    "no_approved_record_depends_on_unresolved_migration_gap": "CAP-007 is a split with successor-authorable fields only (INHERITED_FIELDS); dated_window_treatment_valance is not among the ten repair_support_when_driven marker items (CCF-7); CAP-013 stays deferred",
+    "separate_authorizations": {
+      "schema_or_generator_work": false,
+      "terra_calibration": false,
+      "product_policy_change": false,
+      "live_terra_calls_used": "23 of the 30 authorized by the decision record; no further calls authorized here"
+    }
+  },
+  "backlog": {
+    "catalog_wide_ruling_3_sweep": {
+      "status": "recorded for a later session outside this program (Q-5, A-1)",
+      "items": [
+        "dated_interior_trim (CAP-008, deferred here)",
+        "cabinets_dated_style",
+        "appliances_dated_or_basic",
+        "dated_bathroom_vanity_light",
+        "landscaping_enhancement_opportunity (already route_override no_action)",
+        "older_ceiling_fan_style",
+        "dated_interior_doors",
+        "dated_window_valance_or_curtains ('The room has basic curtains.' keeps billing on the approved fabric successor)",
+        "paint_refresh_recommended (overlap with any trim-colour wording)"
+      ],
+      "inputs": [
+        "reports/catalog_audit_live_check_results.json",
+        "reports/catalog_audit_renewed_review.json (CAP-008 disposition and live_check block)",
+        "reports/catalog_audit_redraft.json cap008 (ledger with four human-approved withdrawals; corrections; overlaps)"
+      ],
+      "open_questions_carried": [
+        "curtain hardware subject (A-5 kept for now)",
+        "rc_57c6faf79c7e ruling (A-2, with CAP-013)",
+        "whether a wording instrument can change Terra's behaviour at all on plain-presence billings"
+      ]
+    }
+  },
+  "session_4_entry": "Session 4 may begin: implement CAP-007's approved_diff only, per docs/catalog_audit_program/05_SESSION_APPROVED_IMPLEMENTATION.md; every other record is untouched. Pin this file's sha256 in HANDOFF_SESSION_4.md together with the redraft, renewed review, live-check and decision-record hashes above."
+}

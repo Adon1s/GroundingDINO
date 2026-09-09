@@ -1,0 +1,98 @@
+{
+  "schema_version": "catalog-audit-live-experiment-manifest-v2",
+  "program": "catalog_audit",
+  "status": "awaiting_human_cost_authorization",
+  "produced_by": "2026-09-08 catalog policy checkpoint",
+  "what_this_is": "The authorization surface for any LIVE run against the checkpoint candidate. Nothing in it has been run. It exists so a later authorized session does not have to re-derive the candidate's identity or re-choose a case set.",
+  "budget": {
+    "stage_a_authorized_tokens": null,
+    "stage_b_authorized_tokens": null,
+    "authorized_by": null,
+    "authorized_at": null,
+    "rule": "No provider call may be made until a human fills these in."
+  },
+  "arms": {
+    "baseline": {
+      "root": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend",
+      "commit": "9afe0fa5a0490a856abed507dccc4a02ed1de24c",
+      "note": "The Session 6 baseline arm at artifacts_canary/catalog_audit_session6_20260907/baseline/ is still valid for the 3.1-era comparison and should be reused rather than re-bought."
+    },
+    "candidate": {
+      "root": "C:\\Users\\Steven\\PycharmProjects\\rv-catalog-audit-s4",
+      "commit": "7ddd52ab1fb198f3242d857e700cab23527327af",
+      "branch": "catalog_audit_session4",
+      "catalog_sha256": "787964013d083368403524c610df54cc9858a8f6c1a1e5c9535c7204c1e67a2f",
+      "decisions_sha256": "4cd0bc073f6fcdab3bde93993ed05a6199645e756e0df4b816230bd047a3b005",
+      "projection_fingerprint": "185a3923ad0acc0e66417f90c4395d24ec00557ff1d2626a7cb5578b3d8be28b",
+      "route_counts": {
+        "excluded_generic": 4,
+        "excluded_quarantine": 12,
+        "inspection": 5,
+        "no_action": 11,
+        "work": 97
+      },
+      "items": 129
+    }
+  },
+  "identity_rule": "Both arms stamp catalog version 3.2. Identify a run by catalog_sha256 and the projection fingerprint, never by the version string.",
+  "operational_pins": {
+    "LM_STUDIO_URL": "http://127.0.0.1:1234",
+    "LM_STUDIO_URL_note": "Re-pinned from the Session 5/6 manifest's 169.254.83.107:1234, which is a stale link-local address (S6-6). The model identity is the routing invariant and must be verified at run time.",
+    "embeddings_sidecar": "http://127.0.0.1:8081/v1, jina v5 small text-matching Q8_0, dim 1024",
+    "embeddings_readiness": "probe with a real POST; /health has returned 200 while every call failed",
+    "pass_2d_model_note": "Pass 2d runs on the local Qwen model in production, not the Terra-tier GPT (S6-8)."
+  },
+  "what_is_already_settled_without_a_provider_call": {
+    "tier1": {
+      "checks": 24,
+      "result": "pass",
+      "report": "reports/catalog_checkpoint_tier1_proof.json"
+    },
+    "tier2": {
+      "rules": 12,
+      "result": "pass",
+      "rows_changed": 33,
+      "shortcut_changes": 0,
+      "report": "reports/catalog_checkpoint_tier2.json"
+    },
+    "per_op_isolation": "reports/catalog_checkpoint_per_op_isolation.json",
+    "package_effect": {
+      "properties": 17,
+      "report": "reports/catalog_checkpoint_package_effect.json"
+    }
+  },
+  "candidate_live_questions": [
+    {
+      "id": "LQ-1",
+      "question": "Do the 33 bathroom rows that lost the generic wallpaper item resolve acceptably once Pass 2d re-runs?",
+      "why_offline_cannot_answer": "The rows keep a full candidate list and the model chooses among them; the offline instrument settles retrieval, not selection.",
+      "cheapest_instrument": "Pass 2d x5 on exactly those 33 rows, local model, no Terra unless a new BILLABLE landing appears.",
+      "rows": "reports/catalog_checkpoint_tier2.json changed_rows_in_full",
+      "accepted_without_it": "Yes, under decision D4: the residual was disclosed and accepted unmeasured."
+    },
+    {
+      "id": "LQ-2",
+      "question": "Do the trim conditions display at $0 and stop billing in a live run?",
+      "why_offline_cannot_answer": "Disposition depends on the live Terra verdict.",
+      "offline_derivation": "Recomputing decide_disposition on the Session 6 stored verdicts against the new route yields no_action/$0 for all three trim landings. A derivation from stored verdicts, not a reuse: the request fingerprints differ.",
+      "cheapest_instrument": "The Session 6 Stage A case set, candidate arm only."
+    },
+    {
+      "id": "LQ-3",
+      "question": "Fresh Sol decisions for packages whose support list changed.",
+      "scope": "15 support-list-only, 9 shape changes, 1 disappearing candidate.",
+      "note": "This is also the Catalog 3.2 acceptance data still owed (S6-7). It needs whole-property runs, not a condition subset."
+    }
+  ],
+  "benchmark": {
+    "new_slice": "benchmarks/catalog-resolution-v2/cases_checkpoint_20260908.json",
+    "status": "frozen, never scored",
+    "note": "Scoring needs a Pass 2d model call. --gates will accept it because it is frozen."
+  },
+  "stop_conditions": [
+    "any provider call before the budget fields are filled in",
+    "any run that would mutate a stored artifact or a production checkpoint",
+    "Stage B without its own separate authorization"
+  ],
+  "manifest_sha256": "f57230de06cb0fea31cbf7b725b32f21811360d9c93c9787b7c8a07191a6336d"
+}
