@@ -23,7 +23,8 @@ from scripts.score_factorized_review import (
 )
 from tools.renovation_architecture.factorized_review import derive_class
 
-LABELS = Path("reports/labels_v1_1.json")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+LABELS = REPO_ROOT / "reports" / "labels_v1_1.json"
 pytestmark = pytest.mark.skipif(
     not LABELS.is_file(), reason="frozen v1.1 labels not present"
 )
