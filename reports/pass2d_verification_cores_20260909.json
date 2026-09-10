@@ -1,0 +1,566 @@
+{
+ "run_id": "wf_330c2f01-3b7",
+ "agents": 40,
+ "agent_tokens": 4792555,
+ "findings": [
+  {
+   "finding_id": "V1",
+   "label": "generic-gate",
+   "refuted": 2,
+   "votes": 3,
+   "surviving_core": "The mechanism claims survive verbatim and are, if anything, understated. is_generic_resolution_candidate (tools/scene_classifier_passes.py:510-511) returns true on defaultHidden or drop_if_generic \u2014 27 of the 129 live items (25 defaultHidden, 5 drop_if_generic, union 27) \u2014 and is applied at :1095, after the negation guard at :1090 but before the score/margin test at :1102 and any support-term test. wall_scuffs_marks_or_dents is defaultHidden, so the shortcut cannot fire on it: it is the rank-1 candidate on 403 of the 4,107 stored rows and the shortcut fired on 0 of them; 0 of the 640 stored shortcut rows resolve to it; all 12 CAP-014 worklist rows (13 issue ids) took the llm path. In reports/catalog_audit_replay_snapshot_checkpoint_after.json, top_is_generic is true on 454 of 1,969 rows and negation_blocked on 0 of 1,969, so the generic gate and not the negation guard is what binds the shortcut in practice. On issue d8fc3b6364d55cc0, rank-1 worn_or_stained_flooring scored 0.80294 with margin 0.04458, \"discoloration\" is in its support_any and fires under the shipped term_matches, and calling _resolve_candidate_via_lexical_shortcut on the stored candidates with only the generic flag cleared returns ('worn_or_stained_flooring','degradation','support_phrase_hit'). What must be attached before this is used: across the 4,107 stored rows the same counterfactual fires on 377 rows \u2014 316 agreeing with the model, 22 creating a billing where it declined, 39 overriding it \u2014 with 178 landing on wall_scuffs_marks_or_dents and 7 of the 12 CAP-014 rows among them; and the row-3 counterfactual splits the condition rather than fixing it.",
+   "fatal_corrections": [
+    {
+     "fragment": "but for that gate the shortcut would have returned the very item the reviewer calls better",
+     "correction": "True only of one of the two issues in the reviewer's unit. The sibling issue 34c681661a9e7f49 in the same condition still would not fire with the gate removed (margin 0.017861, zero firing terms). Conditions key on scope_key 'catalog:<item>|scene_group|room', so the gate-lift splits oc1_8178b1b9c823f719 \u2014 the condition behind card rc_eef1daf73e2a \u2014 into two bedroom_4 conditions both carrying work_item_code FLOORING_REPLACE, one a bedroom_repair package_driver and one a bedroom_modernization package_support. That is a duplication, not a re-point; and worn_or_stained_flooring is itself defaultHi",
+     "citation": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_10952874/20260818_231243_cb71fce9/photo_intel_debug.json photos['photo_025.jpg'|'photo_029.jpg'].debug.resolved_items[] issue_id=34"
+    }
+   ]
+  },
+  {
+   "finding_id": "V2",
+   "label": "kind-gating",
+   "refuted": 3,
+   "votes": 3,
+   "surviving_core": "Two claims survive, both narrower than CF-3. (i) Mechanism, fully confirmed and already human-ratified: retrieval routes exactly one Pass 2c kind and applies that filter before cosine top-K (tools/catalog_embeddings.py:486-488 kind filter, :521 _cosine_topk; tools/scene_classifier_passes.py:485-505 singleton exact_kind, no widening), so the defect-kind items nominated in worklist rows 17/19/20/22 (damaged_drywall_or_cracks, water_stain_ceiling) could never enter the pool of a degradation bullet, the worklist's \"kind- and scene-open\"/\"gate-open\" premises are false, and an embed_text change could not have retrieved them. All twelve CAP-014 rows are original_kind=degradation and their stored candidate pools are 100% degradation-kind. Note this is a restatement, not a correction, of the record: reports/catalog_audit_approvals_v2.json already records under CAP-014 that \"the eight scuffs-vs-paint rows are Pass 2d selection and two are Pass 2c kind exclusion\" \u2014 the draft should cite that rather than present it as something the worklist \"attributes elsewhere\". (ii) Coverage, narrowed and downgraded to a lead: the degradation kind carries no item for a worn window unit, worn window trim, worn blinds or worn window treatments; its only window item is dirty_or_grimy_window_screens, gated on \"screen\". Whether that gap costs anything is unmeasured, has no human evidence, and 47 of the 61 rows fall inside subjects Steven has already ruled on (D1/D3/D6/CAP-013).",
+   "fatal_corrections": [
+    {
+     "fragment": "so a degradation window bullet can reach no window item at all",
+     "correction": "False. tools/issue_catalog_kind_v2.json contains a fifth window item CF-3 does not enumerate: dirty_or_grimy_window_screens, kind='degradation', scene_groups all seven. It reached the pre-guardrail top-8 on 49 of the 56 degradation nulls and, on issue 0b2f8278945e08e9 ('Window frames, screens or louvers, and adjacent trim look aged.'), it survived guardrails at rank 1 with score 0.73257 (margin 0.06997) and was rendered to the model, which returned null anyway. The correct statement is that on 48 of the 49 it was removed by its own require_any ['screen','screens','window screen'] \u2014 i.e. the de",
+     "citation": "tools/issue_catalog_kind_v2.json items[id=dirty_or_grimy_window_screens].kind='degradation', require_any=['screen','screens','window screen'], scene_groups=[kitchen,bathroom,bedroom,living_areas,utili"
+    },
+    {
+     "fragment": "the window family is kind-hollow: window_blinds_basic_or_plain, dated_window_valance_or_curtains and dated_or_older_windows are modernization-only and broken_or_fogged_windows is defect-only, so a deg",
+     "correction": "The enumeration omits two window-family items. dirty_or_grimy_window_screens is kind=degradation (tools/issue_catalog_kind_v2.json, and identically in the 07ee112 evidence-era catalog) and boarded_up_entry_or_window is a second defect-kind window item. A degradation window bullet does reach a window item: dirty_or_grimy_window_screens is in the pre-guardrail top-8 on 49 of the 56 degradation nulls and is rendered to the model on 1. What removes it on the other 48 is its own require_any ['screen','screens','window screen'] \u2014 the CF-4 guardrail/authoring mechanism, not the kind gate.",
+     "citation": "tools/issue_catalog_kind_v2.json items[id=dirty_or_grimy_window_screens].kind='degradation', .require_any=['screen','screens','window screen']; git show 07ee112:tools/issue_catalog_kind_v2.json same v"
+    },
+    {
+     "fragment": "61 of the 70 product-lane degradation and defect nulls mention a window",
+     "correction": "The count is exactly right and carries no information about Pass 2d or the catalog: the product lane admits a non-modernization row only if its observation contains one of REPLAY_STEMS, a tuple whose last element is the bare token \"window\". All 70 rows in the stratum hit a stem (61 on 'window', 9 on a covering stem) by construction. Of the 674 degradation/defect llm-nulls the filter excluded, 0 mention a window.",
+     "citation": "scripts/catalog_audit_validation.py:719-720 (REPLAY_STEMS) and :852-855 (stem_rows, selected_ids); reports/catalog_audit_replay_corpus.json totals.rows_stem=342, totals.rows_modernization=1873, totals"
+    },
+    {
+     "fragment": "so a degradation window bullet can reach no window item at all",
+     "correction": "False. `dirty_or_grimy_window_screens` is kind=degradation with scene_groups covering all seven groups, and on the degradation bullet 'Window frames, screens or louvers, and adjacent trim look aged.' it was retrieved at rank 1 (0.7326, margin 0.0700) and rendered to the model, which declined. Correct statement: the degradation kind has exactly one window item, gated by require_any on 'screen', so it carries no worn window unit, worn window trim, worn blinds or worn treatment.",
+     "citation": "tools/issue_catalog_kind_v2.json # items[id=dirty_or_grimy_window_screens].kind='degradation', require_any=['screen','screens','window screen'], scene_groups=7; row canary:redfin_80925528:20260818_220"
+    }
+   ]
+  },
+  {
+   "finding_id": "V3",
+   "label": "human-contradictions",
+   "refuted": 3,
+   "votes": 3,
+   "surviving_core": "Row 9 only, and narrowly: Steven's recorded judgment on rc_905575ed8a3d (claim=exact, work=warranted; retag terra_miss) is in tension with one premise inside worklist rows[8].note - that 'the rank-1 claim was unverifiable from this viewpoint' - since he judged that claim exact from that single photo; and the lost billing is proximately Terra's cannot_assess. But this is causation evidence the worklist itself already recorded and priced, not a contradiction of a human decision, and it does not establish that the selected item was the best reachable one: the pinned photo review for that same unit says the soffit panels are in fact not visible from the street view and that rank 3 or rank 4 'name a sagging porch roof better than soffit_or_porch_ceiling_failed (rank 1)'. Defensible restatement: 'On row 9 the billing was lost at Terra, not at selection; the human ratified the truth of the selected claim but was never asked, and never answered, whether a better item existed.' Row 8 has no surviving core in this form - if the diagnosis wants to keep row 8 out of the failure set it must argue it on the item text and the downstream-neutrality the worklist already states, and must record that the human claim-axis label is `misnamed` and the case-agent attribution is `2d`.",
+   "fatal_corrections": [
+    {
+     "fragment": "Two rows the worklist files as Pass 2d failures that Steven's own record contradicts. Row 8 (`rc_3a19f759f2d9`): retag note \"I would reverse my decision here. I think it is in need of work so the LLM ",
+     "correction": "Steven's recorded judgment on that card is the verdict he pressed, not the free-text note: reports/retag_verdicts.jsonl:18 records verdict \"mechanism_only: a real problem is there, the claim named it wrong\", on a card titled \"[A] was a real problem there, just named wrong?\" (reports/retag_queue.json card rc_3a19f759f2d9). His later v1.1 re-adjudication of the same card records claim=\"misnamed\", slug=\"misnamed_but_warranted\", class_v1_1=\"misnamed_billed\" (reports/labels_v1_1.json labels['rc_3a19f759f2d9']). On the naming axis Steven twice says the claim named it wrong, which is what worklist ro",
+     "citation": "reports/retag_verdicts.jsonl:18; reports/retag_queue.json card rc_3a19f759f2d9 (title, verdict_options); docs/HANDOFF_retag_mechanism_vs_perception.md:73-79; reports/labels_v1_1.json labels['rc_3a19f7"
+    },
+    {
+     "fragment": "Row 8 (rc_3a19f759f2d9): retag note \"I would reverse my decision here. I think it is in need of work so the LLM is right\" (docs/RESULT_retag_mechanism_vs_perception_20260828.md:203). ... On the progra",
+     "correction": "The note is the work-axis half of an answer whose recorded verdict string is 'mechanism_only: a real problem is there, the claim named it wrong'. It was superseded on 2026-08-29 by the two-axis adjudication built to resolve exactly this ambiguity, which printed the note on the card and returned 'misnamed_but_warranted'. On the program's own grading the higher record for row 8 says the claim NAMES IT WRONG, which corroborates rather than contradicts the worklist's naming complaint. Row 8 must be dropped from this finding.",
+     "citation": "reports/retag_verdicts.jsonl card_id=rc_3a19f759f2d9 verdict='mechanism_only: a real problem is there, the claim named it wrong'; reports/adjudication_queue.json cards[card_id=adj_4349079b2716].claim."
+    },
+    {
+     "fragment": "Steven's retag on rc_3a19f759f2d9 ... Not a Pass 2d failure on the human record. (draft.json rows[worklist_index=8].reconciliation_note)",
+     "correction": "The same row's own citation list already contains 'reports/labels_v1_1.json labels[rc_3a19f759f2d9] claim=misnamed work=warranted class_v1_1=misnamed_billed'. The reconciliation note contradicts the evidence the row cites; it should read that the human record supports a naming mismatch with work warranted, and that the row is a non-failure on the TEXT analysis (text_favours=selected), not on the human record.",
+     "citation": "pass2d_diagnosis_20260909.draft.json rows[worklist_index=8].citations[4] vs .reconciliation_note"
+    },
+    {
+     "fragment": "Two worklist rows filed as Pass 2d selection failures are contradicted by Steven's own recorded judgments.",
+     "correction": "One row (9) has a human record that bears on it and was already cited by the worklist; the other (8) has a human record that points the same way as the worklist, not against it. Steven's recorded v1.1 answer on rc_3a19f759f2d9 is `misnamed_but_warranted` - claim `misnamed`, defined as 'a real condition is there but this claim names it wrong' - chosen over an available key 1 `exact_and_warranted`. Neither row is 'contradicted by Steven's own recorded judgments'.",
+     "citation": "reports/labels_v1_1.json labels['rc_3a19f759f2d9'] slug=misnamed_but_warranted claim=misnamed work=warranted class_v1_1=misnamed_billed retag_expectation_met=true; docs/DESIGN_label_v1_1_adjudication."
+    }
+   ]
+  },
+  {
+   "finding_id": "V4",
+   "label": "R9-false",
+   "refuted": 3,
+   "votes": 3,
+   "surviving_core": "One statement genuinely about the shipped file is imprecise, and it is not R9. `docs/catalog_audit_program/HANDOFF_SESSION_7.md:25` \u2014 authored 14:01:08, after the JSON at 13:57:35 \u2014 records the exit criterion \"Pass 2d worklist references current ids and separates axes | yes, `reports/catalog_checkpoint_pass2d_worklist.json`\". `rows[6].better_item` is not a current id: `dated_window_treatment_valance` is absent from the 129-item `tools/issue_catalog_kind_v2.json`, while both CAP-007 successors (`window_blinds_basic_or_plain`, `dated_window_valance_or_curtains`) are present. The narrowest defensible restatement: \"The Session 7 handoff's exit-criterion row overstates by one field on one row; the shipped worklist preserves one frozen pre-split id in `rows[6].better_item`, flagged `ABSENT` and `billing_relevant_now: false`. Reviewer-grade, cosmetic, no consequence, no decision affected.\" That is not a Pass 2d finding and does not belong in the diagnosis headline.",
+   "fatal_corrections": [
+    {
+     "fragment": "R9 ... says 'The final worklist names window_blinds_basic_or_plain' [treated as the correct target the JSON failed to adopt]",
+     "correction": "window_blinds_basic_or_plain is the wrong successor for this row. Under the current catalog the successor inheriting the row's cited better_rank 2 is dated_window_valance_or_curtains (pre_guardrail rank 2, score 0.6871366500854492, then dropped by its own require_any with terms []); window_blinds_basic_or_plain is pre_guardrail rank 7 / post_guardrail rank 6 at 0.6246356964111328. The approved CAP-007 diff sends valance/curtain/drape observations to the fabric successor, rows[6].note describes 'the brown fabric valance the reviewer sees', and the blinds item's deny_any lists 'valance' and 'fab",
+     "citation": "reports/catalog_audit_replay_snapshot_checkpoint_after.json rows[row_id='canary:redfin_11000447:20260817_224602_d422d7ae:photo_004.jpg:0e028fcb40afa1e3']; reports/catalog_audit_replay_corpus.json rows"
+    },
+    {
+     "fragment": "one statement in the decision record (R9) is false about the shipped worklist file",
+     "correction": "R9 is not false about the shipped file. Its operative sentence, \"The final worklist names window_blinds_basic_or_plain,\" is satisfied: the shipped worklist names that id ten times, at accepted_limitations_rehomed.rows[0..9].better_item. What is true is narrower \u2014 rows[6].better_item still carries the removed parent id, flagged one field over as better_item_route_now: \"ABSENT\".",
+     "citation": "reports/catalog_checkpoint_pass2d_worklist.json accepted_limitations_rehomed.rows[0..9].better_item (10 occurrences of window_blinds_basic_or_plain); rows[6].better_item / .better_item_route_now; docs"
+    },
+    {
+     "fragment": "The register was re-pointed; the JSON was not.",
+     "correction": "The register was not re-pointed in the sense of dropping the parent id either. FOLLOW_UP_REGISTER.md:53 keeps both names in one cell \u2014 \"dated_or_older_windows -> window_blinds_basic_or_plain (rank 2 at the 3.1 baseline as the removed parent dated_window_treatment_valance; re-pointed 2026-09-08 per S4-3 ...)\" \u2014 and :57 states \"The rank shown is the frozen 3.1 rank of the parent.\" Register and JSON both retain the parent; they differ only in whether the successor sits in prose or in a field.",
+     "citation": "docs/catalog_audit_program/FOLLOW_UP_REGISTER.md:53 and :55-57"
+    },
+    {
+     "fragment": "the shipped JSON was not [re-pointed], so R9 is false as a statement about the shipped file",
+     "correction": "There was no omitted re-point step. The v2 worklist is a mechanical copy-and-annotate transform: `row = dict(r)` over the packet rows, then a live-catalog route lookup per id, with \"ABSENT\" as the purpose-built code for a removed id. No branch re-points better_item for any of the 26 rows. Re-pointing rows[6] would falsify its sibling fields, since better_rank: 2 and the case_ref are the parent's frozen 3.1 rank.",
+     "citation": "artifacts_canary/catalog_checkpoint_20260908/provenance/checkpoint_implementation/inventory_and_worklist.py:90-114 (route_of, \"ABSENT\" at :93) and :127; reports/catalog_checkpoint_pass2d_worklist.json"
+    }
+   ]
+  },
+  {
+   "finding_id": "V5",
+   "label": "D3-mechanics",
+   "refuted": 3,
+   "votes": 3,
+   "surviving_core": "A worklist annotation defect, correctable without touching D3: the note repeated on all ten D3 rows in reports/catalog_checkpoint_pass2d_worklist.json accepted_limitations_rehomed.rows[*].note \u2014 \"the successor was reachable and the model chose no item, which is Pass 2d selection behaviour, not catalog reachability\" \u2014 is false on four of the ten. In the 2026-09-07 candidate arm, main run and all five replicas, neither CAP-007 successor is in the candidate list for rows 102, 104, 105 and 108; on 102, 104 and 105 this is a top-8 retrieval miss (offline snapshot shows no guardrail drops and neither successor in pre_guardrail), and on 108 both successors were retrieved at pre-guardrail ranks 1 (window_blinds_basic_or_plain, 0.7183) and 2 (dated_window_valance_or_curtains, 0.7163) and removed by their own deny_any on 'curtain' and 'makeshift' respectively \u2014 which is why compare.json buckets 108 reaching_neither. The other six had window_blinds_basic_or_plain present at ranks 1, 2, 2, 2, 4 and 5. Five of the ten lists held seven items, not eight, and row 108's held five. All of this is deterministic, offline-reproducible, and bears on the accuracy of a worklist annotation and of one sentence of D3's reasoning-of-record \u2014 not on D3's decision, its accepted loss, or its dollars.",
+   "fatal_corrections": [
+    {
+     "fragment": "Row 102 lost a $92-$460 baseline billing to a top-8 retrieval miss in a flat 0.54-0.60 score band.",
+     "correction": "No billing was lost. The $92/$460 is a single CONDITION-level billing on shared condition oc1_c93d1f8e937a1b31 (compare.json rows[case_id ...966c041484dc23d3].baseline.condition_is_shared = true), which spans three issue rows. In the same 2026-09-07 candidate arm that condition survives as oc1_25b80d28f82c2112 on dated_window_valance_or_curtains, disposition accepted_for_work, billed_low 92 / billed_high 460, billing_changed false, reached through siblings 74656077085e6058 ('The brown valance is dated.', fabric successor at rank 5) and 33e7bf39211819ce ('The blinds and valances are dated.', le",
+     "citation": "artifacts_canary/catalog_audit_session6_20260907/compare.json -> rows[case_id endswith 966c041484dc23d3 | 74656077085e6058 | 33e7bf39211819ce].baseline.condition_id oc1_c93d1f8e937a1b31 / candidate.co"
+    },
+    {
+     "fragment": "rows 102, 104, 105 and 108 had NEITHER CAP-007 successor in the candidate list",
+     "correction": "True as a row-level fact, but stated against a condition-level decision. Three of the four sit in conditions that do reach a successor in the same candidate arm: 102's condition reaches the fabric successor (siblings at ranks 5 and 1), 104's condition oc1_f5c210e99de8977d reaches the blinds successor via 7624e7486b448758 at rank 1, and 105's condition oc1_45914abae218006a reaches the blinds successor via 18abd87a200f6e91 at rank 2. Only row 108 reaches neither at the condition level. The correct statement is 'four of the ten bullets, but one of the ten conditions'.",
+     "citation": "reports/catalog_audit_validation_tier12.json -> tier2_metrics.reachability_audit.conditions_table[condition_id=oc1_59824ad41540c6f6 | oc1_6dad98e53e7d7e6d | oc1_45914abae218006a | oc1_c839d6e1118a7006"
+    },
+    {
+     "fragment": "Row 102 lost a $92-$460 baseline billing to a top-8 retrieval miss in a flat 0.54-0.60 score band.",
+     "correction": "Nothing was lost. Row 102 is one of three issue bullets in condition oc1_c93d1f8e937a1b31 (kitchen_primary). In the 2026-09-07 candidate arm the same condition re-forms as oc1_25b80d28f82c2112 on dated_window_valance_or_curtains, Terra-supported ('Brown gathered fabric valances are clearly visible above the windows.'), accepted_for_work, billed 92 low / 460 high \u2014 identical dollars, same estimate unit, on the correct successor. compare.json records billing_changed FALSE for both sibling rows. The per-row billing_changed:true on 966c041484dc23d3 is per-issue bookkeeping against a condition-leve",
+     "citation": "artifacts_canary/catalog_audit_session6_20260907/compare.json -> rows[case_id ...74656077085e6058 and ...33e7bf39211819ce].candidate = {condition_id oc1_25b80d28f82c2112, condition_catalog_item_id dat"
+    },
+    {
+     "fragment": "the shared note under them (\"the successor was reachable and the model chose no item, with a full candidate list\") is false for four of them",
+     "correction": "False for at most one (row 108). 'Reachable' is a defined term in this program: scripts/catalog_audit_validation.py:1392-1431 measures reachable_in_topk per CONDITION, true if any row of the condition carries the predicted successor in its post-guardrail list. The approved Tier-2 audit records reachable_in_topk = true for all ten of these conditions, including 102, 104, 105 and 108. Rows 102, 104, 105 and 110 are bullets inside multi-bullet conditions whose siblings did reach a successor in the candidate arm (fabric at ranks 1 and 4; blinds at rank 1; blinds at rank 2; blinds at rank 1 twice).",
+     "citation": "scripts/catalog_audit_validation.py:1392-1431; reports/catalog_audit_validation_tier12.json -> tier2_metrics.reachability_audit.conditions_table[condition_id in {oc1_59824ad41540c6f6, oc1_6dad98e53e7d"
+    }
+   ]
+  },
+  {
+   "finding_id": "V6",
+   "label": "guardrail-tax",
+   "refuted": 2,
+   "votes": 3,
+   "surviving_core": "Guardrails are applied after the top-8 cosine cut with no refill (tools/catalog_embeddings.py:520-527; _cosine_topk returns exactly min(8, pool) at :220-222), so a candidate list shorter than eight is always a guardrail removal and never a small pool: every one of the 21 (scene_group, kind) cells the corpus reaches has at least 8 items (minimum exactly 8) in the catalog the traces ran under. That truncation is common rather than exceptional - 2,248 of 4,107 stored rows (54.7%) and 479 of 1,969 product-lane rows (24.3%) were handed fewer than eight candidates, including ten of the twelve CAP-014 rows, which saw six. Measured again on today's 3.2 catalog over the same 1,969 rows, the snapshot records 1,012 removals on 761 rows, 890 of them require_any and 300 of them at pre-guardrail rank 1-3 (79 at rank 1), with a single item, dated_window_valance_or_curtains, accounting for 364. Whether any of this changes a selected item is unmeasured and, on the offline proxies available (shortcut flips 11/1,969; rank 7-8 selection 1.64%; no within-cell null-rate effect), likely small.",
+   "fatal_corrections": [
+    {
+     "fragment": "In the current snapshot 1,012 drops fall on 761 of 1,969 rows, 300 of them (29.6 percent) at pre-guardrail rank 1-3 and 79 at rank 1",
+     "correction": "The counts are exact, but the rank stratification must not be read as the cost of the no-backfill design, and draft.json corpus_new_findings[2]'s gloss 'those are the most expensive slots to lose' should be struck. _passes_guardrails(text, item_id) does not depend on retrieval depth, so a backfilling retriever removes the identical items; the only difference between the two designs is the tail item at rank 9, identically for a rank-1 drop and a rank-8 drop. The pre-guardrail rank measures how often a gated item is semantically near an observation it cannot own - an authoring/embedding property",
+     "citation": "tools/catalog_embeddings.py:439-450 and :523-527; reports/catalog_audit_replay_snapshot_checkpoint_after.json rows[*].guardrail_drops joined to rows[*].pre_guardrail (recomputed r1:79 r2:119 r3:102 r4"
+    },
+    {
+     "fragment": "the tax is routine",
+     "correction": "Routine in list length, not in consequence. Measured on the stored corpus, the model selects the lowest slot of a full eight-item list in 11 of 1,507 LLM rows (0.73%; product lane 11 of 1,170 = 0.94%), and a backfilled item enters strictly below rank 8, so the expected number of selection changes across the 761 affected snapshot rows is about five. No row in the diagnosis's own 36 shows a lost slot changing an outcome. The finding should be restated as an accounting fact with no demonstrated consequence.",
+     "citation": "reports/catalog_audit_replay_corpus.json artifacts[*].artifact_path -> photos[*].debug.resolved_items[] (selection position, n=2,348 LLM non-null); pass2d_diagnosis_20260909.draft.json rows worklist_i"
+    },
+    {
+     "fragment": "The two largest unmeasured populations, nulls and shortcut behaviour, turn out to be dominated by a kind-coverage hole in the window family and by a no-backfill guardrail design",
+     "correction": "The second half is not supported and duplicates the first. The apparent link between short lists and declines is a kind confound: len=6 lists are 79% degradation + 15% defect while len=8 lists are 80% modernization, and within modernization the null gradient inverts (len 6/7/8 = 28.1% / 20.7% / 25.3%) while within degradation it is non-monotone (36.3% / 40.1% / 38.3%). On the largest rank-1 drop family the two items backfill could supply on 'The window blinds are worn.' are baseboard_wear_scuffs and hard_flooring_scratched_or_worn. The nulls belong to CF-3's kind-coverage hole; CF-4 is double-",
+     "citation": "pass2d_diagnosis_20260909.draft.md line 9; null-rate-by-(kind, list length) recomputed over the 3,467 stored LLM rows in photos[*].debug.resolved_items[]; bedroom/living_areas degradation cell pool of"
+    }
+   ]
+  },
+  {
+   "finding_id": "V7",
+   "label": "corpus-shape",
+   "refuted": 3,
+   "votes": 3,
+   "surviving_core": "Three of the four sub-claims survive in narrowed form. (a) SURVIVES on corrected evidence: across the 3,467 LLM-path rows the model's stored `raw_response` parsed cleanly on all of them, emitted exactly one key (`resolved_item_id`) on every row, named an id in the rendered post-guardrail candidate list on all 2,348 non-null rows, and emitted an explicit `null` \u2014 never a name, prose, or an unknown snake_case token \u2014 on all 1,119 null rows. The stored `candidates[]` IS the post-guardrail list the model saw (`tools/catalog_embeddings.py:521-527` filters before appending; `tools/scene_classifier_orchestrator.py:272-299` serialises that same list object unmodified), and ranks are correctly 1-based over it. (b) SURVIVES intact and survives the confound check: 1,119/4,107 = 27.2%, 1,119/3,467 = 32.3%, 445/1,969 = 22.6%, other 86/176 = 48.9%, utility 152/418 = 36.4%, bathroom 89/421 = 21.1% all reproduce exactly, and direct standardization to the corpus-wide kind mix barely moves them (other 48.9\u219248.8, utility 36.4\u219237.5, bathroom 21.1\u219223.9), so the scene effect is not a kind-mix artifact. (d)'s CONCLUSION survives and is in fact strengthened, though none of its numbers do: on the complete join at condition level, defect 45/144 = 31.2% vs modernization 68/600 = 11.3% (chi2 = 35.8, p = 2.2e-09) while llm 171/923 = 18.5% vs shortcut 36/219 = 16.4% (chi2 = 0.52, p = 0.47) \u2014 so \"refutation is a kind story, not a path story\" is right, with a 20-point significant kind gap and a 2-point non-significant path gap. (c) does not survive in any form: there is no defensible rank trend.",
+   "fatal_corrections": [
+    {
+     "fragment": "Terra refutation rises with rank: 8.4 percent at rank 1, 11.7 percent at ranks 2-3, 13.1 percent at rank 4 or worse",
+     "correction": "Those three rates are computed over a Terra join that omits every production artifact. On the complete join (all 25 pinned artifacts, both v5 placements) the row-level bands are rank1 138/1319 = 10.5%, rank2-3 68/521 = 13.1%, rank4+ 20/132 = 15.2%. And the trend does not survive correction of the unit: at condition level (pure-LLM conditions, min-rank) it is 117/664 = 17.6%, 42/203 = 20.7%, 12/56 = 21.4%, Cochran-Armitage z=1.10 p=0.271; under max-rank it is 19.4% / 17.2% / 18.3%, z=-0.58 p=0.565 and non-monotone. A 4,000-resample cluster bootstrap over conditions puts the row-level rank4+ min",
+     "citation": "reports/catalog_audit_replay_corpus.json['artifacts'] (25 readable, all sha256-verified) joined via tools/review_cards.py:60-70 v5_result; draft figures at pass2d_diagnosis_20260909.draft.json corpus_"
+    },
+    {
+     "fragment": "ALL rows joined to a condition_review verdict (2019 of 4107)",
+     "correction": "The complete join is 2,581 of 4,107. All eight production artifacts carry a complete v5 envelope at the ROOT key `renovation_estimate_v5` (state=complete, provenance.architecture_mode='new', 344 observed_conditions between them); the draft read only `analysis_debug.renovation_estimate_v5`, which exists on the 17 canary/shadow runs alone. The population labelled 'ALL' is canary-only: 0 of the 813 production rows contribute a verdict to it, and 99 unsupported verdicts (36.7% of the 270 that exist) are missing. Example of a missed row: run 20260825_045924_209d10ee (redfin_10735912), issue_id b27f",
+     "citation": "tools/review_cards.py:60-70 (v5_result: 'root placement (new mode) or analysis_debug (shadow)'); scripts/build_catalog_audit_evidence.py:1187-1188 uses the same two-placement fallback; contradicted by"
+    },
+    {
+     "fragment": "Terra refutation rises with rank: 8.4 percent at rank 1, 11.7 percent at ranks 2-3, 13.1 percent at rank 4 or worse",
+     "correction": "Delete the trend. Those 1,515 llm rows carry only 601 independent Terra verdicts. Deduplicated to the condition Terra actually judged the sequence is 13.5% / 18.5% / 14.7% (rank = min over the condition's rows), 14.9% / 14.1% / 14.0% (max), and on conditions with exactly one issue_id 59/256 = 23.0%, 25/103 = 24.3%, 4/30 = 13.3% \u2014 rank 4+ lowest. A condition-clustered bootstrap of the row-level gap gives [-1.8, +12.9] points, P(diff<=0)=0.078, P(monotone)=0.62. The driver is that rank-1 rows sit in larger conditions (mean 4.44 issue_ids vs 3.36 at rank 4+) and larger conditions are almost never",
+     "citation": "reports/catalog_audit_replay_corpus.json[\"artifacts\"] -> analysis_debug.renovation_estimate_v5.result.{observed_conditions,condition_reviews}; scratchpad V7ALT_terra.py (2,019 rows, 939 distinct (arti"
+    },
+    {
+     "fragment": "Terra refutation rises with rank: 8.4 percent at rank 1, 11.7 percent at ranks 2-3, 13.1 percent at rank 4 or worse",
+     "correction": "Demote from confirmed to lead. Excluding cannot_assess the rates are 8.5% (86/1,014), 12.0% (46/384) and 13.5% (13/96); rank-4+ has CI [7.4, 22.0], overlapping rank 1's [6.8, 10.4]. The 3x2 chi-square is p=0.0605 and only the ordered trend test reaches p=0.0200. Under the program's own recorded Terra same-prompt flip rate the trend is significant in 29.8% of 2,000 resamples, and the monotone ordering holds in 60.8% of property-cluster resamples. Verdict coverage is itself rank-dependent (62.4/65.4/70.1%), so the subset is not random.",
+     "citation": "reports/catalog_audit_live_validation.json (\"Terra same-prompt flips: baseline 26/331 (7.8%), candidate 25/292 (8.6%)\"); draft.md:23 (CF-6); recomputed from photos[*].debug.resolved_items[] joined to "
+    }
+   ]
+  },
+  {
+   "finding_id": "V8",
+   "label": "divergence-negative",
+   "refuted": 3,
+   "votes": 3,
+   "surviving_core": "The negative result survives and is well supported: over the 25 pinned artifacts, Terra refutation is 127 of 907 conditions restricted to current-catalog items (132 of 939 unrestricted, 14.06%), and any band structure the investigator imposed is non-monotone with sev-1 below sev-0. Everything except the top band sits inside sampling and Terra's ~8% same-prompt instability, which is correctly cited (reports/catalog_audit_live_validation.json repeat.terra_same_prompt.baseline.all.rate 0.0785 over n=331, candidate 0.0856 over n=292, flip_pairs supported->unsupported 11 and unsupported->supported 10). The narrowest defensible restatement: \"a hand grading, not reproducible from any stored artifact, isolates a seven-item set carrying 42 of the corpus's 127 refutations on 93 of 907 conditions; the concentration is real but is indistinguishable from selecting the seven most-refuted items, and the grading axis the write-up names is not the axis that puts five of the seven in the set. Divergence between rendered text and atomic_claim is not shown to predict refutation.\" The wall_scuffs disconfirmation also survives once restated: it advertises \"stains\" (description) and renders \"stain\" as its sixth support term while its claim asserts only \"scuffs, marks, or minor dents from use\"; that divergence redirects 24 of its 188 selections onto stain/discolouration-only bullets with no scuff/mark/dent word (I reproduce 24 exactly), yet Terra refuted 2 of its 62 conditions.",
+   "fatal_corrections": [
+    {
+     "fragment": "wall_scuffs_marks_or_dents, the CAP-014 item, diverges but refutes at only 3.2 percent over 188 selections",
+     "correction": "3.2 percent is 2 of 62 Terra CONDITIONS, not a rate over 188 selections. 188 is the item's Pass 2d selection count over the 4,107 stored rows. At the selection/issue unit the item is 2 of 158 issue_ids = 1.3 percent. The draft record repeats the error as '3.2% (n=188)'.",
+     "citation": "reports/catalog_audit_replay_corpus.json -> the 25 pinned artifacts; recomputed from photos[*].debug.resolved_items[].resolved_item_id == wall_scuffs_marks_or_dents (188 rows, all resolution_path llm)"
+    },
+    {
+     "fragment": "paint_refresh_recommended, 12/23 refuted, every rationale answering only 'highly personalized' against 'dated paint' bullets",
+     "correction": "6 of the 12 unsupported rationales explicitly address BOTH limbs of the claim and reject both, e.g. 'The gray wall color is visible but does not appear highly personalized or clearly dated from the photos alone.' and 'The visible wall colors are neutral and not clearly highly personalized or dated.' Terra is not silently dropping the weak limb in half the cases, which removes the stated mechanism from the band's single largest contributor. The parallel claim for peeling_or_discolored_paint ('every rationale answering only peeling or bubbling') also has one exception of eight: 'The visible wall",
+     "citation": "analysis_debug.renovation_estimate_v5.result.condition_reviews[].rationale for catalog_item_id paint_refresh_recommended (12 unsupported: 5 in redfin_10952874, 2 in redfin_11185681, and one each in re"
+    },
+    {
+     "fragment": "a disjunctive claim state whose weak limb the rendered text foregrounds and Terra silently drops (paint_refresh_recommended, peeling_or_discolored_paint)",
+     "correction": "Neither item diverges on the axis the finding defines. paint_refresh_recommended's rendered description is 'Older or highly personalized colors where repainting in modern neutrals would improve appeal.' against atomic_claim.state 'dated or highly personalized colors' - the same disjunction, both limbs advertised and both asserted. peeling_or_discolored_paint's description is 'Paint that is peeling, bubbling, cracked, or visibly aged.' against atomic_claim.state 'peeling, bubbling, or visibly aged finish' - the description is a superset by one word ('cracked'). These two items carry 60 of the b",
+     "citation": "tools/issue_catalog_kind_v2.json items paint_refresh_recommended and peeling_or_discolored_paint, fields description, support_any (4 and 5 terms respectively, so the six-term truncation is inert) and "
+    },
+    {
+     "fragment": "the claim naming a specific physical evidence the advertisement generalises away - unfinished_interior_wall_osb_exposed ('unfinished wall' advertised, exposed OSB asserted, 6/6), concrete_driveway_sur",
+     "correction": "All three characterisations omit what the rendered text actually leads with. unfinished_interior_wall_osb_exposed renders the name 'Unfinished Interior Wall (OSB Exposed)' and the description 'Exposed OSB/sheathing on an interior wall indicates an unfinished or incomplete wall assembly requiring proper finishing.' - OSB is named twice before any generic word. concrete_driveway_surface_wear renders 'Concrete driveway shows surface wear with visible evidence of spalling, pitting, or rough patch breakdown - not simple aging or discoloration alone.' with all six rendered support terms specific (sp",
+     "citation": "tools/issue_catalog_kind_v2.json items unfinished_interior_wall_osb_exposed, concrete_driveway_surface_wear, ornate_vintage_mirror, vinyl_linoleum_torn_or_lifted - fields name, description, support_an"
+    }
+   ]
+  },
+  {
+   "finding_id": "V9",
+   "label": "five-failures",
+   "refuted": 3,
+   "votes": 3,
+   "surviving_core": "On the cited evidence at most two of the 36 rows are Pass 2d selection errors that survive a hostile read. Row 26 survives cleanly: on the text the model actually saw, the rank-3 item it chose renders as \"Plain, thin, or dated interior trim package including baseboards, window casing, and door casing\", a scope that excludes shower hardware, while the passed-over rank-1 renders as \"Older tile, vanity, or fixtures where an update would improve appeal\" \u2014 so the pick is not licensed by the rendered text (its asserted dollar cost, however, is an untested counterfactual and the one human verdict on the card is \"terra_evidence_inconclusive\"). Row 3's photo_029 arm survives weakly (rank-1 at 0.80294 with 'discoloration' firing, passed over for rank 3). Rows 4 and 5 carry no attributable Pass 2d harm, and row 10's only human evidence contradicts it. The defensible statement is \"two, possibly three, on reviewer-interpretation grade evidence\", not \"exactly five on the evidence\". Separately, the mechanism half of the finding is sound: every firing term, score, margin, rank and code line I re-derived matched, and the \"add a row\" attack failed on rows 24, 25 and 1 \u2014 the siding item's rendered description literally reads \"Exterior siding or trim shows fading, chalking, staining...\", so the rank-5 pick on a trim observation is genuinely text-licensed.",
+   "fatal_corrections": [
+    {
+     "fragment": "Row 5 ... A WRONG billing, and it is still live. ... the selected item billed at FIXTURES_UPDATE (bathroom_repair package_support) on the strength of a floor observation",
+     "correction": "No such billing exists. In the cited artifact the bath_fixtures_stained_or_worn work item wk1_0a432a2287bfbd24 has status 'suppressed', reason_code 'dedup_collision' (collision wdc1_d06e0564b21c789d, policy work_dedup_max_envelope_v1); the surviving active FIXTURES_UPDATE line wk1_c8ce56fe056d7138 prices at low 1092 / high 10924, which is outdated_bathroom_finishes' base 1500/15000 scaled by 0.72825, not the bath_fixtures envelope of 146/2913. bath_fixtures_stained_or_worn contributes $0. Separately, condition oc1_7369dbd37bee24fd is carried by two on-subject bullets (50345e50b8b80ef4 tub/show",
+     "citation": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_125779232/20260817_222351_c069aab3/photo_intel_debug.json -> analysis_debug.renovation_estimate_v5.result.work_items[work_item_id=w"
+    },
+    {
+     "fragment": "rows 4 and 5 are harmful bare-noun lexical shortcuts ... Harm is real but narrow: rows 4 and 5 (lost billing; wrong-subject billing at margin 0.03012 ...)",
+     "correction": "Neither harm is attributable to the shortcut. Row 5's harm does not exist (above). Row 4's lost billing is caused by Terra's refusal plus Pass 2c kind gating, both of which the diagnosis classifies as not-Pass-2d: its own cost_now says the loss 'is not recoverable by a catalog edit at this row' because older_flooring_style is modernization-kind, and its own text_favours is 'selected'. Steven's retag at the exact line the row cites classifies the mechanism as `wording_blocked` and records 'The linoleum needs replacing but i was wrong that it appears worn. it appears fine from the photos'; label",
+     "citation": "pass2d_diagnosis_20260909.draft.json rows[worklist_index=4].cost_now and .text_favours; docs/RESULT_retag_mechanism_vs_perception_20260828.md:207; reports/labels_v1_1.json labels['rc_9c702893a6ce']; C"
+    },
+    {
+     "fragment": "The worklist's twenty-six \"diagnostic\" rows contain five Pass 2d failures on the evidence (three genuine selection errors, two harmful bare-noun shortcuts).",
+     "correction": "The five-row set is not evidentially or mechanically coherent. Rows 4, 5 and 10 fail on the draft's own data and rules; rows 6, 101, 103, 106 and 107 share the flagged rows' evidential signature and are excluded on cost or accepted-decision grounds rather than mechanism. State it as a contestable, reviewer-graded shortlist for photo adjudication, with no count asserted, or say plainly that the count ranges from four to eleven depending on which exclusion rule is applied.",
+     "citation": "pass2d_diagnosis_20260909.draft.json rows[] text_favours=='better' on worklist_index 3,5,6,10,26,101,103,106,107; is_pass2d_failure_on_evidence true only on 3,4,5,10,26; draft md line 9"
+    },
+    {
+     "fragment": "Row 5: A WRONG billing, and it is still live. ... the selected item billed at FIXTURES_UPDATE (bathroom_repair package_support) on the strength of a floor observation",
+     "correction": "The billing is not caused by row 5's issue and is not incremental to it. Condition oc1_7369dbd37bee24fd aggregates four issues, two of which are genuine bath-fixture observations that resolved to the same item at rank 1: 50345e50b8b80ef4 ('The tub/shower surround appears worn and discolored around the tub base and seams', score 0.8359) and c4313972ad458995 ('The toilet seat or toilet appears worn', LLM path, no shortcut). Terra verified the condition on the tub surround, not on the floor bullet. Remove row 5's issue and the fixtures line still exists and still bills. Its incremental cost is ze",
+     "citation": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_125779232/20260817_222351_c069aab3/photo_intel_debug.json photos['photo_003.jpg'|'photo_007.jpg'].debug.resolved_items[] issue_ids "
+    }
+   ]
+  },
+  {
+   "finding_id": "V10",
+   "label": "row26-note",
+   "refuted": 3,
+   "votes": 3,
+   "surviving_core": "Two of the three components survive intact and I could not break them. (1) The near-miss is exactly as stated and reproduces: on the stored candidates the shipped _resolve_candidate_via_lexical_shortcut returns (None, None, None); top_is_generic is False, negation is not blocked, margin 0.06276 clears 0.03, the bare term \"old\" is in the rank-1 item's support_any and fires under term_matches; force the score to 0.75 and it returns ('outdated_bathroom_finishes', 'modernization', 'support_phrase_hit'). Only the 0.72 floor against a top score of 0.7031502723693848 blocked a shortcut onto a severity-3 package driver. (2) The checkpoint_note is one-sided as a matter of text: it prices only the selected item, and it contradicts its own row's better_item_route_now \"work\", billing_relevant_now true, and note text. The defensible restatement is the one the draft already uses in section 4: \"Row 26's selected side costs nothing under D1; the foregone side is a severity-3 bathroom_modernization driver, so the row's checkpoint_note is one-sided\" \u2014 foregone driver, not lost billing. Any stronger claim needs the work-item merge, the existing approved package, and Terra's counterfactual verdict priced, and none of the three is done.",
+   "fatal_corrections": [
+    {
+     "fragment": "There is no existing outdated_bathroom_finishes condition anywhere in this run, so a correct selection would have created a new billing and a new bathroom_modernization package driver, not merged into",
+     "correction": "The premise is right and the inference is wrong. Billings are work items, which dedup on (action_code, trade_bucket, unit_policy, billable_unit_id) with a max envelope, never a sum (tools/renovation_architecture/work_items.py:240-247). outdated_bathroom_finishes is FIXTURES_UPDATE / bathroom_fixtures_tile / per_bathroom, and wk1_d89f7688e4b9f65f (bath_fixtures_stained_or_worn, low 146, high 2912) already holds that key on bathroom_primary \u2014 so the counterfactual item WOULD have merged into an existing work item. Priced at the run's property_cost_factor 0.7280053014937014 it is 1092/10920, so t",
+     "citation": "tools/renovation_architecture/work_items.py:240-247; artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_11079485/20260817_224118_67317092/photo_intel_debug.json -> analysis_debug.ren"
+    },
+    {
+     "fragment": "The row therefore still costs a foregone package-driver billing.",
+     "correction": "Not established, and stated at a grade the record does not support. 'Costs a billing' presupposes that work was warranted on this hardware. The only human verdict on the card is terra_evidence_inconclusive (claim, work, class_v1_1, slug all null; lane appendix_inconclusive). The dollar size is also never computed: as an absorbed driver the item's own allowance does not add to the total, and the repricing of a 2184-7280 package is not derivable offline. Correct statement: the row forgoes an item that would probably have passed Terra (0 of 14 refuted) and would have supplied the bathroom package",
+     "citation": "reports/review_verdicts.jsonl:134; reports/catalog_audit_evidence.json -> /indexes/cases/rc_eccd12ababc5 -> human_truth and lane; pass2d_diagnosis_20260909.draft.json -> catalog_divergence.items[17].t"
+    }
+   ]
+  },
+  {
+   "finding_id": "V11",
+   "label": "terra-instability-blinds",
+   "refuted": 3,
+   "votes": 3,
+   "surviving_core": "On the ten D3 rows the stored 2026-08 Terra verdicts (9 accepted_for_work / 1 excluded) and the 2026-09-07 baseline arm (5 / 5) disagree on four rows \u2014 101, 105, 109, 110 \u2014 all supported to unsupported, on identical issue-id sets, identical evidence photo sets, identical atomic_claim text, the same model (gpt-5.6-terra) and the same prompt_version (terra_condition_review_v1). The disagreement is concentrated in these ten selected rows: the same stored-vs-live comparison runs at 8.2% across all 330 matched conditions and at 6.5% on the 31 conditions of the same item outside the ten, and it is one-directional here with a single shared rationale template, which is consistent with a stricter reading of the item's \"dated\" limb under a changed projection (v2 to v3) rather than with elevated random noise. No human verdict bears on any of the ten rows, so nothing here grades above model_lead, and nothing here supports raising the ~8% same-prompt noise floor the program records and other findings rely on.",
+   "fatal_corrections": [
+    {
+     "fragment": "Terra is more unstable on the blinds and window-treatment cohort than the roughly 8 percent same-prompt figure in the program record.",
+     "correction": "The 0.0785 figure is the all-conditions same-prompt rate (26/331), not a figure for this cohort. The program record's own cohort figures are 0.1136 (5/44 pinned target conditions) and, recomputed from the raw unit files for dated_window_treatment_valance conditions specifically, 5/41 = 0.1220; on the ten D3 rows themselves the same-day same-prompt rate is 2/10 = 0.20. Against the cohort comparator the observed 4/10 is not excess instability.",
+     "citation": "reports/catalog_audit_live_validation.json -> repeat.terra_same_prompt.baseline.all.rate (0.0785, n=331) vs repeat.terra_same_prompt.baseline.targets.rate (0.1136, n=44); 5/41 recomputed from artifact"
+    },
+    {
+     "fragment": "with four rows (101, 105, 109, 110) flipping supported to unsupported on what should be the same claim",
+     "correction": "Two of the four (101 and 105) flip back to supported when the same prompt is re-sent inside the same arm on the same day. Row 101's replica rationale, 'The windows have visibly aged, worn blinds or window treatments', is near-verbatim the frozen artifact's supporting rationale. Only rows 109 and 110 disagree with the frozen run across both baseline draws.",
+     "citation": "artifacts_canary/catalog_audit_session6_20260907/baseline/redfin_11000447/20260817_224602_d422d7ae/units_replica/*.json condition_id=oc1_3dd582110ab7e033 verdict=supported; baseline/redfin_125779232/2"
+    },
+    {
+     "fragment": "Terra is more unstable on the blinds and window-treatment cohort than the roughly 8 percent same-prompt figure in the program record",
+     "correction": "Wrong denominator. The ~8% is a corpus-pooled rate over all items. The same-prompt rate for this item, computed from the same replica files, is 5/41 = 12.2% (window family 7/55 = 12.7%) against 19/276 = 6.9% for all other items. The cohort's elevation over the corpus is real and already in the same-prompt record; the cross-era comparison establishes nothing the replica data does not, and on this cohort the within-arm same-prompt disagreement (2/10) equals the cross-era disagreement (2/10).",
+     "citation": "reports/catalog_audit_live_validation.json repeat.terra_same_prompt.baseline.all.rate = 0.0785 and .targets.rate = 0.1136; per-item rates recomputed from artifacts_canary/catalog_audit_session6_202609"
+    },
+    {
+     "fragment": "Terra is more unstable on the blinds and window-treatment cohort than the roughly 8 percent same-prompt figure in the program record.",
+     "correction": "On this same stored-vs-live comparison the cohort is NOT more unstable in any way that survives a control. dated_window_treatment_valance disagrees on 6 of 41 matched conditions (14.6%); excluding the ten hand-picked D3 rows it disagrees on 2 of 31 (6.5%), BELOW the 7.85% noise floor. The comparison as a whole disagrees on 27 of 330 matched conditions (8.18%), indistinguishable from the recorded 7.85%, and flips symmetrically (11 down, 14 up). The 40% figure is a property of ten rows selected by the candidate arm's Pass 2d declining on them \u2014 a marginality filter keyed to the same latent fact ",
+     "citation": "artifacts_canary/catalog_audit_session6_20260907/baseline/*/*/property_record.json review_result.{observed_conditions,condition_reviews} joined to the 25 pinned artifacts of reports/catalog_audit_repl"
+    }
+   ]
+  },
+  {
+   "finding_id": "V12",
+   "label": "fitting-nulls",
+   "refuted": 3,
+   "votes": 3,
+   "surviving_core": "On rendered candidate text alone, one model reader judged that at least 20 and plausibly 24 to 26 of 148 examined Pass 2d declines (a 70/70 census of product-lane degradation and defect nulls plus a 78/375 proportional systematic sample of modernization nulls) had a candidate that reader would defend selecting, and that in the great majority of the rest no in-kind, in-scene candidate named the observed subject. That is a lead, not a measurement of decline correctness: it is one reader, text-only, on 148 of 1,119 declines, its numerator is deflated by a compound-bullet precedence rule, its denominators mix two differently-applied bucket definitions, and no photo or human verdict grounds any bucket. The mechanism sub-claim that survives cleanly is deterministic and independent of the reader: on 52 of the 54 degradation/defect no_fit rows the observed subject exists in the 129-item catalog but only at a kind the Pass 2c-routed retrieval cannot reach, which is a catalog kind-coverage fact, not a Pass 2d model-quality fact.",
+   "fatal_corrections": [
+    {
+     "fragment": "which is CAP-019's wording artefact again",
+     "correction": "CAP-019 is not a wording artefact and it points the other way. In the shipped worklist it is the confusion family 'exterior_painted_trim_vs_siding_field', axis incorrect_selection_reachable / shortcut_or_rank1_selection, and both its cases record Pass 2d WRONGLY selecting exterior_siding_discoloration_fading for a painted-trim observation: rc_7b23faa0bd8f 'Observation \"White-painted trim appears unfinished in spots.\" ... 2d skipped ranks 1 and 2 for rank 5. Cost was total: ... a human-graded exact/warranted condition was excluded (reason_code verdict_unsupported)', better_item exterior_door_pa",
+     "citation": "reports/catalog_checkpoint_pass2d_worklist.json:315-341 (the two \"cap\": \"CAP-019\" entries) vs pass2d_diagnosis_20260909.draft.md:71; refutation rate at pass2d_diagnosis_20260909.draft.json corpus_stat"
+    },
+    {
+     "fragment": "The other 128 are correct refusals (88), compound multi-subject bullets (11) or catalog coverage gaps (29).",
+     "correction": "The 88 is not one category. The two strata bucketed the identical wrong-kind situation oppositely: null_triage.degradation_defect.coverage_gap_subjects accounts for 54 rows (counts 1+1+8+16+15+10+2+1) while its coverage_gap bucket holds 2, so 52 rows the investigator itself identified as catalog kind/coverage holes sit inside 'correct refusals'; the modernization stratum bucketed the same shape (railings, roof, shed, fence, deck, plumbing) as coverage_gap. Under one consistent convention the split is roughly correct refusals ~36 / coverage gaps ~81, not 88 / 29.",
+     "citation": "pass2d_diagnosis_20260909.draft.json null_triage.degradation_defect.{aggregate[stratum=ALL],coverage_gap_subjects} vs null_triage.modernization_sample.coverage_gap_subjects"
+    },
+    {
+     "fragment": "the null population is not a model-quality problem",
+     "correction": "Unfalsifiable by this method rather than shown by it. The 'fitting candidate' bucket is defined over the rendered list, which is the same list the model saw; any model failure consisting of not selecting an item that kind, scene, top-8 or a guardrail had already removed is invisible. The defensible version is: given the rendered list, the decline usually follows.",
+     "citation": "pass2d_diagnosis_20260909.draft.md:71 (L-2) and .md:9; method described in null_triage.*.population_note"
+    },
+    {
+     "fragment": "declines correctly on roughly five of every six bullets it declines",
+     "correction": "State it as a lead, not as what the evidence supports. It should read: one model reader, on rendered text only and with no photo or human verdict, bucketed 128 of 148 examined declines as not attributable to Pass 2d selection; the 148 are 13.2% of the 1,119 declines in the corpus and include none of the 674 non-product-lane declines. Section 6 already grades this correctly as a lead; section 1 must not restate it in confirmed voice.",
+     "citation": "scratchpad/pass2d_diagnosis_20260909.draft.md:9 (section 1) against :68-71 (section 6 heading 'Leads (model judgment on text, single-reader, or unverified)' and L-2); population from draft JSON corpus"
+    }
+   ]
+  }
+ ],
+ "critics": [
+  {
+   "id": "CRITIC-1-UNMEASURED-POPULATIONS",
+   "strongest_case": "The diagnosis exonerates Pass 2d, and the exoneration is exactly what its unmeasured populations would most likely overturn.\n\nIts conclusion is that of thirty-six flagged rows only five are Pass 2d's fault and the rest are upstream text, catalog wording, Pass 2c, or accepted decisions. Trace what that rests on and every load-bearing beam is a population nobody looked at.\n\nThe corrective instrument is Terra. Terra is 100% canary (2,019 of 2,019 verdict-joined rows; all eight production artifacts, 813 rows, have no v5 block, and none of the 1,277 production artifacts on disk has one either). It is counted in replicated rows, not verdicts, so its denominators are inflated about 2.2x and the path gap CF-1 leans on collapses from 5.2%-vs-9.6% to 14.2%-vs-16.7% when scored on the 911 conditions Terra actually judged. Its per-item findings do not replicate on a second run of the same canary that was sitting unopened on disk (brick 73%->40%, concrete 41%->80%). And it is structurally incapable of detecting the failure the whole worklist is about: pick a wrong-but-also-true item and Terra says supported \u2014 demonstrated on 17 window rows whose text also names trim, shutters or blinds, all 14 verdicted ones supported, and on 348 non-null rows (11.6%) that name two subjects while Pass 2d bills at most one, 91% of them supported. So when CF-1 says the bare-noun shortcut's harm is narrow because \"at corpus scale that is not what Terra refutes,\" the sentence is true and empty; the instrument",
+   "gaps": [
+    {
+     "sev": "blocking",
+     "gap": "Every Terra verdict in the diagnosis comes from 17 canary properties in one 2026-08-18 batch; the 8 production artifacts (813 rows, 19.8% of the corpus) carry no renovation_estimate_v5 block and contribute zero verdicts.",
+     "fix": "Offline first, free: state the restriction and recompute every verdict-scored figure with the source label attached (verified via reports/catalog_audit_replay_corpus.json artifacts[].source; scratchpad/C1_join.py + C1_an"
+    },
+    {
+     "sev": "blocking",
+     "gap": "Terra denominators count replicated rows, not verdicts. The 1,990 supported/unsupported rows the draft reports are 911 distinct Terra conditions (up to 17 rows share one verdict). No corpus statistic is computed at the c",
+     "fix": "Purely offline, no provider call. Group the existing join by (property_key, condition_id) and take one verdict per condition, then republish CF-1, CF-6, CF-7 and CF-8 at condition level with the row-level figures kept on"
+    },
+    {
+     "sev": "blocking",
+     "gap": "A second complete run of the same canary on the same 18 properties (artifacts_canary/renovation_session9_20260818/run_2/candidate, 18 artifacts, 3,588 rows, condition_reviews present on all 18) was on disk, listed nowher",
+     "fix": "Offline, no provider call, roughly one script: re-run the existing issue_id -> observed_conditions -> condition_reviews join over run_2 and report every CF-7/CF-8 item rate as a run_1/run_2 pair, dropping any item whose "
+    },
+    {
+     "sev": "blocking",
+     "gap": "End-to-end reproducibility of the pipeline that produces Pass 2d's input was never measured. On the 555 photos shared by run_1 and run_2, 0.0% produce the same Pass 2a/2b observation-text set and 3.8% produce the same se",
+     "fix": "Offline, no provider call. Report the run_1/run_2 photo-level agreement alongside CF-11 and state explicitly that every Phase B experiment must replay the stored observation text verbatim (in which case CF-11 applies) or"
+    },
+    {
+     "sev": "blocking",
+     "gap": "CF-3's window-family kind hole is measured only inside the product lane. Of the 674 degradation/defect nulls outside the product lane, which the triage never examined, exactly 0 mention a window.",
+     "fix": "Offline, no provider call. Run the same subject census and named-candidate-rank check over all 744 degradation/defect nulls (and ideally all 1,119) before scoping B5, and restate CF-3 as a product-lane statement. Reprodu"
+    },
+    {
+     "sev": "blocking",
+     "gap": "The 2,988 non-null resolutions have no correctness measurement, and the instrument used as a proxy is structurally blind to the failure mode under investigation. Terra verifies the selected item's atomic_claim; when Pass",
+     "fix": "Offline and free to BUILD the population: scan all non-null rows for (a) selected item whose subject noun is absent from the observation, and (b) observations naming two or more catalog subjects, then rank by billed doll"
+    },
+    {
+     "sev": "important",
+     "gap": "Pass 2c's kind assignment is named as a cause five times (section 1, CF-3, rows 16/17/19/20/22, category D) and its error rate is measured nowhere, by anyone, at any evidence grade.",
+     "fix": "Two options, neither needing a paid provider call. (a) Offline agreement study: re-run the shipped Pass 2c prompt on a stratified sample of the stored observation texts with the local model and measure self-agreement plu"
+    },
+    {
+     "sev": "important",
+     "gap": "Only 148 of 1,119 nulls (13%) were triaged, all inside the product lane, and the headline that generalizes from them is bucket-sensitive and single-reader.",
+     "fix": "Offline, no provider call: extend the identical triage rule to the 674 non-product nulls (an agent reading stored text and candidate lists), and publish the bucket definition so the 5-in-6 figure can be recomputed under "
+    },
+    {
+     "sev": "important",
+     "gap": "The examined worklist is composed inversely to the lane the program audits. The 26 core rows are 20 degradation, 3 defect, 3 modernization; the product lane is 1,873 modernization of 1,969 rows. Excluding the 10 accepted",
+     "fix": "Offline, no provider call: draw a stratified random sample of non-null modernization selections (say 60 rows across scene_group and rank band) from the stored corpus and run the same reconciliation the 36 rows got, so th"
+    },
+    {
+     "sev": "minor",
+     "gap": "About 80 of the 97 backend canary artifacts and the second production era were never inventoried. artifacts_canary holds renovation_session9_20260818 run_1 (18, used) and run_2 (18, unused), renovation_session6_20260816_",
+     "fix": "Offline, no provider call: enumerate every photo_intel_debug.json under artifacts_canary and renointel-prod/artifacts, tag each by arm, date, kind vocabulary and v5 presence, and publish that inventory as the corpus fram"
+    }
+   ]
+  },
+  {
+   "id": "CRITIC-2 / single-reader risk and evidence grade",
+   "strongest_case": "The diagnosis has done to Pass 2d exactly what it accuses the worklist of doing, only in the opposite direction, and with the same grade of evidence.\n\nThe program's standing position is that no human verdict anywhere in this repo says Pass 2d chose the wrong item, and that every stage attribution on record is a model judge. The draft leaves that position formally intact \u2014 it never claims a human said so \u2014 and then produces a five-row Pass 2d failure population anyway, from a single model reader's reading of text, and files it in \u00a71 as what \"the evidence supports\". Check what actually backs those five rows. Rows 5 and 26: no human label, no review verdict, nothing. Row 10: `labels_v1_1['rc_f227f639eb82']` is null and the one human verdict on it, in `reports/review_verdicts.jsonl`, says `terra_claim_supported` \u2014 the human looked and said the claim held; the two sources that say otherwise are `claude_case_agent` and `claude_photo_review_session_20260901`, both models, and the draft calls this \"conflicting human evidence\". Rows 3 and 4 carry the human label `misnamed_but_warranted` \u2014 the same label, field for field, that rows 1 and 8 carry, and rows 1 and 8 are ruled NOT failures. The whole difference between \"Pass 2d failed here\" and \"Pass 2d was right here\" on rows with identical human evidence is one model reader's `text_favours`, passed through to the draft on 36 of 36 rows without a second read.\n\nAnd that reader is not one reader but three, batched by cluster, returning 10/2",
+   "gaps": [
+    {
+     "sev": "blocking",
+     "gap": "`text_favours` on all 36 rows is a single model reader's judgment, passed through to the draft unchanged and unverified. I diffed the draft JSON against `pass2d_phaseA_workflow1_result.json`: 0 of 36 values differ. The c",
+     "fix": "No provider call needed. Re-read all 36 rendered candidate blocks with a second Opus reader who is blinded to the first reader's verdict, the worklist's `better_item`, and the Terra verdict, given only the observation an"
+    },
+    {
+     "sev": "blocking",
+     "gap": "10 of the 18 'selected' verdicts come from one investigator, and 8 of those are the same item-pair comparison repeated; 4 of the 18 are not comparisons at all. Rows 4 and 7 are `resolution_path: lexical_shortcut` \u2014 the r",
+     "fix": "No provider call needed. Report the tally over distinct (selected_item, better_item) pairs and distinct conditions, not rows; drop rows 4, 7, 17 and 20 from it entirely or score them 'not applicable'; and have the CAP-01"
+    },
+    {
+     "sev": "blocking",
+     "gap": "The five-failure set is not supported by human evidence and in two places is contradicted by it. Joining every row's `case_ref` to `reports/labels_v1_1.json` shows only 7 of 36 rows have a human label. Rows 1, 3 and 8 ca",
+     "fix": "No provider call needed. Add an explicit `human_label` column to all 36 rows populated from labels_v1_1 / review_verdicts.jsonl (7 rows populated, 29 null), and re-grade `evidence_grade` from it. Re-state \u00a71 as 'five can"
+    },
+    {
+     "sev": "blocking",
+     "gap": "CF-8's severity band \u2014 the independent variable of the whole divergence result \u2014 is one reader's unblinded hand grading, and the sensitivity analysis is one-sided. The method note says 'Divergence grading is by reading, ",
+     "fix": "No provider call needed. Re-grade the 129 items with a second reader who is given only name, trade_bucket, kind, description, support_any[:6] and atomic_claim \u2014 no item ids, no selection counts, no Terra data \u2014 and repor"
+    },
+    {
+     "sev": "important",
+     "gap": "The two null strata were bucketed by two readers under incompatible definitions of the same bucket names, and the draft pools and compares them anyway. The modernization reader's rule 4 makes `coverage_gap` apply where t",
+     "fix": "No provider call needed. Publish one rubric and have one reader re-bucket all 148 rows under it (or re-bucket only the 54 deg/defect `no_fit` rows under the modernization rule, which is the cheaper direction). Report the"
+    },
+    {
+     "sev": "important",
+     "gap": "L-2's twenty 'fitting candidate present' rows are presented without the reader's own confidence, which is `low` on 10 of 20, `medium` on 9, and `high` on exactly 1. The `confidence` field is present in both the investiga",
+     "fix": "No provider call needed. Add the confidence to each of the twenty rows in \u00a76, and either split L-2 into 'high/medium confidence (10)' and 'low confidence (10)' or scope B1 to the 10 non-low rows. The reader's own stated "
+    },
+    {
+     "sev": "important",
+     "gap": "\u00a71's claim that the null population is 'dominated by a kind-coverage hole in the window family' generalises from a 70-row residue to 1,119 rows. Under a window-family regex (window|blind|valance|curtain|drape|shade) the ",
+     "fix": "No provider call needed. Restate CF-3's null half as scoped: 'every one of the 70 degradation/defect rows the product filter admits is a window-family bullet, and none can reach a window item of its own kind \u2014 but that s"
+    },
+    {
+     "sev": "important",
+     "gap": "CF-3 asserts, in \u00a72 under the 'deterministic' header, that 'a degradation window bullet can reach no window item at all'. This is false. `tools/issue_catalog_kind_v2.json` item `dirty_or_grimy_window_screens` is `kind: d",
+     "fix": "No provider call needed. Rewrite the sentence to 'the only degradation-kind window item is `dirty_or_grimy_window_screens`, whose `require_any` gate removes it from any bullet that does not name a screen \u2014 so in practice"
+    },
+    {
+     "sev": "minor",
+     "gap": "`brick_weathered_or_discolored` \u2014 the corpus's single worst-refuting item at 11/13 = 84.6% (CF-7) and the landing site of both `component_condition_overlap` shortcut rows \u2014 does not appear anywhere in the 28-item diverge",
+     "fix": "No provider call needed. State brick's severity grade explicitly, with the rationale for it, next to CF-8's band table, and say what fraction of corpus refutations the sev-3 band explains once brick's 11 are counted in t"
+    },
+    {
+     "sev": "minor",
+     "gap": "The failure/non-failure verdict is also sensitive to a cost judgment that is single-reader, not just to text_favours. Rows 5 and 6 share the identical `tub$` locative mechanism and both score `text_favours: better`; row ",
+     "fix": "No provider call needed. Split `cost_now` into the deterministic part (route_override, tier, work_item_code, what actually billed in the stored run \u2014 all file facts) and the counterfactual part (what a different selectio"
+    }
+   ]
+  },
+  {
+   "id": "CRITIC-3 / whole-diagnosis prosecution",
+   "strongest_case": "The diagnosis should not be accepted as written, because its exculpatory engine is an instrument that cannot see the accusation, run on a population it does not disclose.\n\nEvery Terra number in the document \u2014 CF-1's path comparison, CF-7's kind and item tables, CF-8's divergence bands, and the \u00a74 sentence that closes the CAP-014 question \u2014 comes from 17 canary properties in one 2026-08-17/18 run. All eight pinned production artifacts are v4-era and contribute exactly zero verdicts on 813 rows. The words \"canary\" and \"production\" appear nowhere in the draft record. A reader of \u00a71 and \u00a72 will believe these are properties of the shipped system measured across a 4,107-row corpus. They are properties of one arm of one canary.\n\nWorse, Terra cannot answer the question. Terra verifies the atomic_claim of the item Pass 2d selected. The worklist's accusation is that Pass 2d billed the wrong item among reachable candidates \u2014 a failure that, when both items are visible in the photo, produces \"supported\". The 1,119 nulls form no condition and are structurally unreviewable, so Terra is also blind to every decline. The diagnosis nevertheless reasons from low refutation to no harm: wall_scuffs_marks_or_dents \"does not produce refutations (3.2%)\" and therefore CAP-014's trigger is argued unmet \u2014 while that same item prices at cost.mode \"heuristic\" and the alternative it displaced, peeling_or_discolored_paint, prices at an allowance of 200-2500 with a 6000 cap. The instrument that cannot see t",
+   "gaps": [
+    {
+     "sev": "blocking",
+     "gap": "Every Terra-derived statistic in the diagnosis is computed on canary properties only, and the draft never discloses it. Verified by walking all 25 readable pinned artifacts from C:/Users/Steven/PycharmProjects/realtorvis",
+     "fix": "No provider call needed. Re-label every Terra statistic in \u00a72 and in corpus_statistics[] as 'canary, 17 properties, one run' and state that production contributes zero verdicts. Then either (a) drop the 'corpus scale' fr"
+    },
+    {
+     "sev": "blocking",
+     "gap": "Terra refutation cannot detect the failure mode under investigation, yet it is the diagnosis's principal exculpatory instrument. Terra verifies the selected item's atomic_claim (per the task's own mechanism note, confirm",
+     "fix": "No provider call. Add an explicit statement in \u00a72 that Terra verdicts are evidence about the selected claim only and are not evidence about item choice, and strike every inference of the form 'low refutation therefore th"
+    },
+    {
+     "sev": "blocking",
+     "gap": "Row 8's exoneration inverts the record it cites. reports/adjudication_queue.json card adj_4349079b2716 (origin_card_id rc_3a19f759f2d9, arm 'reask', source production, redfin_10735912, catalog_item_id patio_or_porch_surf",
+     "fix": "No provider call. Withdraw row 8 from \u00a74's 'two rows Steven's record contradicts' and restate it as: the human confirmed work is warranted, the formal answer was mechanism_only, and the item-choice question is untouched "
+    },
+    {
+     "sev": "important",
+     "gap": "The exonerating verdict 'text favours the model's pick' is, where it does the most work, reproducible by the same head-word procedure the diagnosis says Pass 2d runs. I scored each of the 25 catalog-resolvable diagnostic",
+     "fix": "No provider call. Report text_favours with the mechanical overlap score beside it on every row so the reader can see where the judgment is doing work. State plainly in \u00a71 and \u00a73 that on the CAP-014 block the text reading"
+    },
+    {
+     "sev": "important",
+     "gap": "The diagnosis relocates 19 of the 26 diagnostic rows to stages it simultaneously declares out of scope and unmeasured. Reconciled categories: B 16 (upstream 2a wording or catalog wording/coverage), D 2 (Pass 2c kind gati",
+     "fix": "No provider call. Either add a cheap offline instrument for the relocation (for the 16 B rows, a fixed comparison of the Pass 2a bullet against the benchmark gold text where one exists \u2014 the draft already does this on ro"
+    },
+    {
+     "sev": "important",
+     "gap": "Era and arm are mixed inside single findings, and the one cohort observable in both eras flips completely. I read the ten D3 rows out of their FROZEN 2026-08-17/18 artifacts (script C3_d3.py): the pre-split parent dated_",
+     "fix": "No provider call. Split CF-4 into a 3.1 statement and a 3.2 statement and say which is which in the finding, not only in the JSON note. Add the 10/10-resolved vs 10/10-null frozen-versus-candidate contrast to CF-5 \u2014 it i"
+    },
+    {
+     "sev": "important",
+     "gap": "No uncertainty quantification anywhere, and refutations cluster hard by property while robustness was tested by item. Script C3_cluster.py over the 25 artifacts: brick_weathered_or_discolored's 11 unsupported verdicts fa",
+     "fix": "No provider call. Report Wilson intervals on every rate in CF-1/CF-7/CF-8, cluster by property (report per-property counts beside each item rate), redo CF-8's leave-one-out by property as well as by item, and replace 'in"
+    },
+    {
+     "sev": "important",
+     "gap": "'Declines correctly on roughly five of every six bullets it declines' books retrieval failures as correct Pass 2d behaviour, and is model-graded throughout. The number is (148-20)/148 from the null triage in the draft JS",
+     "fix": "No provider call. Restate \u00a71 as 'on the rendered candidate lists, a single reader judged 128 of 148 declines to have no fitting candidate; that reading is unverified against photos and books at least 11 retrieval-gated r"
+    },
+    {
+     "sev": "minor",
+     "gap": "CF-1's prose converts the draft's own 'absence of evidence' note into evidence of absence, on 9 events. The draft JSON's corpus_statistics note for the token-class comparison says verbatim: 'The gap is small and the bare",
+     "fix": "No provider call. Move CF-1's Terra clause out of \u00a72 into \u00a76 as a lead, carry the JSON's own caveat into the prose verbatim, and state the selection confound on the path comparison explicitly."
+    },
+    {
+     "sev": "minor",
+     "gap": "Two of the draft's own reproduction checks came back False against prior recorded values and are not flagged in the prose: bare-noun-only shortcut rows 373 -> 384 (all rows) and 250 -> 263 (product), and the near-margin ",
+     "fix": "No provider call. Attach the condition-term lexicon (it is already written out in full in the draft JSON) to CF-1 in the prose, and mark both prior values as superseded in \u00a75 rather than only inside reproduction_check."
+    }
+   ]
+  },
+  {
+   "id": "critic-4-decision-integrity",
+   "strongest_case": "The diagnosis is a stage-attribution verdict on a question the program's own record says has never carried a human verdict, and its own data shows it never acquired one. Cross-tabbing `evidence_grade` against `is_pass2d_failure_on_evidence` in pass2d_diagnosis_20260909.draft.json gives: (human_decision, failure=False) 12; (model_lead, False) 12; (reviewer_interpretation, False) 7; (reviewer_interpretation, True) 5. Every positive claim the draft makes about Pass 2d being wrong sits in the middle grade, and every time the top grade is applied it points the other way \u2014 rows 8 and 9 are removed from the failure set precisely because Steven's own retag and labels contradict the worklist. So \u00a71's bolded \"The worklist's twenty-six 'diagnostic' rows contain five Pass 2d failures on the evidence\" and \u00a73's \"Pass 2d failure on evidence? yes\" column are the same species of claim the draft spends \u00a75 dismantling in the worklist's annotations: a contestable reader's reading, stated as a count.\n\nRow 10 is the load-bearing example. Its only human data point (reports/review_verdicts.jsonl, card rc_f227f639eb82, verdict=terra_claim_supported) says the exposed-OSB claim the model's selection produced was supported by the photo \u2014 i.e. Pass 2d's pick was fine. The draft keeps it in the failure set by setting against that a \"later photo review\" it calls human; that file's own `reviewer` field is `claude_photo_review_session_20260901`, and the decision record itself distinguishes the named human re",
+   "gaps": [
+    {
+     "sev": "blocking",
+     "gap": "The five-row headline failure set is graded entirely `reviewer_interpretation`, and the program's evidence bar is applied asymmetrically across the draft: human evidence is decisive when it exonerates, reviewer interpret",
+     "fix": "Deterministic, offline, no provider call. Restate \u00a71 and \u00a73 so the failure column carries the grade: 'five reviewer-graded candidate failures, none human-adjudicated', and move the count into \u00a76 alongside L-1 where the d"
+    },
+    {
+     "sev": "blocking",
+     "gap": "Row 10 is kept in the failure set by promoting a model judge to human evidence, against the draft's own row-level finding.",
+     "fix": "Deterministic, offline, no provider call. Re-read reports/catalog_audit_photo_review.json's `reviewer` field, correct the row-10 reconciliation_note and the \u00a73 note to say the sole human data point supports the selection"
+    },
+    {
+     "sev": "blocking",
+     "gap": "The Phase B menu proposes the exact experiment the decision record names as unauthorized, and \u00a710's disclaimer is narrower than the record's prohibition on precisely that point.",
+     "fix": "Deterministic, offline. Add an authorization column to the \u00a78 table naming, per experiment, what the record forbids: B3 carries the D4 replay explicitly refused under D4/CCF-13; B3/B4/B5/B6 all involve local-model or sid"
+    },
+    {
+     "sev": "important",
+     "gap": "Provider cost is benchmarked against a daily free-tier quota rather than against any authorized budget, and the null-budget gate is never mentioned.",
+     "fix": "Deterministic, offline. Replace the 2.5M denominator with the actual authorization state: budgets null in manifest_v2 with the stated rule; note that the last authorized envelope (Stage A 1,200,000 + repeat 800,000, HAND"
+    },
+    {
+     "sev": "important",
+     "gap": "CAP-016's recorded referral to this worklist never landed, the draft did not report it, and the measurement that bears on it is in the JSON but absent from the document Steven reads.",
+     "fix": "Deterministic, offline. Add a bullet to \u00a74 stating (a) the shipped worklist carries no CAP-016 row, alongside the R9 finding, since both are re-pointing failures in the same delivered file, and (b) the corpus measurement"
+    },
+    {
+     "sev": "important",
+     "gap": "The most actionable alternative cause for the D3 declines \u2014 the blinds item's rendered description telling the model the item is not renovation work \u2014 is in the JSON and absent from the draft record.",
+     "fix": "Deterministic, offline, no catalog edit. Put the rendered-description finding in \u00a74's D3 bullet with the file:line, note that it is a lever D3 did not consider and did not refuse, and note that it is testable in B3 as a "
+    },
+    {
+     "sev": "important",
+     "gap": "Two D6 dispositions carry evidence in this draft that \u00a74 never connects to their recorded reopening triggers.",
+     "fix": "Deterministic, offline. Add a D6 bullet to \u00a74 with both items, each stating the recorded trigger verbatim, the evidence found, and an explicit judgment of met / not met / Steven's call \u2014 the same shape the draft already "
+    },
+    {
+     "sev": "important",
+     "gap": "CF-10 attributes a shortcut-margin band shift to the checkpoint decisions; it is retrieval noise, and the real noise floor it conceals sits under two Phase B stop rules.",
+     "fix": "Deterministic, offline, already computed above. Correct CF-10's attribution; add a retrieval-reproducibility line to CF-11 with the four-snapshot band counts and the 924/50/5/2/1 churn between the identical-catalog pair;"
+    },
+    {
+     "sev": "important",
+     "gap": "L-3 re-presents two settled deferrals as fresh coverage gaps without naming them, and includes plain-presence subjects that D1's reasoning of record rules out.",
+     "fix": "Deterministic, offline. Label each L-3 subject with its recorded disposition where one exists (railings -> CCF-5 deferred under D6, trigger not met by these six; fences -> CAP-010 deferred, exposure recorded as semantic)"
+    },
+    {
+     "sev": "minor",
+     "gap": "D3's accepted limitation has a remedy path that is broken for four of its ten rows, and no recorded trigger can surface that.",
+     "fix": "Deterministic, offline, no provider call. One sentence in \u00a74's D3 bullet: the recorded trigger addresses only the six reachable rows; the four unreachable rows would need a retrieval or catalog change to produce the enve"
+    },
+    {
+     "sev": "minor",
+     "gap": "B3's cost model may be unexecutable under an accepted loss the draft does not carry forward.",
+     "fix": "Deterministic, offline. Add the checkpoint-invalidation loss to \u00a77, then either demonstrate that the marginal-Terra design survives it or re-cost B3/B5/B6 on the assumption that affected rows need full re-verification. T"
+    },
+    {
+     "sev": "minor",
+     "gap": "The draft's 'Phase B' / B1-B6 naming collides with the record's unauthorized 'Stage B'.",
+     "fix": "Rename the menu (P1-P6, or 'Pass 2d experiment menu') and add one line distinguishing it from the catalog-audit Stage B that remains unauthorized. Editorial, no run."
+    },
+    {
+     "sev": "minor",
+     "gap": "Steven's own retag note on row 4 \u2014 the strongest human text in the failure set \u2014 is cited but not quoted, while the row is graded reviewer_interpretation.",
+     "fix": "Deterministic, offline. Quote both retag notes in \u00a73/\u00a74 with their label fields, and state for each what axis the human actually ruled on (claim wording and work warrant, not item selection). Row 4 may then merit a grade"
+    }
+   ]
+  }
+ ]
+}

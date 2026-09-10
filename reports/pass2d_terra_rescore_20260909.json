@@ -1,0 +1,1604 @@
+{
+ "populations": {
+  "pinned_artifacts": 25,
+  "pinned_rows": 4107,
+  "pinned_conditions_with_verdict": 939,
+  "pinned_condition_source": {
+   "canary": 939
+  },
+  "run2_artifacts": 18,
+  "run2_rows": 3588,
+  "run2_conditions_with_verdict": 1046,
+  "issues_per_condition_pinned": 2.15,
+  "note": "all verdict-carrying artifacts are canary; the 8 production artifacts are v4-era with no v5 block"
+ },
+ "pinned_run1": {
+  "overall": {
+   "n": 939,
+   "unsupported": 132,
+   "cannot_assess": 28,
+   "rate": 0.14057507987220447
+  },
+  "by_pathclass": {
+   "shortcut_only": {
+    "n": 162,
+    "unsupported": 22,
+    "cannot_assess": 7,
+    "rate": 0.13580246913580246
+   },
+   "llm_only": {
+    "n": 657,
+    "unsupported": 106,
+    "cannot_assess": 21,
+    "rate": 0.1613394216133942
+   },
+   "mixed": {
+    "n": 120,
+    "unsupported": 4,
+    "cannot_assess": 0,
+    "rate": 0.03333333333333333
+   },
+   "unjoined": {
+    "n": 0,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": null
+   }
+  },
+  "by_kind": {
+   "defect": {
+    "n": 121,
+    "unsupported": 35,
+    "cannot_assess": 5,
+    "rate": 0.2892561983471074
+   },
+   "degradation": {
+    "n": 393,
+    "unsupported": 60,
+    "cannot_assess": 10,
+    "rate": 0.15267175572519084
+   },
+   "modernization": {
+    "n": 425,
+    "unsupported": 37,
+    "cannot_assess": 13,
+    "rate": 0.08705882352941176
+   }
+  },
+  "by_rank_band_single_issue_llm_conditions": {
+   "rank1": {
+    "n": 265,
+    "unsupported": 59,
+    "cannot_assess": 9,
+    "rate": 0.22264150943396227
+   },
+   "rank2-3": {
+    "n": 112,
+    "unsupported": 25,
+    "cannot_assess": 9,
+    "rate": 0.22321428571428573
+   },
+   "rank4+": {
+    "n": 33,
+    "unsupported": 4,
+    "cannot_assess": 3,
+    "rate": 0.12121212121212122
+   },
+   "note": "410 single-issue llm conditions of 939"
+  },
+  "per_item": {
+   "cabinets_dated_style": {
+    "n": 14,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "dated_bathroom_flooring_style": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "dated_entry_or_patio_door": {
+    "n": 17,
+    "unsupported": 0,
+    "cannot_assess": 2,
+    "rate": 0.0
+   },
+   "dated_interior_doors": {
+    "n": 15,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "dated_overall_decor_style": {
+    "n": 38,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.05263157894736842
+   },
+   "dated_window_treatment_valance": {
+    "n": 32,
+    "unsupported": 5,
+    "cannot_assess": 0,
+    "rate": 0.15625
+   },
+   "door_hardware_dated_style": {
+    "n": 19,
+    "unsupported": 2,
+    "cannot_assess": 2,
+    "rate": 0.10526315789473684
+   },
+   "hard_flooring_scratched_or_worn": {
+    "n": 34,
+    "unsupported": 5,
+    "cannot_assess": 3,
+    "rate": 0.14705882352941177
+   },
+   "older_flooring_style": {
+    "n": 31,
+    "unsupported": 2,
+    "cannot_assess": 1,
+    "rate": 0.06451612903225806
+   },
+   "ornate_vintage_mirror": {
+    "n": 5,
+    "unsupported": 4,
+    "cannot_assess": 0,
+    "rate": 0.8
+   },
+   "outdated_bathroom_finishes": {
+    "n": 14,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "outdated_kitchen_finishes": {
+    "n": 15,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "paint_refresh_recommended": {
+    "n": 23,
+    "unsupported": 12,
+    "cannot_assess": 1,
+    "rate": 0.5217391304347826
+   },
+   "patio_or_porch_surface_wear": {
+    "n": 11,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "vanity_dated_style": {
+    "n": 10,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "vintage_tile_pattern_style": {
+    "n": 9,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "appliances_dated_or_basic": {
+    "n": 13,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "bath_fixtures_stained_or_worn": {
+    "n": 9,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.1111111111111111
+   },
+   "cabinets_worn_finish": {
+    "n": 11,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.18181818181818182
+   },
+   "ceiling_cracks_or_sagging": {
+    "n": 15,
+    "unsupported": 4,
+    "cannot_assess": 0,
+    "rate": 0.26666666666666666
+   },
+   "curb_appeal_upgrade": {
+    "n": 9,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "peeling_or_discolored_paint": {
+    "n": 37,
+    "unsupported": 8,
+    "cannot_assess": 1,
+    "rate": 0.21621621621621623
+   },
+   "popcorn_or_acoustic_ceiling_texture": {
+    "n": 25,
+    "unsupported": 3,
+    "cannot_assess": 0,
+    "rate": 0.12
+   },
+   "soffit_or_porch_ceiling_weathered": {
+    "n": 7,
+    "unsupported": 0,
+    "cannot_assess": 1,
+    "rate": 0.0
+   },
+   "unfinished_basement_present": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "vanity_worn_finish": {
+    "n": 8,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.25
+   },
+   "vinyl_linoleum_worn_or_stained": {
+    "n": 7,
+    "unsupported": 2,
+    "cannot_assess": 1,
+    "rate": 0.2857142857142857
+   },
+   "wall_scuffs_marks_or_dents": {
+    "n": 62,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.03225806451612903
+   },
+   "water_stain_ceiling": {
+    "n": 3,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "worn_or_stained_flooring": {
+    "n": 43,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.023255813953488372
+   },
+   "baseboard_wear_scuffs": {
+    "n": 33,
+    "unsupported": 4,
+    "cannot_assess": 0,
+    "rate": 0.12121212121212122
+   },
+   "damaged_drywall_or_cracks": {
+    "n": 29,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.06896551724137931
+   },
+   "damaged_or_rotted_siding_or_trim": {
+    "n": 5,
+    "unsupported": 2,
+    "cannot_assess": 1,
+    "rate": 0.4
+   },
+   "damaged_or_unsafe_deck_or_porch": {
+    "n": 2,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "dated_interior_trim": {
+    "n": 48,
+    "unsupported": 3,
+    "cannot_assess": 1,
+    "rate": 0.0625
+   },
+   "dated_or_older_windows": {
+    "n": 47,
+    "unsupported": 3,
+    "cannot_assess": 4,
+    "rate": 0.06382978723404255
+   },
+   "deck_surface_weathering": {
+    "n": 3,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "door_hardware_worn": {
+    "n": 7,
+    "unsupported": 4,
+    "cannot_assess": 0,
+    "rate": 0.5714285714285714
+   },
+   "fence_broken_or_leaning": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "fence_weathered": {
+    "n": 7,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.2857142857142857
+   },
+   "floor_dirty_or_heavily_soiled": {
+    "n": 11,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.09090909090909091
+   },
+   "hard_flooring_broken_or_warped": {
+    "n": 7,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.2857142857142857
+   },
+   "landscaping_overgrown_or_neglected": {
+    "n": 12,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.08333333333333333
+   },
+   "missing_or_damaged_handrails": {
+    "n": 4,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.25
+   },
+   "trees_or_vegetation_too_close": {
+    "n": 6,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.3333333333333333
+   },
+   "unfinished_interior_wall_osb_exposed": {
+    "n": 6,
+    "unsupported": 6,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "vanity_countertop_dated": {
+    "n": 6,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "vanity_countertop_worn": {
+    "n": 2,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.5
+   },
+   "vanity_damaged_or_water_stained": {
+    "n": 3,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.6666666666666666
+   },
+   "worn_or_stained_carpet": {
+    "n": 21,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.09523809523809523
+   },
+   "yard_debris_overgrown_leaves": {
+    "n": 3,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "trip_hazard_or_unlevel_floor": {
+    "n": 6,
+    "unsupported": 1,
+    "cannot_assess": 2,
+    "rate": 0.16666666666666666
+   },
+   "vinyl_linoleum_torn_or_lifted": {
+    "n": 3,
+    "unsupported": 3,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "brick_weathered_or_discolored": {
+    "n": 5,
+    "unsupported": 3,
+    "cannot_assess": 0,
+    "rate": 0.6
+   },
+   "dated_wood_paneling": {
+    "n": 10,
+    "unsupported": 1,
+    "cannot_assess": 1,
+    "rate": 0.1
+   },
+   "exterior_door_paint_failure": {
+    "n": 6,
+    "unsupported": 1,
+    "cannot_assess": 2,
+    "rate": 0.16666666666666666
+   },
+   "exterior_siding_discoloration_fading": {
+    "n": 10,
+    "unsupported": 4,
+    "cannot_assess": 1,
+    "rate": 0.4
+   },
+   "garage_or_basement_damage": {
+    "n": 2,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "paving_cracked_or_settled": {
+    "n": 8,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.125
+   },
+   "suspended_drop_ceiling": {
+    "n": 6,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "boarded_up_entry_or_window": {
+    "n": 3,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "countertop_damage": {
+    "n": 2,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "bare_or_missing_finish_flooring": {
+    "n": 5,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.2
+   },
+   "cabinets_damaged_or_water_stained": {
+    "n": 4,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.5
+   },
+   "dated_exterior_finishes": {
+    "n": 10,
+    "unsupported": 0,
+    "cannot_assess": 1,
+    "rate": 0.0
+   },
+   "roof_shingles_aged_or_worn": {
+    "n": 10,
+    "unsupported": 0,
+    "cannot_assess": 1,
+    "rate": 0.0
+   },
+   "concrete_driveway_surface_wear": {
+    "n": 9,
+    "unsupported": 5,
+    "cannot_assess": 0,
+    "rate": 0.5555555555555556
+   },
+   "exposed_sheathing_or_missing_siding": {
+    "n": 1,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "plumbing_fixture_stained_or_corroded": {
+    "n": 5,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.4
+   },
+   "retaining_wall_failure_or_missing_section": {
+    "n": 2,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "shed_exterior_paint_failure": {
+    "n": 2,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "uneven_gravel_drive_or_parking": {
+    "n": 3,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.6666666666666666
+   },
+   "dated_wallpaper_present": {
+    "n": 2,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "missing_vanity_exposed_plumbing": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "paving_heaved_or_trip_hazard": {
+    "n": 4,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.25
+   },
+   "tile_or_grout_damage": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "tub_surround_or_shower_pan_damage": {
+    "n": 1,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "visible_mold_or_mildew": {
+    "n": 2,
+    "unsupported": 0,
+    "cannot_assess": 1,
+    "rate": 0.0
+   },
+   "landscaping_enhancement_opportunity": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "major_foundation_or_settlement_signs": {
+    "n": 1,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "mortar_joints_deteriorated": {
+    "n": 2,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.5
+   },
+   "appliances_worn_or_neglected": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "missing_base_cabinets_exposed_subfloor": {
+    "n": 2,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "dated_bathroom_wallpaper": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "dated_fireplace_surround": {
+    "n": 3,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "appliances_damaged_or_missing": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "clogged_or_damaged_gutters": {
+    "n": 1,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "interior_wall_stripped_to_studs": {
+    "n": 1,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "soffit_or_porch_ceiling_failed": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 1,
+    "rate": 0.0
+   }
+  },
+  "divergence_strong7_vs_rest": {
+   "strong7": {
+    "n": 93,
+    "unsupported": 42,
+    "cannot_assess": 3,
+    "rate": 0.45161290322580644
+   },
+   "rest": {
+    "n": 846,
+    "unsupported": 90,
+    "cannot_assess": 25,
+    "rate": 0.10638297872340426
+   },
+   "strong7_items": [
+    "paint_refresh_recommended",
+    "peeling_or_discolored_paint",
+    "exterior_siding_discoloration_fading",
+    "concrete_driveway_surface_wear",
+    "unfinished_interior_wall_osb_exposed",
+    "ornate_vintage_mirror",
+    "vinyl_linoleum_torn_or_lifted"
+   ]
+  }
+ },
+ "run2_replication": {
+  "overall": {
+   "n": 1046,
+   "unsupported": 146,
+   "cannot_assess": 36,
+   "rate": 0.13957934990439771
+  },
+  "by_pathclass": {
+   "shortcut_only": {
+    "n": 170,
+    "unsupported": 20,
+    "cannot_assess": 7,
+    "rate": 0.11764705882352941
+   },
+   "llm_only": {
+    "n": 738,
+    "unsupported": 119,
+    "cannot_assess": 28,
+    "rate": 0.16124661246612465
+   },
+   "mixed": {
+    "n": 138,
+    "unsupported": 7,
+    "cannot_assess": 1,
+    "rate": 0.050724637681159424
+   },
+   "unjoined": {
+    "n": 0,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": null
+   }
+  },
+  "by_kind": {
+   "defect": {
+    "n": 154,
+    "unsupported": 44,
+    "cannot_assess": 5,
+    "rate": 0.2857142857142857
+   },
+   "degradation": {
+    "n": 442,
+    "unsupported": 64,
+    "cannot_assess": 16,
+    "rate": 0.14479638009049775
+   },
+   "modernization": {
+    "n": 450,
+    "unsupported": 38,
+    "cannot_assess": 15,
+    "rate": 0.08444444444444445
+   }
+  },
+  "by_rank_band_single_issue_llm_conditions": {
+   "rank1": {
+    "n": 315,
+    "unsupported": 71,
+    "cannot_assess": 19,
+    "rate": 0.2253968253968254
+   },
+   "rank2-3": {
+    "n": 127,
+    "unsupported": 20,
+    "cannot_assess": 5,
+    "rate": 0.15748031496062992
+   },
+   "rank4+": {
+    "n": 20,
+    "unsupported": 4,
+    "cannot_assess": 1,
+    "rate": 0.2
+   },
+   "note": "462 single-issue llm conditions of 1046"
+  },
+  "per_item": {
+   "appliances_dated_or_basic": {
+    "n": 14,
+    "unsupported": 0,
+    "cannot_assess": 1,
+    "rate": 0.0
+   },
+   "bath_fixtures_stained_or_worn": {
+    "n": 10,
+    "unsupported": 3,
+    "cannot_assess": 0,
+    "rate": 0.3
+   },
+   "cabinets_dated_style": {
+    "n": 14,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "dated_bathroom_flooring_style": {
+    "n": 5,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "dated_entry_or_patio_door": {
+    "n": 16,
+    "unsupported": 0,
+    "cannot_assess": 2,
+    "rate": 0.0
+   },
+   "dated_interior_doors": {
+    "n": 17,
+    "unsupported": 0,
+    "cannot_assess": 1,
+    "rate": 0.0
+   },
+   "dated_interior_trim": {
+    "n": 45,
+    "unsupported": 4,
+    "cannot_assess": 0,
+    "rate": 0.08888888888888889
+   },
+   "dated_or_older_windows": {
+    "n": 47,
+    "unsupported": 0,
+    "cannot_assess": 3,
+    "rate": 0.0
+   },
+   "dated_overall_decor_style": {
+    "n": 29,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "dated_window_treatment_valance": {
+    "n": 33,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.06060606060606061
+   },
+   "door_hardware_dated_style": {
+    "n": 13,
+    "unsupported": 2,
+    "cannot_assess": 3,
+    "rate": 0.15384615384615385
+   },
+   "hard_flooring_scratched_or_worn": {
+    "n": 32,
+    "unsupported": 3,
+    "cannot_assess": 0,
+    "rate": 0.09375
+   },
+   "older_flooring_style": {
+    "n": 45,
+    "unsupported": 9,
+    "cannot_assess": 1,
+    "rate": 0.2
+   },
+   "ornate_vintage_mirror": {
+    "n": 6,
+    "unsupported": 3,
+    "cannot_assess": 0,
+    "rate": 0.5
+   },
+   "outdated_bathroom_finishes": {
+    "n": 15,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "outdated_kitchen_finishes": {
+    "n": 15,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "trip_hazard_or_unlevel_floor": {
+    "n": 11,
+    "unsupported": 4,
+    "cannot_assess": 1,
+    "rate": 0.36363636363636365
+   },
+   "vanity_countertop_dated": {
+    "n": 10,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "vanity_dated_style": {
+    "n": 10,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "worn_or_stained_flooring": {
+    "n": 53,
+    "unsupported": 4,
+    "cannot_assess": 1,
+    "rate": 0.07547169811320754
+   },
+   "baseboard_wear_scuffs": {
+    "n": 42,
+    "unsupported": 4,
+    "cannot_assess": 2,
+    "rate": 0.09523809523809523
+   },
+   "ceiling_cracks_or_sagging": {
+    "n": 15,
+    "unsupported": 3,
+    "cannot_assess": 0,
+    "rate": 0.2
+   },
+   "countertop_damage": {
+    "n": 3,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "dated_wood_paneling": {
+    "n": 15,
+    "unsupported": 3,
+    "cannot_assess": 0,
+    "rate": 0.2
+   },
+   "popcorn_or_acoustic_ceiling_texture": {
+    "n": 30,
+    "unsupported": 1,
+    "cannot_assess": 1,
+    "rate": 0.03333333333333333
+   },
+   "soffit_or_porch_ceiling_weathered": {
+    "n": 8,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.25
+   },
+   "vanity_worn_finish": {
+    "n": 9,
+    "unsupported": 4,
+    "cannot_assess": 0,
+    "rate": 0.4444444444444444
+   },
+   "vinyl_linoleum_worn_or_stained": {
+    "n": 11,
+    "unsupported": 2,
+    "cannot_assess": 1,
+    "rate": 0.18181818181818182
+   },
+   "wall_scuffs_marks_or_dents": {
+    "n": 69,
+    "unsupported": 3,
+    "cannot_assess": 1,
+    "rate": 0.043478260869565216
+   },
+   "bathroom_paint_peeling_or_worn": {
+    "n": 1,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "bathroom_plumbing_visible_issue": {
+    "n": 1,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "cabinets_worn_finish": {
+    "n": 12,
+    "unsupported": 3,
+    "cannot_assess": 0,
+    "rate": 0.25
+   },
+   "damaged_drywall_or_cracks": {
+    "n": 37,
+    "unsupported": 3,
+    "cannot_assess": 0,
+    "rate": 0.08108108108108109
+   },
+   "damaged_or_unsafe_deck_or_porch": {
+    "n": 4,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.5
+   },
+   "deck_surface_weathering": {
+    "n": 5,
+    "unsupported": 0,
+    "cannot_assess": 1,
+    "rate": 0.0
+   },
+   "fence_broken_or_leaning": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "fence_weathered": {
+    "n": 6,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "floor_dirty_or_heavily_soiled": {
+    "n": 8,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.125
+   },
+   "landscaping_overgrown_or_neglected": {
+    "n": 13,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.07692307692307693
+   },
+   "missing_or_damaged_handrails": {
+    "n": 2,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "missing_vanity_exposed_plumbing": {
+    "n": 2,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.5
+   },
+   "paint_refresh_recommended": {
+    "n": 18,
+    "unsupported": 9,
+    "cannot_assess": 0,
+    "rate": 0.5
+   },
+   "peeling_or_discolored_paint": {
+    "n": 39,
+    "unsupported": 10,
+    "cannot_assess": 0,
+    "rate": 0.2564102564102564
+   },
+   "trees_or_vegetation_too_close": {
+    "n": 8,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.25
+   },
+   "unfinished_basement_present": {
+    "n": 4,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "unfinished_interior_wall_osb_exposed": {
+    "n": 8,
+    "unsupported": 7,
+    "cannot_assess": 1,
+    "rate": 0.875
+   },
+   "vanity_damaged_or_water_stained": {
+    "n": 4,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.5
+   },
+   "worn_or_stained_carpet": {
+    "n": 27,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.07407407407407407
+   },
+   "yard_debris_overgrown_leaves": {
+    "n": 5,
+    "unsupported": 0,
+    "cannot_assess": 1,
+    "rate": 0.0
+   },
+   "bathroom_paint_refresh_recommended": {
+    "n": 2,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "hard_flooring_broken_or_warped": {
+    "n": 9,
+    "unsupported": 4,
+    "cannot_assess": 0,
+    "rate": 0.4444444444444444
+   },
+   "patio_or_porch_surface_wear": {
+    "n": 11,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.09090909090909091
+   },
+   "damaged_or_rotted_siding_or_trim": {
+    "n": 7,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.2857142857142857
+   },
+   "dated_exterior_finishes": {
+    "n": 15,
+    "unsupported": 0,
+    "cannot_assess": 3,
+    "rate": 0.0
+   },
+   "door_hardware_worn": {
+    "n": 7,
+    "unsupported": 2,
+    "cannot_assess": 3,
+    "rate": 0.2857142857142857
+   },
+   "exterior_door_paint_failure": {
+    "n": 7,
+    "unsupported": 1,
+    "cannot_assess": 1,
+    "rate": 0.14285714285714285
+   },
+   "exterior_siding_discoloration_fading": {
+    "n": 11,
+    "unsupported": 3,
+    "cannot_assess": 2,
+    "rate": 0.2727272727272727
+   },
+   "mortar_joints_deteriorated": {
+    "n": 2,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.5
+   },
+   "suspended_drop_ceiling": {
+    "n": 8,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.125
+   },
+   "boarded_up_entry_or_window": {
+    "n": 4,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.25
+   },
+   "vintage_tile_pattern_style": {
+    "n": 6,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.16666666666666666
+   },
+   "curb_appeal_upgrade": {
+    "n": 6,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "gutter_maintenance_needed": {
+    "n": 2,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "landscaping_enhancement_opportunity": {
+    "n": 3,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "paving_cracked_or_settled": {
+    "n": 10,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "roof_shingles_aged_or_worn": {
+    "n": 11,
+    "unsupported": 0,
+    "cannot_assess": 1,
+    "rate": 0.0
+   },
+   "soffit_or_porch_ceiling_failed": {
+    "n": 4,
+    "unsupported": 1,
+    "cannot_assess": 1,
+    "rate": 0.25
+   },
+   "tile_or_grout_damage": {
+    "n": 2,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.5
+   },
+   "vanity_countertop_damage": {
+    "n": 2,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "vanity_countertop_worn": {
+    "n": 3,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.3333333333333333
+   },
+   "cabinets_damaged_or_water_stained": {
+    "n": 2,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.5
+   },
+   "clogged_or_damaged_gutters": {
+    "n": 3,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 0.6666666666666666
+   },
+   "concrete_driveway_surface_wear": {
+    "n": 10,
+    "unsupported": 6,
+    "cannot_assess": 1,
+    "rate": 0.6
+   },
+   "interior_wall_stripped_to_studs": {
+    "n": 4,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.25
+   },
+   "retaining_wall_failure_or_missing_section": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "active_water_damage_bathroom": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "bare_or_missing_finish_flooring": {
+    "n": 5,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "bath_fixtures_chipped_or_damaged": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "dated_wallpaper_present": {
+    "n": 4,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.25
+   },
+   "plumbing_fixture_stained_or_corroded": {
+    "n": 4,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.25
+   },
+   "vinyl_linoleum_torn_or_lifted": {
+    "n": 2,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "brick_weathered_or_discolored": {
+    "n": 4,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.25
+   },
+   "dirty_or_grimy_window_screens": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "exposed_sheathing_or_missing_siding": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "major_foundation_or_settlement_signs": {
+    "n": 3,
+    "unsupported": 1,
+    "cannot_assess": 1,
+    "rate": 0.3333333333333333
+   },
+   "metal_carport_rust_corrosion": {
+    "n": 2,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.5
+   },
+   "tub_surround_or_shower_pan_damage": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "visible_mold_or_mildew": {
+    "n": 4,
+    "unsupported": 0,
+    "cannot_assess": 1,
+    "rate": 0.0
+   },
+   "mismatched_or_inconsistent_furniture_staging": {
+    "n": 1,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "uneven_gravel_drive_or_parking": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 1,
+    "rate": 0.0
+   },
+   "paving_heaved_or_trip_hazard": {
+    "n": 2,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.5
+   },
+   "appliances_damaged_or_missing": {
+    "n": 2,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 0.5
+   },
+   "missing_base_cabinets_exposed_subfloor": {
+    "n": 2,
+    "unsupported": 2,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "rotted_subfloor_or_structural_framing": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "dated_fireplace_surround": {
+    "n": 2,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "staging_or_decluttering_opportunity": {
+    "n": 1,
+    "unsupported": 1,
+    "cannot_assess": 0,
+    "rate": 1.0
+   },
+   "indoor_storage_clutter_heavy": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   },
+   "water_stain_ceiling": {
+    "n": 1,
+    "unsupported": 0,
+    "cannot_assess": 0,
+    "rate": 0.0
+   }
+  },
+  "divergence_strong7_vs_rest": {
+   "strong7": {
+    "n": 94,
+    "unsupported": 38,
+    "cannot_assess": 4,
+    "rate": 0.40425531914893614
+   },
+   "rest": {
+    "n": 952,
+    "unsupported": 108,
+    "cannot_assess": 32,
+    "rate": 0.1134453781512605
+   },
+   "strong7_items": [
+    "paint_refresh_recommended",
+    "peeling_or_discolored_paint",
+    "exterior_siding_discoloration_fading",
+    "concrete_driveway_surface_wear",
+    "unfinished_interior_wall_osb_exposed",
+    "ornate_vintage_mirror",
+    "vinyl_linoleum_torn_or_lifted"
+   ]
+  }
+ },
+ "per_item_replication": [
+  {
+   "item": "paint_refresh_recommended",
+   "pinned_n": 23,
+   "pinned_rate": 0.5217391304347826,
+   "run2_n": 18,
+   "run2_rate": 0.5,
+   "unstable": false,
+   "delta": -0.022
+  },
+  {
+   "item": "ceiling_cracks_or_sagging",
+   "pinned_n": 15,
+   "pinned_rate": 0.26666666666666666,
+   "run2_n": 15,
+   "run2_rate": 0.2,
+   "unstable": false,
+   "delta": -0.067
+  },
+  {
+   "item": "peeling_or_discolored_paint",
+   "pinned_n": 37,
+   "pinned_rate": 0.21621621621621623,
+   "run2_n": 39,
+   "run2_rate": 0.2564102564102564,
+   "unstable": false,
+   "delta": 0.04
+  },
+  {
+   "item": "cabinets_worn_finish",
+   "pinned_n": 11,
+   "pinned_rate": 0.18181818181818182,
+   "run2_n": 12,
+   "run2_rate": 0.25,
+   "unstable": true,
+   "delta": 0.068
+  },
+  {
+   "item": "dated_window_treatment_valance",
+   "pinned_n": 32,
+   "pinned_rate": 0.15625,
+   "run2_n": 33,
+   "run2_rate": 0.06060606060606061,
+   "unstable": false,
+   "delta": -0.096
+  },
+  {
+   "item": "hard_flooring_scratched_or_worn",
+   "pinned_n": 34,
+   "pinned_rate": 0.14705882352941177,
+   "run2_n": 32,
+   "run2_rate": 0.09375,
+   "unstable": false,
+   "delta": -0.053
+  },
+  {
+   "item": "baseboard_wear_scuffs",
+   "pinned_n": 33,
+   "pinned_rate": 0.12121212121212122,
+   "run2_n": 42,
+   "run2_rate": 0.09523809523809523,
+   "unstable": false,
+   "delta": -0.026
+  },
+  {
+   "item": "popcorn_or_acoustic_ceiling_texture",
+   "pinned_n": 25,
+   "pinned_rate": 0.12,
+   "run2_n": 30,
+   "run2_rate": 0.03333333333333333,
+   "unstable": false,
+   "delta": -0.087
+  },
+  {
+   "item": "door_hardware_dated_style",
+   "pinned_n": 19,
+   "pinned_rate": 0.10526315789473684,
+   "run2_n": 13,
+   "run2_rate": 0.15384615384615385,
+   "unstable": true,
+   "delta": 0.049
+  },
+  {
+   "item": "dated_wood_paneling",
+   "pinned_n": 10,
+   "pinned_rate": 0.1,
+   "run2_n": 15,
+   "run2_rate": 0.2,
+   "unstable": true,
+   "delta": 0.1
+  },
+  {
+   "item": "worn_or_stained_carpet",
+   "pinned_n": 21,
+   "pinned_rate": 0.09523809523809523,
+   "run2_n": 27,
+   "run2_rate": 0.07407407407407407,
+   "unstable": false,
+   "delta": -0.021
+  },
+  {
+   "item": "landscaping_overgrown_or_neglected",
+   "pinned_n": 12,
+   "pinned_rate": 0.08333333333333333,
+   "run2_n": 13,
+   "run2_rate": 0.07692307692307693,
+   "unstable": true,
+   "delta": -0.006
+  },
+  {
+   "item": "damaged_drywall_or_cracks",
+   "pinned_n": 29,
+   "pinned_rate": 0.06896551724137931,
+   "run2_n": 37,
+   "run2_rate": 0.08108108108108109,
+   "unstable": false,
+   "delta": 0.012
+  },
+  {
+   "item": "older_flooring_style",
+   "pinned_n": 31,
+   "pinned_rate": 0.06451612903225806,
+   "run2_n": 45,
+   "run2_rate": 0.2,
+   "unstable": false,
+   "delta": 0.135
+  },
+  {
+   "item": "dated_or_older_windows",
+   "pinned_n": 47,
+   "pinned_rate": 0.06382978723404255,
+   "run2_n": 47,
+   "run2_rate": 0.0,
+   "unstable": false,
+   "delta": -0.064
+  },
+  {
+   "item": "dated_interior_trim",
+   "pinned_n": 48,
+   "pinned_rate": 0.0625,
+   "run2_n": 45,
+   "run2_rate": 0.08888888888888889,
+   "unstable": false,
+   "delta": 0.026
+  },
+  {
+   "item": "dated_overall_decor_style",
+   "pinned_n": 38,
+   "pinned_rate": 0.05263157894736842,
+   "run2_n": 29,
+   "run2_rate": 0.0,
+   "unstable": false,
+   "delta": -0.053
+  },
+  {
+   "item": "wall_scuffs_marks_or_dents",
+   "pinned_n": 62,
+   "pinned_rate": 0.03225806451612903,
+   "run2_n": 69,
+   "run2_rate": 0.043478260869565216,
+   "unstable": false,
+   "delta": 0.011
+  },
+  {
+   "item": "worn_or_stained_flooring",
+   "pinned_n": 43,
+   "pinned_rate": 0.023255813953488372,
+   "run2_n": 53,
+   "run2_rate": 0.07547169811320754,
+   "unstable": false,
+   "delta": 0.052
+  },
+  {
+   "item": "outdated_bathroom_finishes",
+   "pinned_n": 14,
+   "pinned_rate": 0.0,
+   "run2_n": 15,
+   "run2_rate": 0.0,
+   "unstable": true,
+   "delta": 0.0
+  },
+  {
+   "item": "outdated_kitchen_finishes",
+   "pinned_n": 15,
+   "pinned_rate": 0.0,
+   "run2_n": 15,
+   "run2_rate": 0.0,
+   "unstable": false,
+   "delta": 0.0
+  },
+  {
+   "item": "dated_exterior_finishes",
+   "pinned_n": 10,
+   "pinned_rate": 0.0,
+   "run2_n": 15,
+   "run2_rate": 0.0,
+   "unstable": true,
+   "delta": 0.0
+  },
+  {
+   "item": "cabinets_dated_style",
+   "pinned_n": 14,
+   "pinned_rate": 0.0,
+   "run2_n": 14,
+   "run2_rate": 0.0,
+   "unstable": true,
+   "delta": 0.0
+  },
+  {
+   "item": "dated_interior_doors",
+   "pinned_n": 15,
+   "pinned_rate": 0.0,
+   "run2_n": 17,
+   "run2_rate": 0.0,
+   "unstable": false,
+   "delta": 0.0
+  },
+  {
+   "item": "dated_entry_or_patio_door",
+   "pinned_n": 17,
+   "pinned_rate": 0.0,
+   "run2_n": 16,
+   "run2_rate": 0.0,
+   "unstable": false,
+   "delta": 0.0
+  },
+  {
+   "item": "appliances_dated_or_basic",
+   "pinned_n": 13,
+   "pinned_rate": 0.0,
+   "run2_n": 14,
+   "run2_rate": 0.0,
+   "unstable": true,
+   "delta": 0.0
+  }
+ ],
+ "nulls_window_share": {
+  "all_nulls": {
+   "n": 1119,
+   "window": 70
+  },
+  "degradation_defect_nulls": {
+   "n": 744,
+   "window": 61
+  },
+  "product_lane_nulls": {
+   "n": 445,
+   "window": 70
+  },
+  "product_lane_degradation_defect_nulls": {
+   "n": 70,
+   "window": 61
+  },
+  "note": "the product lane admits non-modernization rows only via REPLAY_STEMS, which contains 'window'"
+ },
+ "text_reproducibility_run1_vs_run2": {
+  "shared_photos": 523,
+  "photos_with_identical_observation_sets": 8,
+  "run1_observations_on_shared_photos": 3294,
+  "reproduced_verbatim_in_run2": 63
+ },
+ "terra_ledger": {
+  "path": "artifacts_canary/catalog_audit_session6_20260907/.renovation_architecture/terra_usage.sqlite3",
+  "exists": true,
+  "mtime": "2026-09-07T17:17:07.573354",
+  "newer_ledgers": []
+ }
+}

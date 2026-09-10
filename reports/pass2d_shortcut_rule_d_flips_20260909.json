@@ -1,0 +1,1726 @@
+{
+ "flipped": [
+  {
+   "prop": "redfin_10803207",
+   "photo": "photo_019.jpg",
+   "issue": "4048ce649139e7d4",
+   "obs": "Hardwood flooring has finish wear, scuffing, and uneven sheen.",
+   "kind": "degradation",
+   "sel": "hard_flooring_scratched_or_worn",
+   "firing": [
+    "scuff"
+   ],
+   "head": "hardwood flooring",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_10806500",
+   "photo": "photo_003.jpg",
+   "issue": "bc3e26039acf727f",
+   "obs": "Ceiling panels are sagging and deteriorated.",
+   "kind": "defect",
+   "sel": "ceiling_cracks_or_sagging",
+   "firing": [
+    "sagging"
+   ],
+   "head": "ceiling panels",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_10806500",
+   "photo": "photo_006.jpg",
+   "issue": "e9f4bf65cb562785",
+   "obs": "Caulk or seams around the tub are worn and discolored.",
+   "kind": "degradation",
+   "sel": "bath_fixtures_stained_or_worn",
+   "firing": [
+    "tub$",
+    "worn"
+   ],
+   "head": "caulk or seams",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_10952874",
+   "photo": "photo_009.jpg",
+   "issue": "09b426527669e599",
+   "obs": "Gray walls have small holes and dings.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "hole"
+   ],
+   "head": "gray walls",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_10952874",
+   "photo": "photo_015.jpg",
+   "issue": "1910bf0ccdbd5699",
+   "obs": "The gas range and refrigerator are older, dated, and mismatched.",
+   "kind": "modernization",
+   "sel": "appliances_dated_or_basic",
+   "firing": [
+    "dated"
+   ],
+   "head": "the gas range and refrigerator",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_10952874",
+   "photo": "photo_016.jpg",
+   "issue": "6910996aacf26610",
+   "obs": "Deck rails appear loose.",
+   "kind": "defect",
+   "sel": "missing_or_damaged_handrails",
+   "firing": [
+    "loose"
+   ],
+   "head": "deck rails",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_10952874",
+   "photo": "photo_031.jpg",
+   "issue": "a19044c616034338",
+   "obs": "Ceiling above the shower has discoloration and staining.",
+   "kind": "degradation",
+   "sel": "bath_fixtures_stained_or_worn",
+   "firing": [
+    "shower"
+   ],
+   "head": "ceiling",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_10952874",
+   "photo": "photo_031.jpg",
+   "issue": "d1d15a3bee6bf8c6",
+   "obs": "Caulk at the tub-to-wall and tub-to-floor joints appears tired.",
+   "kind": "degradation",
+   "sel": "bath_fixtures_stained_or_worn",
+   "firing": [
+    "tub$"
+   ],
+   "head": "caulk",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_10952874",
+   "photo": "photo_032.jpg",
+   "issue": "8bd7aeb027e159ad",
+   "obs": "The toilet, faucet, medicine cabinet, lighting, and trim are dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the toilet faucet medicine cabinet lighting and trim",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_10952874",
+   "photo": "photo_033.jpg",
+   "issue": "2350ecf0125f598c",
+   "obs": "Walls and baseboards have scuffs and small holes or marks.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "hole"
+   ],
+   "head": "walls and baseboards",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11000447",
+   "photo": "photo_003.jpg",
+   "issue": "040a35b0f685cce1",
+   "obs": "Walls have scuffs and holes.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "hole"
+   ],
+   "head": "walls",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11000447",
+   "photo": "photo_004.jpg",
+   "issue": "2ef8966603dd3aa9",
+   "obs": "Walls have scuffs, holes, patches, and old adhesive or fixture marks.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "hole",
+    "patch"
+   ],
+   "head": "walls",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11000447",
+   "photo": "photo_007.jpg",
+   "issue": "9855cf95502a7772",
+   "obs": "The striped wall has peeling paint.",
+   "kind": "degradation",
+   "sel": "peeling_or_discolored_paint",
+   "firing": [
+    "peeling"
+   ],
+   "head": "the striped wall",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11077450",
+   "photo": "photo_001.jpg",
+   "issue": "08455df27cbaf34a",
+   "obs": "Brick masonry shows aging and discoloration.",
+   "kind": "degradation",
+   "sel": "brick_weathered_or_discolored",
+   "firing": [],
+   "head": "brick masonry",
+   "verdict": "unsupported"
+  },
+  {
+   "prop": "redfin_11077450",
+   "photo": "photo_007.jpg",
+   "issue": "82c48225514a8b57",
+   "obs": "Drop-ceiling panels appear sagging.",
+   "kind": "defect",
+   "sel": "ceiling_cracks_or_sagging",
+   "firing": [
+    "sagging"
+   ],
+   "head": "drop-ceiling panels",
+   "verdict": "unsupported"
+  },
+  {
+   "prop": "redfin_11077450",
+   "photo": "photo_014.jpg",
+   "issue": "cfee4dd502d7ca92",
+   "obs": "The counters, backsplash, hardware, and appliances are dated.",
+   "kind": "modernization",
+   "sel": "outdated_kitchen_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the counters backsplash hardware and appliances",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11077450",
+   "photo": "photo_021.jpg",
+   "issue": "1ee347722f81d79e",
+   "obs": "Door finishes are scuffed.",
+   "kind": "degradation",
+   "sel": "hard_flooring_scratched_or_worn",
+   "firing": [
+    "scuff"
+   ],
+   "head": "door finishes",
+   "verdict": "cannot_assess"
+  },
+  {
+   "prop": "redfin_11079485",
+   "photo": "photo_008.jpg",
+   "issue": "9ff5db67946706d8",
+   "obs": "Paint on basement surfaces is peeling.",
+   "kind": "degradation",
+   "sel": "peeling_or_discolored_paint",
+   "firing": [
+    "peeling"
+   ],
+   "head": "paint",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11185681",
+   "photo": "photo_002.jpg",
+   "issue": "0e8e441ab87b80fa",
+   "obs": "The white electric range appears dated relative to the stainless appliances.",
+   "kind": "modernization",
+   "sel": "appliances_dated_or_basic",
+   "firing": [
+    "appliance",
+    "dated"
+   ],
+   "head": "the white electric range",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11185681",
+   "photo": "photo_007.jpg",
+   "issue": "6657c963ce05f88a",
+   "obs": "Original hardwood floors are heavily worn and scratched with finish loss.",
+   "kind": "degradation",
+   "sel": "hard_flooring_scratched_or_worn",
+   "firing": [
+    "scratch"
+   ],
+   "head": "original hardwood floors",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11185681",
+   "photo": "photo_008.jpg",
+   "issue": "56e13be67632b3a1",
+   "obs": "The planting is overgrown.",
+   "kind": "degradation",
+   "sel": "landscaping_overgrown_or_neglected",
+   "firing": [
+    "overgrown"
+   ],
+   "head": "the planting",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11185681",
+   "photo": "photo_009.jpg",
+   "issue": "956474d9ff691398",
+   "obs": "Landscaping around the property is overgrown.",
+   "kind": "degradation",
+   "sel": "landscaping_overgrown_or_neglected",
+   "firing": [
+    "overgrown"
+   ],
+   "head": "landscaping",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11185681",
+   "photo": "photo_012.jpg",
+   "issue": "f7437c48a892a5be",
+   "obs": "Planting around the property is overgrown.",
+   "kind": "degradation",
+   "sel": "landscaping_overgrown_or_neglected",
+   "firing": [
+    "overgrown"
+   ],
+   "head": "planting",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11185681",
+   "photo": "photo_017.jpg",
+   "issue": "393012a7b5a9de2b",
+   "obs": "The room has a window that appears older.",
+   "kind": "modernization",
+   "sel": "dated_or_older_windows",
+   "firing": [
+    "window"
+   ],
+   "head": "the room",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11185681",
+   "photo": "photo_021.jpg",
+   "issue": "f7e6fe528b264b66",
+   "obs": "Existing hardwood flooring is heavily worn and scratched.",
+   "kind": "degradation",
+   "sel": "hard_flooring_scratched_or_worn",
+   "firing": [
+    "scratch"
+   ],
+   "head": "existing hardwood flooring",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11185681",
+   "photo": "photo_024.jpg",
+   "issue": "3357457dde363efd",
+   "obs": "Countertops have a dated appearance.",
+   "kind": "modernization",
+   "sel": "outdated_kitchen_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "countertops",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11185681",
+   "photo": "photo_032.jpg",
+   "issue": "6bb56d7f530b3650",
+   "obs": "The faucet set, mirrored cabinet, light, and hardware appear dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the faucet set mirrored cabinet light and hardware",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11185681",
+   "photo": "photo_033.jpg",
+   "issue": "de15c1a9dc69806d",
+   "obs": "The single-handle valve and tub spout appear visually dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the single-handle valve and tub spout",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11185681",
+   "photo": "photo_037.jpg",
+   "issue": "ba3cbb67b138d402",
+   "obs": "The built-in under the windows looks dated.",
+   "kind": "modernization",
+   "sel": "dated_or_older_windows",
+   "firing": [
+    "window",
+    "windows"
+   ],
+   "head": "the built-in",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11185681",
+   "photo": "photo_043.jpg",
+   "issue": "e72a0b897de224d7",
+   "obs": "The existing tub is dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the existing tub",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11185681",
+   "photo": "photo_044.jpg",
+   "issue": "548f1e248678bfa4",
+   "obs": "Original hardwood floors show heavy wear, scratches, and a dull, uneven finish.",
+   "kind": "degradation",
+   "sel": "hard_flooring_scratched_or_worn",
+   "firing": [
+    "scratch"
+   ],
+   "head": "original hardwood floors",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_11185681",
+   "photo": "photo_048.jpg",
+   "issue": "022dd93f02fd2da0",
+   "obs": "The countertop and sink are dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the countertop and sink",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125779232",
+   "photo": "photo_003.jpg",
+   "issue": "aa2b2008c6fa641c",
+   "obs": "The toilet is dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the toilet",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125779232",
+   "photo": "photo_007.jpg",
+   "issue": "c2785d1cb9cf1e59",
+   "obs": "The floor has discoloration and staining around the tub and vanity.",
+   "kind": "degradation",
+   "sel": "bath_fixtures_stained_or_worn",
+   "firing": [
+    "tub$"
+   ],
+   "head": "the floor",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125779232",
+   "photo": "photo_007.jpg",
+   "issue": "9b611208c1823c13",
+   "obs": "The ceiling and wall area near the tub look rough.",
+   "kind": "degradation",
+   "sel": "bath_fixtures_stained_or_worn",
+   "firing": [
+    "tub$"
+   ],
+   "head": "the ceiling and wall area",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125779232",
+   "photo": "photo_007.jpg",
+   "issue": "e31e0ce31963dda8",
+   "obs": "Walls have visible scuffs and holes.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "hole"
+   ],
+   "head": "walls",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125779232",
+   "photo": "photo_008.jpg",
+   "issue": "93d840f064bd5241",
+   "obs": "The toilet is dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the toilet",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125779232",
+   "photo": "photo_010.jpg",
+   "issue": "6499d06b7aa2df88",
+   "obs": "The ceiling has heavy popcorn texture.",
+   "kind": "modernization",
+   "sel": "popcorn_or_acoustic_ceiling_texture",
+   "firing": [
+    "popcorn texture"
+   ],
+   "head": "the ceiling",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125779232",
+   "photo": "photo_015.jpg",
+   "issue": "19cff5548b0a3613",
+   "obs": "The visible portion of the roof appears aged.",
+   "kind": "degradation",
+   "sel": "roof_shingles_aged_or_worn",
+   "firing": [
+    "roof"
+   ],
+   "head": "the visible portion",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125779232",
+   "photo": "photo_016.jpg",
+   "issue": "c02ee777751a2111",
+   "obs": "Dark staining is visible along the roof edge.",
+   "kind": "degradation",
+   "sel": "roof_shingles_aged_or_worn",
+   "firing": [
+    "roof"
+   ],
+   "head": "dark staining",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125779232",
+   "photo": "photo_018.jpg",
+   "issue": "d1e7679749a82c24",
+   "obs": "A long bank of older, mismatched windows is present.",
+   "kind": "modernization",
+   "sel": "dated_or_older_windows",
+   "firing": [
+    "window",
+    "windows"
+   ],
+   "head": "a long bank",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_004.jpg",
+   "issue": "0b5432f679241146",
+   "obs": "Adjacent ceiling material is sagging and damaged.",
+   "kind": "defect",
+   "sel": "ceiling_cracks_or_sagging",
+   "firing": [
+    "sagging"
+   ],
+   "head": "adjacent ceiling material",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_004.jpg",
+   "issue": "a74c130bface9efa",
+   "obs": "Wall paneling is damaged and has holes.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "hole"
+   ],
+   "head": "wall paneling",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_005.jpg",
+   "issue": "2c9b2112cb7ba49b",
+   "obs": "Lower left wall has staining and peeling material.",
+   "kind": "degradation",
+   "sel": "peeling_or_discolored_paint",
+   "firing": [
+    "peeling"
+   ],
+   "head": "lower left wall",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_005.jpg",
+   "issue": "18897ba351480daf",
+   "obs": "Ceiling has staining and peeling material.",
+   "kind": "degradation",
+   "sel": "peeling_or_discolored_paint",
+   "firing": [
+    "peeling"
+   ],
+   "head": "ceiling",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_006.jpg",
+   "issue": "f98b38e713db23df",
+   "obs": "Lower cabinets around the sink, corner, and former range area are stained.",
+   "kind": "degradation",
+   "sel": "plumbing_fixture_stained_or_corroded",
+   "firing": [
+    "sink"
+   ],
+   "head": "lower cabinets",
+   "verdict": "unsupported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_007.jpg",
+   "issue": "b911f1a926758ebc",
+   "obs": "Ceiling panels are cracked, sagging, and uneven.",
+   "kind": "defect",
+   "sel": "ceiling_cracks_or_sagging",
+   "firing": [
+    "sagging"
+   ],
+   "head": "ceiling panels",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_007.jpg",
+   "issue": "deee6aca87c20c70",
+   "obs": "Wall finishes are stained and peeling.",
+   "kind": "degradation",
+   "sel": "peeling_or_discolored_paint",
+   "firing": [
+    "peeling"
+   ],
+   "head": "wall finishes",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_011.jpg",
+   "issue": "4286bd7d2eb7949d",
+   "obs": "Kitchen has an old window air-conditioning installation.",
+   "kind": "modernization",
+   "sel": "dated_or_older_windows",
+   "firing": [
+    "window"
+   ],
+   "head": "kitchen",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_014.jpg",
+   "issue": "b5a9cf94d7fb8864",
+   "obs": "The toilet is dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the toilet",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_014.jpg",
+   "issue": "1b829cc43a4e6ce8",
+   "obs": "The faucet and shower hardware are old.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "old"
+   ],
+   "head": "the faucet and shower hardware",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_016.jpg",
+   "issue": "7c3b1835c21a666f",
+   "obs": "Walls have patchy areas and holes.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "hole",
+    "patch"
+   ],
+   "head": "walls",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_017.jpg",
+   "issue": "77491f11645686d2",
+   "obs": "Wall material is deteriorated around and beneath the sink and toilet.",
+   "kind": "degradation",
+   "sel": "plumbing_fixture_stained_or_corroded",
+   "firing": [
+    "sink"
+   ],
+   "head": "wall material",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_017.jpg",
+   "issue": "d44bad73c7245331",
+   "obs": "Bathroom fixtures are worn.",
+   "kind": "degradation",
+   "sel": "bath_fixtures_stained_or_worn",
+   "firing": [
+    "worn"
+   ],
+   "head": "bathroom fixtures",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_019.jpg",
+   "issue": "a4447fcf279bada0",
+   "obs": "The walls have visible cracks and patching.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "crack",
+    "patch"
+   ],
+   "head": "the walls",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_021.jpg",
+   "issue": "3e1a03f09e5ff9df",
+   "obs": "Walls have holes and patch marks.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "hole",
+    "patch"
+   ],
+   "head": "walls",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_021.jpg",
+   "issue": "d5c137a679eeee0d",
+   "obs": "The window has basic trim.",
+   "kind": "modernization",
+   "sel": "dated_interior_trim",
+   "firing": [
+    "trim"
+   ],
+   "head": "the window",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_125970550",
+   "photo": "photo_024.jpg",
+   "issue": "bc668d15e7f6d5c6",
+   "obs": "Sink and faucet are dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "sink and faucet",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_126418713",
+   "photo": "photo_014.jpg",
+   "issue": "b7b273c111d8596d",
+   "obs": "Portions of the fence appear weathered.",
+   "kind": "degradation",
+   "sel": "fence_weathered",
+   "firing": [
+    "fence",
+    "weathered"
+   ],
+   "head": "portions",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_126418713",
+   "photo": "photo_040.jpg",
+   "issue": "c3319889876174cc",
+   "obs": "The tub/shower area appears dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the tub shower area",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_126418713",
+   "photo": "photo_041.jpg",
+   "issue": "aebb89dee0d00af4",
+   "obs": "The showerhead and exposed plumbing look dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the showerhead and exposed plumbing",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_126418713",
+   "photo": "photo_041.jpg",
+   "issue": "a3c7afec296fe88f",
+   "obs": "The mirror and faucet look dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the mirror and faucet",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_127468088",
+   "photo": "photo_009.jpg",
+   "issue": "7763cbf03f324b53",
+   "obs": "The perimeter landscaping is overgrown.",
+   "kind": "degradation",
+   "sel": "landscaping_overgrown_or_neglected",
+   "firing": [
+    "overgrown"
+   ],
+   "head": "the perimeter landscaping",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_127468088",
+   "photo": "photo_011.jpg",
+   "issue": "09b47466ddf68e67",
+   "obs": "Landscaping appears overgrown and underdeveloped.",
+   "kind": "degradation",
+   "sel": "landscaping_overgrown_or_neglected",
+   "firing": [
+    "overgrown"
+   ],
+   "head": "landscaping",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_127468088",
+   "photo": "photo_012.jpg",
+   "issue": "a350ed09f09d3dd7",
+   "obs": "The landscaping has overgrowth, thin lawn, weeds, and neglected planting beds.",
+   "kind": "degradation",
+   "sel": "landscaping_overgrown_or_neglected",
+   "firing": [
+    "weeds",
+    "lawn"
+   ],
+   "head": "the landscaping",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_127468088",
+   "photo": "photo_031.jpg",
+   "issue": "06891f2f5dd51204",
+   "obs": "Entry door is a six-panel builder-grade door.",
+   "kind": "modernization",
+   "sel": "dated_interior_doors",
+   "firing": [
+    "six-panel"
+   ],
+   "head": "entry door",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_127468088",
+   "photo": "photo_036.jpg",
+   "issue": "5e7e8472c01a7ce8",
+   "obs": "Closet has basic bifold louvered doors.",
+   "kind": "modernization",
+   "sel": "dated_interior_doors",
+   "firing": [
+    "louvered",
+    "bifold"
+   ],
+   "head": "closet",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_127468088",
+   "photo": "photo_039.jpg",
+   "issue": "4e6dfbbfee43eec7",
+   "obs": "The closet has dated louvered doors.",
+   "kind": "modernization",
+   "sel": "dated_interior_doors",
+   "firing": [
+    "louvered"
+   ],
+   "head": "the closet",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_166147710",
+   "photo": "photo_003.jpg",
+   "issue": "1bafa89de903d1ea",
+   "obs": "The drop ceiling is sagging.",
+   "kind": "defect",
+   "sel": "ceiling_cracks_or_sagging",
+   "firing": [
+    "sagging"
+   ],
+   "head": "the drop ceiling",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_166147710",
+   "photo": "photo_023.jpg",
+   "issue": "0585ae73cf7af687",
+   "obs": "Ceiling panels near the stair opening are sagging or damaged.",
+   "kind": "defect",
+   "sel": "ceiling_cracks_or_sagging",
+   "firing": [
+    "sagging"
+   ],
+   "head": "ceiling panels",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_166147710",
+   "photo": "photo_039.jpg",
+   "issue": "88d9bdeda94bc17d",
+   "obs": "Acoustic ceiling tiles have sagging and misaligned areas.",
+   "kind": "defect",
+   "sel": "ceiling_cracks_or_sagging",
+   "firing": [
+    "sagging"
+   ],
+   "head": "acoustic ceiling tiles",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_166147710",
+   "photo": "photo_039.jpg",
+   "issue": "5522da9f05bc3b4e",
+   "obs": "Walls have extensive scuffs, holes, patch marks, and uneven finishes.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "hole",
+    "patch",
+    "uneven"
+   ],
+   "head": "walls",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_166147710",
+   "photo": "photo_044.jpg",
+   "issue": "7a7cd1637ba82976",
+   "obs": "Acoustic ceiling tiles are sagging and misaligned.",
+   "kind": "defect",
+   "sel": "ceiling_cracks_or_sagging",
+   "firing": [
+    "sagging"
+   ],
+   "head": "acoustic ceiling tiles",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_166147710",
+   "photo": "photo_044.jpg",
+   "issue": "33f958ab9bc8b5df",
+   "obs": "The door has extensive peeling paint.",
+   "kind": "degradation",
+   "sel": "peeling_or_discolored_paint",
+   "firing": [
+    "peeling"
+   ],
+   "head": "the door",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_166147710",
+   "photo": "photo_047.jpg",
+   "issue": "ead37bfe6c1ce124",
+   "obs": "Drop ceiling is visibly uneven and sagging in spots.",
+   "kind": "defect",
+   "sel": "ceiling_cracks_or_sagging",
+   "firing": [
+    "sagging"
+   ],
+   "head": "drop ceiling",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_166147710",
+   "photo": "photo_048.jpg",
+   "issue": "f9775bdda5d62e8b",
+   "obs": "One drop-ceiling panel appears sagging.",
+   "kind": "defect",
+   "sel": "ceiling_cracks_or_sagging",
+   "firing": [
+    "sagging"
+   ],
+   "head": "one drop-ceiling panel",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_25809814",
+   "photo": "photo_007.jpg",
+   "issue": "3cd2e9590c0104e5",
+   "obs": "Shower fixtures and trim are dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "shower fixtures and trim",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_25809814",
+   "photo": "photo_012.jpg",
+   "issue": "c5e6a139273b9a86",
+   "obs": "Dark countertops have a dated appearance.",
+   "kind": "modernization",
+   "sel": "outdated_kitchen_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "dark countertops",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_25809814",
+   "photo": "photo_030.jpg",
+   "issue": "1baa9fb66c1d92e0",
+   "obs": "Paint near the base of the brick walls is peeling and flaking.",
+   "kind": "degradation",
+   "sel": "peeling_or_discolored_paint",
+   "firing": [
+    "peeling",
+    "flaking"
+   ],
+   "head": "paint",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80877597",
+   "photo": "photo_001.jpg",
+   "issue": "f951199c6de2d8d5",
+   "obs": "The landscaping is mature and overgrown.",
+   "kind": "degradation",
+   "sel": "landscaping_overgrown_or_neglected",
+   "firing": [
+    "overgrown"
+   ],
+   "head": "the landscaping",
+   "verdict": "unsupported"
+  },
+  {
+   "prop": "redfin_80877597",
+   "photo": "photo_003.jpg",
+   "issue": "ef2163f723def88b",
+   "obs": "The tub appears to be an older unit.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "old"
+   ],
+   "head": "the tub",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80877597",
+   "photo": "photo_004.jpg",
+   "issue": "cdc4732568be44b6",
+   "obs": "Ceiling has a dated popcorn texture.",
+   "kind": "modernization",
+   "sel": "popcorn_or_acoustic_ceiling_texture",
+   "firing": [
+    "popcorn texture"
+   ],
+   "head": "ceiling",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80925528",
+   "photo": "photo_004.jpg",
+   "issue": "c2d7254b10c8ee8f",
+   "obs": "The landscaping is overgrown.",
+   "kind": "degradation",
+   "sel": "landscaping_overgrown_or_neglected",
+   "firing": [
+    "overgrown"
+   ],
+   "head": "the landscaping",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80925528",
+   "photo": "photo_007.jpg",
+   "issue": "d47776e1033e38c0",
+   "obs": "Ceiling and wall joints show minor separation and unevenness.",
+   "kind": "defect",
+   "sel": "ceiling_cracks_or_sagging",
+   "firing": [
+    "separation"
+   ],
+   "head": "ceiling and wall joints",
+   "verdict": "unsupported"
+  },
+  {
+   "prop": "redfin_80925528",
+   "photo": "photo_031.jpg",
+   "issue": "7b078b2d6234e9ab",
+   "obs": "The awning or trim appears worn.",
+   "kind": "degradation",
+   "sel": "roof_shingles_aged_or_worn",
+   "firing": [
+    "worn"
+   ],
+   "head": "the awning or trim",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80925528",
+   "photo": "photo_038.jpg",
+   "issue": "6785bc6fea0aa6c3",
+   "obs": "Walls have visible damage and patching.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "patch"
+   ],
+   "head": "walls",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80925528",
+   "photo": "photo_039.jpg",
+   "issue": "d71d230e883f5532",
+   "obs": "Plaster or paint above the mantel is peeling and damaged.",
+   "kind": "degradation",
+   "sel": "peeling_or_discolored_paint",
+   "firing": [
+    "peeling"
+   ],
+   "head": "plaster or paint",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80925528",
+   "photo": "photo_044.jpg",
+   "issue": "2109e38a1c3d9a49",
+   "obs": "The kitchen has old white appliances.",
+   "kind": "modernization",
+   "sel": "appliances_dated_or_basic",
+   "firing": [
+    "appliance",
+    "white appliances"
+   ],
+   "head": "the kitchen",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80990371",
+   "photo": "photo_008.jpg",
+   "issue": "f0107ca47d28897b",
+   "obs": "Landscaping is overgrown.",
+   "kind": "degradation",
+   "sel": "landscaping_overgrown_or_neglected",
+   "firing": [
+    "overgrown"
+   ],
+   "head": "landscaping",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80990371",
+   "photo": "photo_017.jpg",
+   "issue": "c28e2a2da98a4be1",
+   "obs": "Room has a dated paint palette and finishes.",
+   "kind": "modernization",
+   "sel": "paint_refresh_recommended",
+   "firing": [
+    "dated paint"
+   ],
+   "head": "room",
+   "verdict": "unsupported"
+  },
+  {
+   "prop": "redfin_80990371",
+   "photo": "photo_018.jpg",
+   "issue": "3df344d4d76033e5",
+   "obs": "Walls have visible cracking and patching.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "crack",
+    "patch"
+   ],
+   "head": "walls",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80990371",
+   "photo": "photo_023.jpg",
+   "issue": "aa792e0f3f0d4e98",
+   "obs": "The countertops, backsplash, and tile end splash are dated.",
+   "kind": "modernization",
+   "sel": "outdated_kitchen_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the countertops backsplash and tile end splash",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80990371",
+   "photo": "photo_026.jpg",
+   "issue": "915a374272c7924e",
+   "obs": "Walls have visible cracks and scuffs.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "crack"
+   ],
+   "head": "walls",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80990371",
+   "photo": "photo_028.jpg",
+   "issue": "78e744dd2f33de2a",
+   "obs": "Walls have scuffs, small cracks, and patches.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "crack",
+    "patch"
+   ],
+   "head": "walls",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80990371",
+   "photo": "photo_030.jpg",
+   "issue": "5b15729576f0d506",
+   "obs": "Tub/shower fixtures and curtain hardware are dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "tub shower fixtures and curtain hardware",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80990371",
+   "photo": "photo_031.jpg",
+   "issue": "ba37e62ba52c145b",
+   "obs": "Shower hardware is dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "shower hardware",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80990371",
+   "photo": "photo_031.jpg",
+   "issue": "21ffe7d557cfb30d",
+   "obs": "Tile grout is stained and uneven near the tub line and lower walls.",
+   "kind": "degradation",
+   "sel": "bath_fixtures_stained_or_worn",
+   "firing": [
+    "tub$",
+    "stained"
+   ],
+   "head": "tile grout",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_80990371",
+   "photo": "photo_031.jpg",
+   "issue": "955d05d7b257d418",
+   "obs": "The countertop and sink are dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the countertop and sink",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_81000709",
+   "photo": "photo_002.jpg",
+   "issue": "27d524049477b49e",
+   "obs": "Ceiling has visible sagging and delamination near the fan and left side.",
+   "kind": "defect",
+   "sel": "ceiling_cracks_or_sagging",
+   "firing": [
+    "sagging"
+   ],
+   "head": "ceiling",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_81000709",
+   "photo": "photo_004.jpg",
+   "issue": "f57ee07ca1011e3c",
+   "obs": "The room has an older ceiling fan.",
+   "kind": "modernization",
+   "sel": "older_ceiling_fan_style",
+   "firing": [
+    "ceiling fan"
+   ],
+   "head": "the room",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_81000709",
+   "photo": "photo_013.jpg",
+   "issue": "c30d1f662cdfb07c",
+   "obs": "Ceiling surface appears uneven and sagging in areas.",
+   "kind": "defect",
+   "sel": "ceiling_cracks_or_sagging",
+   "firing": [
+    "sagging"
+   ],
+   "head": "ceiling surface",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_81000709",
+   "photo": "photo_033.jpg",
+   "issue": "82202896ec350bd8",
+   "obs": "Ceiling/soffit finish at the doorway is missing or sagging.",
+   "kind": "defect",
+   "sel": "ceiling_cracks_or_sagging",
+   "firing": [
+    "sagging"
+   ],
+   "head": "ceiling soffit finish",
+   "verdict": "supported"
+  },
+  {
+   "prop": "redfin_10735912",
+   "photo": "photo_015.jpg",
+   "issue": "2d25a17799e43d34",
+   "obs": "Wall outlets and details near the window appear old-looking.",
+   "kind": "modernization",
+   "sel": "dated_or_older_windows",
+   "firing": [
+    "window"
+   ],
+   "head": "wall outlets and details",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_10735912",
+   "photo": "photo_027.jpg",
+   "issue": "cc80443186066f5d",
+   "obs": "Wall finish is peeling and flaking.",
+   "kind": "degradation",
+   "sel": "peeling_or_discolored_paint",
+   "firing": [
+    "peeling",
+    "flaking"
+   ],
+   "head": "wall finish",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_10740044",
+   "photo": "photo_004.jpg",
+   "issue": "97740a30eb2a33b2",
+   "obs": "Older-looking surface wiring detail is visible near the window.",
+   "kind": "modernization",
+   "sel": "dated_or_older_windows",
+   "firing": [
+    "window"
+   ],
+   "head": "older-looking surface wiring detail",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_10740044",
+   "photo": "photo_007.jpg",
+   "issue": "d6525de716035017",
+   "obs": "Shower trim has an older appearance.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "old"
+   ],
+   "head": "shower trim",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_10740044",
+   "photo": "photo_007.jpg",
+   "issue": "f10c797777acb707",
+   "obs": "Tub and shower surround appear serviceable but dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "tub and shower surround",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_10740044",
+   "photo": "photo_011.jpg",
+   "issue": "180c81e929fbd4de",
+   "obs": "Walls are patched and uneven, with visible seams and cracking at joints.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "crack",
+    "patch",
+    "uneven"
+   ],
+   "head": "walls",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_10740044",
+   "photo": "photo_021.jpg",
+   "issue": "0193028b9fd4e560",
+   "obs": "The left wall has obvious holes and peeling or damaged plaster/drywall.",
+   "kind": "defect",
+   "sel": "damaged_drywall_or_cracks",
+   "firing": [
+    "drywall",
+    "hole"
+   ],
+   "head": "the left wall",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_10740044",
+   "photo": "photo_026.jpg",
+   "issue": "eb7211e36a93fb67",
+   "obs": "No visible guard or banister protection is present along the open side beyond a minimal lower railing structure.",
+   "kind": "defect",
+   "sel": "missing_or_damaged_handrails",
+   "firing": [
+    "railing"
+   ],
+   "head": "no visible guard or banister protection",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_10740044",
+   "photo": "photo_026.jpg",
+   "issue": "a1887a47b17c5324",
+   "obs": "Walls and trim have peeling paint and rough patching.",
+   "kind": "degradation",
+   "sel": "peeling_or_discolored_paint",
+   "firing": [
+    "peeling"
+   ],
+   "head": "walls and trim",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_10740044",
+   "photo": "photo_028.jpg",
+   "issue": "6aab04ad3efda09f",
+   "obs": "Visible seams or gaps are present around beams and along the foundation area.",
+   "kind": "defect",
+   "sel": "major_foundation_or_settlement_signs",
+   "firing": [
+    "foundation"
+   ],
+   "head": "visible seams or gaps",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_10740044",
+   "photo": "photo_030.jpg",
+   "issue": "cde49ad12745d28e",
+   "obs": "Ceiling panel seam is sagging and uneven.",
+   "kind": "defect",
+   "sel": "ceiling_cracks_or_sagging",
+   "firing": [
+    "sagging"
+   ],
+   "head": "ceiling panel seam",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_10740044",
+   "photo": "photo_031.jpg",
+   "issue": "af3334299f482669",
+   "obs": "Paint is peeling or aged.",
+   "kind": "degradation",
+   "sel": "peeling_or_discolored_paint",
+   "firing": [
+    "peeling"
+   ],
+   "head": "paint",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_10866780",
+   "photo": "photo_019.jpg",
+   "issue": "75831088376ae152",
+   "obs": "The window has basic blinds.",
+   "kind": "modernization",
+   "sel": "dated_window_treatment_valance",
+   "firing": [
+    "blinds"
+   ],
+   "head": "the window",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_10949071",
+   "photo": "photo_004.jpg",
+   "issue": "0beb5c0eb4f36f77",
+   "obs": "The room has an outdated light fixture.",
+   "kind": "modernization",
+   "sel": "dated_lighting_fixtures",
+   "firing": [
+    "outdated light"
+   ],
+   "head": "the room",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_10949071",
+   "photo": "photo_027.jpg",
+   "issue": "fe11bdd74a2cf96b",
+   "obs": "The toilet appears older.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "old"
+   ],
+   "head": "the toilet",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_10949071",
+   "photo": "photo_029.jpg",
+   "issue": "2c8172ebe53f954b",
+   "obs": "Countertops show wear and scuffs near the sink.",
+   "kind": "degradation",
+   "sel": "plumbing_fixture_stained_or_corroded",
+   "firing": [
+    "sink"
+   ],
+   "head": "countertops",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_11216660",
+   "photo": "photo_033.jpg",
+   "issue": "67fc6c85127ef789",
+   "obs": "The floral accent wall has bold, dated-looking wallpaper.",
+   "kind": "modernization",
+   "sel": "dated_wallpaper_present",
+   "firing": [
+    "wallpaper"
+   ],
+   "head": "the floral accent wall",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_11217387",
+   "photo": "photo_002.jpg",
+   "issue": "8948d15d609470c1",
+   "obs": "Granite-look counters, backsplash, cabinet hardware, ceiling fan, and lighting have dated finishes or styles.",
+   "kind": "modernization",
+   "sel": "outdated_kitchen_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "granite-look counters backsplash cabinet hardware ceiling fan and lighting",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_11217387",
+   "photo": "photo_008.jpg",
+   "issue": "5d008c2b08b38f3c",
+   "obs": "Mature landscaping is attractive but overgrown.",
+   "kind": "degradation",
+   "sel": "landscaping_overgrown_or_neglected",
+   "firing": [
+    "overgrown"
+   ],
+   "head": "mature landscaping",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_11217387",
+   "photo": "photo_009.jpg",
+   "issue": "1ce60e17c8d99012",
+   "obs": "Front landscaping is overgrown and obscures the house.",
+   "kind": "degradation",
+   "sel": "landscaping_overgrown_or_neglected",
+   "firing": [
+    "overgrown"
+   ],
+   "head": "front landscaping",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_11217387",
+   "photo": "photo_017.jpg",
+   "issue": "ec3981a334798119",
+   "obs": "The countertop and backsplash treatment appears dated.",
+   "kind": "modernization",
+   "sel": "outdated_kitchen_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the countertop and backsplash treatment",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_11217387",
+   "photo": "photo_021.jpg",
+   "issue": "2c810c2ec091101b",
+   "obs": "Landscaping appears overgrown.",
+   "kind": "degradation",
+   "sel": "landscaping_overgrown_or_neglected",
+   "firing": [
+    "overgrown"
+   ],
+   "head": "landscaping",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_11217387",
+   "photo": "photo_021.jpg",
+   "issue": "43603eb8c2fee33a",
+   "obs": "Moss and green staining are present on the brick and stone surfaces.",
+   "kind": "degradation",
+   "sel": "brick_weathered_or_discolored",
+   "firing": [],
+   "head": "moss and green staining",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_11217387",
+   "photo": "photo_023.jpg",
+   "issue": "cc9ec2e617dcce5d",
+   "obs": "The walls, trim, shelf brackets, medicine cabinet or mirror, faucet, and toilet appear basic and dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "the walls trim shelf brackets medicine cabinet or mirror faucet and toilet",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_11217387",
+   "photo": "photo_027.jpg",
+   "issue": "4e9bb1e470cd24a2",
+   "obs": "Shower hardware and tub controls appear dated.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "shower hardware and tub controls",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_11217387",
+   "photo": "photo_035.jpg",
+   "issue": "0ee8533069134e10",
+   "obs": "The landscaping is overgrown.",
+   "kind": "degradation",
+   "sel": "landscaping_overgrown_or_neglected",
+   "firing": [
+    "overgrown"
+   ],
+   "head": "the landscaping",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_80916010",
+   "photo": "photo_008.jpg",
+   "issue": "9292441977af7dbe",
+   "obs": "The faucet and handles appear older.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "old"
+   ],
+   "head": "the faucet and handles",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_80917686",
+   "photo": "photo_003.jpg",
+   "issue": "a5512d700f49ffd9",
+   "obs": "Shower hardware appears dated and basic.",
+   "kind": "modernization",
+   "sel": "outdated_bathroom_finishes",
+   "firing": [
+    "dated"
+   ],
+   "head": "shower hardware",
+   "verdict": null
+  },
+  {
+   "prop": "redfin_80917686",
+   "photo": "photo_040.jpg",
+   "issue": "0be312df3ac87c71",
+   "obs": "The turf has patchy and bare areas.",
+   "kind": "degradation",
+   "sel": "landscaping_overgrown_or_neglected",
+   "firing": [
+    "patchy"
+   ],
+   "head": "the turf",
+   "verdict": null
+  }
+ ],
+ "kept_count": 509
+}

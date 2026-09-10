@@ -1,0 +1,6065 @@
+{
+ "shortcut_rows": 640,
+ "baseline": {
+  "label": "all shortcut rows",
+  "rows": 640,
+  "with_verdict": 504,
+  "unsupported": 26,
+  "unsupported_rate": 0.051587301587301584,
+  "by_kind": {
+   "modernization": 354,
+   "degradation": 229,
+   "defect": 57
+  },
+  "top_items": [
+   [
+    "dated_or_older_windows",
+    96
+   ],
+   [
+    "outdated_bathroom_finishes",
+    52
+   ],
+   [
+    "roof_shingles_aged_or_worn",
+    52
+   ],
+   [
+    "worn_or_stained_carpet",
+    44
+   ],
+   [
+    "dated_window_treatment_valance",
+    30
+   ],
+   [
+    "landscaping_overgrown_or_neglected",
+    22
+   ],
+   [
+    "cabinets_dated_style",
+    20
+   ],
+   [
+    "older_ceiling_fan_style",
+    20
+   ]
+  ]
+ },
+ "A_subject_aware": {
+  "flipped": {
+   "label": "flipped to LLM",
+   "rows": 121,
+   "with_verdict": 92,
+   "unsupported": 5,
+   "unsupported_rate": 0.05434782608695652,
+   "by_kind": {
+    "degradation": 39,
+    "defect": 34,
+    "modernization": 48
+   },
+   "top_items": [
+    [
+     "outdated_bathroom_finishes",
+     25
+    ],
+    [
+     "damaged_drywall_or_cracks",
+     16
+    ],
+    [
+     "ceiling_cracks_or_sagging",
+     15
+    ],
+    [
+     "landscaping_overgrown_or_neglected",
+     14
+    ],
+    [
+     "peeling_or_discolored_paint",
+     11
+    ],
+    [
+     "outdated_kitchen_finishes",
+     6
+    ],
+    [
+     "hard_flooring_scratched_or_worn",
+     5
+    ],
+    [
+     "appliances_dated_or_basic",
+     3
+    ]
+   ]
+  },
+  "kept": {
+   "label": "kept as shortcut",
+   "rows": 519,
+   "with_verdict": 412,
+   "unsupported": 21,
+   "unsupported_rate": 0.050970873786407765,
+   "by_kind": {
+    "modernization": 306,
+    "degradation": 190,
+    "defect": 23
+   },
+   "top_items": [
+    [
+     "dated_or_older_windows",
+     93
+    ],
+    [
+     "roof_shingles_aged_or_worn",
+     50
+    ],
+    [
+     "worn_or_stained_carpet",
+     44
+    ],
+    [
+     "dated_window_treatment_valance",
+     29
+    ],
+    [
+     "outdated_bathroom_finishes",
+     27
+    ],
+    [
+     "cabinets_dated_style",
+     20
+    ],
+    [
+     "dated_entry_or_patio_door",
+     19
+    ],
+    [
+     "older_ceiling_fan_style",
+     19
+    ]
+   ]
+  },
+  "flipped_examples": [
+   {
+    "prop": "redfin_10803207",
+    "photo": "photo_019.jpg",
+    "obs": "Hardwood flooring has finish wear, scuffing, and uneven sheen.",
+    "sel": "hard_flooring_scratched_or_worn",
+    "firing": [
+     "scuff"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10806500",
+    "photo": "photo_003.jpg",
+    "obs": "Ceiling panels are sagging and deteriorated.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "sagging"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_009.jpg",
+    "obs": "Gray walls have small holes and dings.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "hole"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_015.jpg",
+    "obs": "The gas range and refrigerator are older, dated, and mismatched.",
+    "sel": "appliances_dated_or_basic",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_016.jpg",
+    "obs": "Deck rails appear loose.",
+    "sel": "missing_or_damaged_handrails",
+    "firing": [
+     "loose"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_032.jpg",
+    "obs": "The toilet, faucet, medicine cabinet, lighting, and trim are dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_033.jpg",
+    "obs": "Walls and baseboards have scuffs and small holes or marks.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "hole"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11000447",
+    "photo": "photo_003.jpg",
+    "obs": "Walls have scuffs and holes.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "hole"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11000447",
+    "photo": "photo_004.jpg",
+    "obs": "Walls have scuffs, holes, patches, and old adhesive or fixture marks.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "hole",
+     "patch"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11000447",
+    "photo": "photo_007.jpg",
+    "obs": "The striped wall has peeling paint.",
+    "sel": "peeling_or_discolored_paint",
+    "firing": [
+     "peeling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11077450",
+    "photo": "photo_001.jpg",
+    "obs": "Brick masonry shows aging and discoloration.",
+    "sel": "brick_weathered_or_discolored",
+    "firing": [],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_11077450",
+    "photo": "photo_007.jpg",
+    "obs": "Drop-ceiling panels appear sagging.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "sagging"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_11077450",
+    "photo": "photo_014.jpg",
+    "obs": "The counters, backsplash, hardware, and appliances are dated.",
+    "sel": "outdated_kitchen_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11077450",
+    "photo": "photo_021.jpg",
+    "obs": "Door finishes are scuffed.",
+    "sel": "hard_flooring_scratched_or_worn",
+    "firing": [
+     "scuff"
+    ],
+    "verdict": "cannot_assess"
+   },
+   {
+    "prop": "redfin_11079485",
+    "photo": "photo_008.jpg",
+    "obs": "Paint on basement surfaces is peeling.",
+    "sel": "peeling_or_discolored_paint",
+    "firing": [
+     "peeling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_002.jpg",
+    "obs": "The white electric range appears dated relative to the stainless appliances.",
+    "sel": "appliances_dated_or_basic",
+    "firing": [
+     "appliance",
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_007.jpg",
+    "obs": "Original hardwood floors are heavily worn and scratched with finish loss.",
+    "sel": "hard_flooring_scratched_or_worn",
+    "firing": [
+     "scratch"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_008.jpg",
+    "obs": "The planting is overgrown.",
+    "sel": "landscaping_overgrown_or_neglected",
+    "firing": [
+     "overgrown"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_009.jpg",
+    "obs": "Landscaping around the property is overgrown.",
+    "sel": "landscaping_overgrown_or_neglected",
+    "firing": [
+     "overgrown"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_012.jpg",
+    "obs": "Planting around the property is overgrown.",
+    "sel": "landscaping_overgrown_or_neglected",
+    "firing": [
+     "overgrown"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_017.jpg",
+    "obs": "The room has a window that appears older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_021.jpg",
+    "obs": "Existing hardwood flooring is heavily worn and scratched.",
+    "sel": "hard_flooring_scratched_or_worn",
+    "firing": [
+     "scratch"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_024.jpg",
+    "obs": "Countertops have a dated appearance.",
+    "sel": "outdated_kitchen_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_032.jpg",
+    "obs": "The faucet set, mirrored cabinet, light, and hardware appear dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_033.jpg",
+    "obs": "The single-handle valve and tub spout appear visually dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_043.jpg",
+    "obs": "The existing tub is dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_044.jpg",
+    "obs": "Original hardwood floors show heavy wear, scratches, and a dull, uneven finish.",
+    "sel": "hard_flooring_scratched_or_worn",
+    "firing": [
+     "scratch"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_048.jpg",
+    "obs": "The countertop and sink are dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_003.jpg",
+    "obs": "The toilet is dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_007.jpg",
+    "obs": "The floor has discoloration and staining around the tub and vanity.",
+    "sel": "bath_fixtures_stained_or_worn",
+    "firing": [
+     "tub$"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_007.jpg",
+    "obs": "Walls have visible scuffs and holes.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "hole"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_008.jpg",
+    "obs": "The toilet is dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_010.jpg",
+    "obs": "The ceiling has heavy popcorn texture.",
+    "sel": "popcorn_or_acoustic_ceiling_texture",
+    "firing": [
+     "popcorn texture"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_016.jpg",
+    "obs": "Dark staining is visible along the roof edge.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_004.jpg",
+    "obs": "Adjacent ceiling material is sagging and damaged.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "sagging"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_004.jpg",
+    "obs": "Wall paneling is damaged and has holes.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "hole"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_005.jpg",
+    "obs": "Lower left wall has staining and peeling material.",
+    "sel": "peeling_or_discolored_paint",
+    "firing": [
+     "peeling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_005.jpg",
+    "obs": "Ceiling has staining and peeling material.",
+    "sel": "peeling_or_discolored_paint",
+    "firing": [
+     "peeling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_007.jpg",
+    "obs": "Ceiling panels are cracked, sagging, and uneven.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "sagging"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_007.jpg",
+    "obs": "Wall finishes are stained and peeling.",
+    "sel": "peeling_or_discolored_paint",
+    "firing": [
+     "peeling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_011.jpg",
+    "obs": "Kitchen has an old window air-conditioning installation.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_014.jpg",
+    "obs": "The toilet is dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_014.jpg",
+    "obs": "The faucet and shower hardware are old.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "old"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_016.jpg",
+    "obs": "Walls have patchy areas and holes.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "hole",
+     "patch"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_017.jpg",
+    "obs": "Wall material is deteriorated around and beneath the sink and toilet.",
+    "sel": "plumbing_fixture_stained_or_corroded",
+    "firing": [
+     "sink"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_017.jpg",
+    "obs": "Bathroom fixtures are worn.",
+    "sel": "bath_fixtures_stained_or_worn",
+    "firing": [
+     "worn"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_019.jpg",
+    "obs": "The walls have visible cracks and patching.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "crack",
+     "patch"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_021.jpg",
+    "obs": "Walls have holes and patch marks.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "hole",
+     "patch"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_021.jpg",
+    "obs": "The window has basic trim.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "trim"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_024.jpg",
+    "obs": "Sink and faucet are dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_040.jpg",
+    "obs": "The tub/shower area appears dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_041.jpg",
+    "obs": "The showerhead and exposed plumbing look dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_041.jpg",
+    "obs": "The mirror and faucet look dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_009.jpg",
+    "obs": "The perimeter landscaping is overgrown.",
+    "sel": "landscaping_overgrown_or_neglected",
+    "firing": [
+     "overgrown"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_011.jpg",
+    "obs": "Landscaping appears overgrown and underdeveloped.",
+    "sel": "landscaping_overgrown_or_neglected",
+    "firing": [
+     "overgrown"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_012.jpg",
+    "obs": "The landscaping has overgrowth, thin lawn, weeds, and neglected planting beds.",
+    "sel": "landscaping_overgrown_or_neglected",
+    "firing": [
+     "weeds",
+     "lawn"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_031.jpg",
+    "obs": "Entry door is a six-panel builder-grade door.",
+    "sel": "dated_interior_doors",
+    "firing": [
+     "six-panel"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_036.jpg",
+    "obs": "Closet has basic bifold louvered doors.",
+    "sel": "dated_interior_doors",
+    "firing": [
+     "louvered",
+     "bifold"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_039.jpg",
+    "obs": "The closet has dated louvered doors.",
+    "sel": "dated_interior_doors",
+    "firing": [
+     "louvered"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_003.jpg",
+    "obs": "The drop ceiling is sagging.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "sagging"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_023.jpg",
+    "obs": "Ceiling panels near the stair opening are sagging or damaged.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "sagging"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_039.jpg",
+    "obs": "Acoustic ceiling tiles have sagging and misaligned areas.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "sagging"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_039.jpg",
+    "obs": "Walls have extensive scuffs, holes, patch marks, and uneven finishes.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "hole",
+     "patch",
+     "uneven"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_044.jpg",
+    "obs": "Acoustic ceiling tiles are sagging and misaligned.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "sagging"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_044.jpg",
+    "obs": "The door has extensive peeling paint.",
+    "sel": "peeling_or_discolored_paint",
+    "firing": [
+     "peeling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_047.jpg",
+    "obs": "Drop ceiling is visibly uneven and sagging in spots.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "sagging"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_048.jpg",
+    "obs": "One drop-ceiling panel appears sagging.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "sagging"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_25809814",
+    "photo": "photo_007.jpg",
+    "obs": "Shower fixtures and trim are dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_25809814",
+    "photo": "photo_012.jpg",
+    "obs": "Dark countertops have a dated appearance.",
+    "sel": "outdated_kitchen_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_25809814",
+    "photo": "photo_030.jpg",
+    "obs": "Paint near the base of the brick walls is peeling and flaking.",
+    "sel": "peeling_or_discolored_paint",
+    "firing": [
+     "peeling",
+     "flaking"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80877597",
+    "photo": "photo_001.jpg",
+    "obs": "The landscaping is mature and overgrown.",
+    "sel": "landscaping_overgrown_or_neglected",
+    "firing": [
+     "overgrown"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_80877597",
+    "photo": "photo_003.jpg",
+    "obs": "The tub appears to be an older unit.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "old"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80877597",
+    "photo": "photo_004.jpg",
+    "obs": "Ceiling has a dated popcorn texture.",
+    "sel": "popcorn_or_acoustic_ceiling_texture",
+    "firing": [
+     "popcorn texture"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_004.jpg",
+    "obs": "The landscaping is overgrown.",
+    "sel": "landscaping_overgrown_or_neglected",
+    "firing": [
+     "overgrown"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_007.jpg",
+    "obs": "Ceiling and wall joints show minor separation and unevenness.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "separation"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_031.jpg",
+    "obs": "The awning or trim appears worn.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "worn"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_038.jpg",
+    "obs": "Walls have visible damage and patching.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "patch"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_039.jpg",
+    "obs": "Plaster or paint above the mantel is peeling and damaged.",
+    "sel": "peeling_or_discolored_paint",
+    "firing": [
+     "peeling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_044.jpg",
+    "obs": "The kitchen has old white appliances.",
+    "sel": "appliances_dated_or_basic",
+    "firing": [
+     "appliance",
+     "white appliances"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_008.jpg",
+    "obs": "Landscaping is overgrown.",
+    "sel": "landscaping_overgrown_or_neglected",
+    "firing": [
+     "overgrown"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_017.jpg",
+    "obs": "Room has a dated paint palette and finishes.",
+    "sel": "paint_refresh_recommended",
+    "firing": [
+     "dated paint"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_018.jpg",
+    "obs": "Walls have visible cracking and patching.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "crack",
+     "patch"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_023.jpg",
+    "obs": "The countertops, backsplash, and tile end splash are dated.",
+    "sel": "outdated_kitchen_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_026.jpg",
+    "obs": "Walls have visible cracks and scuffs.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "crack"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_028.jpg",
+    "obs": "Walls have scuffs, small cracks, and patches.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "crack",
+     "patch"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_030.jpg",
+    "obs": "Tub/shower fixtures and curtain hardware are dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_031.jpg",
+    "obs": "Shower hardware is dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_031.jpg",
+    "obs": "Tile grout is stained and uneven near the tub line and lower walls.",
+    "sel": "bath_fixtures_stained_or_worn",
+    "firing": [
+     "tub$",
+     "stained"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_031.jpg",
+    "obs": "The countertop and sink are dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_81000709",
+    "photo": "photo_002.jpg",
+    "obs": "Ceiling has visible sagging and delamination near the fan and left side.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "sagging"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_81000709",
+    "photo": "photo_004.jpg",
+    "obs": "The room has an older ceiling fan.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_81000709",
+    "photo": "photo_013.jpg",
+    "obs": "Ceiling surface appears uneven and sagging in areas.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "sagging"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_81000709",
+    "photo": "photo_033.jpg",
+    "obs": "Ceiling/soffit finish at the doorway is missing or sagging.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "sagging"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10735912",
+    "photo": "photo_027.jpg",
+    "obs": "Wall finish is peeling and flaking.",
+    "sel": "peeling_or_discolored_paint",
+    "firing": [
+     "peeling",
+     "flaking"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_004.jpg",
+    "obs": "Older-looking surface wiring detail is visible near the window.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_007.jpg",
+    "obs": "Shower trim has an older appearance.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "old"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_007.jpg",
+    "obs": "Tub and shower surround appear serviceable but dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_011.jpg",
+    "obs": "Walls are patched and uneven, with visible seams and cracking at joints.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "crack",
+     "patch",
+     "uneven"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_021.jpg",
+    "obs": "The left wall has obvious holes and peeling or damaged plaster/drywall.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "drywall",
+     "hole"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_026.jpg",
+    "obs": "No visible guard or banister protection is present along the open side beyond a minimal lower railing structure.",
+    "sel": "missing_or_damaged_handrails",
+    "firing": [
+     "railing"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_026.jpg",
+    "obs": "Walls and trim have peeling paint and rough patching.",
+    "sel": "peeling_or_discolored_paint",
+    "firing": [
+     "peeling"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_028.jpg",
+    "obs": "Visible seams or gaps are present around beams and along the foundation area.",
+    "sel": "major_foundation_or_settlement_signs",
+    "firing": [
+     "foundation"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_030.jpg",
+    "obs": "Ceiling panel seam is sagging and uneven.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "sagging"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_031.jpg",
+    "obs": "Paint is peeling or aged.",
+    "sel": "peeling_or_discolored_paint",
+    "firing": [
+     "peeling"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10866780",
+    "photo": "photo_019.jpg",
+    "obs": "The window has basic blinds.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10949071",
+    "photo": "photo_004.jpg",
+    "obs": "The room has an outdated light fixture.",
+    "sel": "dated_lighting_fixtures",
+    "firing": [
+     "outdated light"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10949071",
+    "photo": "photo_027.jpg",
+    "obs": "The toilet appears older.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "old"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10949071",
+    "photo": "photo_029.jpg",
+    "obs": "Countertops show wear and scuffs near the sink.",
+    "sel": "plumbing_fixture_stained_or_corroded",
+    "firing": [
+     "sink"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11216660",
+    "photo": "photo_033.jpg",
+    "obs": "The floral accent wall has bold, dated-looking wallpaper.",
+    "sel": "dated_wallpaper_present",
+    "firing": [
+     "wallpaper"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_002.jpg",
+    "obs": "Granite-look counters, backsplash, cabinet hardware, ceiling fan, and lighting have dated finishes or styles.",
+    "sel": "outdated_kitchen_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_008.jpg",
+    "obs": "Mature landscaping is attractive but overgrown.",
+    "sel": "landscaping_overgrown_or_neglected",
+    "firing": [
+     "overgrown"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_009.jpg",
+    "obs": "Front landscaping is overgrown and obscures the house.",
+    "sel": "landscaping_overgrown_or_neglected",
+    "firing": [
+     "overgrown"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_017.jpg",
+    "obs": "The countertop and backsplash treatment appears dated.",
+    "sel": "outdated_kitchen_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_021.jpg",
+    "obs": "Landscaping appears overgrown.",
+    "sel": "landscaping_overgrown_or_neglected",
+    "firing": [
+     "overgrown"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_021.jpg",
+    "obs": "Moss and green staining are present on the brick and stone surfaces.",
+    "sel": "brick_weathered_or_discolored",
+    "firing": [],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_023.jpg",
+    "obs": "The walls, trim, shelf brackets, medicine cabinet or mirror, faucet, and toilet appear basic and dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_027.jpg",
+    "obs": "Shower hardware and tub controls appear dated.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_035.jpg",
+    "obs": "The landscaping is overgrown.",
+    "sel": "landscaping_overgrown_or_neglected",
+    "firing": [
+     "overgrown"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_80916010",
+    "photo": "photo_008.jpg",
+    "obs": "The faucet and handles appear older.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "old"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_80917686",
+    "photo": "photo_003.jpg",
+    "obs": "Shower hardware appears dated and basic.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "dated"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_80917686",
+    "photo": "photo_040.jpg",
+    "obs": "The turf has patchy and bare areas.",
+    "sel": "landscaping_overgrown_or_neglected",
+    "firing": [
+     "patchy"
+    ],
+    "verdict": null
+   }
+  ],
+  "c5_flips": true,
+  "d1_flips": false
+ },
+ "B_condition_term": {
+  "flipped": {
+   "label": "flipped to LLM",
+   "rows": 385,
+   "with_verdict": 305,
+   "unsupported": 17,
+   "unsupported_rate": 0.05573770491803279,
+   "by_kind": {
+    "modernization": 261,
+    "degradation": 113,
+    "defect": 11
+   },
+   "top_items": [
+    [
+     "dated_or_older_windows",
+     96
+    ],
+    [
+     "roof_shingles_aged_or_worn",
+     46
+    ],
+    [
+     "dated_window_treatment_valance",
+     29
+    ],
+    [
+     "older_ceiling_fan_style",
+     20
+    ],
+    [
+     "dated_entry_or_patio_door",
+     19
+    ],
+    [
+     "dated_interior_trim",
+     18
+    ],
+    [
+     "door_hardware_dated_style",
+     13
+    ],
+    [
+     "vanity_worn_finish",
+     12
+    ]
+   ]
+  },
+  "kept": {
+   "label": "kept as shortcut",
+   "rows": 255,
+   "with_verdict": 199,
+   "unsupported": 9,
+   "unsupported_rate": 0.04522613065326633,
+   "by_kind": {
+    "modernization": 93,
+    "degradation": 116,
+    "defect": 46
+   },
+   "top_items": [
+    [
+     "outdated_bathroom_finishes",
+     50
+    ],
+    [
+     "worn_or_stained_carpet",
+     41
+    ],
+    [
+     "landscaping_overgrown_or_neglected",
+     22
+    ],
+    [
+     "cabinets_dated_style",
+     18
+    ],
+    [
+     "damaged_drywall_or_cracks",
+     18
+    ],
+    [
+     "ceiling_cracks_or_sagging",
+     14
+    ],
+    [
+     "outdated_kitchen_finishes",
+     14
+    ],
+    [
+     "peeling_or_discolored_paint",
+     11
+    ]
+   ]
+  },
+  "flipped_examples": [
+   {
+    "prop": "redfin_10803207",
+    "photo": "photo_002.jpg",
+    "obs": "The exposed-bulb vanity fixture is visually dated.",
+    "sel": "dated_bathroom_vanity_light",
+    "firing": [
+     "vanity fixture"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10803207",
+    "photo": "photo_011.jpg",
+    "obs": "The door hardware consists of basic, dated black knobs.",
+    "sel": "door_hardware_dated_style",
+    "firing": [
+     "door hardware"
+    ],
+    "verdict": "cannot_assess"
+   },
+   {
+    "prop": "redfin_10803207",
+    "photo": "photo_014.jpg",
+    "obs": "The blinds appear dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10803207",
+    "photo": "photo_015.jpg",
+    "obs": "The entry door, sidelights, transom, and flush-mount light have a traditional early-2000s appearance.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "entry door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10803207",
+    "photo": "photo_020.jpg",
+    "obs": "Six-panel doors are dated.",
+    "sel": "dated_interior_doors",
+    "firing": [
+     "six-panel"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10803207",
+    "photo": "photo_020.jpg",
+    "obs": "Brass door knobs are dated.",
+    "sel": "door_hardware_dated_style",
+    "firing": [
+     "door knob",
+     "brass"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10803207",
+    "photo": "photo_022.jpg",
+    "obs": "The vanity lighting is a basic exposed-bulb bar.",
+    "sel": "dated_bathroom_vanity_light",
+    "firing": [
+     "vanity light"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10803207",
+    "photo": "photo_026.jpg",
+    "obs": "The three-bulb vanity light has a basic builder-grade appearance.",
+    "sel": "dated_bathroom_vanity_light",
+    "firing": [
+     "vanity light"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10803207",
+    "photo": "photo_026.jpg",
+    "obs": "The vanity light is dated and harsh.",
+    "sel": "dated_bathroom_vanity_light",
+    "firing": [
+     "vanity light"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10803207",
+    "photo": "photo_027.jpg",
+    "obs": "Entry door system has a dated, traditional style.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "entry door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10806500",
+    "photo": "photo_004.jpg",
+    "obs": "Sheet or vinyl-style flooring appears worn.",
+    "sel": "vinyl_linoleum_worn_or_stained",
+    "firing": [
+     "vinyl"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_10806500",
+    "photo": "photo_006.jpg",
+    "obs": "Vanity cabinet face and side are swollen, peeling, and deteriorated.",
+    "sel": "vanity_worn_finish",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_006.jpg",
+    "obs": "Carpet has visible debris and white residue.",
+    "sel": "worn_or_stained_carpet",
+    "firing": [
+     "carpet"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_007.jpg",
+    "obs": "The interior door and casing look basic.",
+    "sel": "dated_interior_doors",
+    "firing": [
+     "interior door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_009.jpg",
+    "obs": "Baseboards and door trim are basic finishes.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "baseboard",
+     "baseboards",
+     "trim"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_014.jpg",
+    "obs": "The brass door knob appears dated.",
+    "sel": "door_hardware_dated_style",
+    "firing": [
+     "door knob",
+     "brass"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_023.jpg",
+    "obs": "Door hardware is dated.",
+    "sel": "door_hardware_dated_style",
+    "firing": [
+     "door hardware"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_028.jpg",
+    "obs": "The mini blinds have a basic style.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_028.jpg",
+    "obs": "The mini blinds appear older.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_029.jpg",
+    "obs": "Window blinds are older.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_031.jpg",
+    "obs": "Tub surround grout is dark and aged.",
+    "sel": "bath_fixtures_stained_or_worn",
+    "firing": [
+     "tub$"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_031.jpg",
+    "obs": "Ceiling above the shower has discoloration and staining.",
+    "sel": "bath_fixtures_stained_or_worn",
+    "firing": [
+     "shower"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_031.jpg",
+    "obs": "Caulk at the tub-to-wall and tub-to-floor joints appears tired.",
+    "sel": "bath_fixtures_stained_or_worn",
+    "firing": [
+     "tub$"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_033.jpg",
+    "obs": "The mini blinds are dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11000447",
+    "photo": "photo_001.jpg",
+    "obs": "Some windows appear dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_11000447",
+    "photo": "photo_004.jpg",
+    "obs": "Painted cabinets appear tired.",
+    "sel": "cabinets_worn_finish",
+    "firing": [
+     "cabinet"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11000447",
+    "photo": "photo_004.jpg",
+    "obs": "The window appears older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11000447",
+    "photo": "photo_008.jpg",
+    "obs": "The vanity cabinet surfaces appear worn.",
+    "sel": "vanity_worn_finish",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11077450",
+    "photo": "photo_001.jpg",
+    "obs": "Brick masonry shows aging and discoloration.",
+    "sel": "brick_weathered_or_discolored",
+    "firing": [],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_11077450",
+    "photo": "photo_006.jpg",
+    "obs": "The window and trim have a dated appearance.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11077450",
+    "photo": "photo_008.jpg",
+    "obs": "The front door hardware is mismatched and aged.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "front door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11077450",
+    "photo": "photo_014.jpg",
+    "obs": "The windows and door appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11077450",
+    "photo": "photo_015.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11077450",
+    "photo": "photo_025.jpg",
+    "obs": "Door hardware is aged.",
+    "sel": "door_hardware_dated_style",
+    "firing": [
+     "door hardware"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11077450",
+    "photo": "photo_027.jpg",
+    "obs": "The door hardware is dated.",
+    "sel": "door_hardware_dated_style",
+    "firing": [
+     "door hardware"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_11077450",
+    "photo": "photo_029.jpg",
+    "obs": "Wall paneling is an older, dated basement finish.",
+    "sel": "dated_wood_paneling",
+    "firing": [
+     "paneling",
+     "wall paneling"
+    ],
+    "verdict": "cannot_assess"
+   },
+   {
+    "prop": "redfin_11077450",
+    "photo": "photo_033.jpg",
+    "obs": "The rear windows and doors appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11079485",
+    "photo": "photo_005.jpg",
+    "obs": "The vanity is stained and dirty.",
+    "sel": "vanity_worn_finish",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_11079485",
+    "photo": "photo_005.jpg",
+    "obs": "The sink and vanity appear damaged.",
+    "sel": "vanity_damaged_or_water_stained",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_11079485",
+    "photo": "photo_006.jpg",
+    "obs": "Laminate countertop is damaged.",
+    "sel": "countertop_damage",
+    "firing": [
+     "countertop"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_001.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_003.jpg",
+    "obs": "The window unit and trim look dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_005.jpg",
+    "obs": "The vanity cabinet appears worn and scuffed.",
+    "sel": "vanity_worn_finish",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_005.jpg",
+    "obs": "The multi-shade vanity light fixture is dated.",
+    "sel": "dated_bathroom_vanity_light",
+    "firing": [
+     "vanity light"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_006.jpg",
+    "obs": "The ceiling fan is old.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_006.jpg",
+    "obs": "The trim is basic and dated.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "trim"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_006.jpg",
+    "obs": "The blinds are basic and dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_007.jpg",
+    "obs": "The window and blinds are dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_008.jpg",
+    "obs": "The roof shingles appear uneven and weathered.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_009.jpg",
+    "obs": "The windows appear to include a mix of older units.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_010.jpg",
+    "obs": "The roof appears aged.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_010.jpg",
+    "obs": "The windows appear mixed and older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_011.jpg",
+    "obs": "The roof appears aged, particularly around the porch roof and side addition.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_011.jpg",
+    "obs": "The entry door and storm-door combination feels dated.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "entry door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_012.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_013.jpg",
+    "obs": "Roof shingles show visible age.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_013.jpg",
+    "obs": "The fence shows visible wear.",
+    "sel": "fence_weathered",
+    "firing": [
+     "fence"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_014.jpg",
+    "obs": "The windows appear to be older double-hung units.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_014.jpg",
+    "obs": "The storm door and main entry door appear mismatched and dated.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "entry door",
+     "storm door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_017.jpg",
+    "obs": "An older ceiling fan is present.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_017.jpg",
+    "obs": "The room has a window that appears older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_019.jpg",
+    "obs": "The windows appear to be older double-hung units.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_022.jpg",
+    "obs": "Window blinds have a dated appearance.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_023.jpg",
+    "obs": "The kitchen appliances are mixed and older.",
+    "sel": "appliances_dated_or_basic",
+    "firing": [
+     "appliance"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_024.jpg",
+    "obs": "Kitchen appliances are mixed-age and mismatched.",
+    "sel": "appliances_dated_or_basic",
+    "firing": [
+     "appliance"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_026.jpg",
+    "obs": "The blinds and valances are dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "valance",
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_030.jpg",
+    "obs": "The window blinds are dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_032.jpg",
+    "obs": "The wood vanity appears worn.",
+    "sel": "vanity_worn_finish",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_032.jpg",
+    "obs": "The vanity has chipped and marked edges.",
+    "sel": "vanity_worn_finish",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_034.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_035.jpg",
+    "obs": "Door hardware appears worn.",
+    "sel": "door_hardware_worn",
+    "firing": [
+     "door hardware"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_037.jpg",
+    "obs": "The built-in under the windows looks dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_039.jpg",
+    "obs": "The visible window is dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_040.jpg",
+    "obs": "The blinds appear dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_041.jpg",
+    "obs": "The window appears older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_043.jpg",
+    "obs": "The tub rim shows visible wear and staining.",
+    "sel": "bath_fixtures_stained_or_worn",
+    "firing": [
+     "tub$"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_045.jpg",
+    "obs": "The blinds are dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_046.jpg",
+    "obs": "The blinds are dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_046.jpg",
+    "obs": "The trim is dated.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "trim"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_048.jpg",
+    "obs": "The vanity light is builder-grade.",
+    "sel": "dated_bathroom_vanity_light",
+    "firing": [
+     "vanity light"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_048.jpg",
+    "obs": "The vanity is older.",
+    "sel": "vanity_dated_style",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_048.jpg",
+    "obs": "The wood vanity cabinet has visible chipping.",
+    "sel": "vanity_worn_finish",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_049.jpg",
+    "obs": "The porch ceiling or soffit shows discoloration and age.",
+    "sel": "soffit_or_porch_ceiling_weathered",
+    "firing": [
+     "soffit",
+     "porch ceiling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_050.jpg",
+    "obs": "The porch ceiling or trim has staining and discoloration.",
+    "sel": "soffit_or_porch_ceiling_weathered",
+    "firing": [
+     "porch ceiling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_003.jpg",
+    "obs": "The sheet/vinyl flooring is heavily stained and aged, especially near the tub edge and vanity/toilet.",
+    "sel": "vinyl_linoleum_worn_or_stained",
+    "firing": [
+     "vinyl"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_003.jpg",
+    "obs": "The door hardware is dated.",
+    "sel": "door_hardware_dated_style",
+    "firing": [
+     "door hardware"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_004.jpg",
+    "obs": "Popcorn/textured ceiling appears dated.",
+    "sel": "popcorn_or_acoustic_ceiling_texture",
+    "firing": [
+     "textured ceiling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_007.jpg",
+    "obs": "The vinyl or linoleum flooring appears aging.",
+    "sel": "vinyl_linoleum_worn_or_stained",
+    "firing": [
+     "linoleum",
+     "vinyl"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_007.jpg",
+    "obs": "The floor has discoloration and staining around the tub and vanity.",
+    "sel": "bath_fixtures_stained_or_worn",
+    "firing": [
+     "tub$"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_007.jpg",
+    "obs": "The ceiling and wall area near the tub look rough.",
+    "sel": "bath_fixtures_stained_or_worn",
+    "firing": [
+     "tub$"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_008.jpg",
+    "obs": "The bathroom has a basic laminate vanity.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "bathroom",
+     "vanity"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_009.jpg",
+    "obs": "The baseboards, outlets, door, and trim are dated.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "baseboard",
+     "baseboards",
+     "trim"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_010.jpg",
+    "obs": "The ceiling has heavy popcorn texture.",
+    "sel": "popcorn_or_acoustic_ceiling_texture",
+    "firing": [
+     "popcorn texture"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_013.jpg",
+    "obs": "Roof shingles appear aged and darkened.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_014.jpg",
+    "obs": "Roof covering appears somewhat uneven.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_014.jpg",
+    "obs": "Small horizontal windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_015.jpg",
+    "obs": "White eaves, fascia, and soffit trim are stained.",
+    "sel": "soffit_or_porch_ceiling_weathered",
+    "firing": [
+     "soffit"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_015.jpg",
+    "obs": "The visible portion of the roof appears aged.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_015.jpg",
+    "obs": "The wood fence appears aged and has an inconsistent finish.",
+    "sel": "fence_weathered",
+    "firing": [
+     "fence"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_016.jpg",
+    "obs": "The low-slope roof appears weathered.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_016.jpg",
+    "obs": "Dark staining is visible along the roof edge.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_016.jpg",
+    "obs": "The multi-pane windows and rear door appear dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_018.jpg",
+    "obs": "Roof shingle surfaces appear aged.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_018.jpg",
+    "obs": "A long bank of older, mismatched windows is present.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_001.jpg",
+    "obs": "The windows appear older and inconsistent in style.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_002.jpg",
+    "obs": "The jalousie-style window is older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_002.jpg",
+    "obs": "The ceiling texture is dated.",
+    "sel": "popcorn_or_acoustic_ceiling_texture",
+    "firing": [
+     "ceiling texture"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_004.jpg",
+    "obs": "Sheet vinyl flooring is heavily stained and worn.",
+    "sel": "vinyl_linoleum_worn_or_stained",
+    "firing": [
+     "vinyl"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_004.jpg",
+    "obs": "Wall paneling is dated.",
+    "sel": "dated_wood_paneling",
+    "firing": [
+     "paneling",
+     "wall paneling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_006.jpg",
+    "obs": "Cabinet finishes are failing.",
+    "sel": "cabinets_worn_finish",
+    "firing": [
+     "cabinet"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_006.jpg",
+    "obs": "Lower cabinets around the sink, corner, and former range area are stained.",
+    "sel": "plumbing_fixture_stained_or_corroded",
+    "firing": [
+     "sink"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_007.jpg",
+    "obs": "Drywall or paneling is damaged.",
+    "sel": "damaged_drywall_or_cracks",
+    "firing": [
+     "drywall"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_008.jpg",
+    "obs": "Several windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_009.jpg",
+    "obs": "The ceiling fan is older.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_010.jpg",
+    "obs": "Laminate or vinyl-style flooring is heavily scuffed.",
+    "sel": "vinyl_linoleum_worn_or_stained",
+    "firing": [
+     "vinyl"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_010.jpg",
+    "obs": "The front window appears older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_011.jpg",
+    "obs": "Kitchen has an old window air-conditioning installation.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_012.jpg",
+    "obs": "The textured ceiling is aged.",
+    "sel": "popcorn_or_acoustic_ceiling_texture",
+    "firing": [
+     "textured ceiling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_012.jpg",
+    "obs": "The ceiling fan is old.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_012.jpg",
+    "obs": "The blinds are old.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_013.jpg",
+    "obs": "Wallpaper throughout is dated.",
+    "sel": "dated_wallpaper_present",
+    "firing": [
+     "wallpaper"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_014.jpg",
+    "obs": "The vanity is deteriorated.",
+    "sel": "vanity_worn_finish",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_017.jpg",
+    "obs": "Wall material is deteriorated around and beneath the sink and toilet.",
+    "sel": "plumbing_fixture_stained_or_corroded",
+    "firing": [
+     "sink"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_017.jpg",
+    "obs": "The shower valve and trim appear damaged.",
+    "sel": "tub_surround_or_shower_pan_damage",
+    "firing": [
+     "shower"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_019.jpg",
+    "obs": "The sheet or vinyl-style flooring is badly worn.",
+    "sel": "vinyl_linoleum_worn_or_stained",
+    "firing": [
+     "vinyl"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_021.jpg",
+    "obs": "The textured ceiling is dated.",
+    "sel": "popcorn_or_acoustic_ceiling_texture",
+    "firing": [
+     "textured ceiling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_021.jpg",
+    "obs": "The window is older-looking.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_021.jpg",
+    "obs": "The window has basic trim.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "trim"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_021.jpg",
+    "obs": "The ceiling fan is old.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_023.jpg",
+    "obs": "Carpet is extremely soiled.",
+    "sel": "worn_or_stained_carpet",
+    "firing": [
+     "carpet"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_023.jpg",
+    "obs": "Popcorn ceiling texture is dated.",
+    "sel": "popcorn_or_acoustic_ceiling_texture",
+    "firing": [
+     "popcorn ceiling",
+     "ceiling texture"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_023.jpg",
+    "obs": "Ceiling fans are old.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_024.jpg",
+    "obs": "Vanity cabinet faces are chipped and peeling.",
+    "sel": "vanity_worn_finish",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_025.jpg",
+    "obs": "The porch railings, columns, and front door are dated.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "front door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_026.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_026.jpg",
+    "obs": "The roof-edge trim appears weathered.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "cannot_assess"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_027.jpg",
+    "obs": "Roof edges and eaves appear aged.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "cannot_assess"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_030.jpg",
+    "obs": "The windows appear to be a mix of styles and older replacements.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_001.jpg",
+    "obs": "The roof shingles appear weathered from a distance.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_003.jpg",
+    "obs": "Cultured-marble-style vanity top is dated.",
+    "sel": "vanity_countertop_dated",
+    "firing": [
+     "vanity top"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_004.jpg",
+    "obs": "Baseboards, window trim, and door casing are modest.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "baseboard",
+     "baseboards",
+     "trim",
+     "casing",
+     "window trim",
+     "door casing"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_006.jpg",
+    "obs": "The front door has a dated appearance.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "front door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_007.jpg",
+    "obs": "The roof appears aged and weathered.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_008.jpg",
+    "obs": "The roof shingles appear weathered and aged.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_008.jpg",
+    "obs": "The windows and shutters have an older appearance.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_009.jpg",
+    "obs": "Front door has a dated, basic appearance.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "front door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_009.jpg",
+    "obs": "Roof appears weathered and aged, especially around edges and surface coloration.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_010.jpg",
+    "obs": "The windows and shutters are older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_012.jpg",
+    "obs": "Rear entry door is basic.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "entry door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_012.jpg",
+    "obs": "Roof appears older and weathered.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_014.jpg",
+    "obs": "The windows appear older-looking.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_015.jpg",
+    "obs": "The windows and trim have an older appearance.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_017.jpg",
+    "obs": "Several windows appear to be older single-hung units.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_017.jpg",
+    "obs": "Several windows have dated trim.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_018.jpg",
+    "obs": "The windows appear older-looking.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_018.jpg",
+    "obs": "The fence and gate appear aging.",
+    "sel": "fence_weathered",
+    "firing": [
+     "fence"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_019.jpg",
+    "obs": "The soffit and eaves show age and discoloration.",
+    "sel": "soffit_or_porch_ceiling_weathered",
+    "firing": [
+     "soffit"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_021.jpg",
+    "obs": "The rear windows are older and smaller.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_025.jpg",
+    "obs": "Ceiling texture has a dated appearance.",
+    "sel": "popcorn_or_acoustic_ceiling_texture",
+    "firing": [
+     "ceiling texture"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_025.jpg",
+    "obs": "Front entry door has a dated appearance.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "entry door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_025.jpg",
+    "obs": "Front entry trim package has a dated appearance.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "trim"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_030.jpg",
+    "obs": "Narrow baseboards and simple casing are dated.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "baseboard",
+     "baseboards",
+     "casing"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_031.jpg",
+    "obs": "Front door is modest and dated.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "front door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_032.jpg",
+    "obs": "Ceiling texture is dated.",
+    "sel": "popcorn_or_acoustic_ceiling_texture",
+    "firing": [
+     "ceiling texture"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_033.jpg",
+    "obs": "Vertical wall paneling has a dated appearance.",
+    "sel": "dated_wood_paneling",
+    "firing": [
+     "paneling",
+     "wall paneling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_036.jpg",
+    "obs": "The cabinet pulls appear older.",
+    "sel": "cabinets_dated_style",
+    "firing": [
+     "cabinet"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_036.jpg",
+    "obs": "The kitchen appliances appear older.",
+    "sel": "appliances_dated_or_basic",
+    "firing": [
+     "appliance"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_038.jpg",
+    "obs": "Appliance package appears old.",
+    "sel": "appliances_dated_or_basic",
+    "firing": [
+     "appliance"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_043.jpg",
+    "obs": "Vertical wood paneling covers all walls and has a dated appearance.",
+    "sel": "dated_wood_paneling",
+    "firing": [
+     "wood paneling",
+     "paneling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_043.jpg",
+    "obs": "The trim package is basic and dated, with narrow baseboards and simple window casing.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "baseboard",
+     "baseboards",
+     "trim",
+     "casing"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_045.jpg",
+    "obs": "Vertical wall paneling is dated and visually heavy.",
+    "sel": "dated_wood_paneling",
+    "firing": [
+     "paneling",
+     "wall paneling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_047.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_126418713",
+    "photo": "photo_047.jpg",
+    "obs": "The blinds appear dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_002.jpg",
+    "obs": "Upper-cabinet undersides show wear, chipping, and soiling.",
+    "sel": "cabinets_worn_finish",
+    "firing": [
+     "cabinet"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_004.jpg",
+    "obs": "The mini blinds appear dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_004.jpg",
+    "obs": "The textured ceiling appears dated.",
+    "sel": "popcorn_or_acoustic_ceiling_texture",
+    "firing": [
+     "textured ceiling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_007.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_009.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_010.jpg",
+    "obs": "The windows appear older and basic.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_011.jpg",
+    "obs": "The roof shingles appear weathered.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_011.jpg",
+    "obs": "Roof shingles appear near end-of-life.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_011.jpg",
+    "obs": "The front entry door looks dated.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "entry door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_011.jpg",
+    "obs": "The front windows look dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_012.jpg",
+    "obs": "The roof appears older or weathered.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_014.jpg",
+    "obs": "The front windows and door treatment appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_015.jpg",
+    "obs": "The roof is weathered and aged.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_016.jpg",
+    "obs": "The roof appears aged and weathered.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_017.jpg",
+    "obs": "The low-slope roof appears aged.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_017.jpg",
+    "obs": "The roof has visible patching and repair areas.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_018.jpg",
+    "obs": "Vegetation is present in concrete joints.",
+    "sel": "trees_or_vegetation_too_close",
+    "firing": [
+     "vegetation"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_019.jpg",
+    "obs": "The porch ceiling is yellowed and stained.",
+    "sel": "soffit_or_porch_ceiling_weathered",
+    "firing": [
+     "porch ceiling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_019.jpg",
+    "obs": "The windows appear older and dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_020.jpg",
+    "obs": "Covered soffit or ceiling has staining and discoloration.",
+    "sel": "soffit_or_porch_ceiling_weathered",
+    "firing": [
+     "soffit"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_020.jpg",
+    "obs": "Covered soffit or ceiling has rough seams.",
+    "sel": "soffit_or_porch_ceiling_weathered",
+    "firing": [
+     "soffit"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_021.jpg",
+    "obs": "Storm door has an older, dated appearance.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "storm door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_021.jpg",
+    "obs": "Soffit and porch ceiling look aged.",
+    "sel": "soffit_or_porch_ceiling_weathered",
+    "firing": [
+     "soffit",
+     "porch ceiling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_021.jpg",
+    "obs": "Soffit and porch ceiling appear stained or discolored.",
+    "sel": "soffit_or_porch_ceiling_weathered",
+    "firing": [
+     "soffit",
+     "porch ceiling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_022.jpg",
+    "obs": "Windows are older replacement-style units.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_023.jpg",
+    "obs": "The window frame and trim look dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_025.jpg",
+    "obs": "Small windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_028.jpg",
+    "obs": "Window blinds appear older and basic.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_030.jpg",
+    "obs": "The baseboards and window trim are basic and narrow.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "baseboard",
+     "baseboards",
+     "trim",
+     "window trim"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_031.jpg",
+    "obs": "Entry door is a six-panel builder-grade door.",
+    "sel": "dated_interior_doors",
+    "firing": [
+     "six-panel"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_036.jpg",
+    "obs": "Louvered closet doors are dated.",
+    "sel": "dated_interior_doors",
+    "firing": [
+     "louvered",
+     "closet door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_039.jpg",
+    "obs": "The closet has dated louvered doors.",
+    "sel": "dated_interior_doors",
+    "firing": [
+     "louvered"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_039.jpg",
+    "obs": "The interior door is a dated hollow-core style.",
+    "sel": "dated_interior_doors",
+    "firing": [
+     "interior door",
+     "hollow-core"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_040.jpg",
+    "obs": "Window trim is dated.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "trim",
+     "window trim"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_043.jpg",
+    "obs": "The trim is basic builder-style.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "trim"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_003.jpg",
+    "obs": "Door hardware is worn.",
+    "sel": "door_hardware_worn",
+    "firing": [
+     "door hardware"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_003.jpg",
+    "obs": "The wood paneling is dated and dark.",
+    "sel": "dated_wood_paneling",
+    "firing": [
+     "wood paneling",
+     "paneling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_004.jpg",
+    "obs": "Vinyl flooring is old and worn.",
+    "sel": "vinyl_linoleum_worn_or_stained",
+    "firing": [
+     "vinyl"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_006.jpg",
+    "obs": "The main roof appears aged and weathered.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_006.jpg",
+    "obs": "The façade includes older window units.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_006.jpg",
+    "obs": "Trees and shrubs overgrow and obscure the house.",
+    "sel": "trees_or_vegetation_too_close",
+    "firing": [
+     "tree"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_007.jpg",
+    "obs": "Dark wood paneling is dated.",
+    "sel": "dated_wood_paneling",
+    "firing": [
+     "wood paneling",
+     "paneling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_008.jpg",
+    "obs": "The roof appears heavily weathered, stained, and near the end of its service life.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_009.jpg",
+    "obs": "The roof appears weathered and discolored.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_009.jpg",
+    "obs": "The fence appears aged.",
+    "sel": "fence_weathered",
+    "firing": [
+     "fence"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_010.jpg",
+    "obs": "Wall paneling has a dated appearance.",
+    "sel": "dated_wood_paneling",
+    "firing": [
+     "paneling",
+     "wall paneling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_014.jpg",
+    "obs": "The roof has visible staining and possible moss or algae.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "moss",
+     "algae"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_015.jpg",
+    "obs": "The windows appear older and likely single-hung.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_016.jpg",
+    "obs": "Roof appears weathered.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_019.jpg",
+    "obs": "The main roof appears aged.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_019.jpg",
+    "obs": "Several windows are dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_022.jpg",
+    "obs": "The roof appears weathered and discolored.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_022.jpg",
+    "obs": "The windows appear mixed and older in style.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_023.jpg",
+    "obs": "The stair railing or guard is incomplete or heavily deteriorated.",
+    "sel": "missing_or_damaged_handrails",
+    "firing": [
+     "railing"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_023.jpg",
+    "obs": "The dark wood paneling is dated.",
+    "sel": "dated_wood_paneling",
+    "firing": [
+     "wood paneling",
+     "paneling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_024.jpg",
+    "obs": "Dark wood paneling is dated.",
+    "sel": "dated_wood_paneling",
+    "firing": [
+     "wood paneling",
+     "paneling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_025.jpg",
+    "obs": "The oval-lite front door is older.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "front door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_031.jpg",
+    "obs": "The curtains and valances are dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "valance"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_032.jpg",
+    "obs": "Dark wood paneling is dated.",
+    "sel": "dated_wood_paneling",
+    "firing": [
+     "wood paneling",
+     "paneling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_033.jpg",
+    "obs": "The room's windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_035.jpg",
+    "obs": "The ceiling fan/light fixture is obsolete.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_037.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_038.jpg",
+    "obs": "Dark wood paneling is very dated.",
+    "sel": "dated_wood_paneling",
+    "firing": [
+     "wood paneling",
+     "paneling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_041.jpg",
+    "obs": "The suspended drop ceiling has dated commercial-style acoustic tiles.",
+    "sel": "suspended_drop_ceiling",
+    "firing": [
+     "drop ceiling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_041.jpg",
+    "obs": "The window and trim are older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_046.jpg",
+    "obs": "Windows and trim are dated.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "trim"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_047.jpg",
+    "obs": "Ceiling tiles are discolored and warped.",
+    "sel": "water_stain_ceiling",
+    "firing": [
+     "ceiling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_048.jpg",
+    "obs": "The room's windows look older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_25809814",
+    "photo": "photo_001.jpg",
+    "obs": "The entry and front door appear dated.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "front door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_25809814",
+    "photo": "photo_001.jpg",
+    "obs": "The windows appear mismatched and older-looking.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_25809814",
+    "photo": "photo_009.jpg",
+    "obs": "The front door has a basic, dated appearance.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "front door"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_25809814",
+    "photo": "photo_017.jpg",
+    "obs": "The brass door hardware is dated.",
+    "sel": "door_hardware_dated_style",
+    "firing": [
+     "door hardware",
+     "brass"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_25809814",
+    "photo": "photo_018.jpg",
+    "obs": "Walls, closet doors, trim, and interior door have basic builder-grade finishes.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "trim"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_25809814",
+    "photo": "photo_019.jpg",
+    "obs": "Blinds are dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_25809814",
+    "photo": "photo_020.jpg",
+    "obs": "The multi-light vanity fixture has a dated appearance.",
+    "sel": "dated_bathroom_vanity_light",
+    "firing": [
+     "vanity fixture"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_25809814",
+    "photo": "photo_024.jpg",
+    "obs": "Glass-block window provides privacy and light but appears dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_25809814",
+    "photo": "photo_025.jpg",
+    "obs": "The rear glass-block window is dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80877597",
+    "photo": "photo_004.jpg",
+    "obs": "Ceiling has a dated popcorn texture.",
+    "sel": "popcorn_or_acoustic_ceiling_texture",
+    "firing": [
+     "popcorn texture"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80877597",
+    "photo": "photo_004.jpg",
+    "obs": "Blinds are dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80877597",
+    "photo": "photo_005.jpg",
+    "obs": "Shower tile, grout, and caulk have visible maintenance needs.",
+    "sel": "bath_fixtures_stained_or_worn",
+    "firing": [
+     "shower"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_80877597",
+    "photo": "photo_009.jpg",
+    "obs": "The window is older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80877597",
+    "photo": "photo_011.jpg",
+    "obs": "Popcorn/textured ceiling is a dated feature.",
+    "sel": "popcorn_or_acoustic_ceiling_texture",
+    "firing": [
+     "textured ceiling"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_001.jpg",
+    "obs": "Roof shingles look aged.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_005.jpg",
+    "obs": "The blinds are older.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_007.jpg",
+    "obs": "The fireplace firebox and hearth appear aged.",
+    "sel": "dated_fireplace_surround",
+    "firing": [
+     "fireplace",
+     "hearth"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_007.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_007.jpg",
+    "obs": "Ceiling and wall joints show minor separation and unevenness.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "separation"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_011.jpg",
+    "obs": "Door hardware has a vintage appearance.",
+    "sel": "door_hardware_dated_style",
+    "firing": [
+     "door hardware"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_013.jpg",
+    "obs": "The roof appears aged and weathered.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_013.jpg",
+    "obs": "The windows and trim look dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_014.jpg",
+    "obs": "Roof shingles appear aged and weathered.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_018.jpg",
+    "obs": "The door hardware is exposed and aged.",
+    "sel": "door_hardware_worn",
+    "firing": [
+     "door hardware"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_021.jpg",
+    "obs": "Roof shingles appear weathered.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_025.jpg",
+    "obs": "The windows appear older-looking.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_025.jpg",
+    "obs": "Roof surfaces appear weathered.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_026.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_027.jpg",
+    "obs": "The roof planes look aged.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_027.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_029.jpg",
+    "obs": "The visible windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_031.jpg",
+    "obs": "The roof appears aged or visually tired.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_034.jpg",
+    "obs": "The roof shingles appear aged and weathered.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_040.jpg",
+    "obs": "The front and side windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_041.jpg",
+    "obs": "Tall window has an older-style design.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_043.jpg",
+    "obs": "The windows are dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_044.jpg",
+    "obs": "The kitchen has old white appliances.",
+    "sel": "appliances_dated_or_basic",
+    "firing": [
+     "appliance",
+     "white appliances"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_045.jpg",
+    "obs": "Kitchen appliances are older.",
+    "sel": "appliances_dated_or_basic",
+    "firing": [
+     "appliance"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_045.jpg",
+    "obs": "Trim and windows are dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_048.jpg",
+    "obs": "Base cabinets are old.",
+    "sel": "cabinets_dated_style",
+    "firing": [
+     "cabinet"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_048.jpg",
+    "obs": "The green sheet or vinyl-style flooring appears worn.",
+    "sel": "vinyl_linoleum_worn_or_stained",
+    "firing": [
+     "vinyl"
+    ],
+    "verdict": "cannot_assess"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_049.jpg",
+    "obs": "The older sink has visible chipping or staining along its front edge.",
+    "sel": "plumbing_fixture_stained_or_corroded",
+    "firing": [
+     "sink"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_001.jpg",
+    "obs": "The roof appears aged.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_001.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_002.jpg",
+    "obs": "Blinds are dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_005.jpg",
+    "obs": "Door hardware is older.",
+    "sel": "door_hardware_dated_style",
+    "firing": [
+     "door hardware"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_006.jpg",
+    "obs": "The existing windows appear to be a mix of older units and styles.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_007.jpg",
+    "obs": "The windows have older metal frames.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_007.jpg",
+    "obs": "The windows have a dated appearance.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_008.jpg",
+    "obs": "Storm or window treatments appear mismatched or dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_009.jpg",
+    "obs": "Front and main roof shingles appear weathered and uneven.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_010.jpg",
+    "obs": "Several windows appear to be older aluminum or single-pane units.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows",
+     "single-pane"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_010.jpg",
+    "obs": "Roof shingles appear aged, especially on the lower left roof plane.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_010.jpg",
+    "obs": "Vegetation is growing against the house.",
+    "sel": "trees_or_vegetation_too_close",
+    "firing": [
+     "vegetation"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_011.jpg",
+    "obs": "Roof shingles are well aged with visible wear and darkening.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_013.jpg",
+    "obs": "The main roof appears near the end of its service life.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_013.jpg",
+    "obs": "The windows are older multi-pane units.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_015.jpg",
+    "obs": "Fireplace surround is dated.",
+    "sel": "dated_fireplace_surround",
+    "firing": [
+     "fireplace",
+     "fireplace surround"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_016.jpg",
+    "obs": "The blinds are dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_017.jpg",
+    "obs": "Black-painted brick fireplace has a dated, heavy appearance.",
+    "sel": "dated_fireplace_surround",
+    "firing": [
+     "fireplace",
+     "brick fireplace"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_021.jpg",
+    "obs": "Window blinds and valances are dated.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "valance",
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_023.jpg",
+    "obs": "The oak cabinets have heavy wear along lower edges.",
+    "sel": "cabinets_worn_finish",
+    "firing": [
+     "cabinet"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_023.jpg",
+    "obs": "The cabinet finish is uneven.",
+    "sel": "cabinets_worn_finish",
+    "firing": [
+     "cabinet"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_025.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_026.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_030.jpg",
+    "obs": "Dark wood vanity cabinet has significant finish wear.",
+    "sel": "vanity_worn_finish",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_031.jpg",
+    "obs": "The laminate-look vanity top is dated.",
+    "sel": "vanity_countertop_dated",
+    "firing": [
+     "vanity top"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_031.jpg",
+    "obs": "The ornate dark wood vanity has an older, heavily stylized appearance.",
+    "sel": "vanity_dated_style",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_031.jpg",
+    "obs": "The tub has visible wear and staining.",
+    "sel": "bath_fixtures_stained_or_worn",
+    "firing": [
+     "tub$"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_031.jpg",
+    "obs": "The vanity finish is worn and dark.",
+    "sel": "vanity_worn_finish",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_032.jpg",
+    "obs": "The existing vanity appears worn.",
+    "sel": "vanity_worn_finish",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_032.jpg",
+    "obs": "The existing vanity has a basic style.",
+    "sel": "vanity_dated_style",
+    "firing": [
+     "vanity"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_81000709",
+    "photo": "photo_001.jpg",
+    "obs": "Roof shingles appear aged and uneven.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof",
+     "shingle"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_81000709",
+    "photo": "photo_003.jpg",
+    "obs": "The blinds are old.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_81000709",
+    "photo": "photo_004.jpg",
+    "obs": "The room has an older ceiling fan.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_81000709",
+    "photo": "photo_005.jpg",
+    "obs": "The door hardware appears rusted.",
+    "sel": "door_hardware_worn",
+    "firing": [
+     "door hardware"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_81000709",
+    "photo": "photo_009.jpg",
+    "obs": "The ceiling fan appears older.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_81000709",
+    "photo": "photo_010.jpg",
+    "obs": "Door hardware is old.",
+    "sel": "door_hardware_dated_style",
+    "firing": [
+     "door hardware"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_81000709",
+    "photo": "photo_011.jpg",
+    "obs": "The ceiling fan is old.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_81000709",
+    "photo": "photo_018.jpg",
+    "obs": "The ceiling fan is old.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_81000709",
+    "photo": "photo_018.jpg",
+    "obs": "Door and trim are dated.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "trim"
+    ],
+    "verdict": "cannot_assess"
+   },
+   {
+    "prop": "redfin_81000709",
+    "photo": "photo_019.jpg",
+    "obs": "The window covering is dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "cannot_assess"
+   },
+   {
+    "prop": "redfin_10735912",
+    "photo": "photo_003.jpg",
+    "obs": "The interior door is older and plain.",
+    "sel": "dated_interior_doors",
+    "firing": [
+     "interior door"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10735912",
+    "photo": "photo_003.jpg",
+    "obs": "The door hardware is basic.",
+    "sel": "door_hardware_dated_style",
+    "firing": [
+     "door hardware"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10735912",
+    "photo": "photo_006.jpg",
+    "obs": "The window has older painted wood trim and potentially older sash components.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10735912",
+    "photo": "photo_015.jpg",
+    "obs": "Wall outlets and details near the window appear old-looking.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10735912",
+    "photo": "photo_017.jpg",
+    "obs": "The window area appears old.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10735912",
+    "photo": "photo_018.jpg",
+    "obs": "The large front window appears to be an older metal-frame unit.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10735912",
+    "photo": "photo_028.jpg",
+    "obs": "The awnings and window styles appear dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_001.jpg",
+    "obs": "The entry door, trim, transom, mailbox, railing, and concrete stoop appear dated and mismatched.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "entry door"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_001.jpg",
+    "obs": "The windows appear to be older replacements and are inconsistent in style or finish.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_004.jpg",
+    "obs": "Older-looking surface wiring detail is visible near the window.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_007.jpg",
+    "obs": "Vanity light is an exposed-bulb light bar with an older appearance.",
+    "sel": "dated_bathroom_vanity_light",
+    "firing": [
+     "vanity light"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_010.jpg",
+    "obs": "The entry door is basic and somewhat mismatched to the home's age.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "entry door"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_014.jpg",
+    "obs": "The dark sheet or vinyl-looking floor is worn.",
+    "sel": "vinyl_linoleum_worn_or_stained",
+    "firing": [
+     "vinyl"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_016.jpg",
+    "obs": "Appliance setup appears older-looking.",
+    "sel": "appliances_dated_or_basic",
+    "firing": [
+     "appliance"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_019.jpg",
+    "obs": "The door hardware is older.",
+    "sel": "door_hardware_dated_style",
+    "firing": [
+     "door hardware"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_020.jpg",
+    "obs": "The door and window assemblies look dated.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_021.jpg",
+    "obs": "The windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_022.jpg",
+    "obs": "The trim and baseboards have a basic, tired profile.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "baseboard",
+     "baseboards",
+     "trim"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_026.jpg",
+    "obs": "The handrail appears inadequate, poorly mounted, and terminates awkwardly.",
+    "sel": "missing_or_damaged_handrails",
+    "firing": [
+     "handrail"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_026.jpg",
+    "obs": "No visible guard or banister protection is present along the open side beyond a minimal lower railing structure.",
+    "sel": "missing_or_damaged_handrails",
+    "firing": [
+     "railing"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_028.jpg",
+    "obs": "Visible seams or gaps are present around beams and along the foundation area.",
+    "sel": "major_foundation_or_settlement_signs",
+    "firing": [
+     "foundation"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10866780",
+    "photo": "photo_002.jpg",
+    "obs": "The ceiling fan/light, wall sconces, mirrors, rugs, and furnishings are dated.",
+    "sel": "dated_lighting_fixtures",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10866780",
+    "photo": "photo_019.jpg",
+    "obs": "The window has basic blinds.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10866780",
+    "photo": "photo_023.jpg",
+    "obs": "The wood fence appears leaning and aged.",
+    "sel": "fence_weathered",
+    "firing": [
+     "fence"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10866780",
+    "photo": "photo_032.jpg",
+    "obs": "The linear vanity light reads dated.",
+    "sel": "dated_bathroom_vanity_light",
+    "firing": [
+     "vanity light"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10866780",
+    "photo": "photo_034.jpg",
+    "obs": "The windows and exterior door appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10866780",
+    "photo": "photo_036.jpg",
+    "obs": "The ceiling fan is visually dominant and builder-grade.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10866780",
+    "photo": "photo_041.jpg",
+    "obs": "The ceiling fan feels dated and basic.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10949071",
+    "photo": "photo_001.jpg",
+    "obs": "Several windows appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10949071",
+    "photo": "photo_007.jpg",
+    "obs": "The window units appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10949071",
+    "photo": "photo_008.jpg",
+    "obs": "Some windows appear original or older replacements.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10949071",
+    "photo": "photo_014.jpg",
+    "obs": "Bathroom accessories appear tired.",
+    "sel": "outdated_bathroom_finishes",
+    "firing": [
+     "bathroom"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10949071",
+    "photo": "photo_016.jpg",
+    "obs": "The front door reads dated against the trim.",
+    "sel": "dated_entry_or_patio_door",
+    "firing": [
+     "front door"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10949071",
+    "photo": "photo_023.jpg",
+    "obs": "Some windows appear newer while others appear older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10949071",
+    "photo": "photo_029.jpg",
+    "obs": "Countertops show wear and scuffs near the sink.",
+    "sel": "plumbing_fixture_stained_or_corroded",
+    "firing": [
+     "sink"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10949071",
+    "photo": "photo_030.jpg",
+    "obs": "The transom or window treatment appears older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10949071",
+    "photo": "photo_033.jpg",
+    "obs": "Paneled interior doors and substantial white casings are original or older.",
+    "sel": "dated_interior_doors",
+    "firing": [
+     "interior door"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11216660",
+    "photo": "photo_005.jpg",
+    "obs": "The carpet appears somewhat mottled.",
+    "sel": "worn_or_stained_carpet",
+    "firing": [
+     "carpet"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11216660",
+    "photo": "photo_005.jpg",
+    "obs": "Basic white mini-blinds are installed on the windows.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11216660",
+    "photo": "photo_006.jpg",
+    "obs": "The ceiling fan appears dated relative to the room's contemporary finishes.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11216660",
+    "photo": "photo_012.jpg",
+    "obs": "Window blinds are dated and basic.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11216660",
+    "photo": "photo_013.jpg",
+    "obs": "The windows appear older than the surrounding renovation.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11216660",
+    "photo": "photo_033.jpg",
+    "obs": "The floral accent wall has bold, dated-looking wallpaper.",
+    "sel": "dated_wallpaper_present",
+    "firing": [
+     "wallpaper"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11216660",
+    "photo": "photo_040.jpg",
+    "obs": "A few roofs appear dated or unevenly maintained from the aerial view.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_006.jpg",
+    "obs": "The ceiling fan looks dated.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_009.jpg",
+    "obs": "Vegetation encroaches on the front walk and steps.",
+    "sel": "trees_or_vegetation_too_close",
+    "firing": [
+     "vegetation"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_012.jpg",
+    "obs": "The windows appear to be older divided-light wood windows.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window",
+     "windows"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_014.jpg",
+    "obs": "The fireplace has a dated screen.",
+    "sel": "dated_fireplace_surround",
+    "firing": [
+     "fireplace"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_014.jpg",
+    "obs": "The fireplace wall sconces are dated.",
+    "sel": "dated_fireplace_surround",
+    "firing": [
+     "fireplace"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_014.jpg",
+    "obs": "The ceiling fan appears older.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_021.jpg",
+    "obs": "Moss and green staining are present on the brick and stone surfaces.",
+    "sel": "brick_weathered_or_discolored",
+    "firing": [],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_028.jpg",
+    "obs": "The ceiling fan/light fixture is older in style.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_032.jpg",
+    "obs": "Chrome shower valve, showerhead, and wire storage basket appear aging.",
+    "sel": "bath_fixtures_stained_or_worn",
+    "firing": [
+     "shower"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_80916010",
+    "photo": "photo_002.jpg",
+    "obs": "The ceiling fan/light looks dated.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_80916010",
+    "photo": "photo_005.jpg",
+    "obs": "Vinyl flooring is worn-looking and visually dated.",
+    "sel": "vinyl_linoleum_worn_or_stained",
+    "firing": [
+     "vinyl"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_80916010",
+    "photo": "photo_006.jpg",
+    "obs": "Deck railing appears incomplete and nonstandard.",
+    "sel": "missing_or_damaged_handrails",
+    "firing": [
+     "railing"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_80917686",
+    "photo": "photo_012.jpg",
+    "obs": "The trim is relatively simple and appears builder-grade.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "trim"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_80917686",
+    "photo": "photo_013.jpg",
+    "obs": "The window blinds are dated relative to the renovation.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_80917686",
+    "photo": "photo_026.jpg",
+    "obs": "The interior door and casing are basic in style.",
+    "sel": "dated_interior_doors",
+    "firing": [
+     "interior door"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_80917686",
+    "photo": "photo_026.jpg",
+    "obs": "The ceiling fan appears dated.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_80917686",
+    "photo": "photo_032.jpg",
+    "obs": "White paint and trim appear basic.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "trim"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_80917686",
+    "photo": "photo_035.jpg",
+    "obs": "The ceiling fan appears basic and dated.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   }
+  ],
+  "c5_flips": true,
+  "d1_flips": true
+ },
+ "C_subject_or_condition": {
+  "flipped": {
+   "label": "flipped to LLM",
+   "rows": 21,
+   "with_verdict": 13,
+   "unsupported": 2,
+   "unsupported_rate": 0.15384615384615385,
+   "by_kind": {
+    "degradation": 6,
+    "modernization": 12,
+    "defect": 3
+   },
+   "top_items": [
+    [
+     "dated_or_older_windows",
+     3
+    ],
+    [
+     "brick_weathered_or_discolored",
+     2
+    ],
+    [
+     "popcorn_or_acoustic_ceiling_texture",
+     2
+    ],
+    [
+     "plumbing_fixture_stained_or_corroded",
+     2
+    ],
+    [
+     "dated_interior_doors",
+     2
+    ],
+    [
+     "bath_fixtures_stained_or_worn",
+     1
+    ],
+    [
+     "roof_shingles_aged_or_worn",
+     1
+    ],
+    [
+     "dated_interior_trim",
+     1
+    ]
+   ]
+  },
+  "kept": {
+   "label": "kept as shortcut",
+   "rows": 619,
+   "with_verdict": 491,
+   "unsupported": 24,
+   "unsupported_rate": 0.048879837067209775,
+   "by_kind": {
+    "modernization": 342,
+    "degradation": 223,
+    "defect": 54
+   },
+   "top_items": [
+    [
+     "dated_or_older_windows",
+     93
+    ],
+    [
+     "outdated_bathroom_finishes",
+     52
+    ],
+    [
+     "roof_shingles_aged_or_worn",
+     51
+    ],
+    [
+     "worn_or_stained_carpet",
+     44
+    ],
+    [
+     "dated_window_treatment_valance",
+     29
+    ],
+    [
+     "landscaping_overgrown_or_neglected",
+     22
+    ],
+    [
+     "cabinets_dated_style",
+     20
+    ],
+    [
+     "dated_entry_or_patio_door",
+     19
+    ]
+   ]
+  },
+  "flipped_examples": [
+   {
+    "prop": "redfin_11077450",
+    "photo": "photo_001.jpg",
+    "obs": "Brick masonry shows aging and discoloration.",
+    "sel": "brick_weathered_or_discolored",
+    "firing": [],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_017.jpg",
+    "obs": "The room has a window that appears older.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_007.jpg",
+    "obs": "The floor has discoloration and staining around the tub and vanity.",
+    "sel": "bath_fixtures_stained_or_worn",
+    "firing": [
+     "tub$"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_010.jpg",
+    "obs": "The ceiling has heavy popcorn texture.",
+    "sel": "popcorn_or_acoustic_ceiling_texture",
+    "firing": [
+     "popcorn texture"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125779232",
+    "photo": "photo_016.jpg",
+    "obs": "Dark staining is visible along the roof edge.",
+    "sel": "roof_shingles_aged_or_worn",
+    "firing": [
+     "roof"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_011.jpg",
+    "obs": "Kitchen has an old window air-conditioning installation.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_017.jpg",
+    "obs": "Wall material is deteriorated around and beneath the sink and toilet.",
+    "sel": "plumbing_fixture_stained_or_corroded",
+    "firing": [
+     "sink"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_125970550",
+    "photo": "photo_021.jpg",
+    "obs": "The window has basic trim.",
+    "sel": "dated_interior_trim",
+    "firing": [
+     "trim"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_031.jpg",
+    "obs": "Entry door is a six-panel builder-grade door.",
+    "sel": "dated_interior_doors",
+    "firing": [
+     "six-panel"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_039.jpg",
+    "obs": "The closet has dated louvered doors.",
+    "sel": "dated_interior_doors",
+    "firing": [
+     "louvered"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80877597",
+    "photo": "photo_004.jpg",
+    "obs": "Ceiling has a dated popcorn texture.",
+    "sel": "popcorn_or_acoustic_ceiling_texture",
+    "firing": [
+     "popcorn texture"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_007.jpg",
+    "obs": "Ceiling and wall joints show minor separation and unevenness.",
+    "sel": "ceiling_cracks_or_sagging",
+    "firing": [
+     "separation"
+    ],
+    "verdict": "unsupported"
+   },
+   {
+    "prop": "redfin_80925528",
+    "photo": "photo_044.jpg",
+    "obs": "The kitchen has old white appliances.",
+    "sel": "appliances_dated_or_basic",
+    "firing": [
+     "appliance",
+     "white appliances"
+    ],
+    "verdict": "supported"
+   },
+   {
+    "prop": "redfin_81000709",
+    "photo": "photo_004.jpg",
+    "obs": "The room has an older ceiling fan.",
+    "sel": "older_ceiling_fan_style",
+    "firing": [
+     "ceiling fan"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_004.jpg",
+    "obs": "Older-looking surface wiring detail is visible near the window.",
+    "sel": "dated_or_older_windows",
+    "firing": [
+     "window"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_026.jpg",
+    "obs": "No visible guard or banister protection is present along the open side beyond a minimal lower railing structure.",
+    "sel": "missing_or_damaged_handrails",
+    "firing": [
+     "railing"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10740044",
+    "photo": "photo_028.jpg",
+    "obs": "Visible seams or gaps are present around beams and along the foundation area.",
+    "sel": "major_foundation_or_settlement_signs",
+    "firing": [
+     "foundation"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10866780",
+    "photo": "photo_019.jpg",
+    "obs": "The window has basic blinds.",
+    "sel": "dated_window_treatment_valance",
+    "firing": [
+     "blinds"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_10949071",
+    "photo": "photo_029.jpg",
+    "obs": "Countertops show wear and scuffs near the sink.",
+    "sel": "plumbing_fixture_stained_or_corroded",
+    "firing": [
+     "sink"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11216660",
+    "photo": "photo_033.jpg",
+    "obs": "The floral accent wall has bold, dated-looking wallpaper.",
+    "sel": "dated_wallpaper_present",
+    "firing": [
+     "wallpaper"
+    ],
+    "verdict": null
+   },
+   {
+    "prop": "redfin_11217387",
+    "photo": "photo_021.jpg",
+    "obs": "Moss and green staining are present on the brick and stone surfaces.",
+    "sel": "brick_weathered_or_discolored",
+    "firing": [],
+    "verdict": null
+   }
+  ],
+  "c5_flips": true,
+  "d1_flips": false
+ },
+ "bath_fixtures_shortcuts": [
+  {
+   "obs": "Caulk or seams around the tub are worn and discolored.",
+   "firing": [
+    "tub$",
+    "worn"
+   ],
+   "in_subject": [
+    "tub$"
+   ],
+   "verdict": "supported"
+  },
+  {
+   "obs": "Tub surround grout is dark and aged.",
+   "firing": [
+    "tub$"
+   ],
+   "in_subject": [
+    "tub$"
+   ],
+   "verdict": "supported"
+  },
+  {
+   "obs": "Ceiling above the shower has discoloration and staining.",
+   "firing": [
+    "shower"
+   ],
+   "in_subject": [
+    "shower"
+   ],
+   "verdict": "supported"
+  },
+  {
+   "obs": "Tub is worn and stained.",
+   "firing": [
+    "tub$",
+    "stained",
+    "worn"
+   ],
+   "in_subject": [
+    "tub$"
+   ],
+   "verdict": "supported"
+  },
+  {
+   "obs": "Caulk at the tub-to-wall and tub-to-floor joints appears tired.",
+   "firing": [
+    "tub$"
+   ],
+   "in_subject": [
+    "tub$"
+   ],
+   "verdict": "supported"
+  },
+  {
+   "obs": "The tub is worn.",
+   "firing": [
+    "tub$",
+    "worn"
+   ],
+   "in_subject": [
+    "tub$"
+   ],
+   "verdict": "supported"
+  },
+  {
+   "obs": "The tub rim shows visible wear and staining.",
+   "firing": [
+    "tub$"
+   ],
+   "in_subject": [
+    "tub$"
+   ],
+   "verdict": "supported"
+  },
+  {
+   "obs": "The tub/shower surround appears worn and discolored around the tub base and seams.",
+   "firing": [
+    "tub$",
+    "shower",
+    "worn"
+   ],
+   "in_subject": [
+    "tub$",
+    "shower"
+   ],
+   "verdict": "supported"
+  },
+  {
+   "obs": "The floor has discoloration and staining around the tub and vanity.",
+   "firing": [
+    "tub$"
+   ],
+   "in_subject": [],
+   "verdict": "supported"
+  },
+  {
+   "obs": "The ceiling and wall area near the tub look rough.",
+   "firing": [
+    "tub$"
+   ],
+   "in_subject": [
+    "tub$"
+   ],
+   "verdict": "supported"
+  },
+  {
+   "obs": "The shower curb and floor are stained.",
+   "firing": [
+    "shower",
+    "stained"
+   ],
+   "in_subject": [
+    "shower"
+   ],
+   "verdict": "supported"
+  },
+  {
+   "obs": "Bathroom fixtures are worn.",
+   "firing": [
+    "worn"
+   ],
+   "in_subject": [],
+   "verdict": "supported"
+  },
+  {
+   "obs": "Shower tile, grout, and caulk have visible maintenance needs.",
+   "firing": [
+    "shower"
+   ],
+   "in_subject": [
+    "shower"
+   ],
+   "verdict": "unsupported"
+  },
+  {
+   "obs": "Tile grout is stained and uneven near the tub line and lower walls.",
+   "firing": [
+    "tub$",
+    "stained"
+   ],
+   "in_subject": [],
+   "verdict": "supported"
+  },
+  {
+   "obs": "The tub has visible wear and staining.",
+   "firing": [
+    "tub$"
+   ],
+   "in_subject": [
+    "tub$"
+   ],
+   "verdict": "supported"
+  },
+  {
+   "obs": "Chrome shower valve, showerhead, and wire storage basket appear aging.",
+   "firing": [
+    "shower"
+   ],
+   "in_subject": [
+    "shower"
+   ],
+   "verdict": null
+  }
+ ],
+ "cabinets_outside_kitchen": {
+  "rows": 52,
+  "by_group": {
+   "bathroom": 29,
+   "living_areas": 11,
+   "utility": 6,
+   "bedroom": 2,
+   "other": 4
+  },
+  "by_scene": {
+   "bathroom": 29,
+   "living_room": 9,
+   "basement": 5,
+   "bedroom": 2,
+   "dining_room": 2,
+   "other": 4,
+   "hvac": 1
+  },
+  "nulls": 17,
+  "by_kind": {
+   "modernization": 39,
+   "degradation": 12,
+   "defect": 1
+  },
+  "resolved_to": [
+   [
+    "outdated_bathroom_finishes",
+    9
+   ],
+   [
+    "vanity_worn_finish",
+    8
+   ],
+   [
+    "dated_overall_decor_style",
+    7
+   ],
+   [
+    "vanity_dated_style",
+    6
+   ],
+   [
+    "ornate_vintage_mirror",
+    2
+   ],
+   [
+    "vanity_damaged_or_water_stained",
+    1
+   ]
+  ],
+  "cabinets_dated_style_scene_groups": [
+   "kitchen"
+  ],
+  "cabinets_worn_finish_scene_groups": [
+   "kitchen"
+  ],
+  "examples": [
+   {
+    "prop": "redfin_10803207",
+    "photo": "photo_005.jpg",
+    "scene": "bathroom",
+    "obs": "Mirrored medicine cabinet and light fixture appear old-fashioned.",
+    "sel": null
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_011.jpg",
+    "scene": "living_room",
+    "obs": "The kitchen has older cabinetry.",
+    "sel": null
+   },
+   {
+    "prop": "redfin_10952874",
+    "photo": "photo_012.jpg",
+    "scene": "living_room",
+    "obs": "Older kitchen cabinets are visible beyond the room.",
+    "sel": null
+   },
+   {
+    "prop": "redfin_11000447",
+    "photo": "photo_002.jpg",
+    "scene": "living_room",
+    "obs": "Kitchen cabinets, appliances, and lighting are older.",
+    "sel": null
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_027.jpg",
+    "scene": "basement",
+    "obs": "Painted cabinets appear older and have dated door styling.",
+    "sel": null
+   },
+   {
+    "prop": "redfin_11185681",
+    "photo": "photo_027.jpg",
+    "scene": "basement",
+    "obs": "Cabinets have uneven alignment and visible wear.",
+    "sel": null
+   },
+   {
+    "prop": "redfin_127468088",
+    "photo": "photo_029.jpg",
+    "scene": "living_room",
+    "obs": "Kitchen has older white cabinets.",
+    "sel": null
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_004.jpg",
+    "scene": "basement",
+    "obs": "Cabinetry is aging.",
+    "sel": null
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_004.jpg",
+    "scene": "basement",
+    "obs": "Upper cabinet appears worn.",
+    "sel": null
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_040.jpg",
+    "scene": "bedroom",
+    "obs": "The shallow closet/cabinet unit is dated.",
+    "sel": null
+   },
+   {
+    "prop": "redfin_166147710",
+    "photo": "photo_040.jpg",
+    "scene": "bedroom",
+    "obs": "The shallow closet/cabinet unit is worn.",
+    "sel": null
+   },
+   {
+    "prop": "redfin_80990371",
+    "photo": "photo_018.jpg",
+    "scene": "dining_room",
+    "obs": "Visible kitchen cabinetry and tile look dated.",
+    "sel": null
+   }
+  ]
+ }
+}

@@ -1,0 +1,330 @@
+[
+ {
+  "prop": "redfin_10952874",
+  "photo": "photo_031.jpg",
+  "issue": "a19044c616034338",
+  "obs": "Ceiling above the shower has discoloration and staining.",
+  "kind": "degradation",
+  "sel": "bath_fixtures_stained_or_worn",
+  "firing": [
+   "shower"
+  ],
+  "head": "ceiling",
+  "verdict": "supported"
+ },
+ {
+  "prop": "redfin_10952874",
+  "photo": "photo_031.jpg",
+  "issue": "d1d15a3bee6bf8c6",
+  "obs": "Caulk at the tub-to-wall and tub-to-floor joints appears tired.",
+  "kind": "degradation",
+  "sel": "bath_fixtures_stained_or_worn",
+  "firing": [
+   "tub$"
+  ],
+  "head": "caulk",
+  "verdict": "supported"
+ },
+ {
+  "prop": "redfin_11185681",
+  "photo": "photo_017.jpg",
+  "issue": "393012a7b5a9de2b",
+  "obs": "The room has a window that appears older.",
+  "kind": "modernization",
+  "sel": "dated_or_older_windows",
+  "firing": [
+   "window"
+  ],
+  "head": "the room",
+  "verdict": "supported"
+ },
+ {
+  "prop": "redfin_11185681",
+  "photo": "photo_037.jpg",
+  "issue": "ba3cbb67b138d402",
+  "obs": "The built-in under the windows looks dated.",
+  "kind": "modernization",
+  "sel": "dated_or_older_windows",
+  "firing": [
+   "window",
+   "windows"
+  ],
+  "head": "the built-in",
+  "verdict": "supported"
+ },
+ {
+  "prop": "redfin_125779232",
+  "photo": "photo_007.jpg",
+  "issue": "c2785d1cb9cf1e59",
+  "obs": "The floor has discoloration and staining around the tub and vanity.",
+  "kind": "degradation",
+  "sel": "bath_fixtures_stained_or_worn",
+  "firing": [
+   "tub$"
+  ],
+  "head": "the floor",
+  "verdict": "supported"
+ },
+ {
+  "prop": "redfin_125779232",
+  "photo": "photo_007.jpg",
+  "issue": "9b611208c1823c13",
+  "obs": "The ceiling and wall area near the tub look rough.",
+  "kind": "degradation",
+  "sel": "bath_fixtures_stained_or_worn",
+  "firing": [
+   "tub$"
+  ],
+  "head": "the ceiling and wall area",
+  "verdict": "supported"
+ },
+ {
+  "prop": "redfin_125779232",
+  "photo": "photo_015.jpg",
+  "issue": "19cff5548b0a3613",
+  "obs": "The visible portion of the roof appears aged.",
+  "kind": "degradation",
+  "sel": "roof_shingles_aged_or_worn",
+  "firing": [
+   "roof"
+  ],
+  "head": "the visible portion",
+  "verdict": "supported"
+ },
+ {
+  "prop": "redfin_125779232",
+  "photo": "photo_016.jpg",
+  "issue": "c02ee777751a2111",
+  "obs": "Dark staining is visible along the roof edge.",
+  "kind": "degradation",
+  "sel": "roof_shingles_aged_or_worn",
+  "firing": [
+   "roof"
+  ],
+  "head": "dark staining",
+  "verdict": "supported"
+ },
+ {
+  "prop": "redfin_125779232",
+  "photo": "photo_018.jpg",
+  "issue": "d1e7679749a82c24",
+  "obs": "A long bank of older, mismatched windows is present.",
+  "kind": "modernization",
+  "sel": "dated_or_older_windows",
+  "firing": [
+   "window",
+   "windows"
+  ],
+  "head": "a long bank",
+  "verdict": "supported"
+ },
+ {
+  "prop": "redfin_125970550",
+  "photo": "photo_006.jpg",
+  "issue": "f98b38e713db23df",
+  "obs": "Lower cabinets around the sink, corner, and former range area are stained.",
+  "kind": "degradation",
+  "sel": "plumbing_fixture_stained_or_corroded",
+  "firing": [
+   "sink"
+  ],
+  "head": "lower cabinets",
+  "verdict": "unsupported"
+ },
+ {
+  "prop": "redfin_125970550",
+  "photo": "photo_011.jpg",
+  "issue": "4286bd7d2eb7949d",
+  "obs": "Kitchen has an old window air-conditioning installation.",
+  "kind": "modernization",
+  "sel": "dated_or_older_windows",
+  "firing": [
+   "window"
+  ],
+  "head": "kitchen",
+  "verdict": "supported"
+ },
+ {
+  "prop": "redfin_125970550",
+  "photo": "photo_017.jpg",
+  "issue": "77491f11645686d2",
+  "obs": "Wall material is deteriorated around and beneath the sink and toilet.",
+  "kind": "degradation",
+  "sel": "plumbing_fixture_stained_or_corroded",
+  "firing": [
+   "sink"
+  ],
+  "head": "wall material",
+  "verdict": "supported"
+ },
+ {
+  "prop": "redfin_125970550",
+  "photo": "photo_021.jpg",
+  "issue": "d5c137a679eeee0d",
+  "obs": "The window has basic trim.",
+  "kind": "modernization",
+  "sel": "dated_interior_trim",
+  "firing": [
+   "trim"
+  ],
+  "head": "the window",
+  "verdict": "supported"
+ },
+ {
+  "prop": "redfin_127468088",
+  "photo": "photo_031.jpg",
+  "issue": "06891f2f5dd51204",
+  "obs": "Entry door is a six-panel builder-grade door.",
+  "kind": "modernization",
+  "sel": "dated_interior_doors",
+  "firing": [
+   "six-panel"
+  ],
+  "head": "entry door",
+  "verdict": "supported"
+ },
+ {
+  "prop": "redfin_127468088",
+  "photo": "photo_039.jpg",
+  "issue": "4e6dfbbfee43eec7",
+  "obs": "The closet has dated louvered doors.",
+  "kind": "modernization",
+  "sel": "dated_interior_doors",
+  "firing": [
+   "louvered"
+  ],
+  "head": "the closet",
+  "verdict": "supported"
+ },
+ {
+  "prop": "redfin_80925528",
+  "photo": "photo_007.jpg",
+  "issue": "d47776e1033e38c0",
+  "obs": "Ceiling and wall joints show minor separation and unevenness.",
+  "kind": "defect",
+  "sel": "ceiling_cracks_or_sagging",
+  "firing": [
+   "separation"
+  ],
+  "head": "ceiling and wall joints",
+  "verdict": "unsupported"
+ },
+ {
+  "prop": "redfin_80925528",
+  "photo": "photo_044.jpg",
+  "issue": "2109e38a1c3d9a49",
+  "obs": "The kitchen has old white appliances.",
+  "kind": "modernization",
+  "sel": "appliances_dated_or_basic",
+  "firing": [
+   "appliance",
+   "white appliances"
+  ],
+  "head": "the kitchen",
+  "verdict": "supported"
+ },
+ {
+  "prop": "redfin_81000709",
+  "photo": "photo_004.jpg",
+  "issue": "f57ee07ca1011e3c",
+  "obs": "The room has an older ceiling fan.",
+  "kind": "modernization",
+  "sel": "older_ceiling_fan_style",
+  "firing": [
+   "ceiling fan"
+  ],
+  "head": "the room",
+  "verdict": null
+ },
+ {
+  "prop": "redfin_10735912",
+  "photo": "photo_015.jpg",
+  "issue": "2d25a17799e43d34",
+  "obs": "Wall outlets and details near the window appear old-looking.",
+  "kind": "modernization",
+  "sel": "dated_or_older_windows",
+  "firing": [
+   "window"
+  ],
+  "head": "wall outlets and details",
+  "verdict": null
+ },
+ {
+  "prop": "redfin_10740044",
+  "photo": "photo_004.jpg",
+  "issue": "97740a30eb2a33b2",
+  "obs": "Older-looking surface wiring detail is visible near the window.",
+  "kind": "modernization",
+  "sel": "dated_or_older_windows",
+  "firing": [
+   "window"
+  ],
+  "head": "older-looking surface wiring detail",
+  "verdict": null
+ },
+ {
+  "prop": "redfin_10740044",
+  "photo": "photo_026.jpg",
+  "issue": "eb7211e36a93fb67",
+  "obs": "No visible guard or banister protection is present along the open side beyond a minimal lower railing structure.",
+  "kind": "defect",
+  "sel": "missing_or_damaged_handrails",
+  "firing": [
+   "railing"
+  ],
+  "head": "no visible guard or banister protection",
+  "verdict": null
+ },
+ {
+  "prop": "redfin_10740044",
+  "photo": "photo_028.jpg",
+  "issue": "6aab04ad3efda09f",
+  "obs": "Visible seams or gaps are present around beams and along the foundation area.",
+  "kind": "defect",
+  "sel": "major_foundation_or_settlement_signs",
+  "firing": [
+   "foundation"
+  ],
+  "head": "visible seams or gaps",
+  "verdict": null
+ },
+ {
+  "prop": "redfin_10866780",
+  "photo": "photo_019.jpg",
+  "issue": "75831088376ae152",
+  "obs": "The window has basic blinds.",
+  "kind": "modernization",
+  "sel": "dated_window_treatment_valance",
+  "firing": [
+   "blinds"
+  ],
+  "head": "the window",
+  "verdict": null
+ },
+ {
+  "prop": "redfin_10949071",
+  "photo": "photo_029.jpg",
+  "issue": "2c8172ebe53f954b",
+  "obs": "Countertops show wear and scuffs near the sink.",
+  "kind": "degradation",
+  "sel": "plumbing_fixture_stained_or_corroded",
+  "firing": [
+   "sink"
+  ],
+  "head": "countertops",
+  "verdict": null
+ },
+ {
+  "prop": "redfin_11216660",
+  "photo": "photo_033.jpg",
+  "issue": "67fc6c85127ef789",
+  "obs": "The floral accent wall has bold, dated-looking wallpaper.",
+  "kind": "modernization",
+  "sel": "dated_wallpaper_present",
+  "firing": [
+   "wallpaper"
+  ],
+  "head": "the floral accent wall",
+  "verdict": null
+ }
+]
