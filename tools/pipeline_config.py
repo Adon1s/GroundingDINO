@@ -380,6 +380,8 @@ EMBEDDINGS_TRUST_REMOTE_CODE = True
 EMBEDDINGS_TOPK = 5
 EMBEDDINGS_DEVICE = "cpu"
 # Retrieval match thresholds live with their only consumer, catalog_auditor.py.
+# Applied only by run_pass_2d, never to the shared Qwen model configuration.
+PASS_2D_TEMPERATURE = float(os.environ.get("PASS_2D_TEMPERATURE", "0.1"))
 PASS_2D_SHORTCUT_MIN_SCORE = float(os.environ.get("PASS_2D_SHORTCUT_MIN_SCORE", "0.72"))
 PASS_2D_SHORTCUT_MIN_MARGIN = float(os.environ.get("PASS_2D_SHORTCUT_MIN_MARGIN", "0.03"))
 PASS_2D_ROUTING_NEGATION_PATTERNS = [

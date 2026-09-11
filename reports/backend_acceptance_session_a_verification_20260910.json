@@ -1,0 +1,668 @@
+{
+  "analysis_reproducibility": [
+    {
+      "byte_identical": true,
+      "script": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\scripts\\analysis\\terra_miss_mechanisms.py",
+      "sha256": {
+        ".json": "84ce32b3b71c28ad34eb6880fc3df543f0d7be9a094aa33a15cded86d1433aff",
+        ".md": "3abc66f45fc608f5ae494b2e799c1013889e88a6a7269a011ea512538ba7e48f"
+      }
+    },
+    {
+      "byte_identical": true,
+      "script": "C:\\Users\\Steven\\PycharmProjects\\realtorvision-backend\\scripts\\analysis\\corroboration_gate_tradeoff.py",
+      "sha256": {
+        ".json": "43d29b36a49f7a7e66184f79dcc866c0eccec1042383cf33e5b0fe3ef7d52e29",
+        ".md": "bd1fbf4fbe0da01ad98e7c882373fb964b3e0f886b44161c454bd87a629aa77f"
+      }
+    }
+  ],
+  "benchmarks": {
+    "checkpoint": {
+      "candidate_recall": {
+        "by_kind": {
+          "modernization": 1.0
+        },
+        "k": 5,
+        "overall": 1.0
+      },
+      "cases": 2,
+      "failures": {
+        "error": 0,
+        "total": 0
+      },
+      "final_accuracy": {
+        "by_kind": {
+          "modernization": 1.0
+        },
+        "overall": 1.0
+      },
+      "llm_resolution_rows": 0,
+      "mismatches": [],
+      "repeats": 3,
+      "unstable_case_ids": []
+    },
+    "dev": {
+      "candidate_recall": {
+        "by_kind": {
+          "defect": 1.0,
+          "degradation": 1.0,
+          "modernization": 1.0
+        },
+        "k": 5,
+        "overall": 1.0
+      },
+      "cases": 62,
+      "failures": {
+        "error": 0,
+        "total": 0
+      },
+      "final_accuracy": {
+        "by_kind": {
+          "defect": 0.9615384615384616,
+          "degradation": 1.0,
+          "modernization": 1.0
+        },
+        "overall": 0.9827586206896551
+      },
+      "llm_resolution_rows": 90,
+      "mismatches": [
+        {
+          "candidates": [
+            "bathroom_paint_moisture_damage",
+            "mold_or_mildew_visible_bathroom",
+            "tub_surround_or_shower_pan_damage",
+            "visible_mold_or_mildew",
+            "active_water_damage_bathroom"
+          ],
+          "case_id": "res-moi-002",
+          "gold": "visible_mold_or_mildew",
+          "kind": "defect",
+          "recall_hit": true,
+          "resolved": "mold_or_mildew_visible_bathroom"
+        },
+        {
+          "candidates": [
+            "bathroom_paint_moisture_damage",
+            "mold_or_mildew_visible_bathroom",
+            "tub_surround_or_shower_pan_damage",
+            "visible_mold_or_mildew",
+            "active_water_damage_bathroom"
+          ],
+          "case_id": "res-moi-002",
+          "gold": "visible_mold_or_mildew",
+          "kind": "defect",
+          "recall_hit": true,
+          "resolved": "mold_or_mildew_visible_bathroom"
+        },
+        {
+          "candidates": [
+            "bathroom_paint_moisture_damage",
+            "mold_or_mildew_visible_bathroom",
+            "tub_surround_or_shower_pan_damage",
+            "visible_mold_or_mildew",
+            "active_water_damage_bathroom"
+          ],
+          "case_id": "res-moi-002",
+          "gold": "visible_mold_or_mildew",
+          "kind": "defect",
+          "recall_hit": true,
+          "resolved": "mold_or_mildew_visible_bathroom"
+        }
+      ],
+      "repeats": 3,
+      "stored_comparison": {
+        "baseline": {
+          "path": "benchmarks/catalog-resolution-v2/results/dev_v2_terra/report.json",
+          "sha256": "c9ebb27ee0b3c317ee7754059a2f920a44f48c6f96f1f824130b1c106b50f4b7"
+        },
+        "baseline_model": "gpt-5.6-terra",
+        "changed_selections": [],
+        "common_case_ids": 62,
+        "limitation": "Comparison is descriptive: catalog differs; dev baseline is Terra and holdout has additional cases.",
+        "missing_case_ids": [],
+        "new_case_ids": [],
+        "same_cases_fingerprint": true,
+        "same_catalog_fingerprint": false,
+        "stored_final_accuracy": {
+          "by_kind": {
+            "defect": 0.9615384615384616,
+            "degradation": 1.0,
+            "modernization": 1.0
+          },
+          "overall": 0.9827586206896551
+        }
+      },
+      "unstable_case_ids": []
+    },
+    "holdout": {
+      "candidate_recall": {
+        "by_kind": {
+          "defect": 1.0,
+          "degradation": 1.0,
+          "modernization": 1.0
+        },
+        "k": 5,
+        "overall": 1.0
+      },
+      "cases": 63,
+      "failures": {
+        "error": 0,
+        "total": 0
+      },
+      "final_accuracy": {
+        "by_kind": {
+          "defect": 1.0,
+          "degradation": 1.0,
+          "modernization": 1.0
+        },
+        "overall": 1.0
+      },
+      "llm_resolution_rows": 175,
+      "mismatches": [],
+      "repeats": 5,
+      "stored_comparison": {
+        "baseline": {
+          "path": "benchmarks/catalog-resolution-v2/results/holdout_v2_qwen/report.json",
+          "sha256": "16f80c997f17101ae4649cb691bc03e6439da920f3b0326add9d0b5bf62fec77"
+        },
+        "baseline_model": "unsloth/qwen3.6-27b@q6_k",
+        "changed_selections": [
+          {
+            "case_id": "res-mod-010",
+            "current_selections": [
+              null
+            ],
+            "explanation": "58c073e retired layout-priced items, re-golded res-mod-010 to null, and added four layout hard negatives. Current selection matches the revised frozen gold.",
+            "stored_selections": [
+              "layout_modernization_opportunity"
+            ]
+          }
+        ],
+        "common_case_ids": 59,
+        "limitation": "Comparison is descriptive: catalog differs; dev baseline is Terra and holdout has additional cases.",
+        "missing_case_ids": [],
+        "new_case_ids": [
+          "res-nm-005",
+          "res-nm-006",
+          "res-nm-007",
+          "res-nm-008"
+        ],
+        "same_cases_fingerprint": false,
+        "same_catalog_fingerprint": false,
+        "stored_final_accuracy": {
+          "by_kind": {
+            "defect": 1.0,
+            "degradation": 1.0,
+            "modernization": 1.0
+          },
+          "overall": 1.0
+        }
+      },
+      "unstable_case_ids": []
+    }
+  },
+  "paid_model_calls": {
+    "sol": 0,
+    "terra": 0
+  },
+  "pending_decisions": [
+    "six_case_disposition",
+    "gate_adoption",
+    "production_2d_pin",
+    "reliability_fixes"
+  ],
+  "production_routing": {
+    "artifact_sources": [
+      {
+        "path": "C:/Users/Steven/IntelliJProjects/renointel-prod/artifacts/redfin_10735912/20260825_045924_209d10ee/photo_intel_debug.json",
+        "sha256": "fb5619490310d6896eb5f15bc94d175800c1128aad4ec11d82c83a410fd3a947"
+      },
+      {
+        "path": "C:/Users/Steven/IntelliJProjects/renointel-prod/artifacts/redfin_10866780/20260825_050705_9e0d869e/photo_intel_debug.json",
+        "sha256": "35bd17c0069b0a7af1dc6f12e4787fdda34ea989d18fa9c8d585b434f8d85f8c"
+      },
+      {
+        "path": "C:/Users/Steven/IntelliJProjects/renointel-prod/artifacts/redfin_10949071/20260825_052355_3b380cca/photo_intel_debug.json",
+        "sha256": "7b53cb95d53b549d3a6218f4994b556ec82a54900e09edffffda4f3af564e990"
+      },
+      {
+        "path": "C:/Users/Steven/IntelliJProjects/renointel-prod/lib/analysis/workerMode.ts",
+        "sha256": "5e9bb456cc48fbaf121dad8c41056ec7263762daebbec26bf5e55aa2d6175745"
+      }
+    ],
+    "newest_artifacts": [
+      {
+        "model_routing": [
+          {
+            "model": "unsloth/qwen3.6-27b@q6_k",
+            "model_family": "qwen",
+            "pass": "1a",
+            "source": "standard_default"
+          },
+          {
+            "max_output_tokens": 2000,
+            "model": "gpt-5.6-terra",
+            "model_family": "gpt5",
+            "pass": "2a",
+            "reasoning_effort": "none",
+            "source": "explicit_override"
+          },
+          {
+            "max_output_tokens": 2000,
+            "model": "gpt-5.6-terra",
+            "model_family": "gpt5",
+            "pass": "2b",
+            "reasoning_effort": "none",
+            "source": "explicit_override"
+          },
+          {
+            "max_output_tokens": 2000,
+            "model": "gpt-5.6-terra",
+            "model_family": "gpt5",
+            "pass": "2c",
+            "reasoning_effort": "none",
+            "source": "explicit_override"
+          },
+          {
+            "model": "unsloth/qwen3.6-27b@q6_k",
+            "model_family": "qwen",
+            "pass": "2d",
+            "source": "standard_default"
+          },
+          {
+            "max_output_tokens": 4096,
+            "model": "gpt-5.6-sol",
+            "model_family": "gpt5",
+            "pass": "2f",
+            "reasoning_effort": "medium",
+            "source": "run_override"
+          }
+        ],
+        "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\artifacts\\redfin_10949071\\20260825_052355_3b380cca\\photo_intel_debug.json",
+        "run": {
+          "analysis_profile": "standard",
+          "created_at": "2026-08-25T10:29:56.573986Z",
+          "default_gpt_model": "gpt-5.6-terra",
+          "default_local_model": "unsloth/qwen3.6-27b@q6_k",
+          "dependency_status": {
+            "embeddings": "ready"
+          },
+          "detection_backend": "rv",
+          "gpt_model": "gpt-5.6-terra",
+          "job_id": "20260825_052355_3b380cca",
+          "kind_ontology_version": "observation_kind_v2",
+          "model": "unsloth/qwen3.6-27b@q6_k",
+          "model_overrides": {
+            "2a": "gpt-5.6-terra",
+            "2b": "gpt-5.6-terra",
+            "2c": "gpt-5.6-terra",
+            "2f": "gpt-5.6-sol"
+          },
+          "pass_toggles": {
+            "1a": true,
+            "1b": true,
+            "1c": true,
+            "2a": true,
+            "2b": true,
+            "2c": true,
+            "2d": true,
+            "2e": true,
+            "2f": true
+          },
+          "pipeline_mode": "publish",
+          "reasoning_efforts": {
+            "2a": "none",
+            "2b": "none",
+            "2c": "none",
+            "2f": "medium"
+          },
+          "run_id": "20260825_052355_3b380cca",
+          "timestamp": "2026-08-25T10:29:56.573948Z",
+          "used_pass_architecture": true
+        }
+      },
+      {
+        "model_routing": [
+          {
+            "model": "unsloth/qwen3.6-27b@q6_k",
+            "model_family": "qwen",
+            "pass": "1a",
+            "source": "standard_default"
+          },
+          {
+            "max_output_tokens": 2000,
+            "model": "gpt-5.6-terra",
+            "model_family": "gpt5",
+            "pass": "2a",
+            "reasoning_effort": "none",
+            "source": "explicit_override"
+          },
+          {
+            "max_output_tokens": 2000,
+            "model": "gpt-5.6-terra",
+            "model_family": "gpt5",
+            "pass": "2b",
+            "reasoning_effort": "none",
+            "source": "explicit_override"
+          },
+          {
+            "max_output_tokens": 2000,
+            "model": "gpt-5.6-terra",
+            "model_family": "gpt5",
+            "pass": "2c",
+            "reasoning_effort": "none",
+            "source": "explicit_override"
+          },
+          {
+            "model": "unsloth/qwen3.6-27b@q6_k",
+            "model_family": "qwen",
+            "pass": "2d",
+            "source": "standard_default"
+          },
+          {
+            "max_output_tokens": 4096,
+            "model": "gpt-5.6-sol",
+            "model_family": "gpt5",
+            "pass": "2f",
+            "reasoning_effort": "medium",
+            "source": "run_override"
+          }
+        ],
+        "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\artifacts\\redfin_10866780\\20260825_050705_9e0d869e\\photo_intel_debug.json",
+        "run": {
+          "analysis_profile": "standard",
+          "created_at": "2026-08-25T10:14:01.910627Z",
+          "default_gpt_model": "gpt-5.6-terra",
+          "default_local_model": "unsloth/qwen3.6-27b@q6_k",
+          "dependency_status": {
+            "embeddings": "ready"
+          },
+          "detection_backend": "rv",
+          "gpt_model": "gpt-5.6-terra",
+          "job_id": "20260825_050705_9e0d869e",
+          "kind_ontology_version": "observation_kind_v2",
+          "model": "unsloth/qwen3.6-27b@q6_k",
+          "model_overrides": {
+            "2a": "gpt-5.6-terra",
+            "2b": "gpt-5.6-terra",
+            "2c": "gpt-5.6-terra",
+            "2f": "gpt-5.6-sol"
+          },
+          "pass_toggles": {
+            "1a": true,
+            "1b": true,
+            "1c": true,
+            "2a": true,
+            "2b": true,
+            "2c": true,
+            "2d": true,
+            "2e": true,
+            "2f": true
+          },
+          "pipeline_mode": "publish",
+          "reasoning_efforts": {
+            "2a": "none",
+            "2b": "none",
+            "2c": "none",
+            "2f": "medium"
+          },
+          "run_id": "20260825_050705_9e0d869e",
+          "timestamp": "2026-08-25T10:14:01.910581Z",
+          "used_pass_architecture": true
+        }
+      },
+      {
+        "model_routing": [
+          {
+            "model": "unsloth/qwen3.6-27b@q6_k",
+            "model_family": "qwen",
+            "pass": "1a",
+            "source": "standard_default"
+          },
+          {
+            "max_output_tokens": 2000,
+            "model": "gpt-5.6-terra",
+            "model_family": "gpt5",
+            "pass": "2a",
+            "reasoning_effort": "none",
+            "source": "explicit_override"
+          },
+          {
+            "max_output_tokens": 2000,
+            "model": "gpt-5.6-terra",
+            "model_family": "gpt5",
+            "pass": "2b",
+            "reasoning_effort": "none",
+            "source": "explicit_override"
+          },
+          {
+            "max_output_tokens": 2000,
+            "model": "gpt-5.6-terra",
+            "model_family": "gpt5",
+            "pass": "2c",
+            "reasoning_effort": "none",
+            "source": "explicit_override"
+          },
+          {
+            "model": "unsloth/qwen3.6-27b@q6_k",
+            "model_family": "qwen",
+            "pass": "2d",
+            "source": "standard_default"
+          },
+          {
+            "max_output_tokens": 4096,
+            "model": "gpt-5.6-sol",
+            "model_family": "gpt5",
+            "pass": "2f",
+            "reasoning_effort": "medium",
+            "source": "run_override"
+          }
+        ],
+        "path": "C:\\Users\\Steven\\IntelliJProjects\\renointel-prod\\artifacts\\redfin_10735912\\20260825_045924_209d10ee\\photo_intel_debug.json",
+        "run": {
+          "analysis_profile": "standard",
+          "created_at": "2026-08-25T10:05:01.541193Z",
+          "default_gpt_model": "gpt-5.6-terra",
+          "default_local_model": "unsloth/qwen3.6-27b@q6_k",
+          "dependency_status": {
+            "embeddings": "ready"
+          },
+          "detection_backend": "rv",
+          "gpt_model": "gpt-5.6-terra",
+          "job_id": "20260825_045924_209d10ee",
+          "kind_ontology_version": "observation_kind_v2",
+          "model": "unsloth/qwen3.6-27b@q6_k",
+          "model_overrides": {
+            "2a": "gpt-5.6-terra",
+            "2b": "gpt-5.6-terra",
+            "2c": "gpt-5.6-terra",
+            "2f": "gpt-5.6-sol"
+          },
+          "pass_toggles": {
+            "1a": true,
+            "1b": true,
+            "1c": true,
+            "2a": true,
+            "2b": true,
+            "2c": true,
+            "2d": true,
+            "2e": true,
+            "2f": true
+          },
+          "pipeline_mode": "publish",
+          "reasoning_efforts": {
+            "2a": "none",
+            "2b": "none",
+            "2c": "none",
+            "2f": "medium"
+          },
+          "run_id": "20260825_045924_209d10ee",
+          "timestamp": "2026-08-25T10:05:01.541149Z",
+          "used_pass_architecture": true
+        }
+      }
+    ]
+  },
+  "reliability_patch_preview": {
+    "current_shadow_fallback_preserved": true,
+    "explicit_sol_preserved": true,
+    "new_mode_rejects_missing_and_blank": true,
+    "scope": "Prepared patch function probes only; not production integration tests",
+    "surrogate_cases": [
+      {
+        "expected_codepoints": [
+          "0x41",
+          "0xfffd",
+          "0x42"
+        ],
+        "input_codepoints": [
+          "0x41",
+          "0xdc8f",
+          "0x42"
+        ],
+        "passed": true
+      },
+      {
+        "expected_codepoints": [
+          "0x41",
+          "0xfffd",
+          "0x42"
+        ],
+        "input_codepoints": [
+          "0x41",
+          "0xdc9d",
+          "0x42"
+        ],
+        "passed": true
+      },
+      {
+        "expected_codepoints": [
+          "0x63",
+          "0x61",
+          "0x66",
+          "0xe9",
+          "0x20",
+          "0x1f600"
+        ],
+        "input_codepoints": [
+          "0x63",
+          "0x61",
+          "0x66",
+          "0xe9",
+          "0x20",
+          "0x1f600"
+        ],
+        "passed": true
+      },
+      {
+        "expected_codepoints": [
+          "0x1f600"
+        ],
+        "input_codepoints": [
+          "0xd83d",
+          "0xde00"
+        ],
+        "passed": true
+      }
+    ]
+  },
+  "schema_version": 1,
+  "stage": "Session A decision checkpoint",
+  "tests": {
+    "command": ".venv/Scripts/python.exe -m pytest tests/test_scene_classifier_passes.py tests/test_error_attribution.py tests/test_backend_acceptance_analysis.py tests/test_catalog_resolution_benchmark.py -q --basetemp .test-temp/backend-acceptance-a-03",
+    "failed": 0,
+    "note": "Unsandboxed test execution needed because Windows pytest temp fixture directories were unreadable in the sandbox.",
+    "passed": 128,
+    "warnings": 1
+  },
+  "transport_boundary_probe": {
+    "mode": "synthetic inputs, mocked HTTP; zero provider calls",
+    "openai_text_request": {
+      "api_key": null,
+      "max_tokens": 4096,
+      "model": "synthetic-terra",
+      "reasoning_effort": null,
+      "response_json_schema": null,
+      "response_schema_name": null,
+      "system_prompt": "",
+      "user_prompt": "Map this observation to a catalog item ID using ONLY the candidates.\n\nOBSERVATION:\nA surface looks older.\n\nITEM KIND: modernization\n\nCANDIDATES:\n- test_item | name= | trade= | kind=modernization\n\nRules:\n- Choose 0 or 1 item_id whose name and trade best match the observation semantically.\n- All candidates share this kind; the kind is decided upstream and is not yours to change.\n- If none fit, return null.\n- Use ONLY item_id values from the candidate list.\n\nReturn JSON only:\n{{\n  \"resolved_item_id\": \"...\" or null\n}}\n",
+      "verbosity": null
+    },
+    "pass_order": [
+      "2d",
+      "1a",
+      "property_summarizer"
+    ],
+    "requests": [
+      {
+        "payload": {
+          "max_tokens": 4096,
+          "messages": [
+            {
+              "content": "",
+              "role": "system"
+            },
+            {
+              "content": "Map this observation to a catalog item ID using ONLY the candidates.\n\nOBSERVATION:\nA surface looks older.\n\nITEM KIND: modernization\n\nCANDIDATES:\n- test_item | name= | trade= | kind=modernization\n\nRules:\n- Choose 0 or 1 item_id whose name and trade best match the observation semantically.\n- All candidates share this kind; the kind is decided upstream and is not yours to change.\n- If none fit, return null.\n- Use ONLY item_id values from the candidate list.\n\nReturn JSON only:\n{{\n  \"resolved_item_id\": \"...\" or null\n}}\n",
+              "role": "user"
+            }
+          ],
+          "model": "unsloth/qwen3.6-27b@q6_k",
+          "stream": false,
+          "temperature": 0.1
+        },
+        "url": "http://127.0.0.1:1234/v1/chat/completions"
+      },
+      {
+        "payload": {
+          "max_tokens": 4096,
+          "messages": [
+            {
+              "content": "You are a real estate image classifier. Your task is to identify the scene type shown in a property photo.\n\nClassify the image into exactly ONE of these categories:\n- exterior_front\n- exterior_back\n- exterior_side\n- living_room\n- kitchen\n- bedroom\n- closet\n- bathroom\n- dining_room\n- basement\n- attic\n- garage\n- yard\n- pool\n- roof\n- hvac\n- other\n\nRespond with ONLY a JSON object:\n{\n  \"scene\": \"<category>\",\n  \"reasoning\": \"<brief explanation>\"\n}",
+              "role": "system"
+            },
+            {
+              "content": [
+                {
+                  "image_url": {
+                    "url": "data:image/png;base64,AA=="
+                  },
+                  "type": "image_url"
+                },
+                {
+                  "text": "Classify the scene type in this real estate photo.",
+                  "type": "text"
+                }
+              ],
+              "role": "user"
+            }
+          ],
+          "model": "unsloth/qwen3.6-27b@q6_k",
+          "stream": false,
+          "temperature": 0.2
+        },
+        "url": "http://127.0.0.1:1234/v1/chat/completions"
+      },
+      {
+        "payload": {
+          "max_tokens": 3000,
+          "messages": [
+            {
+              "content": "You are a real estate investment analyst. Respond with valid JSON only.",
+              "role": "system"
+            },
+            {
+              "content": "Synthetic summary probe.",
+              "role": "user"
+            }
+          ],
+          "model": "unsloth/qwen3.6-27b@q6_k",
+          "stream": false,
+          "temperature": 0.2
+        },
+        "url": "http://127.0.0.1:1234/v1/chat/completions"
+      }
+    ]
+  }
+}

@@ -1370,7 +1370,7 @@ def freeze(m: Dict[str, Any], out_root: Path, *, verify_record: Dict[str, Any]) 
         "noise_floor": {
             "terra_replica_flip_rate": TERRA_REPLICA_FLIP_RATE, "wilson_95": [0.040, 0.101],
             "source": "16/250 canary replica flips (reports/review_analysis.md section 6)",
-            "pass_2d_sampling": "temperature 0.2, no seed: the LLM resolution path is not "
+            "pass_2d_sampling": f"temperature {cfg.PASS_2D_TEMPERATURE}, no seed: the LLM resolution path is not "
                                 "deterministic, so a baseline resolution may differ from the frozen "
                                 "one without any catalog cause"},
     }

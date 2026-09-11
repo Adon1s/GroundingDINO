@@ -42,6 +42,104 @@ class FakeTextClient:
         return self.response
 
 
+@pytest.mark.parametrize("configured, explicit, expected", [
+    (0.1, None, 0.1), (0.05, None, 0.05), (0.1, 0.0, 0.0),
+])
+def test_pass_2d_temperature_is_local_to_its_request(monkeypatch, configured, explicit, expected):
+    from tools import pipeline_config as cfg
+    from tools.scene_classifier_passes import run_pass_1a_scene_type
+    from tools.property_summarizer import PropertySummarizer
+
+    monkeypatch.setattr(cfg, "PASS_2D_TEMPERATURE", configured)
+    requests = []
+
+    class CaptureClient:
+        async def analyze_text(self, **kwargs):
+            requests.append(kwargs)
+            return '{"resolved_item_id": null}'
+
+        async def analyze_image(self, **kwargs):
+            requests.append(kwargs)
+            return '{"scene": "kitchen"}'
+
+        def analyze_text_sync(self, **kwargs):
+            requests.append(kwargs)
+            return '{}'
+
+    shared = {"provider": "lmstudio", "model": "local-test"}
+    model_config = dict(shared)
+    if explicit is not None:
+        model_config["temperature"] = explicit
+    before = dict(model_config)
+    client = CaptureClient()
+    asyncio.run(run_pass_2d(client, model_config, "A surface looks older.",
+                           [{"item_id": "test_item", "kind": "modernization", "score": 0.1}],
+                           "modernization"))
+    assert requests[-1]["temperature"] == expected
+    assert model_config == before
+
+    asyncio.run(run_pass_1a_scene_type(Path("unused.jpg"), client, shared))
+    assert "temperature" not in requests[-1]
+    summarizer = PropertySummarizer(model_name="local-test")
+    summarizer.vlm_client = client
+    assert summarizer._call_vlm_unified("probe") == ('{}', None)
+    assert requests[-1]["temperature"] == 0.2
+    assert "temperature" not in shared
+
+
+def test_pass_2d_temperature_at_transport_boundary(monkeypatch):
+    from tools import pipeline_config as cfg
+    from tools.property_summarizer import PropertySummarizer
+    from tools.scene_classifier_passes import run_pass_1a_scene_type
+    from tools.vlm_client import VLMClient, get_model_configs_from_pipeline_config
+
+    monkeypatch.setattr(cfg, "PASS_2D_TEMPERATURE", 0.1)
+    monkeypatch.setattr(cfg, "LM_STUDIO_URL", "http://127.0.0.1:1234")
+    qwen, _ = get_model_configs_from_pipeline_config(cfg)
+    payloads = []
+
+    class Response:
+        status_code = 200
+
+        def json(self):
+            return {"choices": [{"message": {"content": '{}'}}]}
+
+    def post(url, *, json, **kwargs):
+        payloads.append({"url": url, "payload": json})
+        return Response()
+
+    monkeypatch.setattr("tools.vlm_client.requests.post", post)
+    client = VLMClient()
+    monkeypatch.setattr(client, "_encode_image_base64", lambda path: ("AA==", "image/png"))
+    asyncio.run(run_pass_2d(client, qwen, "A surface looks older.",
+                           [{"item_id": "test_item", "kind": "modernization", "score": 0.1}],
+                           "modernization"))
+    asyncio.run(run_pass_1a_scene_type(Path("synthetic.png"), client, qwen))
+    summarizer = PropertySummarizer(lm_studio_url=qwen["url"], model_name=qwen["model"])
+    summarizer.vlm_client = client
+    summarizer._call_vlm_unified("Synthetic summary probe.")
+    assert [p["payload"]["temperature"] for p in payloads] == [0.1, 0.2, 0.2]
+    assert "temperature" not in qwen
+
+    openai_calls = []
+
+    async def capture_openai(**kwargs):
+        openai_calls.append(kwargs)
+        return '{}'
+
+    monkeypatch.setattr(client, "_analyze_text_openai", capture_openai)
+    asyncio.run(run_pass_2d(client, {"provider": "openai", "model": "synthetic-terra"},
+                           "A surface looks older.",
+                           [{"item_id": "test_item", "kind": "modernization", "score": 0.1}],
+                           "modernization"))
+    assert "temperature" not in openai_calls[0]
+    print("ACCEPTANCE_PAYLOAD_PROBE=" + json.dumps({
+        "mode": "synthetic inputs, mocked HTTP; zero provider calls",
+        "pass_order": ["2d", "1a", "property_summarizer"],
+        "requests": payloads, "openai_text_request": openai_calls[0],
+    }, sort_keys=True))
+
+
 class FakeOrchestratorClient:
     async def analyze_image(self, image_path, system_prompt, user_prompt, **model_config):
         prompt_lower = (system_prompt or "").lower()

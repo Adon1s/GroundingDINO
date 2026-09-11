@@ -1175,11 +1175,13 @@ async def run_pass_2d(
 
     logger.debug(f"Pass 2d: Resolving catalog item for {kind} observation: {observation[:50]}...")
 
+    request_config = _with_analysis_pass(model_config, "Pass 2d (catalog resolution)")
+    request_config.setdefault("temperature", _cfg_value("PASS_2D_TEMPERATURE", 0.1))
     try:
         response = await vlm_client.analyze_text(
             system_prompt=PASS_2D_SYSTEM_PROMPT,
             user_prompt=user_prompt,
-            **_with_analysis_pass(model_config, "Pass 2d (catalog resolution)"),
+            **request_config,
         )
     except Exception as e:
         logger.error(f"Pass 2d: Error resolving catalog item: {e}")

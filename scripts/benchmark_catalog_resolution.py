@@ -176,7 +176,7 @@ def load_model_config(path: Path) -> Tuple[str, Dict[str, Any]]:
     raw = json.loads(Path(path).read_text(encoding="utf-8"))
     label = raw.get("label") or raw.get("model") or "unnamed-model"
     keys = ("provider", "model", "url", "api_key", "reasoning_effort",
-            "verbosity", "max_output_tokens", "timeout")
+            "verbosity", "max_output_tokens", "timeout", "temperature")
     config = {k: raw[k] for k in keys if raw.get(k) is not None}
     if not config.get("model"):
         raise ValueError(f"{path}: model config needs a 'model'")
@@ -192,9 +192,11 @@ def load_model_config(path: Path) -> Tuple[str, Dict[str, Any]]:
         if not api_key:
             raise ValueError("openai provider needs an api_key (config or OPENAI_API_KEY env)")
         config["api_key"] = api_key
-    if provider == "lmstudio" and not config.get("url"):
+    if provider == "lmstudio":
         from tools import pipeline_config
-        config["url"] = pipeline_config.LM_STUDIO_URL
+        config.setdefault("url", pipeline_config.LM_STUDIO_URL)
+        # Match run_pass_2d's effective setting and preserve it in report.meta.
+        config.setdefault("temperature", pipeline_config.PASS_2D_TEMPERATURE)
     return label, config
 
 
