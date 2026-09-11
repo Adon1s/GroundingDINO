@@ -49,8 +49,14 @@ def _write_json_atomic(path: Path, payload: Any) -> None:
     run. Same pattern as _save_image_checkpoint / _patch_audit_meta.
     """
     tmp = path.with_suffix(path.suffix + ".tmp")
+    rendered = json.dumps(payload, indent=2, ensure_ascii=False)
+    # Scraped descriptions may contain unpaired UTF-16 surrogate code points.
+    # Replace only malformed code points; preserve Unicode and valid pairs.
+    rendered = rendered.encode("utf-16-le", errors="surrogatepass").decode(
+        "utf-16-le", errors="replace"
+    )
     with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(payload, f, indent=2, ensure_ascii=False)
+        f.write(rendered)
     os.replace(tmp, path)
 
 
@@ -775,6 +781,13 @@ def write_photo_intel(
                 "labeled_forward": safe_list(payload.get("labeled_forward")),
                 "resolved_items":  safe_list(payload.get("resolved_items")),
                 "observations_struct": payload.get("observations_struct", {}),
+                # Preserve the pre-resolution lane and the original exclusion
+                # reasons so investigation never has to infer them from 2e.
+                "observations": copy.deepcopy(payload.get("observations", [])),
+                "excluded_observations": copy.deepcopy(payload.get("excluded_observations", [])),
+                "pass_2d_per_observation": copy.deepcopy(
+                    (payload.get("debug") or {}).get("pass_2d_per_observation", [])
+                ),
                 "features_struct":    payload.get("features_struct", {}),
                 "passes": passes,
             },

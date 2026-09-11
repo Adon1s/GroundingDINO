@@ -242,15 +242,18 @@ RENOVATION_TERRA_USAGE_ROOT = resolve_renovation_terra_usage_root(
 # =============================================================================
 # SOL PACKAGE REVIEW (renovation architecture Session 4)
 # =============================================================================
-# Model + output cap for the shadow-mode Sol package-review stage. Identical
-# posture to the Terra pair above: RENOVATION_SOL_MODEL falls back to
-# OPENAI_MODEL, both empty resolves to "" here and shadow-mode runtime init
-# rejects it at startup (current mode never reads it); an invalid token cap
+# Model + output cap for the Sol package-review stage.
+# RENOVATION_SOL_MODEL is mandatory in new mode. Current/shadow retain the
+# historical OPENAI_MODEL fallback; both empty resolves to "" and shadow
+# runtime init rejects it (current mode never reads it). An invalid token cap
 # raises at import in every entry point.
 
 
-def resolve_renovation_sol_model(raw: str, *, openai_model: str) -> str:
-    return (raw or "").strip() or (openai_model or "").strip()
+def resolve_renovation_sol_model(raw: str, *, openai_model: str, mode: str = "current") -> str:
+    explicit = (raw or "").strip()
+    if mode == "new" and not explicit:
+        raise ValueError("new mode requires an explicit RENOVATION_SOL_MODEL; OPENAI_MODEL fallback is disabled")
+    return explicit or (openai_model or "").strip()
 
 
 def resolve_renovation_sol_max_output_tokens(raw: Optional[str]) -> int:
@@ -288,7 +291,8 @@ def resolve_renovation_sol_daily_ceiling(raw: Optional[str]) -> int:
 
 
 RENOVATION_SOL_MODEL = resolve_renovation_sol_model(
-    os.environ.get("RENOVATION_SOL_MODEL", ""), openai_model=OPENAI_MODEL
+    os.environ.get("RENOVATION_SOL_MODEL", ""), openai_model=OPENAI_MODEL,
+    mode=RENOVATION_ARCHITECTURE_MODE,
 )
 RENOVATION_SOL_MAX_OUTPUT_TOKENS = resolve_renovation_sol_max_output_tokens(
     os.environ.get("RENOVATION_SOL_MAX_OUTPUT_TOKENS")

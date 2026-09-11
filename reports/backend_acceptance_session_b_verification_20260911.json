@@ -1,0 +1,32 @@
+{
+  "additional_scorer_tests_passed": 4,
+  "approval": "Steven approved recommendations and explicitly renewed permission for Terra, Sol, and local tokens.",
+  "batch_terra_cap": 2000000,
+  "forecast_sol_per_replica": 173973,
+  "forecast_terra_per_replica": 982176,
+  "full_suite": {
+    "failed": 9,
+    "failures": "same nine known catalog-drift failures",
+    "passed": 2878,
+    "skipped": 6
+  },
+  "local_dry_run": {
+    "frozen_2c_observations": 36,
+    "passed": true,
+    "photos": 7,
+    "property": "redfin_10806500"
+  },
+  "local_runtime": {
+    "context_length": 8192,
+    "gpu_offload_ratio": 0.9,
+    "model": "unsloth/qwen3.6-27b@q6_k",
+    "parallel": 1,
+    "reason": "Avoid 24GB GPU memory pressure; successful dry run after reload."
+  },
+  "paid_tokens": 0,
+  "production_worker_idle_checked": true,
+  "sol_daily_cap": 250000,
+  "targeted_tests_passed": 86,
+  "tier0_passed": true,
+  "tier0_properties": 18
+}

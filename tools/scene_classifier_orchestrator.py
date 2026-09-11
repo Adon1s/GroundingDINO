@@ -20,6 +20,7 @@ Usage:
     )
 """
 
+import copy
 import hashlib
 import inspect
 import logging
@@ -803,18 +804,26 @@ class SceneClassifierOrchestrator:
         # Pass 2b: Observations -> JSON (text-only)
         # ─────────────────────────────────────────────────────────────────────
         if self._t(toggles, '2b'):
-            model_config = self._get_model_config('2b', options)
-            model_name = self._get_model_name('2b', options)
-            self._record_model_routing('2b', options, model_config, result)
+            frozen_2b = (options.meta or {}).get("pass_2b_frozen_struct")
+            if frozen_2b is not None:
+                if not isinstance(frozen_2b, dict) or not isinstance(frozen_2b.get("observations"), list):
+                    raise ValueError("pass_2b_frozen_struct requires an observations list")
+                result.pass_2b = Pass2bResult(observations=copy.deepcopy(frozen_2b["observations"]))
+                result.pass_timings['2b'] = 0.0
+                model_name = "frozen_replay"
+            else:
+                model_config = self._get_model_config('2b', options)
+                model_name = self._get_model_name('2b', options)
+                self._record_model_routing('2b', options, model_config, result)
 
-            logger.debug(f"Running Pass 2b with {model_name}")
-            t0 = time.perf_counter()
-            result.pass_2b = await run_pass_2b(
-                vlm_client=self.vlm_client,
-                model_config=model_config,
-                observations_freeform=observations_freeform,
-            )
-            result.pass_timings['2b'] = time.perf_counter() - t0
+                logger.debug(f"Running Pass 2b with {model_name}")
+                t0 = time.perf_counter()
+                result.pass_2b = await run_pass_2b(
+                    vlm_client=self.vlm_client,
+                    model_config=model_config,
+                    observations_freeform=observations_freeform,
+                )
+                result.pass_timings['2b'] = time.perf_counter() - t0
 
             observations_list = result.pass_2b.observations or []
             result.observations_struct = {"observations": observations_list}
@@ -827,23 +836,34 @@ class SceneClassifierOrchestrator:
         # Pass 2c: Classify observations — observation-kind-v2 (text-only)
         # ─────────────────────────────────────────────────────────────────────
         if self._t(toggles, '2c'):
-            model_config = self._get_model_config('2c', options)
-            model_name = self._get_model_name('2c', options)
-            self._record_model_routing('2c', options, model_config, result)
+            frozen_2c = (options.meta or {}).get("pass_2c_frozen_observations")
+            if frozen_2c is not None:
+                if not isinstance(frozen_2c, dict) or not isinstance(frozen_2c.get("observations"), list):
+                    raise ValueError("pass_2c_frozen_observations requires observations and optional excluded lists")
+                result.pass_2c = Pass2cResult(
+                    observations=copy.deepcopy(frozen_2c["observations"]),
+                    excluded=copy.deepcopy(frozen_2c.get("excluded", [])),
+                )
+                result.pass_timings['2c'] = 0.0
+                model_name = "frozen_replay"
+            else:
+                model_config = self._get_model_config('2c', options)
+                model_name = self._get_model_name('2c', options)
+                self._record_model_routing('2c', options, model_config, result)
 
-            observations_in = []
-            if isinstance(result.observations_struct, dict):
-                observations_in = result.observations_struct.get("observations") or []
+                observations_in = []
+                if isinstance(result.observations_struct, dict):
+                    observations_in = result.observations_struct.get("observations") or []
 
-            logger.debug(f"Running Pass 2c with {model_name}")
-            t0 = time.perf_counter()
-            result.pass_2c = await run_pass_2c(
-                vlm_client=self.vlm_client,
-                model_config=model_config,
-                observations=observations_in,
-                scene=result.scene or "other",
-            )
-            result.pass_timings['2c'] = time.perf_counter() - t0
+                logger.debug(f"Running Pass 2c with {model_name}")
+                t0 = time.perf_counter()
+                result.pass_2c = await run_pass_2c(
+                    vlm_client=self.vlm_client,
+                    model_config=model_config,
+                    observations=observations_in,
+                    scene=result.scene or "other",
+                )
+                result.pass_timings['2c'] = time.perf_counter() - t0
 
             result.observations = list(result.pass_2c.observations or [])
             result.excluded_observations = list(result.pass_2c.excluded or [])
@@ -928,7 +948,11 @@ class SceneClassifierOrchestrator:
         to_resolve_all = observations[:self.max_resolve_per_image]
 
         pass_2d_toggle = self._t(toggles, "2d", default=True)
-        pass_2d_provider_present = self.candidate_provider is not None
+        frozen_2d = (options.meta or {}).get("pass_2d_frozen_resolutions")
+        if frozen_2d is not None:
+            if not isinstance(frozen_2d, dict) or set(frozen_2d) != {o["issue_id"] for o in to_resolve_all}:
+                raise ValueError("frozen 2d must cover exactly every attempted observation, including nulls")
+        pass_2d_provider_present = self.candidate_provider is not None or frozen_2d is not None
         by_kind = {
             kind: sum(1 for obs in observations if obs.get("kind") == kind)
             for kind in sorted(OBSERVATION_KINDS)
@@ -986,15 +1010,27 @@ class SceneClassifierOrchestrator:
             for obs in to_resolve_all:
                 obs.setdefault("scene", _scene_for_2d)
                 obs.setdefault("scene_group", _scene_group_for_2d)
-                resolved_row, debug_row, pass_2d_result = await resolve_observation_against_catalog(
-                    vlm_client=self.vlm_client,
-                    model_config=model_config,
-                    candidate_provider=self.candidate_provider,
-                    observation=obs,
-                    base_context=base_ctx_for_provider,
-                    top_k=self.top_k_candidates,
-                    source_image_path=str(image_path),
-                )
+                if frozen_2d is not None:
+                    resolved_row = copy.deepcopy(frozen_2d[obs["issue_id"]])
+                    if resolved_row is not None and (
+                        resolved_row.get("issue_id") != obs["issue_id"]
+                        or resolved_row.get("description") != obs["description"]
+                        or resolved_row.get("original_kind") != obs["kind"]
+                    ):
+                        raise ValueError("frozen 2d resolution does not match its observation")
+                    debug_row = {"issue_id": obs["issue_id"], "resolution_path": "frozen_replay",
+                                 "resolved_item_id": (resolved_row or {}).get("resolved_item_id")}
+                    pass_2d_result = None
+                else:
+                    resolved_row, debug_row, pass_2d_result = await resolve_observation_against_catalog(
+                        vlm_client=self.vlm_client,
+                        model_config=model_config,
+                        candidate_provider=self.candidate_provider,
+                        observation=obs,
+                        base_context=base_ctx_for_provider,
+                        top_k=self.top_k_candidates,
+                        source_image_path=str(image_path),
+                    )
                 result.debug["pass_2d_per_observation"].append(debug_row)
                 if pass_2d_result is not None:
                     pass_2d_results.append(pass_2d_result)
@@ -1005,7 +1041,7 @@ class SceneClassifierOrchestrator:
             result.pass_2d = pass_2d_results
             result.resolved_items = resolved_items
             result.passes_run.append('2d')
-            result.models_used['2d'] = model_name
+            result.models_used['2d'] = 'frozen_replay' if frozen_2d is not None else model_name
 
             resolved_by_kind = {
                 kind: sum(1 for row in resolved_items if row.get("resolved_kind") == kind)

@@ -1,0 +1,402 @@
+........................................................................ [  2%]
+........................................................................ [  4%]
+......................................F................................. [  7%]
+........................................................................ [  9%]
+........................................................................ [ 12%]
+........................................................................ [ 14%]
+........................................................................ [ 17%]
+............FF.................F.FF....F..F............................. [ 19%]
+...........................F............................................ [ 22%]
+........................................................................ [ 24%]
+........................................................................ [ 27%]
+........................................................................ [ 29%]
+.................................................s...................... [ 32%]
+........................................................................ [ 34%]
+........................................................................ [ 37%]
+........................................................................ [ 39%]
+........................................................................ [ 42%]
+........................................................................ [ 44%]
+................................ss..........ss.......................... [ 47%]
+...............................s........................................ [ 49%]
+........................................................................ [ 52%]
+........................................................................ [ 54%]
+........................................................................ [ 57%]
+........................................................................ [ 59%]
+........................................................................ [ 62%]
+........................................................................ [ 64%]
+........................................................................ [ 67%]
+........................................................................ [ 69%]
+........................................................................ [ 72%]
+........................................................................ [ 74%]
+........................................................................ [ 77%]
+........................................................................ [ 79%]
+........................................................................ [ 82%]
+........................................................................ [ 84%]
+........................................................................ [ 87%]
+........................................................................ [ 89%]
+........................................................................ [ 92%]
+........................................................................ [ 94%]
+........................................................................ [ 97%]
+........................................................................ [ 99%]
+.............                                                            [100%]
+================================== FAILURES ===================================
+______________ test_compute_pre2f_totals_force_confirms_packages ______________
+
+    @pytest.mark.skipif(not STORED_ARTIFACT.is_file(),
+                        reason="stored canary artifact not available")
+    def test_compute_pre2f_totals_force_confirms_packages():
+        # Explicit v2 catalog path: under pytest, tools.pipeline_config is already
+        # imported before the env selector could be set, so cfg.ISSUE_CATALOG_PATH
+        # would resolve to v1 here. The CLI sets the env before any tools import.
+        from tools.artifact_writers import load_issue_catalog
+        catalog = load_issue_catalog(bench.ROOT / "tools" / "issue_catalog_kind_v2.json")
+        assert catalog.get("version") == "3.2"
+        artifact = json.loads(STORED_ARTIFACT.read_text(encoding="utf-8"))
+    
+>       totals = bench.compute_pre2f_totals(artifact, catalog)
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests\test_benchmark_pass2a.py:670: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+tools\benchmark_pass2a.py:585: in compute_pre2f_totals
+    probe = compute_renovation_estimate_v4(
+tools\renovation_estimate_v4.py:145: in compute_renovation_estimate_v4
+    v4_candidates = extract_estimate_candidates(v4_issues, issue_catalog)
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+issues_flat = [{'catalog_item_id': 'dated_or_older_windows', 'catalog_item_kind': 'modernization', 'description': 'The windows appea...'The right wall has staining, discoloration, and rough repairs.', 'estimate_unit_id': 'living_room_primary', ...}, ...]
+issue_catalog = {'items': [{'atomic_claim': {'ontology_basis': 'moisture_evidence', 'state': 'water staining indicating moisture intru...'id': 'bathroom_fixtures_tile', 'name': 'Bathroom Fixtures & Tile'}, {'id': 'plumbing', 'name': 'Plumbing'}, ...], ...}
+
+    def extract_estimate_candidates(
+        issues_flat: List[Dict[str, Any]],
+        issue_catalog: Dict[str, Any],
+    ) -> List[EstimateCandidate]:
+        """
+        Filter issues_flat into estimate-ready candidates.
+    
+        Only returns items where estimate_tier is 'high' or 'medium'.
+        Minor-tier items are excluded from the quick estimate entirely.
+        """
+        catalog_lookup: Dict[str, Dict[str, Any]] = {}
+        for item in issue_catalog.get("items", []):
+            if isinstance(item, dict) and item.get("id"):
+                catalog_lookup[item["id"]] = item
+    
+        quarantined_trades = product_quarantined_trade_buckets(issue_catalog)
+    
+        # Group issues into estimate units. Photos are evidence inside a unit, not
+        # separate cost multipliers.
+        grouped: Dict[Tuple[str, str, str], List[Dict[str, Any]]] = {}
+        for issue in (issues_flat or []):
+            cat_id = issue.get("catalog_item_id")
+            if not cat_id:
+                continue
+            if cat_id not in catalog_lookup:
+                # A resolved id the catalog doesn't know is stale data (e.g. a
+                # legacy id against the v2 catalog); dropping it would silently
+                # shrink the estimate. Migrate the artifact instead.
+>               raise ValueError(
+                    f"renovation_estimate: issue resolves to unknown/stale catalog "
+                    f"id {cat_id!r}, absent from the selected catalog "
+                    f"(version {issue_catalog.get('version')!r})."
+                )
+E               ValueError: renovation_estimate: issue resolves to unknown/stale catalog id 'dated_window_treatment_valance', absent from the selected catalog (version '3.2').
+
+tools\renovation_estimate.py:501: ValueError
+___________________ test_build_is_read_only_and_pins_verify ___________________
+
+    @pytest.mark.skipif(not REAL, reason="pinned inputs or the committed review not present")
+    def test_build_is_read_only_and_pins_verify():
+        before = {s2._rel(p): sha256_file(p) for p in mod.GUARDED}
+>       assert mod.verify_pins() == {k: v for k, v in mod.PINS.items()}
+               ^^^^^^^^^^^^^^^^^
+
+tests\test_catalog_audit_adversarial_review.py:173: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\render_catalog_audit_adversarial_review.py:91: in verify_pins
+    fail("pinned inputs drifted: " + "; ".join(problems))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+msg = 'pinned inputs drifted: tools/catalog_migrations/kind_v2_decisions.json: on disk 4cd0bc073f6fcdab3bde93993ed05a6199645...dcb81292b36408cc67ea87adc47c2c8256aaec6976163, pinned b732022fcea8cd22109c7781eb0f93d0688d557230c759ccb6216d667250a053'
+
+    def fail(msg: str) -> None:
+>       raise ReviewError(f"render_catalog_audit_adversarial_review: {msg}")
+E       scripts.render_catalog_audit_adversarial_review.ReviewError: render_catalog_audit_adversarial_review: pinned inputs drifted: tools/catalog_migrations/kind_v2_decisions.json: on disk 4cd0bc073f6fcdab3bde93993ed05a6199645e756e0df4b816230bd047a3b005, pinned 47614d822bdd6b672d8596050b46839d04a8a6df0a04c18e052f4a63bd1903e8; tools/issue_catalog_kind_v2.json: on disk 787964013d083368403524c610df54cc9858a8f6c1a1e5c9535c7204c1e67a2f, pinned 51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54; scripts/migrate_catalog_kind_v2.py: on disk 6a462249c135c408cefdcb81292b36408cc67ea87adc47c2c8256aaec6976163, pinned b732022fcea8cd22109c7781eb0f93d0688d557230c759ccb6216d667250a053
+
+scripts\render_catalog_audit_adversarial_review.py:74: ReviewError
+________________________ test_parity_committed_review _________________________
+
+    @pytest.mark.skipif(not REAL, reason="pinned inputs or the committed review not present")
+    def test_parity_committed_review():
+>       out, md = mod.build()
+                  ^^^^^^^^^^^
+
+tests\test_catalog_audit_adversarial_review.py:181: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\render_catalog_audit_adversarial_review.py:252: in build
+    pins = verify_pins()
+           ^^^^^^^^^^^^^
+scripts\render_catalog_audit_adversarial_review.py:91: in verify_pins
+    fail("pinned inputs drifted: " + "; ".join(problems))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+msg = 'pinned inputs drifted: tools/catalog_migrations/kind_v2_decisions.json: on disk 4cd0bc073f6fcdab3bde93993ed05a6199645...dcb81292b36408cc67ea87adc47c2c8256aaec6976163, pinned b732022fcea8cd22109c7781eb0f93d0688d557230c759ccb6216d667250a053'
+
+    def fail(msg: str) -> None:
+>       raise ReviewError(f"render_catalog_audit_adversarial_review: {msg}")
+E       scripts.render_catalog_audit_adversarial_review.ReviewError: render_catalog_audit_adversarial_review: pinned inputs drifted: tools/catalog_migrations/kind_v2_decisions.json: on disk 4cd0bc073f6fcdab3bde93993ed05a6199645e756e0df4b816230bd047a3b005, pinned 47614d822bdd6b672d8596050b46839d04a8a6df0a04c18e052f4a63bd1903e8; tools/issue_catalog_kind_v2.json: on disk 787964013d083368403524c610df54cc9858a8f6c1a1e5c9535c7204c1e67a2f, pinned 51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54; scripts/migrate_catalog_kind_v2.py: on disk 6a462249c135c408cefdcb81292b36408cc67ea87adc47c2c8256aaec6976163, pinned b732022fcea8cd22109c7781eb0f93d0688d557230c759ccb6216d667250a053
+
+scripts\render_catalog_audit_adversarial_review.py:74: ReviewError
+_________________ test_committed_bundle_matches_a_fresh_build _________________
+
+    @pytest.mark.skipif(not all((mod.ROOT / rel).exists() for rel in mod.REL.values())
+                        or not Path("C:/Users/Steven/IntelliJProjects/renointel-prod/artifacts").is_dir()
+                        or not mod.OUT_JSON.is_file(),
+                        reason="frozen inputs, production artifacts, or the committed bundle are not present")
+    def test_committed_bundle_matches_a_fresh_build():
+>       fresh = mod.build_bundle(mod.load_all())
+                                 ^^^^^^^^^^^^^^
+
+tests\test_catalog_audit_evidence.py:563: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\build_catalog_audit_evidence.py:1200: in load_all
+    fail_closed(verify_pins(shas, FROZEN_SHA256))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+problems = ['catalog_v2: sha256 787964013d083368403524c610df54cc9858a8f6c1a1e5c9535c7204c1e67a2f != pinned 51bf7e263ff98109d657ef...993ed05a6199645e756e0df4b816230bd047a3b005 != pinned 47614d822bdd6b672d8596050b46839d04a8a6df0a04c18e052f4a63bd1903e8']
+
+    def fail_closed(problems: Sequence[str]) -> None:
+        if problems:
+>           raise EvidenceError("build_catalog_audit_evidence: " + "; ".join(problems))
+E           scripts.build_catalog_audit_evidence.EvidenceError: build_catalog_audit_evidence: catalog_v2: sha256 787964013d083368403524c610df54cc9858a8f6c1a1e5c9535c7204c1e67a2f != pinned 51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54; decisions: sha256 4cd0bc073f6fcdab3bde93993ed05a6199645e756e0df4b816230bd047a3b005 != pinned 47614d822bdd6b672d8596050b46839d04a8a6df0a04c18e052f4a63bd1903e8
+
+scripts\build_catalog_audit_evidence.py:119: EvidenceError
+___________________ test_baseline_arm_is_the_pinned_catalog ___________________
+
+manifest = {'approved': {'added_items': ['window_blinds_basic_or_plain', 'dated_window_valance_or_curtains'], 'approvals_path': '...condition_terra_call': '~3.2k tokens (gate live check: 23 calls, 72,756 tokens)', 'stage_a_case_count': 66}, ...}, ...}
+baseline_projection = {'catalog': {'items': [{'atomic_claim': {'ontology_basis': 'moisture_evidence', 'state': 'water staining indicating mo...524c610df54cc9858a8f6c1a1e5c9535c7204c1e67a2f', 'catalog_validation_warning_count': 42, 'catalog_version': '3.2', ...}}
+
+    def test_baseline_arm_is_the_pinned_catalog(manifest, baseline_projection):
+        want = manifest["arms"]["baseline"]
+        proj = baseline_projection["projection"]
+>       assert proj["catalog_sha256"] == want["catalog_sha256"]
+E       AssertionError: assert '787964013d08...c7204c1e67a2f' == '51bf7e263ff9...b1bdc3e0eaa54'
+E         
+E         - 51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54
+E         + 787964013d083368403524c610df54cc9858a8f6c1a1e5c9535c7204c1e67a2f
+
+tests\test_catalog_audit_live_validation.py:73: AssertionError
+__________ test_candidate_arm_differs_only_by_the_three_split_items ___________
+
+manifest = {'approved': {'added_items': ['window_blinds_basic_or_plain', 'dated_window_valance_or_curtains'], 'approvals_path': '...condition_terra_call': '~3.2k tokens (gate live check: 23 calls, 72,756 tokens)', 'stage_a_case_count': 66}, ...}, ...}
+
+    @pytest.mark.skipif(not CANDIDATE_ROOT.is_dir(), reason="candidate worktree not present")
+    def test_candidate_arm_differs_only_by_the_three_split_items(manifest):
+        base = {i["id"] for i in mod.arm_projection(ROOT)["catalog"]["items"]}
+        cand = {i["id"] for i in mod.arm_projection(CANDIDATE_ROOT)["catalog"]["items"]}
+>       assert base - cand == {mod.PARENT_ID}
+E       AssertionError: assert set() == {'dated_windo...ment_valance'}
+E         
+E         Extra items in the right set:
+E         'dated_window_treatment_valance'
+E         Use -v to get more diff
+
+tests\test_catalog_audit_live_validation.py:82: AssertionError
+______________ test_product_lane_reproduces_the_stored_envelope _______________
+
+baseline_projection = {'catalog': {'items': [{'atomic_claim': {'ontology_basis': 'moisture_evidence', 'state': 'water staining indicating mo...524c610df54cc9858a8f6c1a1e5c9535c7204c1e67a2f', 'catalog_validation_warning_count': 42, 'catalog_version': '3.2', ...}}
+
+    @pytest.mark.skipif(not GOLDEN_ARTIFACT.is_file(), reason="golden canary artifact not present")
+    def test_product_lane_reproduces_the_stored_envelope(baseline_projection):
+        """Rebuild one frozen property from its own stored provenance and require the condition ids
+        back bit for bit. This is what proves the harness reads the lane production read: the estimate
+        lane builds 29 conditions where the run had 22, and would buy Terra calls for the extra seven."""
+        from tools.renovation_architecture.conditions import build_observed_conditions
+        from tools.renovation_architecture.ids import make_estimate_id
+        art = _read(GOLDEN_ARTIFACT)
+        envelope = art["analysis_debug"]["renovation_estimate_v5"]
+        provenance, stored = envelope["provenance"], envelope["result"]
+        estimate_id = make_estimate_id(
+            property_key="redfin_10803207", source_run_id="20260817_222851_c0551630",
+            catalog_sha256=provenance["catalog_sha256"],
+            projection_fingerprint=provenance["projection_fingerprint"])
+        assert estimate_id == envelope["estimate_id"]
+    
+>       drafts = build_observed_conditions(
+            issues_flat=mod.product_lane(art), photos=art["photos"],
+            property_metadata=art.get("property_metadata"),
+            projection=baseline_projection["projection"], estimate_id=estimate_id)
+
+tests\test_catalog_audit_live_validation.py:143: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def build_observed_conditions(
+        *,
+        issues_flat: List[Dict[str, Any]],
+        photos: Mapping[str, Any],
+        property_metadata: Optional[Dict[str, Any]],
+        projection: Mapping[str, Any],
+        estimate_id: str,
+    ) -> List[ConditionDraft]:
+        """Group the estimate lane into one condition per (catalog item, unit)."""
+        surrogates = build_room_surrogates(dict(photos or {}))
+        resolution = build_estimate_units(
+            photos or {},
+            surrogates.get("room_surrogates", []),
+            property_metadata=property_metadata,
+        )
+        photo_to_surrogate = surrogates.get("photo_key_to_room_surrogate_id", {}) or {}
+        photo_to_unit = resolution.get("photo_to_estimate_unit_id", {}) or {}
+        units_by_id = {
+            unit["estimate_unit_id"]: unit
+            for unit in resolution.get("estimate_units", [])
+            if isinstance(unit, dict) and unit.get("estimate_unit_id")
+        }
+        observables = projection["observables"]
+    
+        grouped: Dict[Tuple[str, str], Dict[str, Any]] = {}
+        for issue in issues_flat or []:
+            catalog_item_id = issue.get("catalog_item_id")
+            if not catalog_item_id:
+                continue  # never catalog-matched; the lane keeps these for display
+            observable = observables.get(catalog_item_id)
+            if observable is None:
+>               raise _conditions_failure(
+                    f"issue {issue.get('issue_id')!r} resolves to unknown/stale "
+                    f"catalog id {catalog_item_id!r} � the projection accepts only "
+                    "the newest catalog",
+                    code="StaleCatalogItemId",
+                )
+E               tools.scene_classifier_passes.PassExecutionError: Pass terra_conditions dependency failure: issue '8b3fe5d13b4504e2' resolves to unknown/stale catalog id 'dated_window_treatment_valance' � the projection accepts only the newest catalog
+
+tools\renovation_architecture\conditions.py:97: PassExecutionError
+___________ test_a_condition_payload_is_independent_of_its_siblings ___________
+
+baseline_projection = {'catalog': {'items': [{'atomic_claim': {'ontology_basis': 'moisture_evidence', 'state': 'water staining indicating mo...524c610df54cc9858a8f6c1a1e5c9535c7204c1e67a2f', 'catalog_validation_warning_count': 42, 'catalog_version': '3.2', ...}}
+
+    @pytest.mark.skipif(not GOLDEN_ARTIFACT.is_file(), reason="golden canary artifact not present")
+    def test_a_condition_payload_is_independent_of_its_siblings(baseline_projection):
+        """Reviewing whole units is a deliberate choice: the per-condition claim and observations do not
+        depend on siblings, but the photo set, the prompt's photo numbering and the fingerprint do. So a
+        subset payload asks Terra a different question, and this test pins both halves of that."""
+        from tools.renovation_architecture.conditions import build_observed_conditions
+        from tools.renovation_architecture.contracts import TERRA_REVIEW_REASONING_EFFORT
+        from tools.renovation_architecture.evidence import build_evidence_facts, build_photo_identity_index
+        from tools.renovation_architecture.terra_review import build_unit_request
+        from tools.pass_2f_artifact_inputs import photo_key_to_path
+    
+        art = _read(GOLDEN_ARTIFACT)
+        projection = baseline_projection["projection"]
+>       drafts = build_observed_conditions(issues_flat=mod.product_lane(art), photos=art["photos"],
+                                           property_metadata=art.get("property_metadata"),
+                                           projection=projection, estimate_id="rea1_test")
+
+tests\test_catalog_audit_live_validation.py:207: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+    def build_observed_conditions(
+        *,
+        issues_flat: List[Dict[str, Any]],
+        photos: Mapping[str, Any],
+        property_metadata: Optional[Dict[str, Any]],
+        projection: Mapping[str, Any],
+        estimate_id: str,
+    ) -> List[ConditionDraft]:
+        """Group the estimate lane into one condition per (catalog item, unit)."""
+        surrogates = build_room_surrogates(dict(photos or {}))
+        resolution = build_estimate_units(
+            photos or {},
+            surrogates.get("room_surrogates", []),
+            property_metadata=property_metadata,
+        )
+        photo_to_surrogate = surrogates.get("photo_key_to_room_surrogate_id", {}) or {}
+        photo_to_unit = resolution.get("photo_to_estimate_unit_id", {}) or {}
+        units_by_id = {
+            unit["estimate_unit_id"]: unit
+            for unit in resolution.get("estimate_units", [])
+            if isinstance(unit, dict) and unit.get("estimate_unit_id")
+        }
+        observables = projection["observables"]
+    
+        grouped: Dict[Tuple[str, str], Dict[str, Any]] = {}
+        for issue in issues_flat or []:
+            catalog_item_id = issue.get("catalog_item_id")
+            if not catalog_item_id:
+                continue  # never catalog-matched; the lane keeps these for display
+            observable = observables.get(catalog_item_id)
+            if observable is None:
+>               raise _conditions_failure(
+                    f"issue {issue.get('issue_id')!r} resolves to unknown/stale "
+                    f"catalog id {catalog_item_id!r} � the projection accepts only "
+                    "the newest catalog",
+                    code="StaleCatalogItemId",
+                )
+E               tools.scene_classifier_passes.PassExecutionError: Pass terra_conditions dependency failure: issue '8b3fe5d13b4504e2' resolves to unknown/stale catalog id 'dated_window_treatment_valance' � the projection accepts only the newest catalog
+
+tools\renovation_architecture\conditions.py:97: PassExecutionError
+_______________________ test_parity_committed_proposals _______________________
+
+    @pytest.mark.skipif(not (mod.EVIDENCE_JSON.is_file() and mod.PROPOSALS_JSON.is_file() and mod.LEDGER.is_file()),
+                        reason="evidence bundle, committed proposals, or ledger not present")
+    def test_parity_committed_proposals():
+>       out, _, md = mod.build()
+                     ^^^^^^^^^^^
+
+tests\test_catalog_audit_proposals.py:755: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+scripts\render_catalog_audit_proposals.py:1663: in build
+    baseline = load_baseline(bundle)
+               ^^^^^^^^^^^^^^^^^^^^^
+scripts\render_catalog_audit_proposals.py:162: in load_baseline
+    fail("baseline inputs drifted from the evidence bundle: " + "; ".join(problems))
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+msg = 'baseline inputs drifted from the evidence bundle: tools/catalog_migrations/kind_v2_decisions.json: on disk 4cd0bc073f...dcb81292b36408cc67ea87adc47c2c8256aaec6976163, bundle b732022fcea8cd22109c7781eb0f93d0688d557230c759ccb6216d667250a053'
+
+    def fail(msg: str) -> None:
+>       raise ProposalError(f"render_catalog_audit_proposals: {msg}")
+E       scripts.render_catalog_audit_proposals.ProposalError: render_catalog_audit_proposals: baseline inputs drifted from the evidence bundle: tools/catalog_migrations/kind_v2_decisions.json: on disk 4cd0bc073f6fcdab3bde93993ed05a6199645e756e0df4b816230bd047a3b005, bundle 47614d822bdd6b672d8596050b46839d04a8a6df0a04c18e052f4a63bd1903e8; tools/issue_catalog_kind_v2.json: on disk 787964013d083368403524c610df54cc9858a8f6c1a1e5c9535c7204c1e67a2f, bundle 51bf7e263ff98109d657ef730b0ce1a705598101f09843eb288b1bdc3e0eaa54; scripts/migrate_catalog_kind_v2.py: on disk 6a462249c135c408cefdcb81292b36408cc67ea87adc47c2c8256aaec6976163, bundle b732022fcea8cd22109c7781eb0f93d0688d557230c759ccb6216d667250a053
+
+scripts\render_catalog_audit_proposals.py:111: ProposalError
+============================== warnings summary ===============================
+.venv\Lib\site-packages\google\genai\types.py:43
+  C:\Users\Steven\PycharmProjects\realtorvision-backend\.venv\Lib\site-packages\google\genai\types.py:43: DeprecationWarning: '_UnionGenericAlias' is deprecated and slated for removal in Python 3.17
+    VersionedUnionType = Union[builtin_types.UnionType, _UnionGenericAlias]
+
+tests/test_analyzer_server_failclosed.py: 10 warnings
+tests/test_analyzer_timing_stats.py: 1 warning
+  C:\Users\Steven\PycharmProjects\realtorvision-backend\tools\analyzer_server.py:625: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow().isoformat() + "Z",
+
+tests/test_analyzer_timing_stats.py::test_cli_path_uses_one_client_for_photo_passes_and_pass_2f
+tests/test_embeddings_failclosed.py::test_cli_skips_embeddings_entirely_when_2d_disabled
+  C:\Users\Steven\PycharmProjects\realtorvision-backend\tools\analyzer_cli.py:1056: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    timestamp=datetime.utcnow().isoformat() + "Z",
+
+tests/test_candidate_provider.py::test_async_provider_records_one_row
+  C:\Users\Steven\PycharmProjects\realtorvision-backend\tools\scene_classifier_orchestrator.py:1025: RuntimeWarning: coroutine 'test_async_provider_records_one_row.<locals>.provider' was never awaited
+    resolved_row, debug_row, pass_2d_result = await resolve_observation_against_catalog(
+  Enable tracemalloc to get traceback where the object was allocated.
+  See https://docs.pytest.org/en/stable/how-to/capture-warnings.html#resource-warnings for more info.
+
+tests/test_product_quarantine.py: 1 warning
+tests/test_rehab_evidence_projection.py: 1 warning
+tests/test_renovation_architecture_runtime.py: 9 warnings
+tests/test_renovation_estimate.py: 2 warnings
+tests/test_vlm_budget_guard.py: 2 warnings
+  C:\Users\Steven\PycharmProjects\realtorvision-backend\tools\artifact_writers.py:592: DeprecationWarning: datetime.datetime.utcnow() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.now(datetime.UTC).
+    created_at = datetime.utcnow().isoformat() + "Z"
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+FAILED tests/test_benchmark_pass2a.py::test_compute_pre2f_totals_force_confirms_packages
+FAILED tests/test_catalog_audit_adversarial_review.py::test_build_is_read_only_and_pins_verify
+FAILED tests/test_catalog_audit_adversarial_review.py::test_parity_committed_review
+FAILED tests/test_catalog_audit_evidence.py::test_committed_bundle_matches_a_fresh_build
+FAILED tests/test_catalog_audit_live_validation.py::test_baseline_arm_is_the_pinned_catalog
+FAILED tests/test_catalog_audit_live_validation.py::test_candidate_arm_differs_only_by_the_three_split_items
+FAILED tests/test_catalog_audit_live_validation.py::test_product_lane_reproduces_the_stored_envelope
+FAILED tests/test_catalog_audit_live_validation.py::test_a_condition_payload_is_independent_of_its_siblings
+FAILED tests/test_catalog_audit_proposals.py::test_parity_committed_proposals
+9 failed, 2878 passed, 6 skipped, 30 warnings in 59.91s

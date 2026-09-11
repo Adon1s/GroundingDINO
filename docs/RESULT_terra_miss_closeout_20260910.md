@@ -6,9 +6,9 @@ Terra calls: **0**. Sol calls: **0**. No gate adopted and no acceptance batch
 started. The catalog and all historical artifacts are unchanged.
 
 **Recommendation: no justified new Terra experiment from these measurements;
-retain the six cases as unresolved misses pending Steven's ruling. Keep the
+retain the six cases as unresolved misses as approved by Steven. Keep the
 corroboration gate off. Confirm Qwen at 0.1 for acceptance and approve the two
-prepared reliability fixes. These are recommendations, not recorded approvals.**
+prepared reliability fixes. Steven approved these recommendations in this task: “Ok great. Continue with your recommendations approved by me.”**
 
 ## 1. Six cases: established evidence, separate interpretations
 
@@ -224,10 +224,10 @@ is prepared but **not applied**:
 
 | Ruling | Recommendation | Status |
 | --- | --- | --- |
-| Six cases | Accept as unresolved misses; no further Terra experiment justified by this screen | Awaiting Steven |
-| Gate | Off; any item adoption must name the items from the table | Awaiting Steven |
-| Production 2d | Explicit local Qwen `unsloth/qwen3.6-27b@q6_k` at 0.1 | Awaiting Steven |
-| Reliability fixes | Apply both prepared changes in Session B, with regression tests | Awaiting Steven |
+| Six cases | Accept as unresolved misses; no further Terra experiment justified by this screen | Approved in this task |
+| Gate | Off; any item adoption must name the items from the table | Approved in this task |
+| Production 2d | Explicit local Qwen `unsloth/qwen3.6-27b@q6_k` at 0.1 | Approved in this task |
+| Reliability fixes | Apply both prepared changes in Session B, with regression tests | Approved in this task |
 
 These are the decision gates explicitly required by the supplied plan (§4 A6
 and §6). Session B's replay construction/proof and Sessions C–E remain owed.

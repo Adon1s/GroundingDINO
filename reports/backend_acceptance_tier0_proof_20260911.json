@@ -1,0 +1,728 @@
+{
+  "catalog_sha256": "d1cef743f379918fa17f0684c245779180d7d692ebc8fd3e66b7c69bebf68347",
+  "model_calls": 0,
+  "passed": true,
+  "properties": [
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 13,
+      "observation_count": 73,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_10803207",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_10803207/20260817_222851_c0551630/photo_intel_debug.json",
+        "sha256": "4ba9003576c4971a8be1cf3e65b3ead6999b26bef4b83e5452a55940834e008a"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 8,
+      "observation_count": 36,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_10806500",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_10806500/20260817_224354_3633e400/photo_intel_debug.json",
+        "sha256": "71bde20de6a02521dd2ea2674a7cff032c370b3c003da5ee586dd9d100720898"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 79,
+      "observation_count": 274,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_10952874",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_10952874/20260818_231243_cb71fce9/photo_intel_debug.json",
+        "sha256": "576b9d7e14e4985e77afee64b639726ff3713a23db6085eca5a692b1dddff624"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 15,
+      "observation_count": 76,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_11000447",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_11000447/20260817_224602_d422d7ae/photo_intel_debug.json",
+        "sha256": "06f53abd94a70b9471181b51e465620616a7040b2b48d0cca8c4b7ed7d7b8f5e"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 82,
+      "observation_count": 218,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_11077450",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_11077450/20260818_223200_a4168368/photo_intel_debug.json",
+        "sha256": "4177d9f01af8d31acac017f78747bd1cd19b5dbdf363fa4c9d950f377692113a"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 24,
+      "observation_count": 68,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_11079485",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_11079485/20260817_224118_67317092/photo_intel_debug.json",
+        "sha256": "34b257ee33183fa4f46e7f37bb33de273b1d873e775c2d90b90c6a86dc8a5f42"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 77,
+      "observation_count": 301,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_11185681",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_11185681/20260818_224036_370aadff/photo_intel_debug.json",
+        "sha256": "9a8bebb5de90af9d27eb8938fc6955d06f7a3ae07a5b94d2e5b47f90f6267251"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 39,
+      "observation_count": 165,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_125779232",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_125779232/20260817_222351_c069aab3/photo_intel_debug.json",
+        "sha256": "f1ac9914959a94012dc93b4cbf3fc264ae90a3fd088845fdc1908e9dfcb993b1"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 88,
+      "observation_count": 311,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_125970550",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_125970550/20260817_235322_005806b2/photo_intel_debug.json",
+        "sha256": "919e2dd85b035b3fb8d7488549e0e1c5db57937803a4d2f72023847fb64b303c"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 99,
+      "observation_count": 374,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_126224899",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_126224899/20260817_234148_d8fbd963/photo_intel_debug.json",
+        "sha256": "c9dd1fed13818ddc78f956f7779a196322347cc8fab2d4421f7030c486d80db9"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 42,
+      "observation_count": 225,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_126418713",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_126418713/20260818_221718_ebc48de0/photo_intel_debug.json",
+        "sha256": "3b0b0d06971259aa5ee3e6a935c3b5b7a4a04809242d2eeaa105ac34589bab50"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 50,
+      "observation_count": 251,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_127468088",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_127468088/20260818_215515_38d48db3/photo_intel_debug.json",
+        "sha256": "4f39d951d664b88e076287eb7dd0b037dc3c7de7af94c03c2452521c0fbea0fc"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 133,
+      "observation_count": 366,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_166147710",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_166147710/20260817_224909_2f979a60/photo_intel_debug.json",
+        "sha256": "ceb51bca99c42e18727d042d438b2a20ab033d3bfdaebc8b7c78629a25c3b12c"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 28,
+      "observation_count": 101,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_25809814",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_25809814/20260817_223307_7b336e61/photo_intel_debug.json",
+        "sha256": "746a97336ed4485e965c3ebafa3fd373e014df35f0c04835381aa9fdaad2acf5"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 9,
+      "observation_count": 70,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_80877597",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_80877597/20260817_223826_3cefe883/photo_intel_debug.json",
+        "sha256": "86eca2c9c785d55e42d58c9f92eae3f040ac75191615b138c897e73dda964b95"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 147,
+      "observation_count": 349,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_80925528",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_80925528/20260818_220543_1af5ac93/photo_intel_debug.json",
+        "sha256": "76581672fc219d70a4b3231e6f1a3529c6d108dc295f23c888b48a495187e1e3"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 51,
+      "observation_count": 225,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_80990371",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_80990371/20260817_221632_3d4a8269/photo_intel_debug.json",
+        "sha256": "d1d1c645b8f3b880167e90260967f971c52dee9cc28f9e1602be1fb8367a9f48"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    },
+    {
+      "evidence_facts": {
+        "diff": [],
+        "equal": true
+      },
+      "lanes": {
+        "estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_estimate_issues_flat": {
+          "diff": [],
+          "equal": true
+        },
+        "product_issues_flat": {
+          "diff": [],
+          "equal": true
+        }
+      },
+      "null_resolutions": 75,
+      "observation_count": 185,
+      "observed_conditions": {
+        "diff": [],
+        "equal": true
+      },
+      "passed": true,
+      "property_key": "redfin_81000709",
+      "source": {
+        "path": "artifacts_canary/renovation_session9_20260818/run_1/candidate/redfin_81000709/20260817_225858_d13bd83c/photo_intel_debug.json",
+        "sha256": "05738c0ec71d6696737929edeb1a3a7370295e003cb06ce950e30c4c7731dcdd"
+      },
+      "terra_fingerprints": {
+        "diff": [],
+        "equal": true
+      }
+    }
+  ],
+  "schema_version": 1
+}

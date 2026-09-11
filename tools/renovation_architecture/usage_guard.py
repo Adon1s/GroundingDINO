@@ -16,6 +16,7 @@ nothing here runs at import time. Checkpoint reuse never touches a ledger.
 from __future__ import annotations
 
 import sqlite3
+import os
 from contextlib import contextmanager
 from contextvars import ContextVar
 from datetime import datetime, timezone
@@ -59,6 +60,10 @@ CREATE INDEX IF NOT EXISTS {table}_day_idx ON {table} (utc_day);
 
 class TerraDailyBudgetExceeded(RuntimeError):
     """Pre-call rejection: the reservation would cross the daily ceiling."""
+
+
+class TerraBatchBudgetExceeded(TerraDailyBudgetExceeded):
+    """Pre-call rejection: all replicas/days share one bounded batch."""
 
 
 class SolDailyBudgetExceeded(RuntimeError):
@@ -190,6 +195,16 @@ class _DailyUsageLedger:
                         f"{spent} already debited on {day}, reservation needs "
                         f"{amount}"
                     )
+                if getattr(self, "_batch_start", None) is not None:
+                    batch_spent = int(conn.execute(
+                        f"SELECT COALESCE(SUM(debited_tokens), 0) FROM {self._TABLE} "
+                        "WHERE julianday(created_at) >= julianday(?)", (self._batch_start,),
+                    ).fetchone()[0])
+                    if batch_spent + amount > self._batch_ceiling:
+                        raise TerraBatchBudgetExceeded(
+                            f"batch Terra ceiling of {self._batch_ceiling} tokens would be exceeded: "
+                            f"{batch_spent} already debited since {self._batch_start}, reservation needs {amount}"
+                        )
                 cursor = conn.execute(
                     f"INSERT INTO {self._TABLE} (utc_day, property_key, "
                     "source_run_id, estimate_unit_id, request_fingerprint, "
@@ -217,6 +232,25 @@ class _DailyUsageLedger:
                     (_utc_today(),),
                 ).fetchone()[0]
             )
+        finally:
+            conn.close()
+
+    def spent_since(self, created_at: str) -> int:
+        """Debits created at/after an aware UTC instant, including reservations.
+
+        A batch's start never moves when a replica or UTC day changes. Compare
+        timestamps numerically so equivalent ISO Z/+00:00 forms agree.
+        """
+        start = datetime.fromisoformat(created_at.replace("Z", "+00:00"))
+        if start.tzinfo is None:
+            raise ValueError("batch start must include a timezone")
+        conn = self._connect()
+        try:
+            return int(conn.execute(
+                f"SELECT COALESCE(SUM(debited_tokens), 0) FROM {self._TABLE} "
+                "WHERE julianday(created_at) >= julianday(?)",
+                (start.astimezone(timezone.utc).isoformat(),),
+            ).fetchone()[0])
         finally:
             conn.close()
 
@@ -268,12 +302,29 @@ class TerraUsageLedger(_DailyUsageLedger):
         *,
         daily_ceiling: int = TERRA_DAILY_TOKEN_CEILING,
         usage_root_override: Optional[str] = None,
+        batch_start: Optional[str] = None,
+        batch_ceiling: Optional[int] = None,
     ):
         super().__init__(
             artifacts_root,
             daily_ceiling=daily_ceiling,
             usage_root_override=usage_root_override,
         )
+        # Driver exports one immutable batch boundary for all replicas. The
+        # same transaction enforces daily and batch limits on every call, so
+        # inaccurate forecasts or a UTC rollover cannot bypass the batch cap.
+        start = batch_start or os.environ.get("RENOVATION_TERRA_BATCH_START")
+        ceiling = batch_ceiling if batch_ceiling is not None else os.environ.get("RENOVATION_TERRA_BATCH_TOKEN_CEILING")
+        if (start is None) != (ceiling is None):
+            raise ValueError("Terra batch start and ceiling must be configured together")
+        self._batch_start = None
+        self._batch_ceiling = None
+        if start is not None:
+            instant = datetime.fromisoformat(start.replace("Z", "+00:00"))
+            if instant.tzinfo is None or int(ceiling) <= 0:
+                raise ValueError("Terra batch requires an aware start and positive ceiling")
+            self._batch_start = instant.astimezone(timezone.utc).isoformat()
+            self._batch_ceiling = int(ceiling)
 
 
 class SolUsageLedger(_DailyUsageLedger):

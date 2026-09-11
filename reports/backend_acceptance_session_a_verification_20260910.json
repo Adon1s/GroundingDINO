@@ -17,6 +17,13 @@
       }
     }
   ],
+  "approval_source": "Steven: Ok great. Continue with your recommendations approved by me",
+  "approved_decisions": [
+    "six_case_disposition",
+    "gate_adoption",
+    "production_2d_pin",
+    "reliability_fixes"
+  ],
   "benchmarks": {
     "checkpoint": {
       "candidate_recall": {
@@ -206,12 +213,7 @@
     "sol": 0,
     "terra": 0
   },
-  "pending_decisions": [
-    "six_case_disposition",
-    "gate_adoption",
-    "production_2d_pin",
-    "reliability_fixes"
-  ],
+  "pending_decisions": [],
   "production_routing": {
     "artifact_sources": [
       {
