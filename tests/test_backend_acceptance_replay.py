@@ -8,6 +8,7 @@ import pytest
 
 from scripts.replay_frozen_upstream_acceptance import (
     CANARY, PRODUCTION, FrozenInputGap, NoModelCalls, guard_out_root, reconstruct_photo,
+    effective_daily_ceiling,
 )
 from tools.artifact_writers import _write_json_atomic
 from tools.pipeline_config import resolve_renovation_sol_model
@@ -74,6 +75,22 @@ def test_reconstruction_keeps_llm_null_and_detects_missing_input():
     photo['_pass_2e_telemetry']['input_count'] = 2
     with pytest.raises(FrozenInputGap):
         reconstruct_photo(photo, 'photo.jpg')
+
+
+def test_resumed_daily_ceiling_does_not_double_count_same_day_spend(tmp_path, monkeypatch):
+    start = '2026-09-10T00:00:00Z'
+    monkeypatch.setattr(ug, '_utc_today', lambda: '2026-09-10')
+    monkeypatch.setattr(ug, '_utc_now_iso', lambda: '2026-09-10T01:00:00+00:00')
+    ledger = ug.TerraUsageLedger(tmp_path, batch_start=start, batch_ceiling=2000)
+    reserve(ledger, 900)
+    monkeypatch.setattr(ug, '_utc_today', lambda: '2026-09-11')
+    monkeypatch.setattr(ug, '_utc_now_iso', lambda: '2026-09-11T01:00:00+00:00')
+    reserve(ledger, 500)
+    resumed = ug.TerraUsageLedger(tmp_path, batch_start=start, batch_ceiling=2000,
+        daily_ceiling=effective_daily_ceiling(ledger, start, 2000))
+    reserve(resumed, 550)  # 1,950 batch / 1,050 today: valid on both limits
+    with pytest.raises(ug.TerraDailyBudgetExceeded):
+        reserve(resumed, 51)
 
 
 def test_empty_frozen_passes_do_not_fall_through_to_models():

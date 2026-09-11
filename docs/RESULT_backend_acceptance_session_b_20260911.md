@@ -77,3 +77,59 @@ into a pipeline-wide loss rate.
 
 Fresh replicas, per-case dollar effects, final tuning priorities, and production
 smoke remain in progress. This checkpoint is not a launch approval.
+
+## Resumption correction during replica 1
+
+Two properties completed with 49,801 Terra / 5,950 Sol tokens, exactly matching
+the shared ledgers. Inspection of per-property resumes found that recomputing
+`daily ceiling = remaining batch` would count earlier same-day calls twice.
+The effective ceiling is now `min(2.5M, spent_today + remaining_batch)`, while
+the separate transaction still enforces the unchanged 2M batch cap. A regression
+test spans two UTC days and resumes partway through day two; 36 targeted tests
+pass. This corrects the draft formula for the per-property execution strategy.
+
+The manifest's original timestamp, shared ledger root, model settings, and
+budget are unchanged. Driver-only source changes are recorded in
+`reports/backend_acceptance_implementation_amendments_20260911.json`, with
+before/after hashes chained to the original manifest. The full manifest must
+also equal the committed authorization snapshot; a new namespace or altered
+batch start cannot silently reset the budget. Amendments cannot change model,
+prompt, catalog, or pipeline files.
+
+## Completed first paid replica and investigation checkpoint
+
+All 18 replica-1 properties are complete, with clean production verifiers and
+catalog invariants. Exact artifact/ledger usage is 912,131 Terra tokens across
+148 calls and 136,606 Sol tokens across 18 calls; every reservation is settled.
+The original 2M Terra batch retains 1,087,869 tokens. No batch boundary changed.
+
+The detailed findings are in `docs/RESULT_pipeline_loss_investigation_20260911.md`.
+The archived first-replica packet and exact price-component reconciliations are
+`reports/backend_acceptance_replica1_packet_20260911.json` and its Markdown peer.
+The scorer records the 33-row bathroom subset, 55 trim conditions, 72 dedup
+collisions, and the CCF-13 case separately. CCF-13 has zero wallpaper charges,
+not the expected single surviving charge; this remains a semantic review item.
+
+The latest focused suite passes **20/20**, covering replay guards, resume budgets,
+policy-aware dispositions, package-support changes, and applied-price accounting.
+The full-suite result above remains the broader baseline; it was not rerun for
+offline report changes. The production smoke helper now supports `--local-2d`,
+matching the existing frontend worker flag while preserving production routing
+for the other stages. The smoke itself remains pending.
+
+Replica 2's local preparation is running with verified per-photo checkpoints.
+Paid replica 2 must start on or after 2026-09-12 00:00 UTC (September 11, 7 p.m.
+Central), because replica 1 used September 11 UTC. Resume with the same driver,
+output root, manifest and ledgers; do not regenerate the authorization snapshot.
+The two analysis commands below are read-only with respect to the runtime:
+
+```powershell
+.venv/Scripts/python.exe scripts/analysis/backend_acceptance_local_stability.py
+.venv/Scripts/python.exe scripts/replay_frozen_upstream_acceptance.py score
+```
+
+`score` intentionally returns nonzero while fewer than 36 artifacts are complete.
+The first-replica packet generator must run before paid replica 2 and refuses to
+overwrite its ledger snapshot once a replica-2 property is complete. Final
+readiness still requires the second paid replica, production smoke and Steven's
+disposition of material dollar changes; this checkpoint is not a GO decision.

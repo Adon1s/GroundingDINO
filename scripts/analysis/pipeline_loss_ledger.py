@@ -19,6 +19,20 @@ from scripts.replay_frozen_upstream_acceptance import reconstruct_photo, FrozenI
 from scripts.error_attribution_report import latest_verdicts
 from tools import review_cards as rc
 
+# Explicitly inspected primary subjects. A review rationale may also name a
+# control/comparator issue, so regex hits alone are not observation lineage.
+GOLD_PRIMARY_ISSUES = {
+    'ga_redfin_10806500_photo_004_g4': ['70f737d3dba9a8ff'],
+    'ga_redfin_11000447_photo_002_g4': ['1081afb497a60a1b'],
+    'ga_redfin_11000447_photo_002_g5': ['1081afb497a60a1b'],
+    'ga_redfin_11000447_photo_002_g8': ['9c707542dbbe52ea'],
+    'ga_redfin_11000447_photo_003_g2': ['526c2fe305ccc860'],
+    'ga_redfin_11000447_photo_003_g5': ['7d2f54e49febb555'],
+    'ga_redfin_11000447_photo_003_g8': ['76ecc527150e80c1'],
+    'ga_redfin_11000447_photo_006_g7': ['c222ee01cb90772f', '5ecb7cdc2723efec'],
+    'ga_redfin_11000447_photo_007_g8': ['c6eda5a5811829e0'],
+}
+
 
 def normalized(text):
     return ' '.join(str(text or '').casefold().split()).rstrip('.')
@@ -154,12 +168,10 @@ def run(out_root=DEFAULT_OUT):
                 traces = [by_issue[k] for iid in case['lineage'].get('issue_ids', [])
                           if (k := (*key[:3], iid)) in by_issue]
             prior = attributed.get(case_id)
+            reviewed_ids = []
             if not traces and prior:
-                # Reviewed rationales sometimes preserve the exact issue id
-                # when the gold case has no original condition. Restrict to
-                # this exact source run and record that join's provenance.
                 reviewed_ids = re.findall(r'(?<![0-9a-f])[0-9a-f]{16}(?![0-9a-f])', prior.get('rationale', ''))
-                traces = [by_issue[k] for iid in dict.fromkeys(reviewed_ids)
+                traces = [by_issue[k] for iid in GOLD_PRIMARY_ISSUES.get(case_id, [])
                           if (k := (*key[:3], iid)) in by_issue]
             first = ('2a' if prior and prior.get('attribution') == 'pass_2a'
                      else prior.get('first_responsible_stage') if prior else None)
@@ -168,6 +180,7 @@ def run(out_root=DEFAULT_OUT):
                 'human_label': label or case.get('human_truth'), 'prior_attribution': prior,
                 'first_responsible_stage': first, 'stage_evidence': 'prior_review' if first else 'unresolved',
                 'observation_trace_ids': [r['issue_id'] for r in traces],
+                'review_mentioned_issue_ids': list(dict.fromkeys(reviewed_ids)),
                 'mechanical_terminal_boundaries': sorted({r['mechanical_terminal_boundary'] for r in traces}),
                 'original_lineage': case.get('lineage'),
                 'status': 'traced' if traces else 'no_existing_condition_or_unresolved_join',

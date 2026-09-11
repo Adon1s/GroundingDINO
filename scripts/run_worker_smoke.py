@@ -23,6 +23,8 @@ scripts/verify_renovation_artifact.py (runbook §3/§4 checks).
                         2f -> OPENAI_PASS_2F_PRIORITY_MODEL at medium,
                         modelRoutingProfile standard, detectionBackend rv, no
                         concurrency override). Model names come from the loaded env.
+--local-2d           = mirror the production worker's --premium --local-2d flag;
+                       retain local Qwen for catalog resolution.
 """
 from __future__ import annotations
 
@@ -90,6 +92,8 @@ def main(argv=None) -> int:
     parser.add_argument("--routing", choices=("canary", "production"), default="canary",
                         help="canary = frozen canary model map; production = what the FE "
                              "sends under `npm run worker -- --premium`")
+    parser.add_argument('--local-2d', action='store_true',
+                        help='Mirror the production worker local Pass 2d routing flag')
     args = parser.parse_args(argv)
 
     repo = args.repo_root.resolve()
@@ -124,6 +128,7 @@ def main(argv=None) -> int:
     for key in ("OPENAI_MODEL", "OPENAI_PASS_2F_PRIORITY_MODEL", "LM_STUDIO_URL",
                 "LM_STUDIO_MODEL", "RENOVATION_TERRA_MODEL", "RENOVATION_SOL_MODEL",
                 "RENOVATION_VLM_BUDGET_GUARD", "RENOVATION_TERRA_USAGE_ROOT",
+                "PASS_2D_TEMPERATURE",
                 "KIND_ONTOLOGY_VERSION", "RENOVATION_ARCHITECTURE_MODE"):
         print(f"[smoke]   {key}={env.get(key, '')!r}")
 
@@ -138,6 +143,9 @@ def main(argv=None) -> int:
         model_overrides["2f"] = pass_2f
         reasoning_efforts = {k: "none" for k in ("1a", "2a", "2b", "2c", "2d")}
         reasoning_efforts["2f"] = "medium"
+        if args.local_2d:
+            model_overrides.pop('2d', None)
+            reasoning_efforts.pop('2d', None)
         routing_fields = {"modelRoutingProfile": "standard", "detectionBackend": "rv"}
     else:
         model_overrides = dict(MODEL_OVERRIDES)

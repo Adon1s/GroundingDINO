@@ -371,6 +371,8 @@ def verify_inputs(out_root):
 
 def plan(out_root):
     out_root = guard_out_root(out_root)
+    if (out_root / 'manifest.json').exists():
+        return load_manifest(out_root)
     verified = verify_inputs(out_root)
     if not verified['passed']:
         return verified
@@ -411,12 +413,41 @@ def plan(out_root):
 
 def load_manifest(out_root):
     manifest = read(out_root / 'manifest.json')
+    # The committed authorization snapshot also pins the timestamp and usage
+    # root. Neither a new output namespace nor an edited start may reset the
+    # approved batch's cumulative spend.
+    authorized = read(ROOT / 'reports/backend_acceptance_run_manifest_20260911.json')
+    if manifest != authorized:
+        raise ValueError('manifest differs from the recorded batch authorization')
+    identity_fields = {k: v for k, v in manifest.items() if k not in ('identity', 'batch_start', 'passed')}
+    if hashlib.sha256(canonical_bytes(identity_fields)).hexdigest() != manifest['identity']:
+        raise ValueError('manifest configuration drift; no live calls permitted')
     verified = verify_inputs(out_root)
-    if not verified['passed'] or verified != manifest['verification']:
+    expected = copy.deepcopy(manifest['verification'])
+    amendments = out_root / 'implementation_amendments.json'
+    if amendments.exists():
+        for amendment in read(amendments):
+            if amendment['manifest_identity'] != manifest['identity'] or amendment['before'] != expected['runtime_sources']:
+                raise ValueError('implementation amendment does not chain to the pinned manifest')
+            before = {f['path']: f['sha256'] for f in amendment['before']}
+            after = {f['path']: f['sha256'] for f in amendment['after']}
+            changed = {p for p in before.keys() | after.keys() if before.get(p) != after.get(p)}
+            if changed != {'scripts/replay_frozen_upstream_acceptance.py'}:
+                raise ValueError('driver amendment cannot authorize model, prompt, or pipeline changes')
+            expected['runtime_sources'] = amendment['after']
+    if not verified['passed'] or verified != expected:
         raise ValueError('pinned inputs/code changed; no live calls permitted')
     if not manifest['passed']:
         raise ValueError('forecast over 1M/replica: replica-2 selection must be recorded before live execution')
     return manifest
+
+
+def effective_daily_ceiling(ledger, batch_start, batch_cap):
+    # The daily query already includes today's completed calls. A resumed
+    # per-property process must add those back to its ceiling, or earlier calls
+    # get counted twice. The separate transactional batch cap remains 2M.
+    remaining = batch_cap - ledger.spent_since(batch_start)
+    return min(2_500_000, ledger.spent_today() + max(0, remaining))
 
 
 def configure(manifest, *, mode):
@@ -434,8 +465,9 @@ def configure(manifest, *, mode):
     os.environ['RENOVATION_TERRA_BATCH_START'] = manifest['batch_start']
     os.environ['RENOVATION_TERRA_BATCH_TOKEN_CEILING'] = str(manifest['batch_terra_ceiling'])
     from tools.renovation_architecture.usage_guard import TerraUsageLedger
-    spent = TerraUsageLedger(Path(manifest['usage_root'])).spent_since(manifest['batch_start'])
-    cfg.RENOVATION_TERRA_DAILY_TOKEN_CEILING = min(2_500_000, manifest['batch_terra_ceiling'] - spent)
+    ledger = TerraUsageLedger(Path(manifest['usage_root']))
+    cfg.RENOVATION_TERRA_DAILY_TOKEN_CEILING = effective_daily_ceiling(
+        ledger, manifest['batch_start'], manifest['batch_terra_ceiling'])
     catalog = read(CATALOG_PATH)
     initialize_renovation_architecture(mode=mode, catalog=catalog, catalog_path=CATALOG_PATH,
         kind_ontology_version='observation_kind_v2', terra_model=PINNED_MODELS['terra'], sol_model=PINNED_MODELS['sol'])
