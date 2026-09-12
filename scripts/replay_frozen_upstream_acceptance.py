@@ -34,6 +34,15 @@ from tools.renovation_architecture.runtime import initialize_renovation_architec
 LANES = ("issues_flat", "estimate_issues_flat", "product_issues_flat", "product_estimate_issues_flat")
 DEFAULT_OUT = ROOT / "artifacts_canary/backend_acceptance_20260910"
 CATALOG_SHA = "787964013d083368403524c610df54cc9858a8f6c1a1e5c9535c7204c1e67a2f"
+# The second paid replica is split across the UTC boundary so its Sol calls fit
+# the remaining daily quota. This is intentionally an exact, closed property
+# set; --split-window cannot be used to bypass the manifest or select arbitrary
+# same-day work.
+REPLICA_2_FIRST_WINDOW = frozenset({
+    "redfin_126224899", "redfin_80990371", "redfin_80925528",
+    "redfin_166147710", "redfin_11077450", "redfin_126418713",
+    "redfin_11079485", "redfin_81000709", "redfin_10806500",
+})
 
 
 class FrozenInputGap(ValueError):
@@ -524,7 +533,7 @@ def assert_worker_idle():
             raise RuntimeError('Cannot establish production worker idle; no paid calls permitted')
 
 
-def run_replica(out_root, replica, properties=None):
+def run_replica(out_root, replica, properties=None, split_window=None):
     from tools.vlm_client import create_vlm_client
     from tools.renovation_architecture.usage_guard import TerraUsageLedger, SolUsageLedger
     from scripts.verify_renovation_artifact import main as verify_artifact
@@ -533,7 +542,17 @@ def run_replica(out_root, replica, properties=None):
     assert_worker_idle()
     day = datetime.now(timezone.utc).date().isoformat()
     previous_path = out_root / f'replica_{3-replica}' / 'execution.json'
-    if previous_path.exists() and day in read(previous_path)['utc_days']:
+    selected = set(properties or ())
+    if split_window == 'first':
+        if replica != 2 or selected != REPLICA_2_FIRST_WINDOW:
+            raise ValueError('first split window is restricted to the authorized replica-2 property set')
+    elif split_window == 'second':
+        if replica != 2 or selected != ({p['property_key'] for p in manifest['properties']} - REPLICA_2_FIRST_WINDOW):
+            raise ValueError('second split window must be the exact complement of the authorized first window')
+        first_execution = read(out_root / 'replica_2' / 'execution.json') if (out_root / 'replica_2' / 'execution.json').exists() else {}
+        if not REPLICA_2_FIRST_WINDOW.issubset(set(first_execution.get('properties', []))):
+            raise RuntimeError('cannot start second split window before all first-window properties are complete')
+    if previous_path.exists() and day in read(previous_path)['utc_days'] and split_window != 'first':
         raise RuntimeError('The two replicas must execute on different UTC days for the Sol quota')
     catalog = configure(manifest, mode='new')
     if not cfg.OPENAI_API_KEY:
@@ -593,6 +612,8 @@ def main():
     parser.add_argument("--out-root", type=Path, default=DEFAULT_OUT)
     parser.add_argument("--properties", nargs="*")
     parser.add_argument('--replica', type=int, choices=[1, 2], default=1)
+    parser.add_argument('--split-window', choices=('first', 'second'),
+                        help='Restricted replica-2 split: first window may share replica 1 UTC day; second is its next-day complement.')
     args = parser.parse_args()
     logging.basicConfig(level=logging.ERROR)
     if args.command == 'prove':
@@ -604,7 +625,7 @@ def main():
     elif args.command == 'prepare':
         report = prepare(args.out_root, args.replica, args.properties)
     elif args.command == 'run':
-        report = run_replica(args.out_root, args.replica, args.properties)
+        report = run_replica(args.out_root, args.replica, args.properties, args.split_window)
     else:
         from scripts.analysis.backend_acceptance_score import score
         report = score(guard_out_root(args.out_root))

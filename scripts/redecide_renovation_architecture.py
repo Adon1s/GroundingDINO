@@ -281,6 +281,7 @@ def redecide_property(
     dry_run: bool,
     live_ctx: Optional[Dict[str, Any]] = None,
     limit_units: Optional[int] = None,
+    units: Optional[Any] = None,
 ) -> Dict[str, Any]:
     art, envelope = _load_envelope(run_dir)
     if envelope is None or envelope.get("state") != "complete":
@@ -313,6 +314,8 @@ def redecide_property(
     estimated_tokens = 0
     records: List[Dict[str, Any]] = []
     calls = sorted(stored["terra_calls"], key=lambda c: c["estimate_unit_id"])
+    if units is not None:  # restrict to named estimate units (evalfw labelled slices)
+        calls = [c for c in calls if c["estimate_unit_id"] in units]
     if limit_units is not None:
         calls = calls[:limit_units]
     for call in calls:

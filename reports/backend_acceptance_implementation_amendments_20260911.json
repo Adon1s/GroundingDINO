@@ -2281,5 +2281,766 @@
     "date": "2026-09-11",
     "manifest_identity": "52b211a1f335138f213c80a06a73e9cef7b5ae3c377ff82fef62fd964a1ddddb",
     "reason": "Let plan validate and return the existing authorized manifest with its driver-only amendments; never regenerate a started batch."
+  },
+  {
+    "before": [
+      {
+        "path": "scripts/replay_frozen_upstream_acceptance.py",
+        "sha256": "0b07f6cb8261fc1105f1913eaf8e7f12790df97543b87843fe7e99f1c2c7a35a"
+      },
+      {
+        "path": "tools/__init__.py",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "tools/analyzer_cli.py",
+        "sha256": "13ec6abe406ac1cdb960a936aa958e63f1688f1a9a74f54d7660330763cb433d"
+      },
+      {
+        "path": "tools/analyzer_server.py",
+        "sha256": "c8f821e1edc7cfeadc8925e25d1da9bd0c56707d3a11c7cb202a7ba493c43ae9"
+      },
+      {
+        "path": "tools/artifact_viewer/app.py",
+        "sha256": "c48a76910c645cd09074a1e1619804495d5fec4e50a1872f6f456cad5f9bf76c"
+      },
+      {
+        "path": "tools/artifact_writers.py",
+        "sha256": "798f4e494d2cdbc67cc0fe013570fed750b575c348f193e07169756a5332a060"
+      },
+      {
+        "path": "tools/audit_runner.py",
+        "sha256": "0de9231edbe94fafcd8bda790ae0d2133e10b7ef3eb8da3a0db5a4b0deecc594"
+      },
+      {
+        "path": "tools/backfill_kind_v2.py",
+        "sha256": "c3763acd1b8848b1ac347ca399b2181991da06a09ce92baafa8078da5a4c933c"
+      },
+      {
+        "path": "tools/backfill_reno_v4.py",
+        "sha256": "d5d67589a9ccc9cbd3bfbb841e23ebc11c560345910bd9db0125e2e120a06423"
+      },
+      {
+        "path": "tools/benchmark.py",
+        "sha256": "f6ce01115b61f1f15523a2317ffd98aaf0bb80b0973c4391cdd368e14815c7b2"
+      },
+      {
+        "path": "tools/benchmark_pass2a.py",
+        "sha256": "7152cc9f7ca4e26bae904e2ddf3adaffc36b84938e2da3770bd8aea31c41031e"
+      },
+      {
+        "path": "tools/benchmark_pass2a_legacy.py",
+        "sha256": "f9ba9c83bfc44c050433a452e3469c6f7da5bcf3640c7577eccacb89720650d5"
+      },
+      {
+        "path": "tools/benchmark_pass2a_packages.py",
+        "sha256": "f4655e0c565f3fcc50c20d7500aee3ef4cf304d3bac081750967a29adb632704"
+      },
+      {
+        "path": "tools/benchmark_pass2a_reachability.py",
+        "sha256": "6b90d0e1d34352ff5adf7aedc8e824a4c3394388d2e8546d752c703be3cfd9da"
+      },
+      {
+        "path": "tools/benchmark_pass2a_scenes.py",
+        "sha256": "449e11e4e7c7f1fdafdb0fb5343be0bd4ce8bb18a6d60f62f77192ae8d9504d0"
+      },
+      {
+        "path": "tools/benchmark_pass2a_scoring.py",
+        "sha256": "f9093d54f406e26f8c8189ac58a9263fdda968fa6190fab9ca3b5ec72660361c"
+      },
+      {
+        "path": "tools/benchmarking/__init__.py",
+        "sha256": "33cb360a5d21f5e9a75347512b2ff12c1fe4913fc7b9130c1bec37a08353faca"
+      },
+      {
+        "path": "tools/benchmarking/catalog_index.py",
+        "sha256": "1c92bae6dc0dbe0cc72a743b6b93842addf8d0b42800917d2b9540e1a1af661a"
+      },
+      {
+        "path": "tools/benchmarking/dataset.py",
+        "sha256": "ec4d0592d7a4125a1eae3b23ffa331ebbc1e13a5fb7ef9af0b651a95967cf0e2"
+      },
+      {
+        "path": "tools/benchmarking/reference_authoring.py",
+        "sha256": "6bc472fcf196e608e100045a757f6ff0035f3187678f614e5a259d7b13a7f07f"
+      },
+      {
+        "path": "tools/benchmarking/schemas.py",
+        "sha256": "1b330da16cfc072061c87d2511dc1cd696f513b248b54e9ebec8f0cf27fce0ad"
+      },
+      {
+        "path": "tools/benchmarking/vocabulary.py",
+        "sha256": "63450d62a3f67c9655a25e390cb1a2d7e12ae65376ca5427599f2674431ecc3e"
+      },
+      {
+        "path": "tools/bias_check.py",
+        "sha256": "88c4ccccbe9d06888b7246835b4a7813166c469001ac7c83640abcef5cf275aa"
+      },
+      {
+        "path": "tools/catalog_auditor.py",
+        "sha256": "62f3cb5a833aaf7a6c244fc1014e8194b9e87dce112d6ef3d1987982b8af1eab"
+      },
+      {
+        "path": "tools/catalog_cost_model.py",
+        "sha256": "081996d38f6303e39049114ebeb98e3ac9851713c02fcf19bafed533399ef5c3"
+      },
+      {
+        "path": "tools/catalog_embeddings.py",
+        "sha256": "6ae8312849e68b032cbbe2b131a6b87a5da8cf7f1b2fb21a5b374286f049df4f"
+      },
+      {
+        "path": "tools/catalog_validation.py",
+        "sha256": "041637a3684bacd3bc06dd92955b845088b4fedda8bb7e2e31222ac9ec75bee2"
+      },
+      {
+        "path": "tools/compare_kind_cutover.py",
+        "sha256": "3e5798fd82093034c248281777646cdb7c8d6df2201413515647a758d4a6f05a"
+      },
+      {
+        "path": "tools/compare_reno_estimates.py",
+        "sha256": "6d62f2842e7aa55c1c1c62104209ec7483b977c126b70f2034d445e49899a061"
+      },
+      {
+        "path": "tools/compare_renovation_architecture_cutover.py",
+        "sha256": "f5b04ab48569f6b1221df86ed5bc196d649a184576aef2e5badc3a21223e44b4"
+      },
+      {
+        "path": "tools/comparison_common.py",
+        "sha256": "78ef28a89ad64e3d07f9810075384c41ff27316d4336730f129157fd0ac451f5"
+      },
+      {
+        "path": "tools/cost_factors.py",
+        "sha256": "4a21ee11a2a4cba2adb817c772e4b28d237cf7d71ae5b5690f1794ea1c13ed6d"
+      },
+      {
+        "path": "tools/costing.py",
+        "sha256": "01bbe5232eec85f137991c66dd89e515dc2120d8b89a6632b087004dd2f9e78a"
+      },
+      {
+        "path": "tools/dinox_client.py",
+        "sha256": "48be758061161f7cc73d8ded91e41cd7940607a77b3499d153e60fedf8115efe"
+      },
+      {
+        "path": "tools/estimate_sanity.py",
+        "sha256": "5c45a65e13cca709452de7b33e7786e72ae8a9115bd6480661ad2cb3947af42d"
+      },
+      {
+        "path": "tools/estimate_scope.py",
+        "sha256": "3590e0eda775e8237b6d791900257d882149a3390ca7eea85a73750cd540c41b"
+      },
+      {
+        "path": "tools/estimate_units.py",
+        "sha256": "e3437fb6b96889100a867a1106d91104dc34e4adc01636ac97f5d155b3a77937"
+      },
+      {
+        "path": "tools/failure_taxonomy.py",
+        "sha256": "10fe262524ae2dc64cd446026253e8f1a45d4b07701dec52b025e026e2ae1379"
+      },
+      {
+        "path": "tools/label_schema.py",
+        "sha256": "b4256da41311f1db0f76bb06a5efa3233342e1d381074dc92bef99de327ed2f0"
+      },
+      {
+        "path": "tools/llm_json.py",
+        "sha256": "7691fef11a7542c593dd8718e088a499a9cd92659ddc33fc81c7066d433d1305"
+      },
+      {
+        "path": "tools/model_comparison.py",
+        "sha256": "10ac21ad96f4e229fce13f5a38ea47300c708b7ac71d1dfaccd7adfef19d5eb0"
+      },
+      {
+        "path": "tools/model_comparison_config.py",
+        "sha256": "aba5062360a8dc04feca59950414db4024369ae9a2f3fd61b470200286ad29d9"
+      },
+      {
+        "path": "tools/observation_kinds.py",
+        "sha256": "63ec5c58c41c184949c538dfce3e1403c2c42ab8fdab7163a132796d56409f1e"
+      },
+      {
+        "path": "tools/pass2a_comparator/__init__.py",
+        "sha256": "1b6b1715eff4871a65d7e3a383c5383eca4a160d16627c7435b657f4dc746538"
+      },
+      {
+        "path": "tools/pass2a_comparator/app.py",
+        "sha256": "afd07b02c73735861d4de7be008954d07e125624ec77913a80d5b12d0a98576e"
+      },
+      {
+        "path": "tools/pass2a_comparator/config.py",
+        "sha256": "62944535d1edbbcc9cda9f1fc384a25d6f086aa24209b32046b0b57f7e67fa97"
+      },
+      {
+        "path": "tools/pass2a_comparator/review.py",
+        "sha256": "0b22efa144d67709a57d56b9fdd23326982f6d13e64a6affd402ccb7174dbac5"
+      },
+      {
+        "path": "tools/pass2a_comparator/runner.py",
+        "sha256": "7f54f16b8002df10550e4c0413a0ab1c3f82c0d8adaf75540cfc4395b1ab9eb5"
+      },
+      {
+        "path": "tools/pass2a_comparator/storage.py",
+        "sha256": "c3718face08468dd2212b209a21ad9a0d259bb1ab8ce4990cc037178e282744d"
+      },
+      {
+        "path": "tools/pass_2f_artifact_inputs.py",
+        "sha256": "aaaff19504e45d3f97c55643ac0f2b7f833f9546f729d1822c73252258a8d649"
+      },
+      {
+        "path": "tools/pass_2f_comparison_config.py",
+        "sha256": "abe92e288e7563bdededab63b2d12d89318d2ca3085347bd83f5595efa85b1b2"
+      },
+      {
+        "path": "tools/pass_2f_model_comparison.py",
+        "sha256": "3f8ce233ece0db21e6c5bc6b6a5d4d7b7f1485eab7a6de0695c41b27312087d3"
+      },
+      {
+        "path": "tools/pass_config.py",
+        "sha256": "f7405c7bfc7044b0c095297eb543deee854c0039267eec1fcdc1716c5793aab0"
+      },
+      {
+        "path": "tools/photo_pass_runner.py",
+        "sha256": "42cb76fefb0d0d8f096ddb14ce90c51350e7965cf56a43b5164d91307c328937"
+      },
+      {
+        "path": "tools/pipeline_common.py",
+        "sha256": "21e49c55cc2067ef6c6c2e17ad6195735e8823e62c33b0c4ef61eec18f0747d4"
+      },
+      {
+        "path": "tools/pipeline_config.py",
+        "sha256": "8768f68e6f41192ee2b733fa544725bf071ec8af447dbd86b31429a4bc142c20"
+      },
+      {
+        "path": "tools/project_scopes.py",
+        "sha256": "9bf754d27757285a77b44bd0efb563cc236d84a1cbddb4f3f029dec6d39e2a5b"
+      },
+      {
+        "path": "tools/property_summarizer.py",
+        "sha256": "641d9f9b11556f16b8e22ba9dfd7b56b327c120cc43b63b46dbd4ef7b3fdd80f"
+      },
+      {
+        "path": "tools/property_summary_pass.py",
+        "sha256": "abff32f7c94625354c2e374eff7c0ad58571882293c10480219cdcbd77dab045"
+      },
+      {
+        "path": "tools/publication_gate.py",
+        "sha256": "437325ec1b9a84cb668e7f6a1e69786300bd0c0e7336d1821e5f6df2aac4bb9b"
+      },
+      {
+        "path": "tools/quant_artifact_comparison.py",
+        "sha256": "4718aac2c95ea5b08abb90828c6036158436e10eb24c1bc2b1930b9d6073a305"
+      },
+      {
+        "path": "tools/rehab_evidence_projection.py",
+        "sha256": "2c698b33ce6ace9461f9279495f90544059ffe195f869d20428a23fe52ddd551"
+      },
+      {
+        "path": "tools/rehab_packages.py",
+        "sha256": "fd1eb8d24dc8423e16fae1f55dbdf3fef93db1b4a45614b5f1395534820d1a3b"
+      },
+      {
+        "path": "tools/renovation_architecture/__init__.py",
+        "sha256": "d07c44750f0482d92bb3b867a9dc949b8a8aea09b472b3ff939b1c148a44a11d"
+      },
+      {
+        "path": "tools/renovation_architecture/candidate_payload.py",
+        "sha256": "d0cf85292b4ceab26a33f0548c6c1801ca6439fb159acefcc90f11041a7aa971"
+      },
+      {
+        "path": "tools/renovation_architecture/catalog_projection.py",
+        "sha256": "d3ae7dcbb1a5f41d28b6088912038f01fd60115660b8235dc97862f7ab956d6b"
+      },
+      {
+        "path": "tools/renovation_architecture/checkpoints.py",
+        "sha256": "ab39b0bd1beaa885e18a26cfae82a2a2870a7c0c5e69bda2745453715f6360f0"
+      },
+      {
+        "path": "tools/renovation_architecture/conditions.py",
+        "sha256": "1673380d2a0ff09d61fff1bb9bcfe1b69916a6f0c16cf37adb9461e97c2ffa5b"
+      },
+      {
+        "path": "tools/renovation_architecture/contracts.py",
+        "sha256": "2924dcd65f3396e6d48d4ec1fc599c4153f55a82586b4e0e77cadc09b094ee03"
+      },
+      {
+        "path": "tools/renovation_architecture/disposition.py",
+        "sha256": "7b48a62f6327c56da38e7d39360f6452452be30e6b37f571148eb4c99083f58f"
+      },
+      {
+        "path": "tools/renovation_architecture/evidence.py",
+        "sha256": "e61644639b9d8e3b840d387319a798e5fc40e663c76ac801c8b8e44cc057b382"
+      },
+      {
+        "path": "tools/renovation_architecture/factorized_review.py",
+        "sha256": "df2cd1a8e09c28a6da736886d1b24db64ca33bd16f2ded2f95224ee61fb79863"
+      },
+      {
+        "path": "tools/renovation_architecture/ids.py",
+        "sha256": "745466bf2611f1859622bb862b2733b0955c0ef221798432e8527e973bc9adf0"
+      },
+      {
+        "path": "tools/renovation_architecture/package_candidates.py",
+        "sha256": "ca2ce40a7a8d44ecd727be5b8d5e6c503758f17004e64bcf199d920d46930b41"
+      },
+      {
+        "path": "tools/renovation_architecture/reconciliation.py",
+        "sha256": "4dbd6289c1d40d2fd4ee6d3c1a6e4b1a22d82315e996470fffec474f32f07e95"
+      },
+      {
+        "path": "tools/renovation_architecture/review_pipeline.py",
+        "sha256": "844cacebecf92e7c887dea0da7153f3083e5df1413220a0f581fc6a05ef37bc7"
+      },
+      {
+        "path": "tools/renovation_architecture/runtime.py",
+        "sha256": "a9537c2a7a94f4ebe6d1a1611cb8ff892593ad8deeba2362b59094fcebf72ec9"
+      },
+      {
+        "path": "tools/renovation_architecture/sol_review.py",
+        "sha256": "cdc3b54021f35b02814e12b8a7615d436e792850c3d1170fbba13c3160d49127"
+      },
+      {
+        "path": "tools/renovation_architecture/terra_review.py",
+        "sha256": "b4384bbb05aa85d0ce89dc0b3188db0587fee1ef92facf992c992ed259de168e"
+      },
+      {
+        "path": "tools/renovation_architecture/usage_guard.py",
+        "sha256": "ee51b1fa06557162417705d119ca6c27b98e263a49c46461c291358340c7f2a8"
+      },
+      {
+        "path": "tools/renovation_architecture/validators.py",
+        "sha256": "de425e30f88f48f9b137586fda6ae9b67725efa40d1aeaad8ca8d0e6a69b862e"
+      },
+      {
+        "path": "tools/renovation_architecture/work_items.py",
+        "sha256": "db0619e6319a8ac94d99624306c9f4067159097ef9ca354a093fb404aa2c4535"
+      },
+      {
+        "path": "tools/renovation_estimate.py",
+        "sha256": "d899cde6cba39ee91f0cac74bf23a3d79a4863e33ae39cdb6c58b0d3aebcedd3"
+      },
+      {
+        "path": "tools/renovation_estimate_v4.py",
+        "sha256": "585a246698210792c64a51a381274352133448e71e8e5c7bc7e901cb3d1fddff"
+      },
+      {
+        "path": "tools/reproject_product_views.py",
+        "sha256": "7a49ddf557187014ee17797562e15629d623e6fbbf12f9bcb96556e264afbcb1"
+      },
+      {
+        "path": "tools/rerun_pass_2f_artifact.py",
+        "sha256": "a7f898ee0a2ef334b342e6db3ebfd25dfdaaafe86a6d6df4df7823924f41e8a5"
+      },
+      {
+        "path": "tools/review_cards.py",
+        "sha256": "74bf58806621fd159b4f9fc1bb9aedddcfbbb6dbe6f688c5233c1013bdf12679"
+      },
+      {
+        "path": "tools/room_surrogates.py",
+        "sha256": "36f1c0152c82bfbe6a021ac0450a2a4e7dbf0610965073095d56b62785ea375f"
+      },
+      {
+        "path": "tools/scene_classifier_orchestrator.py",
+        "sha256": "cb6a7aeeeb3ff635f3547d6887bb79a5e372a80d02b53af0452be8130c1152c9"
+      },
+      {
+        "path": "tools/scene_classifier_passes.py",
+        "sha256": "ca7df614784731e309427bd963c48a1eb4e1b66aa8652cffb24c077fa4887245"
+      },
+      {
+        "path": "tools/scene_classifier_service.py",
+        "sha256": "146474b1e6dd244be4092de65fe44edd2679bb4700cfde61c4c153fb229057e1"
+      },
+      {
+        "path": "tools/test_rehab_evidence_projection.py",
+        "sha256": "aa707b47754b45e63107f5238a62625bdf80c58a35abfe7aa3d4e9ffd65fb42f"
+      },
+      {
+        "path": "tools/test_scene_classifier_stub.py",
+        "sha256": "212894aa8050066ff1fa25a724797264e2a80ac77274b1f79ac8a20099122a00"
+      },
+      {
+        "path": "tools/vlm_client.py",
+        "sha256": "34248e99a1be1d7f31d8dfff4d4dff1b1639f94f415ab6aa0da153d766660f9c"
+      }
+    ],
+    "after": [
+      {
+        "path": "scripts/replay_frozen_upstream_acceptance.py",
+        "sha256": "2367754341620119ba9b4a0eb36bdb7a9ff71787bc7e8491bf8641b95945bc23"
+      },
+      {
+        "path": "tools/__init__.py",
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "path": "tools/analyzer_cli.py",
+        "sha256": "13ec6abe406ac1cdb960a936aa958e63f1688f1a9a74f54d7660330763cb433d"
+      },
+      {
+        "path": "tools/analyzer_server.py",
+        "sha256": "c8f821e1edc7cfeadc8925e25d1da9bd0c56707d3a11c7cb202a7ba493c43ae9"
+      },
+      {
+        "path": "tools/artifact_viewer/app.py",
+        "sha256": "c48a76910c645cd09074a1e1619804495d5fec4e50a1872f6f456cad5f9bf76c"
+      },
+      {
+        "path": "tools/artifact_writers.py",
+        "sha256": "798f4e494d2cdbc67cc0fe013570fed750b575c348f193e07169756a5332a060"
+      },
+      {
+        "path": "tools/audit_runner.py",
+        "sha256": "0de9231edbe94fafcd8bda790ae0d2133e10b7ef3eb8da3a0db5a4b0deecc594"
+      },
+      {
+        "path": "tools/backfill_kind_v2.py",
+        "sha256": "c3763acd1b8848b1ac347ca399b2181991da06a09ce92baafa8078da5a4c933c"
+      },
+      {
+        "path": "tools/backfill_reno_v4.py",
+        "sha256": "d5d67589a9ccc9cbd3bfbb841e23ebc11c560345910bd9db0125e2e120a06423"
+      },
+      {
+        "path": "tools/benchmark.py",
+        "sha256": "f6ce01115b61f1f15523a2317ffd98aaf0bb80b0973c4391cdd368e14815c7b2"
+      },
+      {
+        "path": "tools/benchmark_pass2a.py",
+        "sha256": "7152cc9f7ca4e26bae904e2ddf3adaffc36b84938e2da3770bd8aea31c41031e"
+      },
+      {
+        "path": "tools/benchmark_pass2a_legacy.py",
+        "sha256": "f9ba9c83bfc44c050433a452e3469c6f7da5bcf3640c7577eccacb89720650d5"
+      },
+      {
+        "path": "tools/benchmark_pass2a_packages.py",
+        "sha256": "f4655e0c565f3fcc50c20d7500aee3ef4cf304d3bac081750967a29adb632704"
+      },
+      {
+        "path": "tools/benchmark_pass2a_reachability.py",
+        "sha256": "6b90d0e1d34352ff5adf7aedc8e824a4c3394388d2e8546d752c703be3cfd9da"
+      },
+      {
+        "path": "tools/benchmark_pass2a_scenes.py",
+        "sha256": "449e11e4e7c7f1fdafdb0fb5343be0bd4ce8bb18a6d60f62f77192ae8d9504d0"
+      },
+      {
+        "path": "tools/benchmark_pass2a_scoring.py",
+        "sha256": "f9093d54f406e26f8c8189ac58a9263fdda968fa6190fab9ca3b5ec72660361c"
+      },
+      {
+        "path": "tools/benchmarking/__init__.py",
+        "sha256": "33cb360a5d21f5e9a75347512b2ff12c1fe4913fc7b9130c1bec37a08353faca"
+      },
+      {
+        "path": "tools/benchmarking/catalog_index.py",
+        "sha256": "1c92bae6dc0dbe0cc72a743b6b93842addf8d0b42800917d2b9540e1a1af661a"
+      },
+      {
+        "path": "tools/benchmarking/dataset.py",
+        "sha256": "ec4d0592d7a4125a1eae3b23ffa331ebbc1e13a5fb7ef9af0b651a95967cf0e2"
+      },
+      {
+        "path": "tools/benchmarking/reference_authoring.py",
+        "sha256": "6bc472fcf196e608e100045a757f6ff0035f3187678f614e5a259d7b13a7f07f"
+      },
+      {
+        "path": "tools/benchmarking/schemas.py",
+        "sha256": "1b330da16cfc072061c87d2511dc1cd696f513b248b54e9ebec8f0cf27fce0ad"
+      },
+      {
+        "path": "tools/benchmarking/vocabulary.py",
+        "sha256": "63450d62a3f67c9655a25e390cb1a2d7e12ae65376ca5427599f2674431ecc3e"
+      },
+      {
+        "path": "tools/bias_check.py",
+        "sha256": "88c4ccccbe9d06888b7246835b4a7813166c469001ac7c83640abcef5cf275aa"
+      },
+      {
+        "path": "tools/catalog_auditor.py",
+        "sha256": "62f3cb5a833aaf7a6c244fc1014e8194b9e87dce112d6ef3d1987982b8af1eab"
+      },
+      {
+        "path": "tools/catalog_cost_model.py",
+        "sha256": "081996d38f6303e39049114ebeb98e3ac9851713c02fcf19bafed533399ef5c3"
+      },
+      {
+        "path": "tools/catalog_embeddings.py",
+        "sha256": "6ae8312849e68b032cbbe2b131a6b87a5da8cf7f1b2fb21a5b374286f049df4f"
+      },
+      {
+        "path": "tools/catalog_validation.py",
+        "sha256": "041637a3684bacd3bc06dd92955b845088b4fedda8bb7e2e31222ac9ec75bee2"
+      },
+      {
+        "path": "tools/compare_kind_cutover.py",
+        "sha256": "3e5798fd82093034c248281777646cdb7c8d6df2201413515647a758d4a6f05a"
+      },
+      {
+        "path": "tools/compare_reno_estimates.py",
+        "sha256": "6d62f2842e7aa55c1c1c62104209ec7483b977c126b70f2034d445e49899a061"
+      },
+      {
+        "path": "tools/compare_renovation_architecture_cutover.py",
+        "sha256": "f5b04ab48569f6b1221df86ed5bc196d649a184576aef2e5badc3a21223e44b4"
+      },
+      {
+        "path": "tools/comparison_common.py",
+        "sha256": "78ef28a89ad64e3d07f9810075384c41ff27316d4336730f129157fd0ac451f5"
+      },
+      {
+        "path": "tools/cost_factors.py",
+        "sha256": "4a21ee11a2a4cba2adb817c772e4b28d237cf7d71ae5b5690f1794ea1c13ed6d"
+      },
+      {
+        "path": "tools/costing.py",
+        "sha256": "01bbe5232eec85f137991c66dd89e515dc2120d8b89a6632b087004dd2f9e78a"
+      },
+      {
+        "path": "tools/dinox_client.py",
+        "sha256": "48be758061161f7cc73d8ded91e41cd7940607a77b3499d153e60fedf8115efe"
+      },
+      {
+        "path": "tools/estimate_sanity.py",
+        "sha256": "5c45a65e13cca709452de7b33e7786e72ae8a9115bd6480661ad2cb3947af42d"
+      },
+      {
+        "path": "tools/estimate_scope.py",
+        "sha256": "3590e0eda775e8237b6d791900257d882149a3390ca7eea85a73750cd540c41b"
+      },
+      {
+        "path": "tools/estimate_units.py",
+        "sha256": "e3437fb6b96889100a867a1106d91104dc34e4adc01636ac97f5d155b3a77937"
+      },
+      {
+        "path": "tools/failure_taxonomy.py",
+        "sha256": "10fe262524ae2dc64cd446026253e8f1a45d4b07701dec52b025e026e2ae1379"
+      },
+      {
+        "path": "tools/label_schema.py",
+        "sha256": "b4256da41311f1db0f76bb06a5efa3233342e1d381074dc92bef99de327ed2f0"
+      },
+      {
+        "path": "tools/llm_json.py",
+        "sha256": "7691fef11a7542c593dd8718e088a499a9cd92659ddc33fc81c7066d433d1305"
+      },
+      {
+        "path": "tools/model_comparison.py",
+        "sha256": "10ac21ad96f4e229fce13f5a38ea47300c708b7ac71d1dfaccd7adfef19d5eb0"
+      },
+      {
+        "path": "tools/model_comparison_config.py",
+        "sha256": "aba5062360a8dc04feca59950414db4024369ae9a2f3fd61b470200286ad29d9"
+      },
+      {
+        "path": "tools/observation_kinds.py",
+        "sha256": "63ec5c58c41c184949c538dfce3e1403c2c42ab8fdab7163a132796d56409f1e"
+      },
+      {
+        "path": "tools/pass2a_comparator/__init__.py",
+        "sha256": "1b6b1715eff4871a65d7e3a383c5383eca4a160d16627c7435b657f4dc746538"
+      },
+      {
+        "path": "tools/pass2a_comparator/app.py",
+        "sha256": "afd07b02c73735861d4de7be008954d07e125624ec77913a80d5b12d0a98576e"
+      },
+      {
+        "path": "tools/pass2a_comparator/config.py",
+        "sha256": "62944535d1edbbcc9cda9f1fc384a25d6f086aa24209b32046b0b57f7e67fa97"
+      },
+      {
+        "path": "tools/pass2a_comparator/review.py",
+        "sha256": "0b22efa144d67709a57d56b9fdd23326982f6d13e64a6affd402ccb7174dbac5"
+      },
+      {
+        "path": "tools/pass2a_comparator/runner.py",
+        "sha256": "7f54f16b8002df10550e4c0413a0ab1c3f82c0d8adaf75540cfc4395b1ab9eb5"
+      },
+      {
+        "path": "tools/pass2a_comparator/storage.py",
+        "sha256": "c3718face08468dd2212b209a21ad9a0d259bb1ab8ce4990cc037178e282744d"
+      },
+      {
+        "path": "tools/pass_2f_artifact_inputs.py",
+        "sha256": "aaaff19504e45d3f97c55643ac0f2b7f833f9546f729d1822c73252258a8d649"
+      },
+      {
+        "path": "tools/pass_2f_comparison_config.py",
+        "sha256": "abe92e288e7563bdededab63b2d12d89318d2ca3085347bd83f5595efa85b1b2"
+      },
+      {
+        "path": "tools/pass_2f_model_comparison.py",
+        "sha256": "3f8ce233ece0db21e6c5bc6b6a5d4d7b7f1485eab7a6de0695c41b27312087d3"
+      },
+      {
+        "path": "tools/pass_config.py",
+        "sha256": "f7405c7bfc7044b0c095297eb543deee854c0039267eec1fcdc1716c5793aab0"
+      },
+      {
+        "path": "tools/photo_pass_runner.py",
+        "sha256": "42cb76fefb0d0d8f096ddb14ce90c51350e7965cf56a43b5164d91307c328937"
+      },
+      {
+        "path": "tools/pipeline_common.py",
+        "sha256": "21e49c55cc2067ef6c6c2e17ad6195735e8823e62c33b0c4ef61eec18f0747d4"
+      },
+      {
+        "path": "tools/pipeline_config.py",
+        "sha256": "8768f68e6f41192ee2b733fa544725bf071ec8af447dbd86b31429a4bc142c20"
+      },
+      {
+        "path": "tools/project_scopes.py",
+        "sha256": "9bf754d27757285a77b44bd0efb563cc236d84a1cbddb4f3f029dec6d39e2a5b"
+      },
+      {
+        "path": "tools/property_summarizer.py",
+        "sha256": "641d9f9b11556f16b8e22ba9dfd7b56b327c120cc43b63b46dbd4ef7b3fdd80f"
+      },
+      {
+        "path": "tools/property_summary_pass.py",
+        "sha256": "abff32f7c94625354c2e374eff7c0ad58571882293c10480219cdcbd77dab045"
+      },
+      {
+        "path": "tools/publication_gate.py",
+        "sha256": "437325ec1b9a84cb668e7f6a1e69786300bd0c0e7336d1821e5f6df2aac4bb9b"
+      },
+      {
+        "path": "tools/quant_artifact_comparison.py",
+        "sha256": "4718aac2c95ea5b08abb90828c6036158436e10eb24c1bc2b1930b9d6073a305"
+      },
+      {
+        "path": "tools/rehab_evidence_projection.py",
+        "sha256": "2c698b33ce6ace9461f9279495f90544059ffe195f869d20428a23fe52ddd551"
+      },
+      {
+        "path": "tools/rehab_packages.py",
+        "sha256": "fd1eb8d24dc8423e16fae1f55dbdf3fef93db1b4a45614b5f1395534820d1a3b"
+      },
+      {
+        "path": "tools/renovation_architecture/__init__.py",
+        "sha256": "d07c44750f0482d92bb3b867a9dc949b8a8aea09b472b3ff939b1c148a44a11d"
+      },
+      {
+        "path": "tools/renovation_architecture/candidate_payload.py",
+        "sha256": "d0cf85292b4ceab26a33f0548c6c1801ca6439fb159acefcc90f11041a7aa971"
+      },
+      {
+        "path": "tools/renovation_architecture/catalog_projection.py",
+        "sha256": "d3ae7dcbb1a5f41d28b6088912038f01fd60115660b8235dc97862f7ab956d6b"
+      },
+      {
+        "path": "tools/renovation_architecture/checkpoints.py",
+        "sha256": "ab39b0bd1beaa885e18a26cfae82a2a2870a7c0c5e69bda2745453715f6360f0"
+      },
+      {
+        "path": "tools/renovation_architecture/conditions.py",
+        "sha256": "1673380d2a0ff09d61fff1bb9bcfe1b69916a6f0c16cf37adb9461e97c2ffa5b"
+      },
+      {
+        "path": "tools/renovation_architecture/contracts.py",
+        "sha256": "2924dcd65f3396e6d48d4ec1fc599c4153f55a82586b4e0e77cadc09b094ee03"
+      },
+      {
+        "path": "tools/renovation_architecture/disposition.py",
+        "sha256": "7b48a62f6327c56da38e7d39360f6452452be30e6b37f571148eb4c99083f58f"
+      },
+      {
+        "path": "tools/renovation_architecture/evidence.py",
+        "sha256": "e61644639b9d8e3b840d387319a798e5fc40e663c76ac801c8b8e44cc057b382"
+      },
+      {
+        "path": "tools/renovation_architecture/factorized_review.py",
+        "sha256": "df2cd1a8e09c28a6da736886d1b24db64ca33bd16f2ded2f95224ee61fb79863"
+      },
+      {
+        "path": "tools/renovation_architecture/ids.py",
+        "sha256": "745466bf2611f1859622bb862b2733b0955c0ef221798432e8527e973bc9adf0"
+      },
+      {
+        "path": "tools/renovation_architecture/package_candidates.py",
+        "sha256": "ca2ce40a7a8d44ecd727be5b8d5e6c503758f17004e64bcf199d920d46930b41"
+      },
+      {
+        "path": "tools/renovation_architecture/reconciliation.py",
+        "sha256": "4dbd6289c1d40d2fd4ee6d3c1a6e4b1a22d82315e996470fffec474f32f07e95"
+      },
+      {
+        "path": "tools/renovation_architecture/review_pipeline.py",
+        "sha256": "844cacebecf92e7c887dea0da7153f3083e5df1413220a0f581fc6a05ef37bc7"
+      },
+      {
+        "path": "tools/renovation_architecture/runtime.py",
+        "sha256": "a9537c2a7a94f4ebe6d1a1611cb8ff892593ad8deeba2362b59094fcebf72ec9"
+      },
+      {
+        "path": "tools/renovation_architecture/sol_review.py",
+        "sha256": "cdc3b54021f35b02814e12b8a7615d436e792850c3d1170fbba13c3160d49127"
+      },
+      {
+        "path": "tools/renovation_architecture/terra_review.py",
+        "sha256": "b4384bbb05aa85d0ce89dc0b3188db0587fee1ef92facf992c992ed259de168e"
+      },
+      {
+        "path": "tools/renovation_architecture/usage_guard.py",
+        "sha256": "ee51b1fa06557162417705d119ca6c27b98e263a49c46461c291358340c7f2a8"
+      },
+      {
+        "path": "tools/renovation_architecture/validators.py",
+        "sha256": "de425e30f88f48f9b137586fda6ae9b67725efa40d1aeaad8ca8d0e6a69b862e"
+      },
+      {
+        "path": "tools/renovation_architecture/work_items.py",
+        "sha256": "db0619e6319a8ac94d99624306c9f4067159097ef9ca354a093fb404aa2c4535"
+      },
+      {
+        "path": "tools/renovation_estimate.py",
+        "sha256": "d899cde6cba39ee91f0cac74bf23a3d79a4863e33ae39cdb6c58b0d3aebcedd3"
+      },
+      {
+        "path": "tools/renovation_estimate_v4.py",
+        "sha256": "585a246698210792c64a51a381274352133448e71e8e5c7bc7e901cb3d1fddff"
+      },
+      {
+        "path": "tools/reproject_product_views.py",
+        "sha256": "7a49ddf557187014ee17797562e15629d623e6fbbf12f9bcb96556e264afbcb1"
+      },
+      {
+        "path": "tools/rerun_pass_2f_artifact.py",
+        "sha256": "a7f898ee0a2ef334b342e6db3ebfd25dfdaaafe86a6d6df4df7823924f41e8a5"
+      },
+      {
+        "path": "tools/review_cards.py",
+        "sha256": "74bf58806621fd159b4f9fc1bb9aedddcfbbb6dbe6f688c5233c1013bdf12679"
+      },
+      {
+        "path": "tools/room_surrogates.py",
+        "sha256": "36f1c0152c82bfbe6a021ac0450a2a4e7dbf0610965073095d56b62785ea375f"
+      },
+      {
+        "path": "tools/scene_classifier_orchestrator.py",
+        "sha256": "cb6a7aeeeb3ff635f3547d6887bb79a5e372a80d02b53af0452be8130c1152c9"
+      },
+      {
+        "path": "tools/scene_classifier_passes.py",
+        "sha256": "ca7df614784731e309427bd963c48a1eb4e1b66aa8652cffb24c077fa4887245"
+      },
+      {
+        "path": "tools/scene_classifier_service.py",
+        "sha256": "146474b1e6dd244be4092de65fe44edd2679bb4700cfde61c4c153fb229057e1"
+      },
+      {
+        "path": "tools/test_rehab_evidence_projection.py",
+        "sha256": "aa707b47754b45e63107f5238a62625bdf80c58a35abfe7aa3d4e9ffd65fb42f"
+      },
+      {
+        "path": "tools/test_scene_classifier_stub.py",
+        "sha256": "212894aa8050066ff1fa25a724797264e2a80ac77274b1f79ac8a20099122a00"
+      },
+      {
+        "path": "tools/vlm_client.py",
+        "sha256": "34248e99a1be1d7f31d8dfff4d4dff1b1639f94f415ab6aa0da153d766660f9c"
+      }
+    ],
+    "date": "2026-09-11",
+    "manifest_identity": "52b211a1f335138f213c80a06a73e9cef7b5ae3c377ff82fef62fd964a1ddddb",
+    "reason": "Permit the explicitly authorized replica-2 first window to run on replica-1 UTC day, restricted to the closed nine-property set; resume the exact complement after the UTC rollover with the same output namespace and checkpoints."
   }
 ]
